@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block header %}Entrada de autonomo{% endblock %}
+{% block content %}
+<form class="panel" method="post">
+  <div class="form-grid">
+    <div><label class="label">Data</label><input class="input" type="date" name="data_movimentacao" required value="{{ today }}"></div>
+    <div><label class="label">Etapa</label><select class="input" name="etapa_id" required>{% for etapa in etapas %}<option value="{{ etapa.id }}">{{ etapa.nome }}</option>{% endfor %}</select></div>
+    <div><label class="label">Piloto</label><select class="input" name="piloto_id" required>{% for piloto in pilotos %}<option value="{{ piloto.id }}">{{ piloto.nome }}</option>{% endfor %}</select></div>
+    <div><label class="label">Autonomo</label><select class="input" name="autonomo_id" required>{% for autonomo in autonomos %}<option value="{{ autonomo.id }}">{{ autonomo.nome }}</option>{% endfor %}</select></div>
+    <div><label class="label">Cargo</label><select class="input" name="cargo_id" required>{% for cargo in cargos %}<option value="{{ cargo.id }}">{{ cargo.nome }}</option>{% endfor %}</select></div>
+    <div><label class="label">Valor acordado</label><input class="input" name="valor_acordado" placeholder="800,00"></div>
+    <div class="span-2"><label class="label">Observacao</label><textarea class="input" name="observacao" rows="4"></textarea></div>
+  </div>
+  <div class="mt-5 flex gap-2"><button class="btn-primary">Registrar entrada</button><a class="btn-muted" href="/movimentacoes">Cancelar</a></div>
+</form>
+{% endblock %}
+

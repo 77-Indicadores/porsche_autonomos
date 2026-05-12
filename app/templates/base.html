@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Porsche Cup Autonomos</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="/static/css/style.css">
+
+<style>
+.excel-import-box {
+    margin: 16px 0 22px 0;
+    padding: 16px;
+    border-radius: 16px;
+    background: rgba(220, 38, 38, .08);
+    border: 1px solid rgba(220, 38, 38, .25);
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 12px;
+}
+
+.excel-import-box .excel-title {
+    font-weight: 800;
+    color: #fca5a5;
+    margin-right: 8px;
+}
+
+.excel-import-box a,
+.excel-import-box button {
+    border: 0;
+    border-radius: 10px;
+    padding: 9px 12px;
+    font-weight: 700;
+    text-decoration: none;
+    cursor: pointer;
+}
+
+.excel-import-box a {
+    background: #dc2626;
+    color: #fff;
+}
+
+.excel-import-box button {
+    background: #374151;
+    color: #fff;
+}
+
+.excel-import-box input[type=file] {
+    color: inherit;
+    max-width: 260px;
+}
+
+.excel-menu-link {
+    margin-top: 10px;
+}
+</style>
+
+</head>
+<body class="bg-zinc-100 text-zinc-900">
+  <div class="min-h-screen lg:flex">
+    <aside class="bg-zinc-950 text-white lg:w-80">
+      <div class="px-6 py-5 border-b border-white/10">
+        <p class="text-xs uppercase tracking-widest text-red-400">Porsche Cup</p>
+        <h1 class="mt-1 text-xl font-bold">Controle de Autonomos</h1>
+      </div>
+      <nav class="p-4 space-y-5">
+        {% set groups = [
+          ('Dashboard', [('/', 'Visao Geral')]),
+          ('Cadastros', [('/pilotos','Pilotos'),('/autonomos','Autonomos'),('/etapas','Etapas'),('/provas','Provas'),('/tipos-prova','Tipos de Prova'),('/motivos-troca','Motivos de Troca')]),
+          ('Operacao', [('/alocacoes','Gestao de Alocacao'),('/relatorios/trocas','Trocas'),('/relatorios/avaliacoes','Avaliacoes')]),
+          ('Financeiro', [('/relatorios/custos','Custos por Etapa'),('/relatorios/custos','Pagamentos'),('/relatorios/custos','Relatorios Financeiros')]),
+          ('Relatorios', [('/relatorios/historico-piloto','Historico por Piloto'),('/relatorios/historico-autonomo','Historico por Autonomo'),('/relatorios/custos','Custo por Prova'),('/relatorios/trocas','Trocas por Motivo'),('/relatorios/avaliacoes','Avaliacoes')]),
+          ('Configuracoes', [('/pilotos','Usuarios'),('/pilotos','Permissoes'),('/tipos-prova','Listas de Apoio')])
+        ] %}
+        {% for group, links in groups %}
+          <div>
+            <p class="px-3 mb-2 text-[11px] font-bold uppercase tracking-widest text-zinc-500">{{ group }}</p>
+            <div class="grid gap-1">
+              {% for href, label in links %}
+                {% set selected = (href == '/' and request.url.path == '/') or (href != '/' and request.url.path.startswith(href)) %}
+                <a class="nav-link {% if selected %}nav-active{% endif %}" href="{{ href }}">{{ label }}</a>
+              {% endfor %}
+            </div>
+          </div>
+        {% endfor %}
+      
+<a href="/excel/" class="nav-link excel-menu-link">
+    <span>📥</span>
+    <span>Importações Excel</span>
+</a>
+
+</nav>
+    </aside>
+    <main class="flex-1">
+      <header class="bg-white border-b border-zinc-200 px-5 sm:px-8 py-5">
+        <div class="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+          <div>
+            <p class="text-sm text-zinc-500">cadastro -> prova -> alocacao -> troca -> avaliacao -> custo fechado</p>
+            <h2 class="text-2xl font-bold text-zinc-950">{% block header %}Visao Geral{% endblock %}</h2>
+          </div>
+          {% block header_action %}{% endblock %}
+        </div>
+      </header>
+      <section class="p-5 sm:p-8">
+        {% if success %}<div class="flash flash-success">{{ success }}</div>{% endif %}
+        {% if error %}<div class="flash flash-error">{{ error }}</div>{% endif %}
+        {% block content %}{% endblock %}
+      </section>
+    </main>
+  </div>
+  <script src="/static/js/app.js"></script>
+</body>
+</html>

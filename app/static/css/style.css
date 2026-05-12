@@ -1,0 +1,24 @@
+.nav-link{display:block;border-radius:8px;padding:.62rem .8rem;color:rgb(212 212 216);font-weight:650;font-size:.92rem}
+.nav-link:hover{background:rgba(255,255,255,.08);color:white}
+.nav-active{background:rgb(185 28 28);color:white}
+.card,.panel{background:white;border:1px solid rgb(228 228 231);border-radius:10px;box-shadow:0 12px 30px rgba(24,24,27,.06)}
+.card{padding:1.15rem}.panel{padding:1.25rem}
+.panel-head{display:flex;gap:1rem;align-items:center;justify-content:space-between;flex-wrap:wrap;margin-bottom:1rem}
+.panel-head h3{font-size:1.05rem;font-weight:800;color:rgb(24 24 27)}
+.table{width:100%;border-collapse:collapse;font-size:.9rem}
+.table th{text-align:left;padding:.75rem;color:rgb(82 82 91);font-size:.74rem;text-transform:uppercase;letter-spacing:.04em;border-bottom:1px solid rgb(228 228 231)}
+.table td{padding:.78rem .75rem;border-bottom:1px solid rgb(244 244 245);vertical-align:top}
+.input{width:100%;border:1px solid rgb(212 212 216);border-radius:8px;padding:.62rem .75rem;background:white;min-height:2.55rem}
+.label{display:block;font-size:.78rem;font-weight:800;color:rgb(82 82 91);margin-bottom:.35rem}
+.btn-primary,.btn-secondary,.btn-danger,.btn-muted{display:inline-flex;align-items:center;justify-content:center;border-radius:8px;padding:.65rem .95rem;font-weight:800;font-size:.86rem;border:0;cursor:pointer;white-space:nowrap}
+.btn-primary{background:rgb(220 38 38);color:white}.btn-secondary{background:rgb(24 24 27);color:white}.btn-danger{background:rgb(239 68 68);color:white}.btn-muted{background:rgb(244 244 245);color:rgb(24 24 27)}
+.badge{display:inline-flex;border-radius:999px;padding:.25rem .55rem;font-size:.72rem;font-weight:900}
+.badge-ativo,.badge-pago,.badge-aprovado{background:rgb(220 252 231);color:rgb(22 101 52)}
+.badge-pendente,.badge-planejada{background:rgb(254 249 195);color:rgb(133 77 14)}
+.badge-substituido,.badge-em{background:rgb(219 234 254);color:rgb(29 78 216)}
+.badge-encerrado,.badge-desligado,.badge-bloqueado,.badge-cancelado,.badge-reprovado{background:rgb(254 226 226);color:rgb(153 27 27)}
+.badge-concluida{background:rgb(229 231 235);color:rgb(55 65 81)}
+.flash{border-radius:8px;padding:.85rem 1rem;margin-bottom:1rem;font-weight:800}.flash-success{background:rgb(220 252 231);color:rgb(22 101 52)}.flash-error{background:rgb(254 226 226);color:rgb(153 27 27)}
+.form-grid{display:grid;grid-template-columns:1fr;gap:1rem}@media(min-width:768px){.form-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.span-2{grid-column:span 2}.span-3{grid-column:span 3}}
+.actions{display:flex;gap:.45rem;flex-wrap:wrap}.empty{text-align:center;color:rgb(113 113 122);padding:2rem!important}
+.bar{height:.7rem;border-radius:999px;background:rgb(220 38 38)}.track{height:.7rem;border-radius:999px;background:rgb(244 244 245);overflow:hidden}

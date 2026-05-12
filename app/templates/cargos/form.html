@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block header %}{{ 'Editar cargo' if cargo else 'Novo cargo' }}{% endblock %}
+{% block content %}
+<form class="panel" method="post">
+  <div class="form-grid">
+    <div><label class="label">Nome</label><input class="input" name="nome" required value="{{ cargo.nome if cargo else '' }}"></div>
+    <label class="flex items-center gap-2 font-semibold text-slate-700"><input type="checkbox" name="ativo" value="1" {% if not cargo or cargo.ativo %}checked{% endif %}> Ativo</label>
+  </div>
+  <div class="mt-5 flex gap-2"><button class="btn-primary">Salvar</button><a class="btn-muted" href="/cargos">Cancelar</a></div>
+</form>
+{% endblock %}
+

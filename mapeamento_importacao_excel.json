@@ -1,0 +1,1135 @@
+{
+  "generated_at": "2026-05-12T00:00:11.979020",
+  "db_path": "C:\\Users\\felip\\Documents\\Codex\\2026-05-11\\crie-um-sistema-web-monol-tico\\porsche_autonomos\\data\\app.db",
+  "excel_router": "C:\\Users\\felip\\Documents\\Codex\\2026-05-11\\crie-um-sistema-web-monol-tico\\porsche_autonomos\\app\\routers\\excel.py",
+  "schema": {
+    "autonomos": [
+      {
+        "cid": 0,
+        "name": "id",
+        "type": "INTEGER",
+        "notnull": true,
+        "default": null,
+        "pk": true
+      },
+      {
+        "cid": 1,
+        "name": "nome",
+        "type": "VARCHAR(140)",
+        "notnull": true,
+        "default": null,
+        "pk": false
+      },
+      {
+        "cid": 2,
+        "name": "cargo_id",
+        "type": "INTEGER",
+        "notnull": false,
+        "default": null,
+        "pk": false
+      },
+      {
+        "cid": 3,
+        "name": "telefone",
+        "type": "VARCHAR(40)",
+        "notnull": false,
+        "default": null,
+        "pk": false
+      },
+      {
+        "cid": 4,
+        "name": "email",
+        "type": "VARCHAR(140)",
+        "notnull": false,
+        "default": null,
+        "pk": false
+      },
+      {
+        "cid": 5,
+        "name": "documento",
+        "type": "VARCHAR(60)",
+        "notnull": false,
+        "default": null,
+        "pk": false
+      },
+      {
+        "cid": 6,
+        "name": "valor_padrao",
+        "type": "NUMERIC(12, 2)",
+        "notnull": false,
+        "default": null,
+        "pk": false
+      },
+      {
+        "cid": 7,
+        "name": "ativo",
+        "type": "BOOLEAN",
+        "notnull": true,
+        "default": null,
+        "pk": false
+      },
+      {
+        "cid": 8,
+        "name": "data_cadastro",
+        "type": "DATE",
+        "notnull": true,
+        "default": null,
+        "pk": false
+      },
+      {
+        "cid": 9,
+        "name": "data_saida",
+        "type": "DATE",
+        "notnull": false,
+        "default": null,
+        "pk": false
+      },
+      {
+        "cid": 10,
+        "name": "motivo_saida",
+        "type": "VARCHAR(255)",
+        "notnull": false,
+        "default": null,
+        "pk": false
+      },
+      {
+        "cid": 11,
+        "name": "observacao",
+        "type": "TEXT",
+        "notnull": false,
+        "default": null,
+        "pk": false
+      },
+      {
+        "cid": 12,
+        "name": "criado_em",
+        "type": "DATETIME",
+        "notnull": true,
+        "default": null,
+        "pk": false
+      },
+      {
+        "cid": 13,
+        "name": "atualizado_em",
+        "type": "DATETIME",
+        "notnull": true,
+        "default": null,
+        "pk": false
+      }
+    ],
+    "cargos": [
+      {
+        "cid": 0,
+        "name": "id",
+        "type": "INTEGER",
+        "notnull": true,
+        "default": null,
+        "pk": true
+      },
+      {
+        "cid": 1,
+        "name": "nome",
+        "type": "VARCHAR(100)",
+        "notnull": true,
+        "default": null,
+        "pk": false
+      },
+      {
+        "cid": 2,
+        "name": "ativo",
+        "type": "BOOLEAN",
+        "notnull": true,
+        "default": null,
+        "pk": false
+      },
+      {
+        "cid": 3,
+        "name": "criado_em",
+        "type": "DATETIME",
+        "notnull": true,
+        "default": null,
+        "pk": false
+      },
+      {
+        "cid": 4,
+        "name": "atualizado_em",
+        "type": "DATETIME",
+        "notnull": true,
+        "default": null,
+        "pk": false
+      }
+    ],
+    "dim_autonomos": [
+      {
+        "cid": 0,
+        "name": "id_autonomo",
+        "type": "INTEGER",
+        "notnull": true,
+        "default": null,
+        "pk": true
+      },
+      {
+        "cid": 1,
+        "name": "nome_autonomo",
+        "type": "VARCHAR(140)",
+        "notnull": true,
+        "default": null,
+        "pk": false
+      },
+      {
+        "cid": 2,
+        "name": "cpf",
+        "type": "VARCHAR(20)",
+        "notnull": false,
+        "default": null,
+        "pk": false
+      },
+      {
+        "cid": 3,
+        "name": "telefone",
+        "type": "VARCHAR(40)",
+        "notnull": false,
+        "default": null,
+        "pk": false
+      },
+      {
+        "cid": 4,
+        "name": "email",
+        "type": "VARCHAR(140)",
+        "notnull": false,
+        "default": null,
+        "pk": false
+      },
+      {
+        "cid": 5,
+        "name": "tipo_autonomo",
+        "type": "VARCHAR(40)",
+        "notnull": true,
+        "default": null,
+        "pk": false
+      },
+      {
+        "cid": 6,
+        "name": "especialidade",
+        "type": "VARCHAR(120)",
+        "notnull": false,
+        "default": null,
+        "pk": false
+      },
+      {
+        "cid": 7,
+        "name": "data_inclusao",
+        "type": "DATE",
+        "notnull": true,
+        "default": null,
+        "pk": false
+      },
+      {
+        "cid": 8,
+        "name": "data_saida",
+        "type": "DATE",
+        "notnull": false,
+        "default": null,
+        "pk": false
+      },
+      {
+        "cid": 9,
+        "name": "motivo_saida",
+        "type": "VARCHAR(255)",
+        "notnull": false,
+        "default": null,
+        "pk": false
+      },
+      {
+        "cid": 10,
+        "name": "status_autonomo",
+        "type": "VARCHAR(30)",
+        "notnull": true,
+        "default": null,
+        "pk": false
+      },
+      {
+        "cid": 11,
+        "name": "observacoes",
+        "type": "TEXT",
+        "notnull": false,
+        "default": null,
+        "pk": false
+      }
+    ],
+    "dim_etapas": [
+      {
+        "cid": 0,
+        "name": "id_etapa",
+        "type": "INTEGER",
+        "notnull": true,
+        "default": null,
+        "pk": true
+      },
+      {
+        "cid": 1,
+        "name": "temporada",
+        "type": "VARCHAR(20)",
+        "notnull": true,
+        "default": null,
+        "pk": false
+      },
+      {
+        "cid": 2,
+        "name": "nome_etapa",
+        "type": "VARCHAR(140)",
+        "notnull": true,
+        "default": null,
+        "pk": false
+      },
+      {
+        "cid": 3,
+        "name": "local",
+        "type": "VARCHAR(120)",
+        "notnull": false,
+        "default": null,
+        "pk": false
+      },
+      {
+        "cid": 4,
+        "name": "data_inicio",
+        "type": "DATE",
+        "notnull": false,
+        "default": null,
+        "pk": false
+      },
+      {
+        "cid": 5,
+        "name": "data_fim",
+        "type": "DATE",
+        "notnull": false,
+        "default": null,
+        "pk": false
+      },
+      {
+        "cid": 6,
+        "name": "status_etapa",
+        "type": "VARCHAR(30)",
+        "notnull": true,
+        "default": null,
+        "pk": false
+      },
+      {
+        "cid": 7,
+        "name": "observacoes",
+        "type": "TEXT",
+        "notnull": false,
+        "default": null,
+        "pk": false
+      }
+    ],
+    "dim_motivos_troca": [
+      {
+        "cid": 0,
+        "name": "id_motivo_troca",
+        "type": "INTEGER",
+        "notnull": true,
+        "default": null,
+        "pk": true
+      },
+      {
+        "cid": 1,
+        "name": "motivo_troca",
+        "type": "VARCHAR(120)",
+        "notnull": true,
+        "default": null,
+        "pk": false
+      },
+      {
+        "cid": 2,
+        "name": "descricao",
+        "type": "TEXT",
+        "notnull": false,
+        "default": null,
+        "pk": false
+      },
+      {
+        "cid": 3,
+        "name": "status",
+        "type": "VARCHAR(30)",
+        "notnull": true,
+        "default": null,
+        "pk": false
+      }
+    ],
+    "dim_pilotos": [
+      {
+        "cid": 0,
+        "name": "id_piloto",
+        "type": "INTEGER",
+        "notnull": true,
+        "default": null,
+        "pk": true
+      },
+      {
+        "cid": 1,
+        "name": "nome_piloto",
+        "type": "VARCHAR(140)",
+        "notnull": true,
+        "default": null,
+        "pk": false
+      },
+      {
+        "cid": 2,
+        "name": "cpf",
+        "type": "VARCHAR(20)",
+        "notnull": false,
+        "default": null,
+        "pk": false
+      },
+      {
+        "cid": 3,
+        "name": "telefone",
+        "type": "VARCHAR(40)",
+        "notnull": false,
+        "default": null,
+        "pk": false
+      },
+      {
+        "cid": 4,
+        "name": "email",
+        "type": "VARCHAR(140)",
+        "notnull": false,
+        "default": null,
+        "pk": false
+      },
+      {
+        "cid": 5,
+        "name": "equipe",
+        "type": "VARCHAR(120)",
+        "notnull": false,
+        "default": null,
+        "pk": false
+      },
+      {
+        "cid": 6,
+        "name": "categoria_atual",
+        "type": "VARCHAR(80)",
+        "notnull": false,
+        "default": null,
+        "pk": false
+      },
+      {
+        "cid": 7,
+        "name": "data_inclusao",
+        "type": "DATE",
+        "notnull": true,
+        "default": null,
+        "pk": false
+      },
+      {
+        "cid": 8,
+        "name": "data_desligamento",
+        "type": "DATE",
+        "notnull": false,
+        "default": null,
+        "pk": false
+      },
+      {
+        "cid": 9,
+        "name": "motivo_desligamento",
+        "type": "VARCHAR(255)",
+        "notnull": false,
+        "default": null,
+        "pk": false
+      },
+      {
+        "cid": 10,
+        "name": "status_piloto",
+        "type": "VARCHAR(30)",
+        "notnull": true,
+        "default": null,
+        "pk": false
+      },
+      {
+        "cid": 11,
+        "name": "observacoes",
+        "type": "TEXT",
+        "notnull": false,
+        "default": null,
+        "pk": false
+      }
+    ],
+    "dim_provas": [
+      {
+        "cid": 0,
+        "name": "id_prova",
+        "type": "INTEGER",
+        "notnull": true,
+        "default": null,
+        "pk": true
+      },
+      {
+        "cid": 1,
+        "name": "id_etapa",
+        "type": "INTEGER",
+        "notnull": true,
+        "default": null,
+        "pk": false
+      },
+      {
+        "cid": 2,
+        "name": "id_tipo_prova",
+        "type": "INTEGER",
+        "notnull": true,
+        "default": null,
+        "pk": false
+      },
+      {
+        "cid": 3,
+        "name": "nome_prova",
+        "type": "VARCHAR(140)",
+        "notnull": true,
+        "default": null,
+        "pk": false
+      },
+      {
+        "cid": 4,
+        "name": "data_prova",
+        "type": "DATE",
+        "notnull": false,
+        "default": null,
+        "pk": false
+      },
+      {
+        "cid": 5,
+        "name": "status_prova",
+        "type": "VARCHAR(30)",
+        "notnull": true,
+        "default": null,
+        "pk": false
+      },
+      {
+        "cid": 6,
+        "name": "observacoes",
+        "type": "TEXT",
+        "notnull": false,
+        "default": null,
+        "pk": false
+      }
+    ],
+    "dim_status_pagamento": [
+      {
+        "cid": 0,
+        "name": "id_status_pagamento",
+        "type": "INTEGER",
+        "notnull": true,
+        "default": null,
+        "pk": true
+      },
+      {
+        "cid": 1,
+        "name": "status_pagamento",
+        "type": "VARCHAR(40)",
+        "notnull": true,
+        "default": null,
+        "pk": false
+      }
+    ],
+    "dim_tipos_prova": [
+      {
+        "cid": 0,
+        "name": "id_tipo_prova",
+        "type": "INTEGER",
+        "notnull": true,
+        "default": null,
+        "pk": true
+      },
+      {
+        "cid": 1,
+        "name": "nome_tipo_prova",
+        "type": "VARCHAR(80)",
+        "notnull": true,
+        "default": null,
+        "pk": false
+      },
+      {
+        "cid": 2,
+        "name": "descricao",
+        "type": "TEXT",
+        "notnull": false,
+        "default": null,
+        "pk": false
+      },
+      {
+        "cid": 3,
+        "name": "status_tipo_prova",
+        "type": "VARCHAR(30)",
+        "notnull": true,
+        "default": null,
+        "pk": false
+      }
+    ],
+    "etapas": [
+      {
+        "cid": 0,
+        "name": "id",
+        "type": "INTEGER",
+        "notnull": true,
+        "default": null,
+        "pk": true
+      },
+      {
+        "cid": 1,
+        "name": "nome",
+        "type": "VARCHAR(120)",
+        "notnull": true,
+        "default": null,
+        "pk": false
+      },
+      {
+        "cid": 2,
+        "name": "local",
+        "type": "VARCHAR(120)",
+        "notnull": false,
+        "default": null,
+        "pk": false
+      },
+      {
+        "cid": 3,
+        "name": "data_inicio",
+        "type": "DATE",
+        "notnull": false,
+        "default": null,
+        "pk": false
+      },
+      {
+        "cid": 4,
+        "name": "data_fim",
+        "type": "DATE",
+        "notnull": false,
+        "default": null,
+        "pk": false
+      },
+      {
+        "cid": 5,
+        "name": "temporada",
+        "type": "VARCHAR(20)",
+        "notnull": false,
+        "default": null,
+        "pk": false
+      },
+      {
+        "cid": 6,
+        "name": "ativo",
+        "type": "BOOLEAN",
+        "notnull": true,
+        "default": null,
+        "pk": false
+      },
+      {
+        "cid": 7,
+        "name": "criado_em",
+        "type": "DATETIME",
+        "notnull": true,
+        "default": null,
+        "pk": false
+      },
+      {
+        "cid": 8,
+        "name": "atualizado_em",
+        "type": "DATETIME",
+        "notnull": true,
+        "default": null,
+        "pk": false
+      }
+    ],
+    "fato_piloto_autonomo_prova": [
+      {
+        "cid": 0,
+        "name": "id_fato",
+        "type": "INTEGER",
+        "notnull": true,
+        "default": null,
+        "pk": true
+      },
+      {
+        "cid": 1,
+        "name": "id_piloto",
+        "type": "INTEGER",
+        "notnull": true,
+        "default": null,
+        "pk": false
+      },
+      {
+        "cid": 2,
+        "name": "id_autonomo",
+        "type": "INTEGER",
+        "notnull": true,
+        "default": null,
+        "pk": false
+      },
+      {
+        "cid": 3,
+        "name": "id_etapa",
+        "type": "INTEGER",
+        "notnull": true,
+        "default": null,
+        "pk": false
+      },
+      {
+        "cid": 4,
+        "name": "id_prova",
+        "type": "INTEGER",
+        "notnull": true,
+        "default": null,
+        "pk": false
+      },
+      {
+        "cid": 5,
+        "name": "funcao_autonomo",
+        "type": "VARCHAR(80)",
+        "notnull": true,
+        "default": null,
+        "pk": false
+      },
+      {
+        "cid": 6,
+        "name": "data_inicio_vinculo",
+        "type": "DATE",
+        "notnull": true,
+        "default": null,
+        "pk": false
+      },
+      {
+        "cid": 7,
+        "name": "data_fim_vinculo",
+        "type": "DATE",
+        "notnull": false,
+        "default": null,
+        "pk": false
+      },
+      {
+        "cid": 8,
+        "name": "status_vinculo",
+        "type": "VARCHAR(30)",
+        "notnull": true,
+        "default": null,
+        "pk": false
+      },
+      {
+        "cid": 9,
+        "name": "foi_substituido",
+        "type": "VARCHAR(3)",
+        "notnull": true,
+        "default": null,
+        "pk": false
+      },
+      {
+        "cid": 10,
+        "name": "id_autonomo_substituto",
+        "type": "INTEGER",
+        "notnull": false,
+        "default": null,
+        "pk": false
+      },
+      {
+        "cid": 11,
+        "name": "data_troca",
+        "type": "DATE",
+        "notnull": false,
+        "default": null,
+        "pk": false
+      },
+      {
+        "cid": 12,
+        "name": "id_motivo_troca",
+        "type": "INTEGER",
+        "notnull": false,
+        "default": null,
+        "pk": false
+      },
+      {
+        "cid": 13,
+        "name": "justificativa_troca",
+        "type": "TEXT",
+        "notnull": false,
+        "default": null,
+        "pk": false
+      },
+      {
+        "cid": 14,
+        "name": "nota_tecnica",
+        "type": "NUMERIC(4, 2)",
+        "notnull": false,
+        "default": null,
+        "pk": false
+      },
+      {
+        "cid": 15,
+        "name": "nota_pontualidade",
+        "type": "NUMERIC(4, 2)",
+        "notnull": false,
+        "default": null,
+        "pk": false
+      },
+      {
+        "cid": 16,
+        "name": "nota_comunicacao",
+        "type": "NUMERIC(4, 2)",
+        "notnull": false,
+        "default": null,
+        "pk": false
+      },
+      {
+        "cid": 17,
+        "name": "nota_relacionamento",
+        "type": "NUMERIC(4, 2)",
+        "notnull": false,
+        "default": null,
+        "pk": false
+      },
+      {
+        "cid": 18,
+        "name": "nota_geral",
+        "type": "NUMERIC(4, 2)",
+        "notnull": false,
+        "default": null,
+        "pk": false
+      },
+      {
+        "cid": 19,
+        "name": "comentario_avaliacao",
+        "type": "TEXT",
+        "notnull": false,
+        "default": null,
+        "pk": false
+      },
+      {
+        "cid": 20,
+        "name": "data_avaliacao",
+        "type": "DATE",
+        "notnull": false,
+        "default": null,
+        "pk": false
+      },
+      {
+        "cid": 21,
+        "name": "valor_fechado_etapa",
+        "type": "NUMERIC(12, 2)",
+        "notnull": false,
+        "default": null,
+        "pk": false
+      },
+      {
+        "cid": 22,
+        "name": "status_pagamento",
+        "type": "VARCHAR(40)",
+        "notnull": false,
+        "default": null,
+        "pk": false
+      },
+      {
+        "cid": 23,
+        "name": "data_pagamento",
+        "type": "DATE",
+        "notnull": false,
+        "default": null,
+        "pk": false
+      },
+      {
+        "cid": 24,
+        "name": "documento",
+        "type": "VARCHAR(120)",
+        "notnull": false,
+        "default": null,
+        "pk": false
+      },
+      {
+        "cid": 25,
+        "name": "observacoes",
+        "type": "TEXT",
+        "notnull": false,
+        "default": null,
+        "pk": false
+      },
+      {
+        "cid": 26,
+        "name": "criado_em",
+        "type": "DATETIME",
+        "notnull": true,
+        "default": null,
+        "pk": false
+      },
+      {
+        "cid": 27,
+        "name": "atualizado_em",
+        "type": "DATETIME",
+        "notnull": true,
+        "default": null,
+        "pk": false
+      },
+      {
+        "cid": 28,
+        "name": "usuario_responsavel",
+        "type": "VARCHAR(120)",
+        "notnull": false,
+        "default": null,
+        "pk": false
+      }
+    ],
+    "movimentacoes": [
+      {
+        "cid": 0,
+        "name": "id",
+        "type": "INTEGER",
+        "notnull": true,
+        "default": null,
+        "pk": true
+      },
+      {
+        "cid": 1,
+        "name": "data_movimentacao",
+        "type": "DATE",
+        "notnull": true,
+        "default": null,
+        "pk": false
+      },
+      {
+        "cid": 2,
+        "name": "tipo",
+        "type": "VARCHAR(30)",
+        "notnull": true,
+        "default": null,
+        "pk": false
+      },
+      {
+        "cid": 3,
+        "name": "etapa_id",
+        "type": "INTEGER",
+        "notnull": false,
+        "default": null,
+        "pk": false
+      },
+      {
+        "cid": 4,
+        "name": "piloto_id",
+        "type": "INTEGER",
+        "notnull": false,
+        "default": null,
+        "pk": false
+      },
+      {
+        "cid": 5,
+        "name": "autonomo_anterior_id",
+        "type": "INTEGER",
+        "notnull": false,
+        "default": null,
+        "pk": false
+      },
+      {
+        "cid": 6,
+        "name": "autonomo_novo_id",
+        "type": "INTEGER",
+        "notnull": false,
+        "default": null,
+        "pk": false
+      },
+      {
+        "cid": 7,
+        "name": "vinculo_anterior_id",
+        "type": "INTEGER",
+        "notnull": false,
+        "default": null,
+        "pk": false
+      },
+      {
+        "cid": 8,
+        "name": "vinculo_novo_id",
+        "type": "INTEGER",
+        "notnull": false,
+        "default": null,
+        "pk": false
+      },
+      {
+        "cid": 9,
+        "name": "cargo_id",
+        "type": "INTEGER",
+        "notnull": false,
+        "default": null,
+        "pk": false
+      },
+      {
+        "cid": 10,
+        "name": "motivo",
+        "type": "VARCHAR(255)",
+        "notnull": false,
+        "default": null,
+        "pk": false
+      },
+      {
+        "cid": 11,
+        "name": "observacao",
+        "type": "TEXT",
+        "notnull": false,
+        "default": null,
+        "pk": false
+      },
+      {
+        "cid": 12,
+        "name": "criado_em",
+        "type": "DATETIME",
+        "notnull": true,
+        "default": "CURRENT_TIMESTAMP",
+        "pk": false
+      }
+    ],
+    "pilotos": [
+      {
+        "cid": 0,
+        "name": "id",
+        "type": "INTEGER",
+        "notnull": true,
+        "default": null,
+        "pk": true
+      },
+      {
+        "cid": 1,
+        "name": "nome",
+        "type": "VARCHAR(120)",
+        "notnull": true,
+        "default": null,
+        "pk": false
+      },
+      {
+        "cid": 2,
+        "name": "categoria",
+        "type": "VARCHAR(80)",
+        "notnull": false,
+        "default": null,
+        "pk": false
+      },
+      {
+        "cid": 3,
+        "name": "ativo",
+        "type": "BOOLEAN",
+        "notnull": true,
+        "default": null,
+        "pk": false
+      },
+      {
+        "cid": 4,
+        "name": "criado_em",
+        "type": "DATETIME",
+        "notnull": true,
+        "default": null,
+        "pk": false
+      },
+      {
+        "cid": 5,
+        "name": "atualizado_em",
+        "type": "DATETIME",
+        "notnull": true,
+        "default": null,
+        "pk": false
+      }
+    ],
+    "vinculos": [
+      {
+        "cid": 0,
+        "name": "id",
+        "type": "INTEGER",
+        "notnull": true,
+        "default": null,
+        "pk": true
+      },
+      {
+        "cid": 1,
+        "name": "etapa_id",
+        "type": "INTEGER",
+        "notnull": true,
+        "default": null,
+        "pk": false
+      },
+      {
+        "cid": 2,
+        "name": "piloto_id",
+        "type": "INTEGER",
+        "notnull": true,
+        "default": null,
+        "pk": false
+      },
+      {
+        "cid": 3,
+        "name": "autonomo_id",
+        "type": "INTEGER",
+        "notnull": true,
+        "default": null,
+        "pk": false
+      },
+      {
+        "cid": 4,
+        "name": "cargo_id",
+        "type": "INTEGER",
+        "notnull": false,
+        "default": null,
+        "pk": false
+      },
+      {
+        "cid": 5,
+        "name": "data_inicio",
+        "type": "DATE",
+        "notnull": true,
+        "default": null,
+        "pk": false
+      },
+      {
+        "cid": 6,
+        "name": "data_fim",
+        "type": "DATE",
+        "notnull": false,
+        "default": null,
+        "pk": false
+      },
+      {
+        "cid": 7,
+        "name": "status",
+        "type": "VARCHAR(20)",
+        "notnull": true,
+        "default": null,
+        "pk": false
+      },
+      {
+        "cid": 8,
+        "name": "valor_acordado",
+        "type": "NUMERIC(12, 2)",
+        "notnull": false,
+        "default": null,
+        "pk": false
+      },
+      {
+        "cid": 9,
+        "name": "observacao",
+        "type": "TEXT",
+        "notnull": false,
+        "default": null,
+        "pk": false
+      },
+      {
+        "cid": 10,
+        "name": "criado_em",
+        "type": "DATETIME",
+        "notnull": true,
+        "default": null,
+        "pk": false
+      },
+      {
+        "cid": 11,
+        "name": "atualizado_em",
+        "type": "DATETIME",
+        "notnull": true,
+        "default": null,
+        "pk": false
+      }
+    ]
+  },
+  "excel_mapping": {
+    "_erro_import_excel_router": "cannot import name 'excel' from 'app.routers' (C:\\Users\\felip\\Documents\\Codex\\2026-05-11\\crie-um-sistema-web-monol-tico\\porsche_autonomos\\app\\routers\\__init__.py)"
+  },
+  "comparisons": {}
+}

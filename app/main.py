@@ -1,0 +1,212 @@
+from fastapi import FastAPI
+from fastapi.staticfiles import StaticFiles
+
+from app.database import Base, engine
+from app.routers import alocacoes, cadastros, dashboard, relatorios
+
+
+Base.metadata.create_all(bind=engine)
+
+app = FastAPI(title="Porsche Cup Autonomos")
+app.mount("/static", StaticFiles(directory="app/static"), name="static")
+
+app.include_router(dashboard.router)
+app.include_router(cadastros.router)
+app.include_router(alocacoes.router)
+app.include_router(relatorios.router)
+
+
+# Router de visualizacao de logs
+try:
+    from app.routers import logs
+    app.include_router(logs.router)
+except Exception as exc:
+    print(f"Erro ao carregar router Logs: {exc}")
+
+
+# Handler global de erros detalhados
+try:
+    from fastapi import Request
+    from fastapi.responses import HTMLResponse
+    from app.logging_utils import log_error
+
+    @app.exception_handler(Exception)
+    async def global_exception_handler(request: Request, exc: Exception):
+        error_id = log_error(
+            contexto="ERRO_GLOBAL_FASTAPI",
+            exc=exc,
+            extra={
+                "url": str(request.url),
+                "method": request.method,
+                "headers": dict(request.headers),
+            },
+            excel=False,
+        )
+
+        html = f"""
+        <!doctype html>
+        <html lang="pt-br">
+        <head>
+            <meta charset="utf-8">
+            <title>Erro no sistema</title>
+            <style>
+                body {{
+                    margin: 0;
+                    background: #0f172a;
+                    color: #e5e7eb;
+                    font-family: Arial, sans-serif;
+                }}
+                .card {{
+                    max-width: 780px;
+                    margin: 60px auto;
+                    background: #111827;
+                    border: 1px solid #374151;
+                    border-radius: 18px;
+                    padding: 26px;
+                }}
+                code {{
+                    color: #fca5a5;
+                    font-weight: 700;
+                }}
+                a {{
+                    color: white;
+                    background: #dc2626;
+                    padding: 10px 14px;
+                    border-radius: 10px;
+                    text-decoration: none;
+                    font-weight: 700;
+                    display: inline-block;
+                    margin-top: 14px;
+                    margin-right: 10px;
+                }}
+            </style>
+        </head>
+        <body>
+            <div class="card">
+                <h1>Erro no sistema</h1>
+                <p>O erro foi registrado com o ID:</p>
+                <p><code>{error_id}</code></p>
+                <p>Abra o log para ver o detalhe técnico.</p>
+                <a href="/logs/geral">Ver log geral</a>
+                <a href="/">Voltar ao sistema</a>
+            </div>
+        </body>
+        </html>
+        """
+        return HTMLResponse(html, status_code=500)
+
+except Exception as exc:
+    print(f"Erro ao configurar handler global: {exc}")
+
+# ============================================================
+
+# ============================================================
+try:
+    import traceback
+    
+
+    
+    print("OK - Router Excel registrado.")
+
+except Exception as exc:
+    print("ERRO AO CARREGAR ROUTER EXCEL")
+    print(exc)
+    print(traceback.format_exc())
+
+    try:
+        from app.logging_utils import log_error
+        log_error(
+            contexto="ERRO_AO_CARREGAR_ROUTER_EXCEL",
+            exc=exc,
+            extra={},
+            excel=True,
+        )
+    except Exception as log_exc:
+        print(f"Também falhou ao gravar log do erro Excel: {log_exc}")
+
+
+# Rota de diagnóstico para listar rotas carregadas
+try:
+    from fastapi.responses import HTMLResponse
+
+    @app.get("/debug/rotas", response_class=HTMLResponse)
+    def debug_rotas():
+        linhas = []
+        for r in app.routes:
+            path = getattr(r, "path", "")
+            methods = ",".join(sorted(getattr(r, "methods", []) or []))
+            name = getattr(r, "name", "")
+            linhas.append(f"<tr><td>{path}</td><td>{methods}</td><td>{name}</td></tr>")
+
+        html = f"""
+        <!doctype html>
+        <html lang="pt-br">
+        <head>
+            <meta charset="utf-8">
+            <title>Rotas carregadas</title>
+            <style>
+                body {{ font-family: Arial; background:#0f172a; color:#e5e7eb; padding:24px; }}
+                table {{ width:100%; border-collapse:collapse; background:#111827; }}
+                th, td {{ padding:10px; border-bottom:1px solid #374151; text-align:left; }}
+                th {{ color:#fca5a5; }}
+                a {{ color:#fca5a5; }}
+            </style>
+        </head>
+        <body>
+            <h1>Rotas carregadas no FastAPI</h1>
+            <p><a href="/">Voltar</a> | <a href="/logs/excel">Log Excel</a></p>
+            <table>
+                <thead>
+                    <tr><th>Rota</th><th>Métodos</th><th>Nome</th></tr>
+                </thead>
+                <tbody>{''.join(linhas)}</tbody>
+            </table>
+        </body>
+        </html>
+        """
+        return HTMLResponse(html)
+
+except Exception as exc:
+    print(f"Erro ao criar /debug/rotas: {exc}")
+
+# ============================================================
+# Rotas Excel registradas diretamente no main.py
+# ============================================================
+try:
+    import importlib
+    from fastapi import UploadFile, File
+    from fastapi.responses import HTMLResponse
+
+    excel_runtime = importlib.import_module("app.routers.excel")
+
+    @app.get("/excel/", response_class=HTMLResponse)
+    def excel_home_direto():
+        return excel_runtime.excel_home()
+
+    @app.get("/excel/modelo/{entity_key}")
+    def baixar_modelo_excel_direto(entity_key: str):
+        return excel_runtime.baixar_modelo(entity_key)
+
+    @app.post("/excel/importar/{entity_key}", response_class=HTMLResponse)
+    async def importar_excel_direto(entity_key: str, arquivo: UploadFile = File(...)):
+        return await excel_runtime.importar_excel(entity_key, arquivo)
+
+    print("OK - Rotas Excel registradas diretamente no main.py.")
+
+except Exception as exc:
+    import traceback
+    print("ERRO AO REGISTRAR ROTAS EXCEL DIRETAS")
+    print(exc)
+    print(traceback.format_exc())
+
+    try:
+        from app.logging_utils import log_error
+        log_error(
+            contexto="ERRO_AO_REGISTRAR_ROTAS_EXCEL_DIRETAS",
+            exc=exc,
+            extra={},
+            excel=True,
+        )
+    except Exception:
+        pass
+

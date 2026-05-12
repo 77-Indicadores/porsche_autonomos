@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% block header %}Dashboard Porsche Cup{% endblock %}
+{% block header_action %}<a href="/alocacoes/nova" class="btn-primary">Nova Alocacao</a>{% endblock %}
+{% block content %}
+<div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+  {% for label, value, money in [
+    ('Pilotos ativos', cards.pilotos, false), ('Autonomos ativos', cards.autonomos, false),
+    ('Vinculos ativos', cards.vinculos, false), ('Trocas no mes', cards.trocas_mes, false),
+    ('Custo temporada', cards.custo_total, true), ('Custo pendente', cards.custo_pendente, true),
+    ('Custo pago', cards.custo_pago, true), ('Avaliacao media', cards.media, false)
+  ] %}
+  <div class="card">
+    <p class="text-sm font-semibold text-zinc-500">{{ label }}</p>
+    <p class="mt-2 text-3xl font-black text-zinc-950">{{ value|money_br if money else "%.2f"|format(value) if label == 'Avaliacao media' else value }}</p>
+  </div>
+  {% endfor %}
+</div>
+
+<div class="mt-6 grid gap-6 xl:grid-cols-2">
+  {% for title, rows in [('Custo por etapa', charts.etapa), ('Custo por piloto', charts.piloto), ('Custo por tipo de autonomo', charts.tipo), ('Trocas por motivo', charts.motivos), ('Ranking autonomos maior custo', charts.autonomo), ('Media avaliacao por autonomo', charts.avaliacoes)] %}
+  <section class="panel">
+    <div class="panel-head"><h3>{{ title }}</h3></div>
+    <div class="space-y-3">
+      {% set maxv = (rows[0][1] if rows else 1) or 1 %}
+      {% for label, value in rows %}
+      <div>
+        <div class="flex justify-between text-sm font-semibold"><span>{{ label }}</span><span>{{ value|money_br if 'Custo' in title or 'Ranking autonomos' in title else "%.1f"|format(value) }}</span></div>
+        <div class="track mt-1"><div class="bar" style="width: {{ (value / maxv * 100)|round(0) }}%"></div></div>
+      </div>
+      {% else %}<p class="empty">Sem dados.</p>{% endfor %}
+    </div>
+  </section>
+  {% endfor %}
+</div>
+
+<section class="panel mt-6">
+  <div class="panel-head"><h3>Resumo de alocacoes atuais</h3><a class="btn-muted" href="/alocacoes">Abrir gestao</a></div>
+  <div class="overflow-x-auto">
+    <table class="table">
+      <thead><tr><th>Piloto</th><th>Etapa</th><th>Prova</th><th>Funcao</th><th>Autonomo atual</th><th>Valor fechado</th><th>Pagamento</th><th>Vinculo</th></tr></thead>
+      <tbody>
+      {% for f in resumo %}
+        <tr><td>{{ f.piloto.nome_piloto }}</td><td>{{ f.etapa.nome_etapa }}</td><td>{{ f.prova.nome_prova }}</td><td>{{ f.funcao_autonomo }}</td><td>{{ f.autonomo.nome_autonomo }}</td><td>{{ f.valor_fechado_etapa|money_br }}</td><td><span class="badge badge-{{ (f.status_pagamento or 'pendente')|lower }}">{{ f.status_pagamento or '-' }}</span></td><td><span class="badge badge-{{ f.status_vinculo|lower }}">{{ f.status_vinculo }}</span></td></tr>
+      {% else %}<tr><td colspan="8" class="empty">Sem alocacoes ativas.</td></tr>{% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endblock %}

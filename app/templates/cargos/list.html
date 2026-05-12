@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block header %}Cargos{% endblock %}
+{% block header_action %}<a href="/cargos/novo" class="btn-primary">Novo cargo</a>{% endblock %}
+{% block content %}
+<section class="panel">
+  <table class="table">
+    <thead><tr><th>Nome</th><th>Status</th><th>Acoes</th></tr></thead>
+    <tbody>
+      {% for cargo in cargos %}
+      <tr>
+        <td class="font-semibold">{{ cargo.nome }}</td>
+        <td><span class="badge badge-{{ 'ativo' if cargo.ativo else 'inativo' }}">{{ 'Ativo' if cargo.ativo else 'Inativo' }}</span></td>
+        <td class="actions"><a class="btn-muted" href="/cargos/{{ cargo.id }}/editar">Editar</a><form method="post" action="/cargos/{{ cargo.id }}/toggle"><button class="btn-secondary">{{ 'Inativar' if cargo.ativo else 'Ativar' }}</button></form></td>
+      </tr>
+      {% else %}<tr><td colspan="3" class="empty">Nenhum cargo cadastrado.</td></tr>{% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endblock %}
+

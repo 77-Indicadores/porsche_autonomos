@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block header %}{{ 'Editar vinculo' if vinculo else 'Novo vinculo' }}{% endblock %}
+{% block content %}
+<form class="panel" method="post">
+  <div class="form-grid">
+    <div><label class="label">Etapa</label><select class="input" name="etapa_id" required>{% for etapa in etapas %}<option value="{{ etapa.id }}" {% if vinculo and vinculo.etapa_id == etapa.id %}selected{% endif %}>{{ etapa.nome }}</option>{% endfor %}</select></div>
+    <div><label class="label">Piloto</label><select class="input" name="piloto_id" required>{% for piloto in pilotos %}<option value="{{ piloto.id }}" {% if vinculo and vinculo.piloto_id == piloto.id %}selected{% endif %}>{{ piloto.nome }}</option>{% endfor %}</select></div>
+    <div><label class="label">Autonomo</label><select class="input" name="autonomo_id" required>{% for autonomo in autonomos %}<option value="{{ autonomo.id }}" {% if vinculo and vinculo.autonomo_id == autonomo.id %}selected{% endif %}>{{ autonomo.nome }}</option>{% endfor %}</select></div>
+    <div><label class="label">Cargo</label><select class="input" name="cargo_id" required>{% for cargo in cargos %}<option value="{{ cargo.id }}" {% if vinculo and vinculo.cargo_id == cargo.id %}selected{% endif %}>{{ cargo.nome }}</option>{% endfor %}</select></div>
+    <div><label class="label">Data inicio</label><input class="input" type="date" name="data_inicio" required value="{{ vinculo.data_inicio if vinculo else '' }}"></div>
+    {% if vinculo %}<div><label class="label">Data fim</label><input class="input" type="date" name="data_fim" value="{{ vinculo.data_fim if vinculo.data_fim else '' }}"></div>
+    <div><label class="label">Status</label><select class="input" name="status">{% for st in ['ATIVO','ENCERRADO','SUBSTITUIDO'] %}<option value="{{ st }}" {% if vinculo.status == st %}selected{% endif %}>{{ st }}</option>{% endfor %}</select></div>{% endif %}
+    <div><label class="label">Valor acordado</label><input class="input" name="valor_acordado" value="{{ vinculo.valor_acordado if vinculo and vinculo.valor_acordado else '' }}" placeholder="800,00"></div>
+    <div class="span-2"><label class="label">Observacao</label><textarea class="input" name="observacao" rows="4">{{ vinculo.observacao if vinculo else '' }}</textarea></div>
+  </div>
+  <div class="mt-5 flex gap-2"><button class="btn-primary">Salvar</button><a class="btn-muted" href="/vinculos">Cancelar</a></div>
+</form>
+{% endblock %}

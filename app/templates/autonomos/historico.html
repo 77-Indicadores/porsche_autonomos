@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block header %}Historico de {{ autonomo.nome }}{% endblock %}
+{% block content %}
+<section class="panel mb-6">
+  <h3 class="font-bold mb-3">Vinculos</h3>
+  <table class="table"><thead><tr><th>Etapa</th><th>Piloto</th><th>Cargo</th><th>Status</th><th>Periodo</th></tr></thead><tbody>
+  {% for vinculo in vinculos %}
+    <tr><td>{{ vinculo.etapa.nome }}</td><td>{{ vinculo.piloto.nome }}</td><td>{{ vinculo.cargo.nome if vinculo.cargo else '-' }}</td><td><span class="badge badge-{{ vinculo.status|lower }}">{{ vinculo.status }}</span></td><td>{{ vinculo.data_inicio|date_br }} a {{ vinculo.data_fim|date_br }}</td></tr>
+  {% else %}<tr><td colspan="5" class="empty">Sem vinculos.</td></tr>{% endfor %}
+  </tbody></table>
+</section>
+<section class="panel">
+  <h3 class="font-bold mb-3">Movimentacoes</h3>
+  <table class="table"><thead><tr><th>Data</th><th>Tipo</th><th>Etapa</th><th>Piloto</th><th>Motivo</th></tr></thead><tbody>
+  {% for mov in movimentacoes %}
+    <tr><td>{{ mov.data_movimentacao|date_br }}</td><td><span class="badge badge-{{ mov.tipo|lower }}">{{ mov.tipo }}</span></td><td>{{ mov.etapa.nome if mov.etapa else '-' }}</td><td>{{ mov.piloto.nome if mov.piloto else '-' }}</td><td>{{ mov.motivo or mov.observacao or '-' }}</td></tr>
+  {% else %}<tr><td colspan="5" class="empty">Sem movimentacoes.</td></tr>{% endfor %}
+  </tbody></table>
+</section>
+{% endblock %}

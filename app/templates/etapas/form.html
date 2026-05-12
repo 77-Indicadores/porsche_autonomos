@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block header %}{{ 'Editar etapa' if etapa else 'Nova etapa' }}{% endblock %}
+{% block content %}
+<form class="panel" method="post">
+  <div class="form-grid">
+    <div><label class="label">Nome</label><input class="input" name="nome" required value="{{ etapa.nome if etapa else '' }}"></div>
+    <div><label class="label">Local</label><input class="input" name="local" value="{{ etapa.local if etapa else '' }}"></div>
+    <div><label class="label">Data inicio</label><input class="input" type="date" name="data_inicio" value="{{ etapa.data_inicio if etapa and etapa.data_inicio else '' }}"></div>
+    <div><label class="label">Data fim</label><input class="input" type="date" name="data_fim" value="{{ etapa.data_fim if etapa and etapa.data_fim else '' }}"></div>
+    <div><label class="label">Temporada</label><input class="input" name="temporada" value="{{ etapa.temporada if etapa else '2026' }}"></div>
+    <label class="flex items-center gap-2 font-semibold text-slate-700"><input type="checkbox" name="ativo" value="1" {% if not etapa or etapa.ativo %}checked{% endif %}> Ativa</label>
+  </div>
+  <div class="mt-5 flex gap-2"><button class="btn-primary">Salvar</button><a class="btn-muted" href="/etapas">Cancelar</a></div>
+</form>
+{% endblock %}

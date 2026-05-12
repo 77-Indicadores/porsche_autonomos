@@ -1,0 +1,149 @@
+from datetime import date, datetime
+
+from sqlalchemy import Date, DateTime, ForeignKey, Numeric, String, Text
+from sqlalchemy.orm import Mapped, mapped_column, relationship
+
+from app.database import Base
+
+
+class DimPiloto(Base):
+    __tablename__ = "dim_pilotos"
+
+    id_piloto: Mapped[int] = mapped_column(primary_key=True)
+    nome_piloto: Mapped[str] = mapped_column(String(140), nullable=False)
+    cpf: Mapped[str | None] = mapped_column(String(20))
+    telefone: Mapped[str | None] = mapped_column(String(40))
+    email: Mapped[str | None] = mapped_column(String(140))
+    equipe: Mapped[str | None] = mapped_column(String(120))
+    categoria_atual: Mapped[str | None] = mapped_column(String(80))
+    data_inclusao: Mapped[date] = mapped_column(Date, default=date.today, nullable=False)
+    data_desligamento: Mapped[date | None] = mapped_column(Date)
+    motivo_desligamento: Mapped[str | None] = mapped_column(String(255))
+    status_piloto: Mapped[str] = mapped_column(String(30), default="Ativo", nullable=False)
+    observacoes: Mapped[str | None] = mapped_column(Text)
+
+    fatos = relationship("FatoPilotoAutonomoProva", back_populates="piloto")
+
+
+class DimAutonomo(Base):
+    __tablename__ = "dim_autonomos"
+
+    id_autonomo: Mapped[int] = mapped_column(primary_key=True)
+    nome_autonomo: Mapped[str] = mapped_column(String(140), nullable=False)
+    cpf: Mapped[str | None] = mapped_column(String(20))
+    telefone: Mapped[str | None] = mapped_column(String(40))
+    email: Mapped[str | None] = mapped_column(String(140))
+    tipo_autonomo: Mapped[str] = mapped_column(String(40), default="Mecanico", nullable=False)
+    especialidade: Mapped[str | None] = mapped_column(String(120))
+    data_inclusao: Mapped[date] = mapped_column(Date, default=date.today, nullable=False)
+    data_saida: Mapped[date | None] = mapped_column(Date)
+    motivo_saida: Mapped[str | None] = mapped_column(String(255))
+    status_autonomo: Mapped[str] = mapped_column(String(30), default="Ativo", nullable=False)
+    observacoes: Mapped[str | None] = mapped_column(Text)
+
+    fatos = relationship("FatoPilotoAutonomoProva", foreign_keys="FatoPilotoAutonomoProva.id_autonomo", back_populates="autonomo")
+
+
+class DimEtapa(Base):
+    __tablename__ = "dim_etapas"
+
+    id_etapa: Mapped[int] = mapped_column(primary_key=True)
+    temporada: Mapped[str] = mapped_column(String(20), nullable=False)
+    nome_etapa: Mapped[str] = mapped_column(String(140), nullable=False)
+    local: Mapped[str | None] = mapped_column(String(120))
+    data_inicio: Mapped[date | None] = mapped_column(Date)
+    data_fim: Mapped[date | None] = mapped_column(Date)
+    status_etapa: Mapped[str] = mapped_column(String(30), default="Planejada", nullable=False)
+    observacoes: Mapped[str | None] = mapped_column(Text)
+
+    provas = relationship("DimProva", back_populates="etapa")
+    fatos = relationship("FatoPilotoAutonomoProva", back_populates="etapa")
+
+
+class DimTipoProva(Base):
+    __tablename__ = "dim_tipos_prova"
+
+    id_tipo_prova: Mapped[int] = mapped_column(primary_key=True)
+    nome_tipo_prova: Mapped[str] = mapped_column(String(80), nullable=False)
+    descricao: Mapped[str | None] = mapped_column(Text)
+    status_tipo_prova: Mapped[str] = mapped_column(String(30), default="Ativo", nullable=False)
+
+    provas = relationship("DimProva", back_populates="tipo_prova")
+
+
+class DimProva(Base):
+    __tablename__ = "dim_provas"
+
+    id_prova: Mapped[int] = mapped_column(primary_key=True)
+    id_etapa: Mapped[int] = mapped_column(ForeignKey("dim_etapas.id_etapa"), nullable=False)
+    id_tipo_prova: Mapped[int] = mapped_column(ForeignKey("dim_tipos_prova.id_tipo_prova"), nullable=False)
+    nome_prova: Mapped[str] = mapped_column(String(140), nullable=False)
+    data_prova: Mapped[date | None] = mapped_column(Date)
+    status_prova: Mapped[str] = mapped_column(String(30), default="Planejada", nullable=False)
+    observacoes: Mapped[str | None] = mapped_column(Text)
+
+    etapa = relationship("DimEtapa", back_populates="provas")
+    tipo_prova = relationship("DimTipoProva", back_populates="provas")
+    fatos = relationship("FatoPilotoAutonomoProva", back_populates="prova")
+
+
+class DimMotivoTroca(Base):
+    __tablename__ = "dim_motivos_troca"
+
+    id_motivo_troca: Mapped[int] = mapped_column(primary_key=True)
+    motivo_troca: Mapped[str] = mapped_column(String(120), nullable=False)
+    descricao: Mapped[str | None] = mapped_column(Text)
+    status: Mapped[str] = mapped_column(String(30), default="Ativo", nullable=False)
+
+
+class DimStatusPagamento(Base):
+    __tablename__ = "dim_status_pagamento"
+
+    id_status_pagamento: Mapped[int] = mapped_column(primary_key=True)
+    status_pagamento: Mapped[str] = mapped_column(String(40), nullable=False)
+
+
+class FatoPilotoAutonomoProva(Base):
+    __tablename__ = "fato_piloto_autonomo_prova"
+
+    id_fato: Mapped[int] = mapped_column(primary_key=True)
+    id_piloto: Mapped[int] = mapped_column(ForeignKey("dim_pilotos.id_piloto"), nullable=False)
+    id_autonomo: Mapped[int] = mapped_column(ForeignKey("dim_autonomos.id_autonomo"), nullable=False)
+    id_etapa: Mapped[int] = mapped_column(ForeignKey("dim_etapas.id_etapa"), nullable=False)
+    id_prova: Mapped[int] = mapped_column(ForeignKey("dim_provas.id_prova"), nullable=False)
+    funcao_autonomo: Mapped[str] = mapped_column(String(80), nullable=False)
+
+    data_inicio_vinculo: Mapped[date] = mapped_column(Date, default=date.today, nullable=False)
+    data_fim_vinculo: Mapped[date | None] = mapped_column(Date)
+    status_vinculo: Mapped[str] = mapped_column(String(30), default="Ativo", nullable=False)
+
+    foi_substituido: Mapped[str] = mapped_column(String(3), default="Nao", nullable=False)
+    id_autonomo_substituto: Mapped[int | None] = mapped_column(ForeignKey("dim_autonomos.id_autonomo"))
+    data_troca: Mapped[date | None] = mapped_column(Date)
+    id_motivo_troca: Mapped[int | None] = mapped_column(ForeignKey("dim_motivos_troca.id_motivo_troca"))
+    justificativa_troca: Mapped[str | None] = mapped_column(Text)
+
+    nota_tecnica: Mapped[float | None] = mapped_column(Numeric(4, 2))
+    nota_pontualidade: Mapped[float | None] = mapped_column(Numeric(4, 2))
+    nota_comunicacao: Mapped[float | None] = mapped_column(Numeric(4, 2))
+    nota_relacionamento: Mapped[float | None] = mapped_column(Numeric(4, 2))
+    nota_geral: Mapped[float | None] = mapped_column(Numeric(4, 2))
+    comentario_avaliacao: Mapped[str | None] = mapped_column(Text)
+    data_avaliacao: Mapped[date | None] = mapped_column(Date)
+
+    valor_fechado_etapa: Mapped[float | None] = mapped_column(Numeric(12, 2))
+    status_pagamento: Mapped[str | None] = mapped_column(String(40))
+    data_pagamento: Mapped[date | None] = mapped_column(Date)
+    documento: Mapped[str | None] = mapped_column(String(120))
+    observacoes: Mapped[str | None] = mapped_column(Text)
+
+    criado_em: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
+    atualizado_em: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+    usuario_responsavel: Mapped[str | None] = mapped_column(String(120), default="admin.local")
+
+    piloto = relationship("DimPiloto", back_populates="fatos")
+    autonomo = relationship("DimAutonomo", foreign_keys=[id_autonomo], back_populates="fatos")
+    etapa = relationship("DimEtapa", back_populates="fatos")
+    prova = relationship("DimProva", back_populates="fatos")
+    autonomo_substituto = relationship("DimAutonomo", foreign_keys=[id_autonomo_substituto])
+    motivo_troca = relationship("DimMotivoTroca")
