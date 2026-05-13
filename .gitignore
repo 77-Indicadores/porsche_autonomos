@@ -46,3 +46,7 @@ app/static/uploads/*
 !app/static/uploads/autonomos/
 !app/static/uploads/pilotos/.gitkeep
 !app/static/uploads/autonomos/.gitkeep
+app/static/uploads/pilotos/*
+app/static/uploads/autonomos/*
+!app/static/uploads/pilotos/.gitkeep
+!app/static/uploads/autonomos/.gitkeep
