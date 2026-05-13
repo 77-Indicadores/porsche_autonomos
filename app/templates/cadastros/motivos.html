@@ -57,6 +57,8 @@
     <table class="table">
       <thead>
         <tr>
+        <!-- id-importacao-id_motivo_troca -->
+        <th>ID Motivo</th>
           <th>Motivo</th>
           <th>Status</th>
           <th>Descrição</th>
@@ -67,6 +69,7 @@
       <tbody>
         {% for i in items %}
         <tr>
+        <td><span class="id-pill">#{{ i.id_motivo_troca or "-" }}</span></td>
           <td class="font-bold">{{ i.motivo_troca }}</td>
           <td>{{ i.status }}</td>
           <td>{{ i.descricao or '-' }}</td>

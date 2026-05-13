@@ -1551,3 +1551,19 @@ textarea:focus {
     flex-direction:column;
   }
 }
+
+
+/* IDs para apoio à importação Excel */
+.id-pill{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  padding:4px 8px;
+  border-radius:999px;
+  background:#f3f4f6;
+  border:1px solid #d1d5db;
+  color:#111827;
+  font-size:12px;
+  font-weight:800;
+  white-space:nowrap;
+}

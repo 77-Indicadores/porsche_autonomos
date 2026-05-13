@@ -75,6 +75,8 @@
   <table class="table">
     <thead>
       <tr>
+        <!-- id-importacao-id_carro -->
+        <th>ID Carro</th>
         <th>Número</th>
         <th>Modelo</th>
         <th>Categoria padrão</th>
@@ -87,6 +89,7 @@
     <tbody>
       {% for c in items %}
       <tr>
+        <td><span class="id-pill">#{{ c.id_carro or "-" }}</span></td>
         <td class="font-bold">{{ c.numero_carro }}</td>
         <td>{{ c.modelo or '-' }}</td>
         <td>{{ c.categoria_padrao or '-' }}</td>
