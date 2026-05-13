@@ -24,8 +24,6 @@ class DimPiloto(Base):
     fatos = relationship("FatoPilotoAutonomoProva", back_populates="piloto")
 
 
-
-
 class DimCargoAutonomo(Base):
     __tablename__ = "dim_cargos_autonomos"
 
