@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% block header %}Setup Inicial{% endblock %}
+{% block subtitle %}Cadastros essenciais para começar a operação{% endblock %}
+
+{% block content %}
+
+<div class="ux-help mb-6">
+  Comece por pilotos, autônomos, etapas e provas. Depois use a Alocação Guiada.
+</div>
+
+<div class="ux-grid ux-grid-4">
+  {% for card in cards %}
+  <section class="ux-card">
+    <div class="flex items-start justify-between gap-3">
+      <div>
+        <h3 class="ux-card-title">{{ card.titulo }}</h3>
+        <p class="ux-muted">Total cadastrado</p>
+      </div>
+
+      {% if card.qtd == 0 %}
+        <span class="ux-pill red">Vazio</span>
+      {% elif card.qtd < 3 %}
+        <span class="ux-pill yellow">Parcial</span>
+      {% else %}
+        <span class="ux-pill green">OK</span>
+      {% endif %}
+    </div>
+
+    <div class="mt-5">
+      <div class="ux-kpi">{{ card.qtd }}</div>
+      <div class="ux-muted">registros</div>
+    </div>
+
+    <div class="ux-actions-row mt-5">
+      <a class="btn-primary" href="{{ card.url }}">Abrir</a>
+      <a class="btn-muted" href="{{ card.excel }}">Excel</a>
+    </div>
+  </section>
+  {% endfor %}
+</div>
+
+<section class="ux-card dark mt-6">
+  <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+    <div>
+      <h3 class="ux-card-title">Pronto para operar?</h3>
+      <p class="text-zinc-400">Crie uma alocação sem precisar navegar por várias telas.</p>
+    </div>
+    <a class="quick-action primary" href="/operacao/nova-guiada">Criar Alocação Guiada</a>
+  </div>
+</section>
+
+{% endblock %}

@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, Form, Request
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.models import DimAutonomo, DimEtapa, DimMotivoTroca, DimPiloto, DimProva, DimStatusPagamento, FatoPilotoAutonomoProva
+from app.models import DimCargoAutonomo, DimAutonomo, DimEtapa, DimMotivoTroca, DimPiloto, DimProva, FatoPilotoAutonomoProva
 from app.template_config import templates
 from app.utils import flash_from_request, parse_date, parse_money, redirect_with_message
 
@@ -18,15 +18,14 @@ def options(db: Session):
         "etapas": db.query(DimEtapa).order_by(DimEtapa.temporada.desc(), DimEtapa.nome_etapa).all(),
         "provas": db.query(DimProva).order_by(DimProva.data_prova.desc()).all(),
         "motivos": db.query(DimMotivoTroca).filter(DimMotivoTroca.status == "Ativo").order_by(DimMotivoTroca.motivo_troca).all(),
-        "pagamentos": db.query(DimStatusPagamento).order_by(DimStatusPagamento.id_status_pagamento).all(),
     }
 
 
-def conflito_ativo(db: Session, id_piloto: int, id_prova: int, funcao: str, ignore_id: int | None = None):
+def conflito_ativo(db: Session, id_piloto: int, id_prova: int, id_autonomo: int, ignore_id: int | None = None):
     query = db.query(FatoPilotoAutonomoProva).filter(
         FatoPilotoAutonomoProva.id_piloto == id_piloto,
         FatoPilotoAutonomoProva.id_prova == id_prova,
-        FatoPilotoAutonomoProva.funcao_autonomo == funcao,
+        FatoPilotoAutonomoProva.id_autonomo == id_autonomo,
         FatoPilotoAutonomoProva.status_vinculo == "Ativo",
     )
     if ignore_id:
@@ -57,34 +56,84 @@ def criar(
     id_piloto: int = Form(...),
     id_etapa: int = Form(...),
     id_prova: int = Form(...),
-    funcao_autonomo: str = Form(...),
+    id_cargo_autonomo: int = Form(...),
     id_autonomo: int = Form(...),
-    data_inicio_vinculo: str = Form(...),
+    tipo_alocacao: str = Form("Formar equipe"),
+    id_fato_substituido: str = Form(""),
+    id_motivo_troca: str = Form(""),
+    justificativa_troca: str = Form(""),
     valor_fechado_etapa: str = Form(""),
-    status_pagamento: str = Form(""),
+    dias_trabalhados: str = Form(""),
     observacoes: str = Form(""),
     db: Session = Depends(get_db),
 ):
-    if conflito_ativo(db, id_piloto, id_prova, funcao_autonomo):
-        return redirect_with_message("/alocacoes/nova", error="Ja existe autonomo ativo nessa funcao para este piloto/prova.")
+    cargo = db.get(DimCargoAutonomo, id_cargo_autonomo)
+
+    if not cargo:
+        return redirect_with_message("/alocacoes/nova", error="Cargo não encontrado.")
+
+    funcao_autonomo = cargo.nome_cargo
     valor = parse_money(valor_fechado_etapa)
-    if valor is not None and not status_pagamento:
-        return redirect_with_message("/alocacoes/nova", error="Status de pagamento e obrigatorio quando houver valor.")
+
+    dias = None
+    if dias_trabalhados:
+        try:
+            dias = int(dias_trabalhados)
+        except Exception:
+            return redirect_with_message("/alocacoes/nova", error="Dias trabalhados deve ser número inteiro.")
+
+        if dias <= 0:
+            return redirect_with_message("/alocacoes/nova", error="Dias trabalhados deve ser maior que zero.")
+
+    if tipo_alocacao == "Substituição":
+        if not id_fato_substituido:
+            return redirect_with_message("/alocacoes/nova", error="Informe quem será substituído.")
+
+        if not id_motivo_troca:
+            return redirect_with_message("/alocacoes/nova", error="Informe o motivo da troca.")
+
+        anterior = db.get(FatoPilotoAutonomoProva, int(id_fato_substituido))
+
+        if not anterior:
+            return redirect_with_message("/alocacoes/nova", error="Alocação anterior não encontrada.")
+
+        data_troca = date.today()
+
+        anterior.status_vinculo = "Substituido"
+        anterior.foi_substituido = "Sim"
+        anterior.id_autonomo_substituto = id_autonomo
+        anterior.data_troca = data_troca
+        anterior.data_fim_vinculo = data_troca
+        anterior.id_motivo_troca = int(id_motivo_troca)
+        anterior.justificativa_troca = justificativa_troca
+
+    else:
+        conflito = conflito_ativo(db, id_piloto, id_prova, funcao_autonomo)
+
+        if conflito:
+            return redirect_with_message(
+                "/alocacoes/nova",
+                error="Já existe autônomo ativo para este piloto, categoria e cargo. Use Substituição.",
+            )
+
     fato = FatoPilotoAutonomoProva(
         id_piloto=id_piloto,
         id_autonomo=id_autonomo,
         id_etapa=id_etapa,
         id_prova=id_prova,
         funcao_autonomo=funcao_autonomo,
-        data_inicio_vinculo=parse_date(data_inicio_vinculo),
+        data_inicio_vinculo=date.today(),
         status_vinculo="Ativo",
         valor_fechado_etapa=valor,
-        status_pagamento=status_pagamento or None,
+        dias_trabalhados=dias,
+        status_pagamento=None,
         observacoes=observacoes,
     )
+
     db.add(fato)
     db.commit()
-    return redirect_with_message("/alocacoes", success="Alocacao criada com sucesso.")
+
+    return redirect_with_message("/alocacoes", success="Alocação salva com sucesso.")
 
 
 @router.get("/alocacoes/{id_fato}/substituir")
@@ -122,11 +171,10 @@ def substituir(
         id_autonomo=id_autonomo_substituto,
         id_etapa=fato.id_etapa,
         id_prova=fato.id_prova,
-        funcao_autonomo=fato.funcao_autonomo,
         data_inicio_vinculo=data,
         status_vinculo="Ativo",
         valor_fechado_etapa=parse_money(valor_fechado_etapa),
-        status_pagamento=fato.status_pagamento,
+        dias_trabalhados=fato.dias_trabalhados,
         observacoes=observacoes,
     )
     db.add(novo)
@@ -165,19 +213,39 @@ def custo_form(id_fato: int, request: Request, db: Session = Depends(get_db)):
 
 
 @router.post("/alocacoes/{id_fato}/custo")
-def custo(id_fato: int, valor_fechado_etapa: str = Form(""), status_pagamento: str = Form(""), data_pagamento: str = Form(""), documento: str = Form(""), observacoes: str = Form(""), db: Session = Depends(get_db)):
+def custo(
+    id_fato: int,
+    valor_fechado_etapa: str = Form(""),
+    dias_trabalhados: str = Form(""),
+    documento: str = Form(""),
+    observacoes: str = Form(""),
+    db: Session = Depends(get_db),
+):
     fato = db.get(FatoPilotoAutonomoProva, id_fato)
+
     if not fato:
-        return redirect_with_message("/alocacoes", error="Alocacao nao encontrada.")
-    if data_pagamento and status_pagamento != "Pago":
-        return redirect_with_message(f"/alocacoes/{id_fato}/custo", error="Data de pagamento so pode ser preenchida quando status for Pago.")
+        return redirect_with_message("/alocacoes", error="Alocação não encontrada.")
+
+    dias = None
+    if dias_trabalhados:
+        try:
+            dias = int(dias_trabalhados)
+        except Exception:
+            return redirect_with_message(f"/alocacoes/{id_fato}/custo", error="Dias trabalhados deve ser um número inteiro.")
+
+        if dias <= 0:
+            return redirect_with_message(f"/alocacoes/{id_fato}/custo", error="Dias trabalhados deve ser maior que zero.")
+
     fato.valor_fechado_etapa = parse_money(valor_fechado_etapa)
-    fato.status_pagamento = status_pagamento or None
-    fato.data_pagamento = parse_date(data_pagamento)
+    fato.dias_trabalhados = dias
+    fato.status_pagamento = None
+    fato.data_pagamento = None
     fato.documento = documento
     fato.observacoes = observacoes
+
     db.commit()
-    return redirect_with_message("/alocacoes", success="Custo fechado atualizado.")
+
+    return redirect_with_message("/alocacoes", success="Pacote atualizado.")
 
 
 @router.post("/alocacoes/{id_fato}/encerrar")
@@ -190,3 +258,5 @@ def encerrar(id_fato: int, data_fim: str = Form(...), motivo: str = Form("Encerr
     fato.justificativa_troca = motivo
     db.commit()
     return redirect_with_message("/alocacoes", success="Vinculo encerrado.")
+
+

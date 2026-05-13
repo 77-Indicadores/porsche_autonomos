@@ -16,10 +16,10 @@ def run():
     db = SessionLocal()
     try:
         pilotos = [
-            DimPiloto(nome_piloto="Rafael Martins", cpf="111.111.111-11", telefone="(11) 90000-1001", email="rafael@cup.local", equipe="Martins Racing", categoria_atual="Carrera Cup", data_inclusao=date(2026, 1, 10)),
-            DimPiloto(nome_piloto="Bruno Costa", cpf="222.222.222-22", telefone="(11) 90000-1002", email="bruno@cup.local", equipe="Costa Motorsport", categoria_atual="Endurance", data_inclusao=date(2026, 1, 12)),
-            DimPiloto(nome_piloto="Lucas Almeida", cpf="333.333.333-33", telefone="(11) 90000-1003", email="lucas@cup.local", equipe="Almeida Team", categoria_atual="Sprint Challenge", data_inclusao=date(2026, 1, 15)),
-            DimPiloto(nome_piloto="Henrique Dias", cpf="444.444.444-44", telefone="(11) 90000-1004", email="henrique@cup.local", equipe="Dias Racing", categoria_atual="Carrera Cup", data_inclusao=date(2026, 1, 20)),
+            DimPiloto(nome_piloto="Rafael Martins", cpf="111.111.111-11", telefone="(11) 90000-1001", email="rafael@cup.local", data_inclusao=date(2026, 1, 10)),
+            DimPiloto(nome_piloto="Bruno Costa", cpf="222.222.222-22", telefone="(11) 90000-1002", email="bruno@cup.local", data_inclusao=date(2026, 1, 12)),
+            DimPiloto(nome_piloto="Lucas Almeida", cpf="333.333.333-33", telefone="(11) 90000-1003", email="lucas@cup.local", data_inclusao=date(2026, 1, 15)),
+            DimPiloto(nome_piloto="Henrique Dias", cpf="444.444.444-44", telefone="(11) 90000-1004", email="henrique@cup.local", data_inclusao=date(2026, 1, 20)),
         ]
         autonomos = [
             DimAutonomo(nome_autonomo="Joao Silva", cpf="555.555.555-55", telefone="(11) 98888-1001", email="joao@cup.local", tipo_autonomo="Mecanico", especialidade="Suspensao"),
@@ -63,11 +63,11 @@ def run():
         db.flush()
 
         fatos = [
-            FatoPilotoAutonomoProva(id_piloto=pilotos[0].id_piloto, id_autonomo=autonomos[0].id_autonomo, id_etapa=etapas[0].id_etapa, id_prova=provas[0].id_prova, funcao_autonomo="Mecanico", data_inicio_vinculo=date(2026, 3, 14), data_fim_vinculo=date(2026, 5, 9), status_vinculo="Substituido", foi_substituido="Sim", id_autonomo_substituto=autonomos[2].id_autonomo, data_troca=date(2026, 5, 9), id_motivo_troca=motivos[3].id_motivo_troca, justificativa_troca="Indisponibilidade para a etapa seguinte.", valor_fechado_etapa=3300, status_pagamento="Pago", data_pagamento=date(2026, 3, 22), nota_tecnica=8, nota_pontualidade=9, nota_comunicacao=8, nota_relacionamento=8, nota_geral=8.25, comentario_avaliacao="Boa entrega tecnica."),
-            FatoPilotoAutonomoProva(id_piloto=pilotos[0].id_piloto, id_autonomo=autonomos[2].id_autonomo, id_etapa=etapas[1].id_etapa, id_prova=provas[2].id_prova, funcao_autonomo="Mecanico", data_inicio_vinculo=date(2026, 5, 9), status_vinculo="Ativo", valor_fechado_etapa=3600, status_pagamento="Pendente", nota_tecnica=9, nota_pontualidade=9, nota_comunicacao=8, nota_relacionamento=9, nota_geral=8.75),
-            FatoPilotoAutonomoProva(id_piloto=pilotos[0].id_piloto, id_autonomo=autonomos[1].id_autonomo, id_etapa=etapas[0].id_etapa, id_prova=provas[0].id_prova, funcao_autonomo="Engenheiro", data_inicio_vinculo=date(2026, 3, 14), status_vinculo="Ativo", valor_fechado_etapa=4600, status_pagamento="Pago", data_pagamento=date(2026, 3, 25), nota_geral=9.4),
-            FatoPilotoAutonomoProva(id_piloto=pilotos[1].id_piloto, id_autonomo=autonomos[2].id_autonomo, id_etapa=etapas[0].id_etapa, id_prova=provas[1].id_prova, funcao_autonomo="Mecanico", data_inicio_vinculo=date(2026, 3, 15), status_vinculo="Ativo", valor_fechado_etapa=2200, status_pagamento="Aprovado", nota_geral=8.1),
-            FatoPilotoAutonomoProva(id_piloto=pilotos[2].id_piloto, id_autonomo=autonomos[4].id_autonomo, id_etapa=etapas[1].id_etapa, id_prova=provas[3].id_prova, funcao_autonomo="Preparador", data_inicio_vinculo=date(2026, 5, 9), status_vinculo="Ativo", valor_fechado_etapa=650, status_pagamento="Pendente", nota_geral=7.8),
+            FatoPilotoAutonomoProva(id_piloto=pilotos[0].id_piloto, id_autonomo=autonomos[0].id_autonomo, id_etapa=etapas[0].id_etapa, id_prova=provas[0].id_prova, data_inicio_vinculo=date(2026, 3, 14), data_fim_vinculo=date(2026, 5, 9), status_vinculo="Substituido", foi_substituido="Sim", id_autonomo_substituto=autonomos[2].id_autonomo, data_troca=date(2026, 5, 9), id_motivo_troca=motivos[3].id_motivo_troca, justificativa_troca="Indisponibilidade para a etapa seguinte.", valor_fechado_etapa=3300, dias_trabalhados=3, status_pagamento="Pago", data_pagamento=date(2026, 3, 22), nota_tecnica=8, nota_pontualidade=9, nota_comunicacao=8, nota_relacionamento=8, nota_geral=8.25, comentario_avaliacao="Boa entrega tecnica."),
+            FatoPilotoAutonomoProva(id_piloto=pilotos[0].id_piloto, id_autonomo=autonomos[2].id_autonomo, id_etapa=etapas[1].id_etapa, id_prova=provas[2].id_prova, data_inicio_vinculo=date(2026, 5, 9), status_vinculo="Ativo", valor_fechado_etapa=3600, dias_trabalhados=3, status_pagamento="Pendente", nota_tecnica=9, nota_pontualidade=9, nota_comunicacao=8, nota_relacionamento=9, nota_geral=8.75),
+            FatoPilotoAutonomoProva(id_piloto=pilotos[0].id_piloto, id_autonomo=autonomos[1].id_autonomo, id_etapa=etapas[0].id_etapa, id_prova=provas[0].id_prova, data_inicio_vinculo=date(2026, 3, 14), status_vinculo="Ativo", valor_fechado_etapa=4600, dias_trabalhados=3, status_pagamento="Pago", data_pagamento=date(2026, 3, 25), nota_geral=9.4),
+            FatoPilotoAutonomoProva(id_piloto=pilotos[1].id_piloto, id_autonomo=autonomos[2].id_autonomo, id_etapa=etapas[0].id_etapa, id_prova=provas[1].id_prova, data_inicio_vinculo=date(2026, 3, 15), status_vinculo="Ativo", valor_fechado_etapa=2200, dias_trabalhados=2, status_pagamento="Aprovado", nota_geral=8.1),
+            FatoPilotoAutonomoProva(id_piloto=pilotos[2].id_piloto, id_autonomo=autonomos[4].id_autonomo, id_etapa=etapas[1].id_etapa, id_prova=provas[3].id_prova, data_inicio_vinculo=date(2026, 5, 9), status_vinculo="Ativo", valor_fechado_etapa=650, dias_trabalhados=1, status_pagamento="Pendente", nota_geral=7.8),
         ]
         db.add_all(fatos)
         db.commit()

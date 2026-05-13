@@ -22,3 +22,106 @@
 .form-grid{display:grid;grid-template-columns:1fr;gap:1rem}@media(min-width:768px){.form-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.span-2{grid-column:span 2}.span-3{grid-column:span 3}}
 .actions{display:flex;gap:.45rem;flex-wrap:wrap}.empty{text-align:center;color:rgb(113 113 122);padding:2rem!important}
 .bar{height:.7rem;border-radius:999px;background:rgb(220 38 38)}.track{height:.7rem;border-radius:999px;background:rgb(244 244 245);overflow:hidden}
+
+
+/* UX Cadastro Guiado */
+.ux-grid { display: grid; gap: 1rem; }
+.ux-grid-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+@media (max-width: 900px) { .ux-grid-4 { grid-template-columns: 1fr; } }
+
+.ux-card {
+  background: #fff;
+  border: 1px solid #e4e4e7;
+  border-radius: 1.25rem;
+  padding: 1.15rem;
+  box-shadow: 0 18px 40px rgba(15, 23, 42, .06);
+}
+
+.ux-card.dark {
+  background: #09090b;
+  color: #fff;
+  border-color: #27272a;
+}
+
+.ux-card-title {
+  font-size: 1rem;
+  font-weight: 900;
+  color: #18181b;
+  margin-bottom: .35rem;
+}
+
+.ux-card.dark .ux-card-title { color: #fff; }
+
+.ux-muted {
+  color: #71717a;
+  font-size: .9rem;
+}
+
+.ux-kpi {
+  font-size: 2rem;
+  font-weight: 950;
+  letter-spacing: -0.04em;
+  color: #18181b;
+}
+
+.ux-help {
+  background: #fff7ed;
+  border: 1px solid #fed7aa;
+  color: #9a3412;
+  padding: .85rem 1rem;
+  border-radius: 1rem;
+  font-size: .9rem;
+}
+
+.ux-form-section {
+  border: 1px solid #e4e4e7;
+  border-radius: 1.25rem;
+  padding: 1rem;
+  background: #fff;
+}
+
+.ux-form-section h3 {
+  font-size: 1rem;
+  font-weight: 900;
+  color: #18181b;
+  margin-bottom: .75rem;
+}
+
+.ux-actions-row {
+  display: flex;
+  gap: .45rem;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.ux-pill {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: .28rem .55rem;
+  background: #f4f4f5;
+  color: #27272a;
+  font-size: .75rem;
+  font-weight: 800;
+}
+
+.ux-pill.red { background: #fee2e2; color: #991b1b; }
+.ux-pill.green { background: #dcfce7; color: #166534; }
+.ux-pill.yellow { background: #fef9c3; color: #854d0e; }
+
+.quick-action {
+  display: inline-flex;
+  align-items: center;
+  gap: .45rem;
+  border-radius: 999px;
+  padding: .65rem .95rem;
+  font-weight: 800;
+  font-size: .85rem;
+  background: #18181b;
+  color: #fff;
+  text-decoration: none;
+  border: 1px solid rgba(255,255,255,.08);
+}
+
+.quick-action.primary { background: #dc2626; }
+.quick-action.light { background: #fff; color: #18181b; border: 1px solid #e4e4e7; }

@@ -1,3 +1,12 @@
-{% extends "base.html" %}{% block header %}Relatorio: Historico por Autonomo{% endblock %}{% block content %}
-<section class="panel mb-6"><form class="grid gap-3 md:grid-cols-4" method="get"><select class="input" name="id_autonomo"><option value="">Autonomo</option>{% for a in autonomos %}<option value="{{a.id_autonomo}}">{{a.nome_autonomo}}</option>{% endfor %}</select><select class="input" name="tipo"><option value="">Tipo</option>{% for s in ['Mecanico','Engenheiro','Preparador','Outro'] %}<option>{{s}}</option>{% endfor %}</select><select class="input" name="status"><option value="">Status</option>{% for s in ['Ativo','Substituido','Encerrado'] %}<option>{{s}}</option>{% endfor %}</select><button class="btn-secondary">Filtrar</button></form></section>
-<section class="panel"><table class="table"><thead><tr><th>Autonomo</th><th>Tipo</th><th>Piloto</th><th>Etapa</th><th>Prova</th><th>Funcao</th><th>Status</th><th>Valor</th><th>Nota</th></tr></thead><tbody>{% for f in fatos %}<tr><td>{{f.autonomo.nome_autonomo}}</td><td>{{f.autonomo.tipo_autonomo}}</td><td>{{f.piloto.nome_piloto}}</td><td>{{f.etapa.nome_etapa}}</td><td>{{f.prova.nome_prova}}</td><td>{{f.funcao_autonomo}}</td><td>{{f.status_vinculo}}</td><td>{{f.valor_fechado_etapa|money_br}}</td><td>{{f.nota_geral or '-'}}</td></tr>{% endfor %}</tbody></table></section>{% endblock %}
+{% extends "base.html" %}
+{% block header %}Consulta desativada{% endblock %}
+{% block subtitle %}Esta consulta não faz parte do escopo atual do sistema{% endblock %}
+{% block content %}
+<section class="ux-card">
+  <h3 class="ux-card-title">Tela removida do fluxo operacional</h3>
+  <p class="ux-muted">O sistema não terá histórico separado de piloto ou autônomo. Use a Gestão de Alocação para consultar os vínculos por etapa e categoria.</p>
+  <div class="ux-actions-row mt-5">
+    <a class="btn-primary" href="/alocacoes">Ir para Gestão de Alocação</a>
+  </div>
+</section>
+{% endblock %}

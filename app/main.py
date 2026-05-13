@@ -210,3 +210,43 @@ except Exception as exc:
     except Exception:
         pass
 
+# ============================================================
+# Rotas UX: Setup Inicial e Alocação Guiada
+# ============================================================
+try:
+    import importlib
+
+    setup_runtime = importlib.import_module("app.routers.setup")
+    wizard_runtime = importlib.import_module("app.routers.wizard")
+
+    app.include_router(setup_runtime.router)
+    app.include_router(wizard_runtime.router)
+
+    print("OK - Rotas UX registradas: /setup e /operacao/nova-guiada")
+
+except Exception as exc:
+    import traceback
+    print("ERRO AO REGISTRAR ROTAS UX")
+    print(exc)
+    print(traceback.format_exc())
+
+    try:
+        from app.logging_utils import log_error
+        log_error("ERRO_AO_REGISTRAR_ROTAS_UX", exc, {}, excel=False)
+    except Exception:
+        pass
+
+# ============================================================
+# Rota visual de equipes
+# ============================================================
+try:
+    import importlib
+    equipes_runtime = importlib.import_module("app.routers.equipes")
+    app.include_router(equipes_runtime.router)
+    print("OK - Rota /equipes registrada.")
+except Exception as exc:
+    import traceback
+    print("ERRO AO REGISTRAR /equipes")
+    print(exc)
+    print(traceback.format_exc())
+

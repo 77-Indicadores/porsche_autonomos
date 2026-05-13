@@ -5,7 +5,7 @@
 <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
   {% for label, value, money in [
     ('Pilotos ativos', cards.pilotos, false), ('Autonomos ativos', cards.autonomos, false),
-    ('Vinculos ativos', cards.vinculos, false), ('Trocas no mes', cards.trocas_mes, false),
+    ('Alocacoes ativas', cards.vinculos, false), ('Trocas no mes', cards.trocas_mes, false),
     ('Custo temporada', cards.custo_total, true), ('Custo pendente', cards.custo_pendente, true),
     ('Custo pago', cards.custo_pago, true), ('Avaliacao media', cards.media, false)
   ] %}
@@ -37,10 +37,10 @@
   <div class="panel-head"><h3>Resumo de alocacoes atuais</h3><a class="btn-muted" href="/alocacoes">Abrir gestao</a></div>
   <div class="overflow-x-auto">
     <table class="table">
-      <thead><tr><th>Piloto</th><th>Etapa</th><th>Prova</th><th>Funcao</th><th>Autonomo atual</th><th>Valor fechado</th><th>Pagamento</th><th>Vinculo</th></tr></thead>
+      <thead><tr><th>Piloto</th><th>Etapa</th><th>Categoria</th><th>Autonomo atual</th><th>Pacote</th><th>Dias</th><th>Valor/dia</th><th>Status</th></tr></thead>
       <tbody>
       {% for f in resumo %}
-        <tr><td>{{ f.piloto.nome_piloto }}</td><td>{{ f.etapa.nome_etapa }}</td><td>{{ f.prova.nome_prova }}</td><td>{{ f.funcao_autonomo }}</td><td>{{ f.autonomo.nome_autonomo }}</td><td>{{ f.valor_fechado_etapa|money_br }}</td><td><span class="badge badge-{{ (f.status_pagamento or 'pendente')|lower }}">{{ f.status_pagamento or '-' }}</span></td><td><span class="badge badge-{{ f.status_vinculo|lower }}">{{ f.status_vinculo }}</span></td></tr>
+        <tr><td>{{ f.piloto.nome_piloto }}</td><td>{{ f.etapa.nome_etapa }}</td><td>{{ f.prova.nome_prova }}</td><td>{{ f.autonomo.nome_autonomo }}</td><td>{{ f.valor_fechado_etapa|money_br }}</td><td>{{ f.dias_trabalhados or '-' }}</td><td>{{ f.valor_dia|money_br }}</td><td><span class="badge badge-{{ f.status_vinculo|lower }}">{{ f.status_vinculo }}</span></td></tr>
       {% else %}<tr><td colspan="8" class="empty">Sem alocacoes ativas.</td></tr>{% endfor %}
       </tbody>
     </table>

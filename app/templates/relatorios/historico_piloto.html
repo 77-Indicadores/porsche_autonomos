@@ -1,3 +1,12 @@
-{% extends "base.html" %}{% block header %}Relatorio: Historico por Piloto{% endblock %}{% block content %}
-<section class="panel mb-6"><form class="grid gap-3 md:grid-cols-5" method="get"><select class="input" name="id_piloto"><option value="">Piloto</option>{% for p in pilotos %}<option value="{{p.id_piloto}}" {% if filtros.id_piloto|string == p.id_piloto|string %}selected{% endif %}>{{p.nome_piloto}}</option>{% endfor %}</select><select class="input" name="id_etapa"><option value="">Etapa</option>{% for e in etapas %}<option value="{{e.id_etapa}}">{{e.nome_etapa}}</option>{% endfor %}</select><select class="input" name="id_prova"><option value="">Prova</option>{% for p in provas %}<option value="{{p.id_prova}}">{{p.nome_prova}}</option>{% endfor %}</select><select class="input" name="status"><option value="">Status</option>{% for s in ['Ativo','Substituido','Encerrado'] %}<option>{{s}}</option>{% endfor %}</select><button class="btn-secondary">Filtrar</button></form></section>
-<section class="panel"><table class="table"><thead><tr><th>Piloto</th><th>Etapa</th><th>Prova</th><th>Funcao</th><th>Autonomo</th><th>Inicio</th><th>Fim</th><th>Status</th><th>Motivo</th><th>Valor</th><th>Nota</th></tr></thead><tbody>{% for f in fatos %}<tr><td>{{f.piloto.nome_piloto}}</td><td>{{f.etapa.nome_etapa}}</td><td>{{f.prova.nome_prova}}</td><td>{{f.funcao_autonomo}}</td><td>{{f.autonomo.nome_autonomo}}</td><td>{{f.data_inicio_vinculo|date_br}}</td><td>{{f.data_fim_vinculo|date_br}}</td><td>{{f.status_vinculo}}</td><td>{{f.motivo_troca.motivo_troca if f.motivo_troca else '-'}}</td><td>{{f.valor_fechado_etapa|money_br}}</td><td>{{f.nota_geral or '-'}}</td></tr>{% endfor %}</tbody></table></section>{% endblock %}
+{% extends "base.html" %}
+{% block header %}Consulta desativada{% endblock %}
+{% block subtitle %}Esta consulta não faz parte do escopo atual do sistema{% endblock %}
+{% block content %}
+<section class="ux-card">
+  <h3 class="ux-card-title">Tela removida do fluxo operacional</h3>
+  <p class="ux-muted">O sistema não terá histórico separado de piloto ou autônomo. Use a Gestão de Alocação para consultar os vínculos por etapa e categoria.</p>
+  <div class="ux-actions-row mt-5">
+    <a class="btn-primary" href="/alocacoes">Ir para Gestão de Alocação</a>
+  </div>
+</section>
+{% endblock %}

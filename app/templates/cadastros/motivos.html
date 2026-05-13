@@ -1,15 +1,117 @@
+{% extends "base.html" %}
 
-<div class="excel-import-box">
-    <span class="excel-title">Excel - Motivos de Troca</span>
+{% block header %}Motivos de Troca{% endblock %}
+{% block subtitle %}Cadastre e edite os motivos usados nas substituições de autônomos{% endblock %}
 
-    <a href="/excel/modelo/motivos-troca">
-        Baixar modelo
-    </a>
+{% block header_action %}
+<a class="quick-action light" href="/excel/modelo/motivos-troca">Modelo Excel</a>
+<a class="quick-action light" href="/excel/">Importar Excel</a>
+{% endblock %}
 
-    <form action="/excel/importar/motivos-troca" method="post" enctype="multipart/form-data" style="display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin:0;">
-        <input type="file" name="arquivo" accept=".xlsx" required>
-        <button type="submit">Importar Excel</button>
-    </form>
-</div>
+{% block content %}
 
-{% extends "base.html" %}{% block header %}Motivos de Troca{% endblock %}{% block content %}<section class="panel mb-6"><form method="post" class="form-grid"><div><label class="label">Motivo</label><input class="input" name="motivo_troca" required></div><div><label class="label">Status</label><input class="input" name="status" value="Ativo"></div><div class="span-3"><label class="label">Descricao</label><textarea class="input" name="descricao"></textarea></div><div><button class="btn-primary">Salvar</button></div></form></section><section class="panel"><table class="table"><thead><tr><th>Motivo</th><th>Status</th><th>Descricao</th></tr></thead><tbody>{% for i in items %}<tr><td class="font-bold">{{ i.motivo_troca }}</td><td>{{ i.status }}</td><td>{{ i.descricao or '-' }}</td></tr>{% endfor %}</tbody></table></section>{% endblock %}
+<section class="panel mb-6">
+  <div class="panel-head">
+    <div>
+      <h3 id="form-title">Novo motivo de troca</h3>
+      <p class="text-sm text-zinc-500">Padronize os motivos para facilitar relatório de trocas.</p>
+    </div>
+    <button class="btn-muted" type="button" onclick="limparMotivo()">Novo</button>
+  </div>
+
+  <form method="post" class="form-grid">
+    <input type="hidden" name="id_motivo_troca" id="id_motivo_troca">
+
+    <div>
+      <label class="label">Motivo</label>
+      <input class="input" name="motivo_troca" id="motivo_troca" required>
+    </div>
+
+    <div>
+      <label class="label">Status</label>
+      <select class="input" name="status" id="status">
+        <option>Ativo</option>
+        <option>Inativo</option>
+      </select>
+    </div>
+
+    <div class="span-3">
+      <label class="label">Descrição</label>
+      <textarea class="input" name="descricao" id="descricao"></textarea>
+    </div>
+
+    <div class="span-3 ux-actions-row">
+      <button class="btn-primary" id="btn-salvar">Salvar motivo</button>
+      <button class="btn-muted" type="button" onclick="limparMotivo()">Limpar</button>
+    </div>
+  </form>
+</section>
+
+<section class="panel">
+  <div class="panel-head">
+    <h3>Motivos cadastrados</h3>
+  </div>
+
+  <div class="overflow-x-auto">
+    <table class="table">
+      <thead>
+        <tr>
+          <th>Motivo</th>
+          <th>Status</th>
+          <th>Descrição</th>
+          <th>Ações</th>
+        </tr>
+      </thead>
+
+      <tbody>
+        {% for i in items %}
+        <tr>
+          <td class="font-bold">{{ i.motivo_troca }}</td>
+          <td>{{ i.status }}</td>
+          <td>{{ i.descricao or '-' }}</td>
+          <td>
+            <button
+              class="btn-muted"
+              type="button"
+              data-id="{{ i.id_motivo_troca }}"
+              data-motivo="{{ i.motivo_troca }}"
+              data-status="{{ i.status }}"
+              data-descricao="{{ i.descricao or '' }}"
+              onclick="editarMotivo(this)"
+            >
+              Editar
+            </button>
+          </td>
+        </tr>
+        {% else %}
+        <tr>
+          <td colspan="4" class="empty">Nenhum motivo cadastrado.</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<script>
+function editarMotivo(btn) {
+  document.getElementById("id_motivo_troca").value = btn.dataset.id || "";
+  document.getElementById("motivo_troca").value = btn.dataset.motivo || "";
+  document.getElementById("status").value = btn.dataset.status || "Ativo";
+  document.getElementById("descricao").value = btn.dataset.descricao || "";
+  document.getElementById("form-title").innerText = "Editar motivo de troca";
+  document.getElementById("btn-salvar").innerText = "Atualizar motivo";
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+function limparMotivo() {
+  document.getElementById("id_motivo_troca").value = "";
+  document.getElementById("motivo_troca").value = "";
+  document.getElementById("status").value = "Ativo";
+  document.getElementById("descricao").value = "";
+  document.getElementById("form-title").innerText = "Novo motivo de troca";
+  document.getElementById("btn-salvar").innerText = "Salvar motivo";
+}
+</script>
+
+{% endblock %}

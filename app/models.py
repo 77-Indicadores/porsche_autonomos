@@ -1,6 +1,6 @@
 from datetime import date, datetime
 
-from sqlalchemy import Date, DateTime, ForeignKey, Numeric, String, Text
+from sqlalchemy import Date, DateTime, ForeignKey, Integer, Numeric, String, Text, Column
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
@@ -14,15 +14,25 @@ class DimPiloto(Base):
     cpf: Mapped[str | None] = mapped_column(String(20))
     telefone: Mapped[str | None] = mapped_column(String(40))
     email: Mapped[str | None] = mapped_column(String(140))
-    equipe: Mapped[str | None] = mapped_column(String(120))
-    categoria_atual: Mapped[str | None] = mapped_column(String(80))
     data_inclusao: Mapped[date] = mapped_column(Date, default=date.today, nullable=False)
     data_desligamento: Mapped[date | None] = mapped_column(Date)
     motivo_desligamento: Mapped[str | None] = mapped_column(String(255))
     status_piloto: Mapped[str] = mapped_column(String(30), default="Ativo", nullable=False)
     observacoes: Mapped[str | None] = mapped_column(Text)
+    foto_url = Column(String)
 
     fatos = relationship("FatoPilotoAutonomoProva", back_populates="piloto")
+
+
+
+
+class DimCargoAutonomo(Base):
+    __tablename__ = "dim_cargos_autonomos"
+
+    id_cargo_autonomo = Column(Integer, primary_key=True, index=True)
+    nome_cargo = Column(String, nullable=False)
+    descricao = Column(String)
+    status = Column(String, default="Ativo")
 
 
 class DimAutonomo(Base):
@@ -61,7 +71,7 @@ class DimEtapa(Base):
 
 
 class DimTipoProva(Base):
-    __tablename__ = "dim_tipos_prova"
+    __tablename__ = "dim_tipos_categoria"
 
     id_tipo_prova: Mapped[int] = mapped_column(primary_key=True)
     nome_tipo_prova: Mapped[str] = mapped_column(String(80), nullable=False)
@@ -72,11 +82,11 @@ class DimTipoProva(Base):
 
 
 class DimProva(Base):
-    __tablename__ = "dim_provas"
+    __tablename__ = "dim_categorias"
 
     id_prova: Mapped[int] = mapped_column(primary_key=True)
     id_etapa: Mapped[int] = mapped_column(ForeignKey("dim_etapas.id_etapa"), nullable=False)
-    id_tipo_prova: Mapped[int] = mapped_column(ForeignKey("dim_tipos_prova.id_tipo_prova"), nullable=False)
+    id_tipo_prova: Mapped[int] = mapped_column(ForeignKey("dim_tipos_categoria.id_tipo_prova"), nullable=False)
     nome_prova: Mapped[str] = mapped_column(String(140), nullable=False)
     data_prova: Mapped[date | None] = mapped_column(Date)
     status_prova: Mapped[str] = mapped_column(String(30), default="Planejada", nullable=False)
@@ -110,8 +120,7 @@ class FatoPilotoAutonomoProva(Base):
     id_piloto: Mapped[int] = mapped_column(ForeignKey("dim_pilotos.id_piloto"), nullable=False)
     id_autonomo: Mapped[int] = mapped_column(ForeignKey("dim_autonomos.id_autonomo"), nullable=False)
     id_etapa: Mapped[int] = mapped_column(ForeignKey("dim_etapas.id_etapa"), nullable=False)
-    id_prova: Mapped[int] = mapped_column(ForeignKey("dim_provas.id_prova"), nullable=False)
-    funcao_autonomo: Mapped[str] = mapped_column(String(80), nullable=False)
+    id_prova: Mapped[int] = mapped_column(ForeignKey("dim_categorias.id_prova"), nullable=False)
 
     data_inicio_vinculo: Mapped[date] = mapped_column(Date, default=date.today, nullable=False)
     data_fim_vinculo: Mapped[date | None] = mapped_column(Date)
@@ -129,9 +138,11 @@ class FatoPilotoAutonomoProva(Base):
     nota_relacionamento: Mapped[float | None] = mapped_column(Numeric(4, 2))
     nota_geral: Mapped[float | None] = mapped_column(Numeric(4, 2))
     comentario_avaliacao: Mapped[str | None] = mapped_column(Text)
+    link_avaliacao_externa = Column(String)
     data_avaliacao: Mapped[date | None] = mapped_column(Date)
 
     valor_fechado_etapa: Mapped[float | None] = mapped_column(Numeric(12, 2))
+    dias_trabalhados: Mapped[int | None] = mapped_column(Integer)
     status_pagamento: Mapped[str | None] = mapped_column(String(40))
     data_pagamento: Mapped[date | None] = mapped_column(Date)
     documento: Mapped[str | None] = mapped_column(String(120))
@@ -147,3 +158,9 @@ class FatoPilotoAutonomoProva(Base):
     prova = relationship("DimProva", back_populates="fatos")
     autonomo_substituto = relationship("DimAutonomo", foreign_keys=[id_autonomo_substituto])
     motivo_troca = relationship("DimMotivoTroca")
+
+    @property
+    def valor_dia(self):
+        if self.valor_fechado_etapa is None or not self.dias_trabalhados:
+            return None
+        return float(self.valor_fechado_etapa) / self.dias_trabalhados

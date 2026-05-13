@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+
+{% block header %}Link Externo da Avaliação{% endblock %}
+{% block subtitle %}A avaliação do autônomo será feita fora deste sistema{% endblock %}
+
+{% block content %}
+
+<section class="ux-card mb-6">
+  <h3 class="ux-card-title">Alocação</h3>
+  <p><b>Piloto:</b> {{ fato.piloto.nome_piloto }}</p>
+  <p><b>Prova:</b> {{ fato.prova.nome_prova }}</p>
+  <p><b>Função:</b> {{ fato.funcao_autonomo }}</p>
+  <p><b>Autônomo:</b> {{ fato.autonomo.nome_autonomo }}</p>
+</section>
+
+<section class="panel">
+  <div class="panel-head">
+    <div>
+      <h3>Link da avaliação externa</h3>
+      <p class="text-sm text-zinc-500">
+        Cole aqui o link do Google Forms, Microsoft Forms, Typeform ou outro formulário externo.
+      </p>
+    </div>
+  </div>
+
+  <form method="post" class="form-grid">
+    <div class="span-3">
+      <label class="label">URL da avaliação</label>
+      <input
+        class="input"
+        name="link_avaliacao_externa"
+        placeholder="https://..."
+        value="{{ fato.link_avaliacao_externa or '' }}"
+      >
+    </div>
+
+    <div class="span-3 ux-actions-row">
+      <a class="btn-muted" href="/alocacoes">Voltar</a>
+
+      {% if fato.link_avaliacao_externa %}
+        <a class="btn-secondary" href="{{ fato.link_avaliacao_externa }}" target="_blank">Abrir avaliação</a>
+      {% endif %}
+
+      <button class="btn-primary">Salvar link</button>
+    </div>
+  </form>
+</section>
+
+<div class="ux-help mt-6">
+  As notas e respostas da avaliação não serão armazenadas neste sistema. Este sistema guarda apenas o vínculo operacional e o link externo.
+</div>
+
+{% endblock %}

@@ -1,9 +1,9 @@
 from fastapi import APIRouter, Depends, Form, Request
-from sqlalchemy import or_
+from sqlalchemy import or_, text
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.models import DimAutonomo, DimEtapa, DimMotivoTroca, DimPiloto, DimProva, DimTipoProva, FatoPilotoAutonomoProva
+from app.models import DimCargoAutonomo, DimAutonomo, DimEtapa, DimMotivoTroca, DimPiloto, DimProva, DimTipoProva, FatoPilotoAutonomoProva
 from app.template_config import templates
 from app.utils import flash_from_request, parse_date, redirect_with_message
 
@@ -17,6 +17,7 @@ def lists(db: Session):
         "etapas": db.query(DimEtapa).order_by(DimEtapa.temporada.desc(), DimEtapa.nome_etapa).all(),
         "tipos": db.query(DimTipoProva).order_by(DimTipoProva.nome_tipo_prova).all(),
         "motivos": db.query(DimMotivoTroca).order_by(DimMotivoTroca.motivo_troca).all(),
+        "cargos_autonomos": db.query(DimCargoAutonomo).filter(DimCargoAutonomo.status == "Ativo").order_by(DimCargoAutonomo.nome_cargo).all(),
     }
 
 
@@ -25,7 +26,7 @@ def pilotos(request: Request, q: str = "", db: Session = Depends(get_db)):
     query = db.query(DimPiloto)
     if q:
         like = f"%{q}%"
-        query = query.filter(or_(DimPiloto.nome_piloto.ilike(like), DimPiloto.equipe.ilike(like), DimPiloto.categoria_atual.ilike(like), DimPiloto.status_piloto.ilike(like)))
+        query = query.filter(or_(DimPiloto.nome_piloto.ilike(like), DimPiloto.status_piloto.ilike(like)))
     return templates.TemplateResponse("cadastros/pilotos.html", {"request": request, "items": query.order_by(DimPiloto.nome_piloto).all(), "q": q, **flash_from_request(request)})
 
 
@@ -36,11 +37,10 @@ def salvar_piloto(
     cpf: str = Form(""),
     telefone: str = Form(""),
     email: str = Form(""),
-    equipe: str = Form(""),
-    categoria_atual: str = Form(""),
     data_inclusao: str = Form(""),
     status_piloto: str = Form("Ativo"),
     observacoes: str = Form(""),
+    foto_url: str = Form(""),
     db: Session = Depends(get_db),
 ):
     piloto = db.get(DimPiloto, int(id_piloto)) if id_piloto else DimPiloto()
@@ -48,11 +48,10 @@ def salvar_piloto(
     piloto.cpf = cpf
     piloto.telefone = telefone
     piloto.email = email
-    piloto.equipe = equipe
-    piloto.categoria_atual = categoria_atual
     piloto.data_inclusao = parse_date(data_inclusao) or piloto.data_inclusao
     piloto.status_piloto = status_piloto
     piloto.observacoes = observacoes
+    piloto.foto_url = foto_url
     db.add(piloto)
     db.commit()
     return redirect_with_message("/pilotos", success="Piloto salvo com sucesso.")
@@ -76,7 +75,7 @@ def autonomos(request: Request, q: str = "", db: Session = Depends(get_db)):
     if q:
         like = f"%{q}%"
         query = query.filter(or_(DimAutonomo.nome_autonomo.ilike(like), DimAutonomo.tipo_autonomo.ilike(like), DimAutonomo.especialidade.ilike(like), DimAutonomo.status_autonomo.ilike(like)))
-    return templates.TemplateResponse("cadastros/autonomos.html", {"request": request, "items": query.order_by(DimAutonomo.nome_autonomo).all(), "q": q, **flash_from_request(request)})
+    return templates.TemplateResponse("cadastros/autonomos.html", {"request": request, "items": query.order_by(DimAutonomo.nome_autonomo).all(), "q": q, **lists(db), **flash_from_request(request)})
 
 
 @router.post("/autonomos")
@@ -86,7 +85,8 @@ def salvar_autonomo(
     cpf: str = Form(""),
     telefone: str = Form(""),
     email: str = Form(""),
-    tipo_autonomo: str = Form("Mecanico"),
+    tipo_autonomo: str = Form(""),
+    id_cargo_autonomo: str = Form(""),
     especialidade: str = Form(""),
     data_inclusao: str = Form(""),
     status_autonomo: str = Form("Ativo"),
@@ -98,7 +98,10 @@ def salvar_autonomo(
     autonomo.cpf = cpf
     autonomo.telefone = telefone
     autonomo.email = email
-    autonomo.tipo_autonomo = tipo_autonomo
+
+    cargo_obj = db.get(DimCargoAutonomo, int(id_cargo_autonomo)) if id_cargo_autonomo else None
+    autonomo.id_cargo_autonomo = int(id_cargo_autonomo) if id_cargo_autonomo else None
+    autonomo.tipo_autonomo = cargo_obj.nome_cargo if cargo_obj else tipo_autonomo
     autonomo.especialidade = especialidade
     autonomo.data_inclusao = parse_date(data_inclusao) or autonomo.data_inclusao
     autonomo.status_autonomo = status_autonomo
@@ -141,28 +144,49 @@ def salvar_etapa(
     return redirect_with_message("/etapas", success="Etapa cadastrada.")
 
 
+@router.get("/categorias")
 @router.get("/provas")
 def provas(request: Request, db: Session = Depends(get_db)):
     return templates.TemplateResponse("cadastros/provas.html", {"request": request, "items": db.query(DimProva).order_by(DimProva.data_prova.desc()).all(), **lists(db), **flash_from_request(request)})
 
 
+@router.post("/categorias")
 @router.post("/provas")
 def salvar_prova(id_etapa: int = Form(...), id_tipo_prova: int = Form(...), nome_prova: str = Form(...), data_prova: str = Form(""), status_prova: str = Form("Planejada"), observacoes: str = Form(""), db: Session = Depends(get_db)):
     db.add(DimProva(id_etapa=id_etapa, id_tipo_prova=id_tipo_prova, nome_prova=nome_prova, data_prova=parse_date(data_prova), status_prova=status_prova, observacoes=observacoes))
     db.commit()
-    return redirect_with_message("/provas", success="Prova cadastrada.")
+    return redirect_with_message("/categorias", success="Categoria cadastrada.")
 
 
+@router.get("/tipos-categoria")
 @router.get("/tipos-prova")
 def tipos_prova(request: Request, db: Session = Depends(get_db)):
     return templates.TemplateResponse("cadastros/tipos.html", {"request": request, "items": db.query(DimTipoProva).order_by(DimTipoProva.nome_tipo_prova).all(), **flash_from_request(request)})
 
 
+@router.post("/tipos-categoria")
 @router.post("/tipos-prova")
-def salvar_tipo(nome_tipo_prova: str = Form(...), descricao: str = Form(""), status_tipo_prova: str = Form("Ativo"), db: Session = Depends(get_db)):
-    db.add(DimTipoProva(nome_tipo_prova=nome_tipo_prova, descricao=descricao, status_tipo_prova=status_tipo_prova))
+def salvar_tipo(
+    id_tipo_prova: str = Form(""),
+    nome_tipo_prova: str = Form(...),
+    descricao: str = Form(""),
+    status_tipo_prova: str = Form("Ativo"),
+    db: Session = Depends(get_db),
+):
+    tipo = db.get(DimTipoProva, int(id_tipo_prova)) if id_tipo_prova else DimTipoProva()
+
+    if not tipo:
+        return redirect_with_message("/tipos-prova", error="Tipo de prova não encontrado.")
+
+    tipo.nome_tipo_prova = nome_tipo_prova
+    tipo.descricao = descricao
+    tipo.status_tipo_prova = status_tipo_prova
+
+    db.add(tipo)
     db.commit()
-    return redirect_with_message("/tipos-prova", success="Tipo de prova cadastrado.")
+
+    msg = "Tipo de prova atualizado." if id_tipo_prova else "Tipo de prova cadastrado."
+    return redirect_with_message("/tipos-prova", success=msg)
 
 
 @router.get("/motivos-troca")
@@ -171,7 +195,63 @@ def motivos_troca(request: Request, db: Session = Depends(get_db)):
 
 
 @router.post("/motivos-troca")
-def salvar_motivo(motivo_troca: str = Form(...), descricao: str = Form(""), status: str = Form("Ativo"), db: Session = Depends(get_db)):
-    db.add(DimMotivoTroca(motivo_troca=motivo_troca, descricao=descricao, status=status))
+def salvar_motivo(
+    id_motivo_troca: str = Form(""),
+    motivo_troca: str = Form(...),
+    descricao: str = Form(""),
+    status: str = Form("Ativo"),
+    db: Session = Depends(get_db),
+):
+    motivo = db.get(DimMotivoTroca, int(id_motivo_troca)) if id_motivo_troca else DimMotivoTroca()
+
+    if not motivo:
+        return redirect_with_message("/motivos-troca", error="Motivo de troca não encontrado.")
+
+    motivo.motivo_troca = motivo_troca
+    motivo.descricao = descricao
+    motivo.status = status
+
+    db.add(motivo)
     db.commit()
-    return redirect_with_message("/motivos-troca", success="Motivo cadastrado.")
+
+    msg = "Motivo de troca atualizado." if id_motivo_troca else "Motivo cadastrado."
+    return redirect_with_message("/motivos-troca", success=msg)
+
+
+@router.get("/cargos-autonomos")
+def cargos_autonomos(request: Request, db: Session = Depends(get_db)):
+    items = db.query(DimCargoAutonomo).order_by(DimCargoAutonomo.nome_cargo).all()
+
+    return templates.TemplateResponse(
+        "cadastros/cargos_autonomos.html",
+        {
+            "request": request,
+            "items": items,
+            **flash_from_request(request),
+        },
+    )
+
+
+@router.post("/cargos-autonomos")
+def salvar_cargo_autonomo(
+    id_cargo_autonomo: str = Form(""),
+    nome_cargo: str = Form(...),
+    descricao: str = Form(""),
+    status: str = Form("Ativo"),
+    db: Session = Depends(get_db),
+):
+    cargo = db.get(DimCargoAutonomo, int(id_cargo_autonomo)) if id_cargo_autonomo else DimCargoAutonomo()
+
+    if not cargo:
+        return redirect_with_message("/cargos-autonomos", error="Cargo não encontrado.")
+
+    cargo.nome_cargo = nome_cargo
+    cargo.descricao = descricao
+    cargo.status = status
+
+    db.add(cargo)
+    db.commit()
+
+    msg = "Cargo atualizado." if id_cargo_autonomo else "Cargo cadastrado."
+    return redirect_with_message("/cargos-autonomos", success=msg)
+
