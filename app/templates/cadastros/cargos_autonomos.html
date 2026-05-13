@@ -57,8 +57,6 @@
   <table class="table">
     <thead>
       <tr>
-        <!-- id-importacao-id_cargo_autonomo -->
-        <th>ID Cargo</th>
         <th>Cargo</th>
         <th>Status</th>
         <th>Descrição</th>
@@ -69,7 +67,6 @@
     <tbody>
       {% for i in items %}
       <tr>
-        <td><span class="id-pill">#{{ i.id_cargo_autonomo or "-" }}</span></td>
         <td class="font-bold">{{ i.nome_cargo }}</td>
         <td>{{ i.status }}</td>
         <td>{{ i.descricao or '-' }}</td>
