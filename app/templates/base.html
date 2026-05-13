@@ -44,6 +44,7 @@
 
       <div class="nav-section">
         <div class="nav-section-title">Configurações</div>
+        <a class="nav-link {% if request.url.path.startswith('/usuarios') %}active{% endif %}" href="/usuarios">Usuarios</a>
         <a class="nav-link {% if request.url.path.startswith('/excel') %}active{% endif %}" href="/excel/">📥 Importações Excel</a>
         <a class="nav-link {% if request.url.path.startswith('/setup') %}active{% endif %}" href="/setup">⚙️ Listas de Apoio</a>
         <a class="nav-link {% if request.url.path.startswith('/logs') %}active{% endif %}" href="/logs/">🧾 Logs</a>
@@ -60,6 +61,12 @@
       </div>
 
       <div class="header-actions">
+        {% if request.state.current_user %}
+          <span>{{ request.state.current_user.nome }} ({{ request.state.current_user.perfil }})</span>
+          <form method="post" action="/auth/logout" style="display:inline;">
+            <button type="submit">Sair</button>
+          </form>
+        {% endif %}
         {% block header_action %}{% endblock %}
       </div>
     </header>
@@ -149,3 +156,4 @@ function novoCadastro() {
 
 </body>
 </html>
+

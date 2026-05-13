@@ -47,3 +47,31 @@ E uma tabela fato principal:
 - `fato_piloto_autonomo_prova`
 
 O valor principal de custo e `valor_fechado_etapa`.
+
+## Login e usuarios
+
+- Login: `http://127.0.0.1:8000/auth/login`
+- Perfis: `admin` e `operador`
+
+## Criacao de usuario via terminal
+
+```powershell
+python run.py create-user --nome "Admin" --email "admin@local" --senha "Senha123!" --perfil admin
+```
+
+## Banco com PostgreSQL
+
+1. Copie `.env.example` para `.env` e ajuste os valores.
+2. Defina `DATABASE_URL` no ambiente antes de subir a app.
+
+## Migracoes (Alembic)
+
+```powershell
+alembic upgrade head
+```
+
+Criar nova revisao:
+
+```powershell
+alembic revision -m "descricao_da_mudanca"
+```

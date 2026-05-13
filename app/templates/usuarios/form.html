@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block title %}Novo Usuario{% endblock %}
+{% block header %}Novo Usuario{% endblock %}
+{% block content %}
+<form method="post" action="/usuarios/novo">
+  {% if error %}<div class="alert error">{{ error }}</div>{% endif %}
+  <label>Nome</label>
+  <input type="text" name="nome" required>
+  <label>Email</label>
+  <input type="email" name="email" required>
+  <label>Senha</label>
+  <input type="password" name="senha" required>
+  <label>Perfil</label>
+  <select name="perfil">
+    <option value="operador">operador</option>
+    <option value="admin">admin</option>
+  </select>
+  <button type="submit">Salvar</button>
+</form>
+{% endblock %}
+

@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block title %}Usuarios{% endblock %}
+{% block header %}Gestao de Usuarios{% endblock %}
+{% block content %}
+<div class="panel">
+  <a class="btn" href="/usuarios/novo">Novo usuario</a>
+  <table class="table">
+    <thead>
+      <tr>
+        <th>Nome</th>
+        <th>Email</th>
+        <th>Perfil</th>
+        <th>Status</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for u in usuarios %}
+      <tr>
+        <td>{{ u.nome }}</td>
+        <td>{{ u.email }}</td>
+        <td>{{ u.perfil }}</td>
+        <td>{{ u.ativo }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}
+

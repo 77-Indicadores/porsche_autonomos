@@ -1,8 +1,12 @@
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
+from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.requests import Request
+from starlette.responses import RedirectResponse
 
+from app.auth import SESSION_COOKIE, read_session_token
 from app.database import Base, engine
-from app.routers import alocacoes, cadastros, dashboard, relatorios
+from app.routers import alocacoes, auth, cadastros, dashboard, relatorios, usuarios
 
 
 Base.metadata.create_all(bind=engine)
@@ -10,10 +14,30 @@ Base.metadata.create_all(bind=engine)
 app = FastAPI(title="Porsche Cup Autonomos")
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
 
+
+class AuthMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        public_paths = {"/auth/login", "/docs", "/openapi.json", "/redoc"}
+        if request.url.path.startswith("/static") or request.url.path in public_paths:
+            return await call_next(request)
+
+        token = request.cookies.get(SESSION_COOKIE)
+        session_user = read_session_token(token) if token else None
+        request.state.current_user = session_user
+        if session_user is None:
+            return RedirectResponse("/auth/login", status_code=303)
+
+        return await call_next(request)
+
+
+app.add_middleware(AuthMiddleware)
+
 app.include_router(dashboard.router)
 app.include_router(cadastros.router)
 app.include_router(alocacoes.router)
 app.include_router(relatorios.router)
+app.include_router(auth.router)
+app.include_router(usuarios.router)
 
 
 # Router de visualizacao de logs

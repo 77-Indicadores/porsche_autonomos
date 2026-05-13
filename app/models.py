@@ -194,3 +194,14 @@ class DimCarro(Base):
     status_carro = Column(String, default="Ativo")
     observacoes = Column(String)
 
+
+class Usuario(Base):
+    __tablename__ = "usuarios"
+
+    id_usuario = Column(Integer, primary_key=True, index=True)
+    nome = Column(String(140), nullable=False)
+    email = Column(String(140), nullable=False, unique=True, index=True)
+    senha_hash = Column(String(255), nullable=False)
+    perfil = Column(String(30), nullable=False, default="operador")
+    ativo = Column(String(3), nullable=False, default="Sim")
+

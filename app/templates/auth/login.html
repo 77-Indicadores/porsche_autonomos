@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Login | Porsche Cup</title>
+  <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+  <main class="main-content" style="max-width: 480px; margin: 40px auto;">
+    <h1>Entrar</h1>
+    {% if erro %}
+      <div class="alert error">Credenciais invalidas</div>
+    {% endif %}
+    <form method="post" action="/auth/login">
+      <label>Email</label>
+      <input type="email" name="email" required>
+      <label>Senha</label>
+      <input type="password" name="senha" required>
+      <button type="submit">Entrar</button>
+    </form>
+  </main>
+</body>
+</html>
+
