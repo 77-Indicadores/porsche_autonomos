@@ -196,7 +196,7 @@ ENTIDADES = {
             "id_piloto",
             "id_autonomo",
             "id_etapa",
-            "id_prova",
+            "id_prova", "id_carro",
             "funcao_autonomo",
         ],
         "columns": [

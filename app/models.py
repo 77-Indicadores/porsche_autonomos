@@ -172,10 +172,25 @@ class FatoPilotoAutonomoProva(Base):
             return None
         return float(self.valor_fechado_etapa) / self.dias_trabalhados
 
+    id_carro = Column(Integer, ForeignKey("dim_carros.id_carro"))
+
     piloto = relationship("DimPiloto", foreign_keys=[id_piloto])
     autonomo = relationship("DimAutonomo", foreign_keys=[id_autonomo])
     autonomo_substituto = relationship("DimAutonomo", foreign_keys=[id_autonomo_substituto])
     etapa = relationship("DimEtapa", foreign_keys=[id_etapa])
     prova = relationship("DimProva", foreign_keys=[id_prova])
+    carro = relationship("DimCarro", foreign_keys=[id_carro])
     motivo_troca = relationship("DimMotivoTroca", foreign_keys=[id_motivo_troca])
+
+
+class DimCarro(Base):
+    __tablename__ = "dim_carros"
+
+    id_carro = Column(Integer, primary_key=True, index=True)
+    numero_carro = Column(String)
+    modelo = Column(String)
+    categoria_padrao = Column(String)
+    chassi = Column(String)
+    status_carro = Column(String, default="Ativo")
+    observacoes = Column(String)
 

@@ -23,19 +23,21 @@ def equipes(request: Request, id_etapa: str = "", id_prova: str = "", db: Sessio
         FatoPilotoAutonomoProva.id_etapa,
         FatoPilotoAutonomoProva.id_prova,
         FatoPilotoAutonomoProva.id_piloto,
+        FatoPilotoAutonomoProva.id_carro,
         FatoPilotoAutonomoProva.funcao_autonomo,
     ).all()
 
     grupos = {}
 
     for f in fatos:
-        chave = (f.id_etapa, f.id_prova, f.id_piloto)
+        chave = (f.id_etapa, f.id_prova, f.id_piloto, f.id_carro)
 
         if chave not in grupos:
             grupos[chave] = {
                 "etapa": f.etapa,
                 "categoria": f.prova,
                 "piloto": f.piloto,
+                "carro": f.carro,
                 "ativos": [],
                 "substituidos": [],
                 "valor_total": 0,

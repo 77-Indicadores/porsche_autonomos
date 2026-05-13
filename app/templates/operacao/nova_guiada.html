@@ -50,6 +50,19 @@
   </div>
 
   <div>
+    <label class="label">Carro</label>
+    <select class="input" name="id_carro" id="id_carro" required>
+      <option value="">Selecione</option>
+      {% for c in carros %}
+        <option value="{{ c.id_carro }}">
+          {{ c.numero_carro }}{% if c.modelo %} - {{ c.modelo }}{% endif %}{% if c.categoria_padrao %} - {{ c.categoria_padrao }}{% endif %}
+        </option>
+      {% endfor %}
+    </select>
+  </div>
+
+
+  <div>
     <label class="label">Cargo</label>
     <select class="input" name="id_cargo_autonomo" id="id_cargo_autonomo" required>
       <option value="">Selecione</option>

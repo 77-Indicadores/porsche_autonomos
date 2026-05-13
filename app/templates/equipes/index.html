@@ -54,6 +54,7 @@
             <h3 class="ux-card-title">{{ equipe.piloto.nome_piloto }}</h3>
             <div class="ux-muted">{{ equipe.etapa.nome_etapa }}</div>
             <div class="ux-pill mt-2">{{ equipe.categoria.nome_prova }}</div>
+            {% if equipe.carro %}<div class="ux-muted mt-2">🏎️ {{ equipe.carro.numero_carro }}{% if equipe.carro.modelo %} - {{ equipe.carro.modelo }}{% endif %}</div>{% endif %}
           </div>
         </div>
 

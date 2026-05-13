@@ -250,3 +250,18 @@ except Exception as exc:
     print(exc)
     print(traceback.format_exc())
 
+
+
+# ============================================================
+# Router Cadastro de Carros
+# ============================================================
+try:
+    import importlib
+    carros_runtime = importlib.import_module("app.routers.carros")
+    app.include_router(carros_runtime.router)
+    print("OK - Rota /carros registrada.")
+except Exception as exc:
+    import traceback
+    print("ERRO AO REGISTRAR /carros")
+    print(exc)
+    print(traceback.format_exc())

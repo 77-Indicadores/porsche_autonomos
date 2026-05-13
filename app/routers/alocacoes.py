@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, Form, Request
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.models import DimCargoAutonomo, DimAutonomo, DimEtapa, DimMotivoTroca, DimPiloto, DimProva, FatoPilotoAutonomoProva
+from app.models import DimCarro, DimCargoAutonomo, DimAutonomo, DimEtapa, DimMotivoTroca, DimPiloto, DimProva, FatoPilotoAutonomoProva
 from app.template_config import templates
 from app.utils import flash_from_request, parse_date, parse_money, redirect_with_message
 
@@ -56,6 +56,7 @@ def criar(
     id_piloto: int = Form(...),
     id_etapa: int = Form(...),
     id_prova: int = Form(...),
+    id_carro: int = Form(...),
     id_cargo_autonomo: int = Form(...),
     id_autonomo: int = Form(...),
     tipo_alocacao: str = Form("Formar equipe"),
@@ -121,6 +122,7 @@ def criar(
         id_autonomo=id_autonomo,
         id_etapa=id_etapa,
         id_prova=id_prova,
+        id_carro=id_carro,
         funcao_autonomo=funcao_autonomo,
         data_inicio_vinculo=date.today(),
         status_vinculo="Ativo",

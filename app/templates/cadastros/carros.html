@@ -1,0 +1,128 @@
+{% extends "base.html" %}
+
+{% block header %}Carros{% endblock %}
+{% block subtitle %}Cadastro dos carros utilizados por etapa, categoria e piloto{% endblock %}
+
+{% block header_action %}
+<button type="button" class="quick-action primary btn-novo-cadastro" onclick="novoCadastro()">+ Novo</button>
+<a class="quick-action light" href="/excel/">Importar Excel</a>
+{% endblock %}
+
+{% block content %}
+
+<section class="panel mb-6">
+  <form method="get" class="flex gap-3">
+    <input class="input" name="q" placeholder="Pesquisar por número, modelo, categoria ou status" value="{{ q }}">
+    <button class="btn-secondary">Pesquisar</button>
+  </form>
+</section>
+
+<section class="panel mb-6">
+  <div class="panel-head">
+    <h3>Novo / editar carro</h3>
+  </div>
+
+  <form method="post" class="form-grid">
+    <input type="hidden" name="id_carro" id="id_carro">
+
+    <div>
+      <label class="label">Número do carro</label>
+      <input class="input" name="numero_carro" id="numero_carro" placeholder="Ex.: #77" required>
+    </div>
+
+    <div>
+      <label class="label">Modelo</label>
+      <input class="input" name="modelo" id="modelo" placeholder="Ex.: Porsche 911 GT3 Cup">
+    </div>
+
+    <div>
+      <label class="label">Categoria padrão</label>
+      <select class="input" name="categoria_padrao" id="categoria_padrao">
+        <option value="">Selecione</option>
+        <option>Carrera Cup</option>
+        <option>Sprint Challenge</option>
+        <option>Endurance</option>
+      </select>
+    </div>
+
+    <div>
+      <label class="label">Chassi / identificação</label>
+      <input class="input" name="chassi" id="chassi" placeholder="Ex.: CHASSI-0077">
+    </div>
+
+    <div>
+      <label class="label">Status</label>
+      <select class="input" name="status_carro" id="status_carro">
+        <option>Ativo</option>
+        <option>Inativo</option>
+        <option>Manutenção</option>
+        <option>Reserva</option>
+      </select>
+    </div>
+
+    <div class="span-3">
+      <label class="label">Observações</label>
+      <textarea class="input" name="observacoes" id="observacoes"></textarea>
+    </div>
+
+    <div class="span-3 ux-actions-row">
+      <button class="btn-primary">Salvar carro</button>
+    </div>
+  </form>
+</section>
+
+<section class="panel">
+  <table class="table">
+    <thead>
+      <tr>
+        <th>Número</th>
+        <th>Modelo</th>
+        <th>Categoria padrão</th>
+        <th>Chassi</th>
+        <th>Status</th>
+        <th>Ações</th>
+      </tr>
+    </thead>
+
+    <tbody>
+      {% for c in items %}
+      <tr>
+        <td class="font-bold">{{ c.numero_carro }}</td>
+        <td>{{ c.modelo or '-' }}</td>
+        <td>{{ c.categoria_padrao or '-' }}</td>
+        <td>{{ c.chassi or '-' }}</td>
+        <td><span class="badge">{{ c.status_carro }}</span></td>
+        <td>
+          <button
+            class="btn-muted"
+            type="button"
+            onclick="editarCarro(this)"
+            data-fill='{"id_carro":"{{c.id_carro}}","numero_carro":"{{c.numero_carro or ''}}","modelo":"{{c.modelo or ''}}","categoria_padrao":"{{c.categoria_padrao or ''}}","chassi":"{{c.chassi or ''}}","status_carro":"{{c.status_carro or ''}}","observacoes":"{{c.observacoes or ''}}"}'
+          >
+            Editar
+          </button>
+        </td>
+      </tr>
+      {% else %}
+      <tr>
+        <td colspan="6" class="empty">Nenhum carro cadastrado.</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+
+<script>
+function editarCarro(btn) {
+  const data = JSON.parse(btn.dataset.fill || "{}");
+
+  Object.keys(data).forEach(function(k) {
+    const el = document.getElementById(k);
+    if (el) el.value = data[k] || "";
+  });
+
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+</script>
+
+{% endblock %}
