@@ -162,3 +162,38 @@
   color: #fff;
   font-weight: 900;
 }
+
+
+/* Evita conflito com classe logo antiga */
+.logo.main-logo {
+  display: none !important;
+}
+
+
+/* Logo imagem Porsche */
+.sidebar-logo-porsche-img {
+  padding: 18px 16px 20px 16px;
+  border-bottom: 1px solid rgba(255, 255, 255, .08);
+  margin-bottom: 12px;
+}
+
+.sidebar-logo-porsche-img a {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  text-decoration: none;
+}
+
+.sidebar-logo-porsche-img img {
+  width: 190px;
+  max-width: 100%;
+  height: auto;
+  object-fit: contain;
+  display: block;
+}
+
+/* Esconde logo textual antigo, se ainda existir */
+.logo.main-logo {
+  display: none !important;
+}
+
