@@ -1245,3 +1245,70 @@ textarea:focus {
   white-space: nowrap;
 }
 
+/* Login */
+.login-page {
+  min-height: 100vh;
+  margin: 0;
+  background: linear-gradient(140deg, #09090b 0%, #18181b 58%, #7f1d1d 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 22px;
+}
+
+.login-wrap {
+  width: 100%;
+  max-width: 980px;
+  display: grid;
+  grid-template-columns: 1.1fr .9fr;
+  gap: 18px;
+}
+
+.login-hero {
+  background: rgba(255, 255, 255, .06);
+  border: 1px solid rgba(255, 255, 255, .14);
+  border-radius: 18px;
+  padding: 30px;
+  color: #fff;
+}
+
+.login-hero h1 {
+  margin: 8px 0 0 0;
+  font-size: 36px;
+  line-height: 1.02;
+  letter-spacing: -.05em;
+}
+
+.login-hero p {
+  margin: 12px 0 0 0;
+  color: rgba(255, 255, 255, .78);
+  max-width: 520px;
+}
+
+.login-card {
+  padding: 26px;
+}
+
+.login-card h2 {
+  margin: 0;
+  font-size: 26px;
+  letter-spacing: -.03em;
+}
+
+.login-form {
+  display: grid;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.login-submit {
+  width: 100%;
+  margin-top: 8px;
+}
+
+@media (max-width: 900px) {
+  .login-wrap {
+    grid-template-columns: 1fr;
+  }
+}
+

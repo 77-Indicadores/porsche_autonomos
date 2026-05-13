@@ -6,20 +6,32 @@
   <title>Login | Porsche Cup</title>
   <link rel="stylesheet" href="/static/css/style.css">
 </head>
-<body>
-  <main class="main-content" style="max-width: 480px; margin: 40px auto;">
-    <h1>Entrar</h1>
+<body class="login-page">
+  <main class="login-wrap">
+    <section class="login-hero">
+      <span class="exec-label">Porsche Cup</span>
+      <h1>Acesso ao sistema</h1>
+      <p>Controle de autonomos, alocacoes, custos e operacao em um unico painel.</p>
+    </section>
+
+    <section class="panel login-card">
+      <h2>Entrar</h2>
+      <p class="ux-muted">Use seu usuario para continuar.</p>
+
     {% if erro %}
       <div class="alert error">Credenciais invalidas</div>
     {% endif %}
-    <form method="post" action="/auth/login">
-      <label>Email</label>
-      <input type="email" name="email" required>
-      <label>Senha</label>
-      <input type="password" name="senha" required>
-      <button type="submit">Entrar</button>
+
+    <form method="post" action="/auth/login" class="login-form">
+      <label class="label">Email</label>
+      <input class="input" type="email" name="email" required placeholder="voce@empresa.com">
+
+      <label class="label">Senha</label>
+      <input class="input" type="password" name="senha" required placeholder="Sua senha">
+
+      <button class="btn-primary login-submit" type="submit">Entrar</button>
     </form>
+    </section>
   </main>
 </body>
 </html>
-
