@@ -37,7 +37,6 @@
 
       <div class="nav-section">
         <div class="nav-section-title">Operação</div>
-        <a class="nav-link {% if request.url.path.startswith('/alocacoes/nova') or request.url.path.startswith('/operacao/nova-guiada') %}active{% endif %}" href="/alocacoes/nova">✨ Nova Alocação</a>
         <a class="nav-link {% if request.url.path.startswith('/equipes') %}active{% endif %}" href="/equipes">👥 Equipes Alocadas</a>
         <a class="nav-link {% if request.url.path == '/alocacoes' %}active{% endif %}" href="/alocacoes">📋 Gestão de Alocação</a>
       </div>

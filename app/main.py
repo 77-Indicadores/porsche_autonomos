@@ -1,3 +1,4 @@
+import os
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.base import BaseHTTPMiddleware
@@ -12,6 +13,33 @@ from app.routers import alocacoes, auth, cadastros, dashboard, relatorios, usuar
 Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="Porsche Cup Autonomos")
+
+
+
+# ============================================================
+# AUTO LOGIN LOCAL / DEMO
+# ============================================================
+@app.middleware("http")
+async def auto_login_local_middleware(request, call_next):
+    """
+    Modo demo/local.
+    Deixa o sistema logado automaticamente como admin@local quando
+    AUTO_LOGIN_LOCAL=1 no arquivo .env ou variável de ambiente.
+    """
+    try:
+        auto_login = os.getenv("AUTO_LOGIN_LOCAL", "1")
+        if auto_login == "1":
+            request.state.user = {
+                "email": os.getenv("AUTO_LOGIN_EMAIL", "admin@local"),
+                "nome": os.getenv("AUTO_LOGIN_NOME", "Administrador Local"),
+                "perfil": "admin",
+                "is_authenticated": True,
+            }
+    except Exception:
+        pass
+
+    return await call_next(request)
+
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
 
 
