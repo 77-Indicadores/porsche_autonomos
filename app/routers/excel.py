@@ -307,6 +307,21 @@ def get_pk_column(conn, table):
     return None
 
 
+
+
+def safe_sheet_title(value):
+    """
+    Excel não aceita estes caracteres no nome da aba:
+    : \ / ? * [ ]
+    Também limita a 31 caracteres.
+    """
+    value = str(value or "Modelo")
+    for ch in [":", "\\", "/", "?", "*", "[", "]"]:
+        value = value.replace(ch, "-")
+    value = value.strip() or "Modelo"
+    return value[:31]
+
+
 def make_template(entity_key):
     cfg = ENTIDADES[entity_key]
 

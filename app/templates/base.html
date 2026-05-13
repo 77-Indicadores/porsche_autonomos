@@ -17,8 +17,16 @@
       <nav class="p-4 space-y-5">
         {% set groups = [
           ('Dashboard', [('/', 'Visao Geral')]),
-          ('Cadastros', [('/pilotos','👨‍✈️ Pilotos'),('/autonomos','🧰 Autônomos'),('/cargos-autonomos','🪪 Cargos de Autônomos'),('/etapas','📍 Etapas'),('/categorias','Categorias'),('/tipos-categoria','Tipos de Categoria'),('/motivos-troca','🔄 Motivos de Troca')]),
-          ('Operacao', [('/equipes','👥 Equipes Alocadas'),('/alocacoes','Gestao de Alocacao'),('/relatorios/avaliacoes','Avaliacoes')]),
+          ('Cadastros', [
+    ('/provas','🏁 Categorias'),
+    ('/tipos-prova','🗂️ Tipo Categoria'),
+    ('/motivos-troca','🔄 Motivo Troca'),
+    ('/etapas','📍 Etapa'),
+    ('/cargos-autonomos','🪪 Cargos Autônomo'),
+    ('/pilotos','👨‍✈️ Piloto'),
+    ('/autonomos','🧰 Autônomo'),
+]),
+          ('Operacao', [('/equipes','👥 Equipes Alocadas'),('/alocacoes','Gestao de Alocacao')]),
           ('Configuracoes', [('/excel/','Importacoes Excel'),('/tipos-categoria','Listas de Apoio')])
         ] %}
         {% for group, links in groups %}

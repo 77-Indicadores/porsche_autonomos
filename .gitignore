@@ -38,3 +38,11 @@ Thumbs.db
 
 # Sistema
 desktop.ini
+
+# Uploads locais
+app/static/uploads/*
+!app/static/uploads/.gitkeep
+!app/static/uploads/pilotos/
+!app/static/uploads/autonomos/
+!app/static/uploads/pilotos/.gitkeep
+!app/static/uploads/autonomos/.gitkeep

@@ -22,8 +22,20 @@
     <h3>Novo / editar piloto</h3>
   </div>
 
-  <form method="post" class="form-grid">
+  <form method="post" class="form-grid" enctype="multipart/form-data">
     <input type="hidden" name="id_piloto" id="id_piloto">
+    <input type="hidden" name="foto_url" id="foto_url">
+
+    <div class="span-3">
+      <label class="label">Foto do piloto</label>
+      <div class="upload-photo-box">
+        <img id="preview_foto_piloto" class="upload-photo-preview" src="" style="display:none;">
+        <div>
+          <input class="input" type="file" name="foto_upload" id="foto_upload" accept="image/*">
+          <p class="text-sm text-zinc-500 mt-2">Formatos aceitos: JPG, PNG ou WEBP.</p>
+        </div>
+      </div>
+    </div>
 
     <div>
       <label class="label">Nome</label>
@@ -74,6 +86,7 @@
   <table class="table">
     <thead>
       <tr>
+        <th>Foto</th>
         <th>Piloto</th>
         <th>CPF</th>
         <th>Telefone</th>
@@ -85,6 +98,14 @@
     <tbody>
       {% for p in items %}
       <tr>
+        <td>
+          {% if p.foto_url %}
+            <img src="{{ p.foto_url }}" class="table-avatar">
+          {% else %}
+            <div class="table-avatar avatar-placeholder">{{ p.nome_piloto[:1] }}</div>
+          {% endif %}
+        </td>
+
         <td class="font-bold">{{ p.nome_piloto }}</td>
         <td>{{ p.cpf or '-' }}</td>
         <td>{{ p.telefone or '-' }}</td>
@@ -93,7 +114,8 @@
           <button
             class="btn-muted"
             type="button"
-            data-fill='{"id_piloto":"{{p.id_piloto}}","nome_piloto":"{{p.nome_piloto}}","cpf":"{{p.cpf or ''}}","telefone":"{{p.telefone or ''}}","email":"{{p.email or ''}}","data_inclusao":"{{p.data_inclusao}}","status_piloto":"{{p.status_piloto}}","observacoes":"{{p.observacoes or ''}}"}'
+            onclick="editarPiloto(this)"
+            data-fill='{"id_piloto":"{{p.id_piloto}}","nome_piloto":"{{p.nome_piloto}}","cpf":"{{p.cpf or ''}}","telefone":"{{p.telefone or ''}}","email":"{{p.email or ''}}","data_inclusao":"{{p.data_inclusao}}","status_piloto":"{{p.status_piloto}}","observacoes":"{{p.observacoes or ''}}","foto_url":"{{p.foto_url or ''}}"}'
           >
             Editar
           </button>
@@ -107,11 +129,44 @@
       </tr>
       {% else %}
       <tr>
-        <td colspan="5" class="empty">Nenhum piloto.</td>
+        <td colspan="6" class="empty">Nenhum piloto.</td>
       </tr>
       {% endfor %}
     </tbody>
   </table>
 </section>
+
+<script>
+function editarPiloto(btn) {
+  const data = JSON.parse(btn.dataset.fill || "{}");
+
+  Object.keys(data).forEach(k => {
+    const el = document.getElementById(k);
+    if (el) el.value = data[k] || "";
+  });
+
+  const preview = document.getElementById("preview_foto_piloto");
+
+  if (data.foto_url) {
+    preview.src = data.foto_url;
+    preview.style.display = "block";
+  } else {
+    preview.src = "";
+    preview.style.display = "none";
+  }
+
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+document.getElementById("foto_upload").addEventListener("change", function() {
+  const file = this.files[0];
+  const preview = document.getElementById("preview_foto_piloto");
+
+  if (!file) return;
+
+  preview.src = URL.createObjectURL(file);
+  preview.style.display = "block";
+});
+</script>
 
 {% endblock %}

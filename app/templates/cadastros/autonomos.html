@@ -23,8 +23,20 @@
     <h3>Novo / editar autônomo</h3>
   </div>
 
-  <form method="post" class="form-grid">
+  <form method="post" class="form-grid" enctype="multipart/form-data">
     <input type="hidden" name="id_autonomo" id="id_autonomo">
+    <input type="hidden" name="foto_url" id="foto_url">
+
+    <div class="span-3">
+      <label class="label">Foto do autônomo</label>
+      <div class="upload-photo-box">
+        <img id="preview_foto_autonomo" class="upload-photo-preview" src="" style="display:none;">
+        <div>
+          <input class="input" type="file" name="foto_upload" id="foto_upload" accept="image/*">
+          <p class="text-sm text-zinc-500 mt-2">Formatos aceitos: JPG, PNG ou WEBP.</p>
+        </div>
+      </div>
+    </div>
 
     <div>
       <label class="label">Nome</label>
@@ -92,6 +104,7 @@
   <table class="table">
     <thead>
       <tr>
+        <th>Foto</th>
         <th>Autônomo</th>
         <th>Cargo</th>
         <th>Especialidade</th>
@@ -103,6 +116,14 @@
     <tbody>
       {% for a in items %}
       <tr>
+        <td>
+          {% if a.foto_url %}
+            <img src="{{ a.foto_url }}" class="table-avatar">
+          {% else %}
+            <div class="table-avatar avatar-placeholder">{{ a.nome_autonomo[:1] }}</div>
+          {% endif %}
+        </td>
+
         <td class="font-bold">{{ a.nome_autonomo }}</td>
         <td>{{ a.tipo_autonomo or '-' }}</td>
         <td>{{ a.especialidade or '-' }}</td>
@@ -111,7 +132,8 @@
           <button
             class="btn-muted"
             type="button"
-            data-fill='{"id_autonomo":"{{a.id_autonomo}}","nome_autonomo":"{{a.nome_autonomo}}","cpf":"{{a.cpf or ''}}","telefone":"{{a.telefone or ''}}","email":"{{a.email or ''}}","id_cargo_autonomo":"{{a.id_cargo_autonomo or ''}}","tipo_autonomo":"{{a.tipo_autonomo or ''}}","especialidade":"{{a.especialidade or ''}}","data_inclusao":"{{a.data_inclusao}}","status_autonomo":"{{a.status_autonomo}}","observacoes":"{{a.observacoes or ''}}"}'
+            onclick="editarAutonomo(this)"
+            data-fill='{"id_autonomo":"{{a.id_autonomo}}","nome_autonomo":"{{a.nome_autonomo}}","cpf":"{{a.cpf or ''}}","telefone":"{{a.telefone or ''}}","email":"{{a.email or ''}}","id_cargo_autonomo":"{{a.id_cargo_autonomo or ''}}","tipo_autonomo":"{{a.tipo_autonomo or ''}}","especialidade":"{{a.especialidade or ''}}","data_inclusao":"{{a.data_inclusao}}","status_autonomo":"{{a.status_autonomo}}","observacoes":"{{a.observacoes or ''}}","foto_url":"{{a.foto_url or ''}}"}'
           >
             Editar
           </button>
@@ -125,7 +147,7 @@
       </tr>
       {% else %}
       <tr>
-        <td colspan="5" class="empty">Nenhum autônomo cadastrado.</td>
+        <td colspan="6" class="empty">Nenhum autônomo cadastrado.</td>
       </tr>
       {% endfor %}
     </tbody>
@@ -133,6 +155,37 @@
 </section>
 
 <script>
+function editarAutonomo(btn) {
+  const data = JSON.parse(btn.dataset.fill || "{}");
+
+  Object.keys(data).forEach(k => {
+    const el = document.getElementById(k);
+    if (el) el.value = data[k] || "";
+  });
+
+  const preview = document.getElementById("preview_foto_autonomo");
+
+  if (data.foto_url) {
+    preview.src = data.foto_url;
+    preview.style.display = "block";
+  } else {
+    preview.src = "";
+    preview.style.display = "none";
+  }
+
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+document.getElementById("foto_upload").addEventListener("change", function() {
+  const file = this.files[0];
+  const preview = document.getElementById("preview_foto_autonomo");
+
+  if (!file) return;
+
+  preview.src = URL.createObjectURL(file);
+  preview.style.display = "block";
+});
+
 document.addEventListener("change", function(e) {
   if (e.target && e.target.id === "id_cargo_autonomo") {
     const opt = e.target.selectedOptions[0];

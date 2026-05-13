@@ -1,4 +1,7 @@
-from fastapi import APIRouter, Depends, Form, Request
+from pathlib import Path
+import uuid
+import shutil
+from fastapi import APIRouter, Depends, Form, Request, UploadFile, File
 from sqlalchemy import or_, text
 from sqlalchemy.orm import Session
 
@@ -8,6 +11,30 @@ from app.template_config import templates
 from app.utils import flash_from_request, parse_date, redirect_with_message
 
 router = APIRouter(tags=["cadastros"])
+
+
+UPLOAD_BASE = Path(__file__).resolve().parents[1] / "static" / "uploads"
+
+def salvar_upload_foto(arquivo: UploadFile, pasta: str):
+    if not arquivo or not arquivo.filename:
+        return None
+
+    extensao = Path(arquivo.filename).suffix.lower()
+
+    if extensao not in [".jpg", ".jpeg", ".png", ".webp"]:
+        return None
+
+    destino_dir = UPLOAD_BASE / pasta
+    destino_dir.mkdir(parents=True, exist_ok=True)
+
+    nome_arquivo = f"{uuid.uuid4().hex}{extensao}"
+    destino = destino_dir / nome_arquivo
+
+    with destino.open("wb") as buffer:
+        shutil.copyfileobj(arquivo.file, buffer)
+
+    return f"/static/uploads/{pasta}/{nome_arquivo}"
+
 
 
 def lists(db: Session):
@@ -41,6 +68,7 @@ def salvar_piloto(
     status_piloto: str = Form("Ativo"),
     observacoes: str = Form(""),
     foto_url: str = Form(""),
+    foto_upload: UploadFile = File(None),
     db: Session = Depends(get_db),
 ):
     piloto = db.get(DimPiloto, int(id_piloto)) if id_piloto else DimPiloto()
@@ -51,7 +79,12 @@ def salvar_piloto(
     piloto.data_inclusao = parse_date(data_inclusao) or piloto.data_inclusao
     piloto.status_piloto = status_piloto
     piloto.observacoes = observacoes
-    piloto.foto_url = foto_url
+    foto_salva = salvar_upload_foto(foto_upload, "pilotos")
+
+    if foto_salva:
+        piloto.foto_url = foto_salva
+    elif foto_url:
+        piloto.foto_url = foto_url
     db.add(piloto)
     db.commit()
     return redirect_with_message("/pilotos", success="Piloto salvo com sucesso.")
@@ -91,6 +124,8 @@ def salvar_autonomo(
     data_inclusao: str = Form(""),
     status_autonomo: str = Form("Ativo"),
     observacoes: str = Form(""),
+    foto_url: str = Form(""),
+    foto_upload: UploadFile = File(None),
     db: Session = Depends(get_db),
 ):
     autonomo = db.get(DimAutonomo, int(id_autonomo)) if id_autonomo else DimAutonomo()
@@ -106,6 +141,13 @@ def salvar_autonomo(
     autonomo.data_inclusao = parse_date(data_inclusao) or autonomo.data_inclusao
     autonomo.status_autonomo = status_autonomo
     autonomo.observacoes = observacoes
+
+    foto_salva = salvar_upload_foto(foto_upload, "autonomos")
+
+    if foto_salva:
+        autonomo.foto_url = foto_salva
+    elif foto_url:
+        autonomo.foto_url = foto_url
     db.add(autonomo)
     db.commit()
     return redirect_with_message("/autonomos", success="Autonomo salvo com sucesso.")
@@ -137,6 +179,8 @@ def salvar_etapa(
     data_fim: str = Form(""),
     status_etapa: str = Form("Planejada"),
     observacoes: str = Form(""),
+    foto_url: str = Form(""),
+    foto_upload: UploadFile = File(None),
     db: Session = Depends(get_db),
 ):
     db.add(DimEtapa(temporada=temporada, nome_etapa=nome_etapa, local=local, data_inicio=parse_date(data_inicio), data_fim=parse_date(data_fim), status_etapa=status_etapa, observacoes=observacoes))
