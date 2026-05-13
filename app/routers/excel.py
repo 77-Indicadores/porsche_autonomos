@@ -3,7 +3,6 @@ from __future__ import annotations
 
 import io
 import re
-import sqlite3
 from datetime import datetime, date
 from decimal import Decimal
 from pathlib import Path
@@ -11,10 +10,12 @@ from typing import Any
 
 from fastapi import APIRouter, UploadFile, File
 from fastapi.responses import HTMLResponse, StreamingResponse
+from sqlalchemy import create_engine, inspect, text
 
 from openpyxl import Workbook, load_workbook
 from openpyxl.styles import Font, PatternFill, Alignment
 from openpyxl.utils import get_column_letter
+from app.database import DATABASE_URL
 
 try:
     from app.logging_utils import log_error
@@ -28,6 +29,7 @@ router = APIRouter(prefix="/excel", tags=["Excel"])
 
 BASE_DIR = Path(__file__).resolve().parents[2]
 DB_PATH = BASE_DIR / "data" / "app.db"
+IMPORT_ENGINE = create_engine(DATABASE_URL, future=True)
 
 
 ENTIDADES = {
@@ -137,7 +139,7 @@ ENTIDADES = {
 
     "tipos-prova": {
         "label": "Tipos de Categoria",
-        "table": "dim_tipos_prova",
+        "table": "dim_tipos_categoria",
         "unique": ["nome_tipo_prova"],
         "columns": [
             "nome_tipo_prova",
@@ -153,7 +155,7 @@ ENTIDADES = {
 
     "provas": {
         "label": "Categorias",
-        "table": "dim_provas",
+        "table": "dim_categorias",
         "unique": ["id_etapa", "id_tipo_prova", "nome_prova"],
         "columns": [
             "id_etapa",
@@ -240,9 +242,7 @@ ENTIDADES = {
 
 
 def get_conn():
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
-    return conn
+    return IMPORT_ENGINE.connect()
 
 
 def norm_header(value: Any) -> str:
@@ -287,24 +287,27 @@ def normalize_value(value: Any) -> Any:
 
 
 def table_exists(conn, table):
-    row = conn.execute(
-        "SELECT name FROM sqlite_master WHERE type='table' AND name=?",
-        (table,),
-    ).fetchone()
-    return row is not None
+    inspector = inspect(conn)
+    return table in inspector.get_table_names()
 
 
 def get_table_columns(conn, table):
-    rows = conn.execute(f"PRAGMA table_info({table})").fetchall()
-    return [r["name"] for r in rows]
+    inspector = inspect(conn)
+    return [col["name"] for col in inspector.get_columns(table)]
 
 
 def get_pk_column(conn, table):
-    rows = conn.execute(f"PRAGMA table_info({table})").fetchall()
-    for r in rows:
-        if r["pk"] == 1:
-            return r["name"]
+    inspector = inspect(conn)
+    for col in inspector.get_columns(table):
+        if col.get("primary_key", 0):
+            return col["name"]
     return None
+
+
+def quote_ident(identifier: str) -> str:
+    if not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", identifier or ""):
+        raise ValueError(f"Identificador SQL inválido: {identifier}")
+    return f'"{identifier}"'
 
 
 
@@ -415,22 +418,30 @@ def insert_or_update(conn, table, row, unique_keys):
     existing = None
 
     if usable_keys:
-        where = " AND ".join([f"{k}=?" for k in usable_keys])
-        vals = [clean[k] for k in usable_keys]
-        existing = conn.execute(f"SELECT * FROM {table} WHERE {where} LIMIT 1", vals).fetchone()
+        where = " AND ".join([f"{quote_ident(k)} = :w_{k}" for k in usable_keys])
+        where_params = {f"w_{k}": clean[k] for k in usable_keys}
+        existing = conn.execute(
+            text(f"SELECT 1 FROM {quote_ident(table)} WHERE {where} LIMIT 1"),
+            where_params,
+        ).first()
 
     if existing:
         set_cols = [k for k in clean.keys() if k not in usable_keys]
 
         if set_cols:
-            sql = f"UPDATE {table} SET " + ", ".join([f"{c}=?" for c in set_cols]) + f" WHERE {where}"
-            conn.execute(sql, [clean[c] for c in set_cols] + vals)
+            set_clause = ", ".join([f"{quote_ident(c)} = :s_{c}" for c in set_cols])
+            sql = text(f"UPDATE {quote_ident(table)} SET {set_clause} WHERE {where}")
+            params = {f"s_{c}": clean[c] for c in set_cols}
+            params.update(where_params)
+            conn.execute(sql, params)
 
         return "atualizado"
 
     cols = list(clean.keys())
-    sql = f"INSERT INTO {table} ({', '.join(cols)}) VALUES ({', '.join(['?'] * len(cols))})"
-    conn.execute(sql, [clean[c] for c in cols])
+    col_list = ", ".join([quote_ident(c) for c in cols])
+    val_list = ", ".join([f":i_{c}" for c in cols])
+    sql = text(f"INSERT INTO {quote_ident(table)} ({col_list}) VALUES ({val_list})")
+    conn.execute(sql, {f"i_{c}": clean[c] for c in cols})
 
     return "criado"
 
@@ -533,6 +544,7 @@ async def importar_excel(entity_key: str, arquivo: UploadFile = File(...)):
     erros = []
 
     conn = get_conn()
+    trans = conn.begin()
 
     try:
         if not table_exists(conn, cfg["table"]):
@@ -566,10 +578,10 @@ async def importar_excel(entity_key: str, arquivo: UploadFile = File(...)):
                 )
                 erros.append((linha, error_id, str(exc)))
 
-        conn.commit()
+        trans.commit()
 
     except Exception as exc:
-        conn.rollback()
+        trans.rollback()
         error_id = log_error(
             "ERRO_IMPORTACAO_EXCEL",
             exc,
