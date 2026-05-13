@@ -74,13 +74,33 @@ def upgrade():
 
     # 4. Preencher id_cargo_autonomo pelo tipo_autonomo
     if _has_table(bind, "dim_autonomos") and _has_column(bind, "dim_autonomos", "id_cargo_autonomo"):
-        bind.execute(sa.text("""
-            UPDATE dim_autonomos a
-            SET id_cargo_autonomo = c.id_cargo_autonomo
-            FROM dim_cargos_autonomos c
-            WHERE LOWER(TRIM(COALESCE(a.tipo_autonomo, ''))) = LOWER(TRIM(COALESCE(c.nome_cargo, '')))
-              AND a.id_cargo_autonomo IS NULL
-        """))
+        dialect = bind.dialect.name
+
+        if dialect == "postgresql":
+            bind.execute(sa.text("""
+                UPDATE dim_autonomos AS a
+                SET id_cargo_autonomo = c.id_cargo_autonomo
+                FROM dim_cargos_autonomos AS c
+                WHERE LOWER(TRIM(COALESCE(a.tipo_autonomo, ''))) = LOWER(TRIM(COALESCE(c.nome_cargo, '')))
+                  AND a.id_cargo_autonomo IS NULL
+            """))
+        else:
+            # Compatível com SQLite
+            bind.execute(sa.text("""
+                UPDATE dim_autonomos
+                SET id_cargo_autonomo = (
+                    SELECT c.id_cargo_autonomo
+                    FROM dim_cargos_autonomos c
+                    WHERE LOWER(TRIM(COALESCE(dim_autonomos.tipo_autonomo, ''))) = LOWER(TRIM(COALESCE(c.nome_cargo, '')))
+                    LIMIT 1
+                )
+                WHERE id_cargo_autonomo IS NULL
+                  AND EXISTS (
+                    SELECT 1
+                    FROM dim_cargos_autonomos c
+                    WHERE LOWER(TRIM(COALESCE(dim_autonomos.tipo_autonomo, ''))) = LOWER(TRIM(COALESCE(c.nome_cargo, '')))
+                  )
+            """))
 
 
 def downgrade():
