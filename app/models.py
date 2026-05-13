@@ -52,7 +52,6 @@ class DimAutonomo(Base):
     id_cargo_autonomo = Column(Integer, ForeignKey("dim_cargos_autonomos.id_cargo_autonomo"))
 
 fatos = relationship("FatoPilotoAutonomoProva", foreign_keys="FatoPilotoAutonomoProva.id_autonomo", back_populates="autonomo")
-    cargo = relationship("DimCargoAutonomo", foreign_keys=[id_cargo_autonomo])
 
 class DimEtapa(Base):
     __tablename__ = "dim_etapas"
