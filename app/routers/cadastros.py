@@ -149,7 +149,7 @@ def autonomos(request: Request, q: str = "", db: Session = Depends(get_db)):
     query = db.query(DimAutonomo)
     if q:
         like = f"%{q}%"
-        query = query.filter(or_(DimAutonomo.nome_autonomo.ilike(like), DimAutonomo.tipo_autonomo.ilike(like), DimAutonomo.especialidade.ilike(like), DimAutonomo.status_autonomo.ilike(like)))
+        query = query.filter(or_(DimAutonomo.nome_autonomo.ilike(like), DimAutonomo.tipo_autonomo.ilike(like), DimAutonomo.status_autonomo.ilike(like)))
     return templates.TemplateResponse("cadastros/autonomos.html", {"request": request, "items": query.order_by(DimAutonomo.nome_autonomo).all(), "q": q, **lists(db), **flash_from_request(request)})
 
 
@@ -163,7 +163,6 @@ def salvar_autonomo(
     email: str = Form(""),
     tipo_autonomo: str = Form(""),
     id_cargo_autonomo: str = Form(""),
-    especialidade: str = Form(""),
     data_inclusao: str = Form(""),
     status_autonomo: str = Form("Ativo"),
     observacoes: str = Form(""),
@@ -184,7 +183,6 @@ def salvar_autonomo(
     cargo_obj = db.get(DimCargoAutonomo, int(id_cargo_autonomo)) if id_cargo_autonomo else None
     autonomo.id_cargo_autonomo = int(id_cargo_autonomo) if id_cargo_autonomo else None
     autonomo.tipo_autonomo = cargo_obj.nome_cargo if cargo_obj else tipo_autonomo
-    autonomo.especialidade = especialidade
     autonomo.data_inclusao = parse_date(data_inclusao) or autonomo.data_inclusao
     autonomo.status_autonomo = status_autonomo
     autonomo.observacoes = observacoes

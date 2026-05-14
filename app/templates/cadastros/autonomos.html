@@ -1,23 +1,26 @@
 {% extends "base.html" %}
 
-{% block header %}Autônomos
+{% block header %}Autonomos
 <script>
 function novoCadastro() {
   const form = document.querySelector("form[method='post']");
-  if (form) form.action = "/autonomos";
-  form?.reset();
+  if (form) {
+    form.action = "/autonomos";
+    form.reset();
+  }
 
-  const form = document.querySelector("form[method='post']");
-  if (form && data.id_autonomo) {
-    form.action = "/autonomos?" + "current_id_autonomo=" + encodeURIComponent(data.id_autonomo);
+  const preview = document.getElementById("preview_foto_autonomo");
+  if (preview) {
+    preview.src = "";
+    preview.style.display = "none";
   }
 
   window.scrollTo({ top: 0, behavior: "smooth" });
 }
 </script>
-
 {% endblock %}
-{% block subtitle %}Cadastre os autônomos e associe o cargo para filtrar na alocação{% endblock %}
+
+{% block subtitle %}Cadastre os autonomos e associe o cargo para filtrar na alocacao{% endblock %}
 
 {% block header_action %}
 <button type="button" class="quick-action primary btn-novo-cadastro" onclick="novoCadastro()">+ Novo</button>
@@ -30,26 +33,26 @@ function novoCadastro() {
 
 <section class="panel mb-6">
   <form method="get" class="flex gap-3">
-    <input class="input" name="q" placeholder="Pesquisar por nome, cargo, especialidade ou status" value="{{ q }}">
+    <input class="input" name="q" placeholder="Pesquisar por nome, cargo ou status" value="{{ q }}">
     <button class="btn-secondary">Pesquisar</button>
   </form>
 </section>
 
 <section class="panel mb-6">
   <div class="panel-head">
-    <h3>Novo / editar autônomo</h3>
+    <h3>Novo / editar autonomo</h3>
   </div>
 
   <form method="post" class="form-grid" enctype="multipart/form-data">
-<div>
-      <label class="label">ID Autônomo</label>
-      <input class="input" type="number" name="id_autonomo" id="id_autonomo" placeholder="Automático">
-      <p class="text-sm text-zinc-500 mt-1">Deixe em branco para gerar automático.</p>
+    <div>
+      <label class="label">ID Autonomo</label>
+      <input class="input" type="number" name="id_autonomo" id="id_autonomo" placeholder="Automatico">
+      <p class="text-sm text-zinc-500 mt-1">Deixe em branco para gerar automatico.</p>
     </div>
     <input type="hidden" name="foto_url" id="foto_url">
 
     <div class="span-3">
-      <label class="label">Foto do autônomo</label>
+      <label class="label">Foto do autonomo</label>
       <div class="upload-photo-box">
         <img id="preview_foto_autonomo" class="upload-photo-preview" src="" style="display:none;">
         <div>
@@ -72,12 +75,11 @@ function novoCadastro() {
           <option value="{{ c.id_cargo_autonomo }}">{{ c.nome_cargo }}</option>
         {% endfor %}
       </select>
-      
-    <div>
-      <label class="label">Tipo autônomo</label>
-      <input class="input" name="tipo_autonomo" id="tipo_autonomo">
     </div>
 
+    <div>
+      <label class="label">Tipo autonomo</label>
+      <input class="input" name="tipo_autonomo" id="tipo_autonomo">
     </div>
 
     <div>
@@ -96,12 +98,7 @@ function novoCadastro() {
     </div>
 
     <div>
-      <label class="label">Especialidade</label>
-      <input class="input" name="especialidade" id="especialidade" placeholder="Ex.: motor, suspensão, dados">
-    </div>
-
-    <div>
-      <label class="label">Data inclusão</label>
+      <label class="label">Data inclusao</label>
       <input class="input" type="date" name="data_inclusao" id="data_inclusao">
     </div>
 
@@ -114,18 +111,18 @@ function novoCadastro() {
       </select>
     </div>
 
-    
     <div class="span-3">
-      <label class="label">Motivo saída</label>
+      <label class="label">Motivo saida</label>
       <textarea class="input" name="motivo_saida" id="motivo_saida"></textarea>
     </div>
-<div class="span-3">
-      <label class="label">Observações</label>
+
+    <div class="span-3">
+      <label class="label">Observacoes</label>
       <textarea class="input" name="observacoes" id="observacoes"></textarea>
     </div>
 
     <div class="span-3 ux-actions-row">
-      <button class="btn-primary">Salvar autônomo</button>
+      <button class="btn-primary">Salvar autonomo</button>
       <a class="btn-muted" href="/cargos-autonomos">Cadastrar cargos</a>
     </div>
   </form>
@@ -137,11 +134,10 @@ function novoCadastro() {
       <tr>
         <th>Foto</th>
         <th>ID</th>
-        <th>Autônomo</th>
+        <th>Autonomo</th>
         <th>Cargo</th>
-        <th>Especialidade</th>
         <th>Status</th>
-        <th>Ações</th>
+        <th>Acoes</th>
       </tr>
     </thead>
 
@@ -159,14 +155,13 @@ function novoCadastro() {
         <td><span class="id-pill">{{ a.id_autonomo or "-" }}</span></td>
         <td class="font-bold">{{ a.nome_autonomo }}</td>
         <td>{{ a.tipo_autonomo or '-' }}</td>
-        <td>{{ a.especialidade or '-' }}</td>
         <td><span class="badge badge-{{ a.status_autonomo|lower }}">{{ a.status_autonomo }}</span></td>
         <td class="actions">
           <button
             class="btn-muted"
             type="button"
             onclick="editarAutonomo(this)"
-            data-fill=\'{"current_id_autonomo":"{{a.id_autonomo}}","id_autonomo":"{{a.id_autonomo}}","nome_autonomo":"{{a.nome_autonomo}}","cpf":"{{a.cpf or ''}}","telefone":"{{a.telefone or ''}}","email":"{{a.email or ''}}","id_cargo_autonomo":"{{a.id_cargo_autonomo or ''}}","tipo_autonomo":"{{a.tipo_autonomo or ''}}","especialidade":"{{a.especialidade or ''}}","data_inclusao":"{{a.data_inclusao}}","status_autonomo":"{{a.status_autonomo}}","observacoes":"{{a.observacoes or ''}}","foto_url":"{{a.foto_url or ''}}"}'
+            data-fill='{"current_id_autonomo":"{{ a.id_autonomo }}","id_autonomo":"{{ a.id_autonomo }}","nome_autonomo":"{{ a.nome_autonomo }}","cpf":"{{ a.cpf or "" }}","telefone":"{{ a.telefone or "" }}","email":"{{ a.email or "" }}","id_cargo_autonomo":"{{ a.id_cargo_autonomo or "" }}","tipo_autonomo":"{{ a.tipo_autonomo or "" }}","data_inclusao":"{{ a.data_inclusao }}","status_autonomo":"{{ a.status_autonomo }}","observacoes":"{{ a.observacoes or "" }}","foto_url":"{{ a.foto_url or "" }}"}'
           >
             Editar
           </button>
@@ -180,7 +175,7 @@ function novoCadastro() {
       </tr>
       {% else %}
       <tr>
-        <td colspan="6" class="empty">Nenhum autônomo cadastrado.</td>
+        <td colspan="6" class="empty">Nenhum autonomo cadastrado.</td>
       </tr>
       {% endfor %}
     </tbody>
@@ -197,7 +192,6 @@ function editarAutonomo(btn) {
   });
 
   const preview = document.getElementById("preview_foto_autonomo");
-
   if (data.foto_url) {
     preview.src = data.foto_url;
     preview.style.display = "block";
@@ -205,7 +199,6 @@ function editarAutonomo(btn) {
     preview.src = "";
     preview.style.display = "none";
   }
-
 
   const form = document.querySelector("form[method='post']");
   if (form && data.id_autonomo) {
