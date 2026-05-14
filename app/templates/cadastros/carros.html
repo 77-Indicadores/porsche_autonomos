@@ -87,7 +87,8 @@
     <tbody>
       {% for c in items %}
       <tr>
-        <td class="font-bold">{{ c.numero_carro }}</td>
+        <td class="font-bold"><!-- id-no-nome-id_carro -->
+<span class="id-inline">#{{ c.id_carro or "-" }}</span> {{ c.numero_carro }}</td>
         <td>{{ c.modelo or '-' }}</td>
         <td>{{ c.categoria_padrao or '-' }}</td>
         <td>{{ c.chassi or '-' }}</td>

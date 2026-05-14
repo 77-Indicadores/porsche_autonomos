@@ -107,7 +107,8 @@
           {% endif %}
         </td>
 
-        <td class="font-bold">{{ p.nome_piloto }}</td>
+        <td class="font-bold"><!-- id-no-nome-id_piloto -->
+<span class="id-inline">#{{ p.id_piloto or "-" }}</span> {{ p.nome_piloto }}</td>
         <td>{{ p.cpf or '-' }}</td>
         <td>{{ p.telefone or '-' }}</td>
         <td><span class="badge badge-{{ p.status_piloto|lower }}">{{ p.status_piloto }}</span></td>

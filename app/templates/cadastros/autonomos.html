@@ -125,7 +125,8 @@
           {% endif %}
         </td>
 
-        <td class="font-bold">{{ a.nome_autonomo }}</td>
+        <td class="font-bold"><!-- id-no-nome-id_autonomo -->
+<span class="id-inline">#{{ a.id_autonomo or "-" }}</span> {{ a.nome_autonomo }}</td>
         <td>{{ a.tipo_autonomo or '-' }}</td>
         <td>{{ a.especialidade or '-' }}</td>
         <td><span class="badge badge-{{ a.status_autonomo|lower }}">{{ a.status_autonomo }}</span></td>
