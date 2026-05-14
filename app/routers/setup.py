@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models import (
     DimAutonomo,
+    DimCarro,
     DimEtapa,
     DimMotivoTroca,
     DimPiloto,
@@ -26,6 +27,7 @@ def setup_home(request: Request, db: Session = Depends(get_db)):
         {"titulo": "Autônomos", "qtd": db.query(DimAutonomo).count(), "url": "/autonomos", "excel": "/excel/modelo/autonomos"},
         {"titulo": "Etapas", "qtd": db.query(DimEtapa).count(), "url": "/etapas", "excel": "/excel/modelo/etapas"},
         {"titulo": "Tipos de Prova", "qtd": db.query(DimTipoProva).count(), "url": "/tipos-prova", "excel": "/excel/modelo/tipos-prova"},
+        {"titulo": "Carros", "qtd": db.query(DimCarro).count(), "url": "/carros", "excel": "/excel/modelo/carros"},
         {"titulo": "Provas", "qtd": db.query(DimProva).count(), "url": "/provas", "excel": "/excel/modelo/provas"},
         {"titulo": "Motivos de Troca", "qtd": db.query(DimMotivoTroca).count(), "url": "/motivos-troca", "excel": "/excel/modelo/motivos-troca"},
         {"titulo": "Status Pagamento", "qtd": db.query(DimStatusPagamento).count(), "url": "/excel/", "excel": "/excel/modelo/status-pagamento"},
