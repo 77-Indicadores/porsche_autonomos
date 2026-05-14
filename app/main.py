@@ -7,13 +7,12 @@ from starlette.responses import RedirectResponse
 
 from app.auth import SESSION_COOKIE, read_session_token
 from app.database import Base, engine
-from app.routers import alocacoes, auth, cadastros, dashboard, relatorios, usuarios
+from app.routers import alocacoes, auth, cadastros, dashboard, relatorios, usuarios, referencias_importacao
 
 
 Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="Porsche Cup Autonomos")
-
 
 
 # ============================================================
@@ -303,7 +302,6 @@ except Exception as exc:
     print(traceback.format_exc())
 
 
-
 # ============================================================
 # Router Cadastro de Carros
 # ============================================================
@@ -311,9 +309,13 @@ try:
     import importlib
     carros_runtime = importlib.import_module("app.routers.carros")
     app.include_router(carros_runtime.router)
+
     print("OK - Rota /carros registrada.")
 except Exception as exc:
     import traceback
     print("ERRO AO REGISTRAR /carros")
     print(exc)
     print(traceback.format_exc())
+
+# Rota de referência de IDs para importação Excel
+app.include_router(referencias_importacao.router)

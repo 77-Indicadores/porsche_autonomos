@@ -1,0 +1,230 @@
+
+{% extends "base.html" %}
+
+{% block header %}IDs para Importação{% endblock %}
+{% block subtitle %}Consulte os códigos usados nos layouts Excel antes de preencher os arquivos de importação{% endblock %}
+
+{% block content %}
+
+<section class="panel mb-6">
+  <div class="alert alert-info">
+    <strong>Importante:</strong>
+    esta tela serve como referência para preencher os campos de importação:
+    <code>id_piloto</code>, <code>id_autonomo</code>, <code>id_etapa</code>,
+    <code>id_prova</code>, <code>id_carro</code>, <code>id_cargo_autonomo</code>
+    e <code>id_motivo_troca</code>.
+  </div>
+</section>
+
+<div class="ids-importacao-grid">
+
+  <section class="panel">
+    <div class="panel-head">
+      <h3>Pilotos</h3>
+      <span class="muted">Campo no Excel: <code>id_piloto</code></span>
+    </div>
+    <div class="table-wrap">
+      <table class="table">
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Piloto</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for item in pilotos %}
+          <tr>
+            <td><span class="id-pill">#{{ item.id_piloto }}</span></td>
+            <td>{{ item.nome_piloto }}</td>
+            <td>{{ item.status_piloto or "-" }}</td>
+          </tr>
+          {% else %}
+          <tr><td colspan="3">Nenhum piloto cadastrado.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="panel">
+    <div class="panel-head">
+      <h3>Autônomos</h3>
+      <span class="muted">Campo no Excel: <code>id_autonomo</code></span>
+    </div>
+    <div class="table-wrap">
+      <table class="table">
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Autônomo</th>
+            <th>Tipo</th>
+            <th>ID Cargo</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for item in autonomos %}
+          <tr>
+            <td><span class="id-pill">#{{ item.id_autonomo }}</span></td>
+            <td>{{ item.nome_autonomo }}</td>
+            <td>{{ item.tipo_autonomo or "-" }}</td>
+            <td>{{ item.id_cargo_autonomo or "-" }}</td>
+          </tr>
+          {% else %}
+          <tr><td colspan="4">Nenhum autônomo cadastrado.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="panel">
+    <div class="panel-head">
+      <h3>Etapas</h3>
+      <span class="muted">Campo no Excel: <code>id_etapa</code></span>
+    </div>
+    <div class="table-wrap">
+      <table class="table">
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Etapa</th>
+            <th>Temporada</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for item in etapas %}
+          <tr>
+            <td><span class="id-pill">#{{ item.id_etapa }}</span></td>
+            <td>{{ item.nome_etapa }}</td>
+            <td>{{ item.temporada or "-" }}</td>
+          </tr>
+          {% else %}
+          <tr><td colspan="3">Nenhuma etapa cadastrada.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="panel">
+    <div class="panel-head">
+      <h3>Categorias</h3>
+      <span class="muted">Campo no Excel: <code>id_prova</code></span>
+    </div>
+    <div class="table-wrap">
+      <table class="table">
+        <thead>
+          <tr>
+            <th>ID Categoria</th>
+            <th>Categoria</th>
+            <th>ID Etapa</th>
+            <th>ID Tipo</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for item in categorias %}
+          <tr>
+            <td><span class="id-pill">#{{ item.id_prova }}</span></td>
+            <td>{{ item.nome_prova }}</td>
+            <td>{{ item.id_etapa or "-" }}</td>
+            <td>{{ item.id_tipo_prova or "-" }}</td>
+          </tr>
+          {% else %}
+          <tr><td colspan="4">Nenhuma categoria cadastrada.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="panel">
+    <div class="panel-head">
+      <h3>Carros</h3>
+      <span class="muted">Campo no Excel: <code>id_carro</code></span>
+    </div>
+    <div class="table-wrap">
+      <table class="table">
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Número</th>
+            <th>Modelo</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for item in carros %}
+          <tr>
+            <td><span class="id-pill">#{{ item.id_carro }}</span></td>
+            <td>{{ item.numero_carro }}</td>
+            <td>{{ item.modelo or "-" }}</td>
+          </tr>
+          {% else %}
+          <tr><td colspan="3">Nenhum carro cadastrado.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="panel">
+    <div class="panel-head">
+      <h3>Cargos de Autônomos</h3>
+      <span class="muted">Campo no Excel: <code>id_cargo_autonomo</code></span>
+    </div>
+    <div class="table-wrap">
+      <table class="table">
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Cargo</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for item in cargos %}
+          <tr>
+            <td><span class="id-pill">#{{ item.id_cargo_autonomo }}</span></td>
+            <td>{{ item.nome_cargo }}</td>
+            <td>{{ item.status or "-" }}</td>
+          </tr>
+          {% else %}
+          <tr><td colspan="3">Nenhum cargo cadastrado.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="panel">
+    <div class="panel-head">
+      <h3>Motivos de Troca</h3>
+      <span class="muted">Campo no Excel: <code>id_motivo_troca</code></span>
+    </div>
+    <div class="table-wrap">
+      <table class="table">
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Motivo</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for item in motivos %}
+          <tr>
+            <td><span class="id-pill">#{{ item.id_motivo_troca }}</span></td>
+            <td>{{ item.motivo_troca }}</td>
+            <td>{{ item.status or "-" }}</td>
+          </tr>
+          {% else %}
+          <tr><td colspan="3">Nenhum motivo cadastrado.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+</div>
+
+{% endblock %}
