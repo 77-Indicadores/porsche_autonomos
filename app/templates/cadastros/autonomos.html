@@ -1,6 +1,22 @@
 {% extends "base.html" %}
 
-{% block header %}Autônomos{% endblock %}
+{% block header %}Autônomos
+<script>
+function novoCadastro() {
+  const form = document.querySelector("form[method='post']");
+  if (form) form.action = "/autonomos";
+  form?.reset();
+
+  const form = document.querySelector("form[method='post']");
+  if (form && data.id_autonomo) {
+    form.action = "/autonomos?" + "current_id_autonomo=" + encodeURIComponent(data.id_autonomo);
+  }
+
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+</script>
+
+{% endblock %}
 {% block subtitle %}Cadastre os autônomos e associe o cargo para filtrar na alocação{% endblock %}
 
 {% block header_action %}
@@ -25,7 +41,11 @@
   </div>
 
   <form method="post" class="form-grid" enctype="multipart/form-data">
-    <input type="hidden" name="id_autonomo" id="id_autonomo">
+<div>
+      <label class="label">ID Autônomo</label>
+      <input class="input" type="number" name="id_autonomo" id="id_autonomo" placeholder="Automático">
+      <p class="text-sm text-zinc-500 mt-1">Deixe em branco para gerar automático.</p>
+    </div>
     <input type="hidden" name="foto_url" id="foto_url">
 
     <div class="span-3">
@@ -52,7 +72,12 @@
           <option value="{{ c.id_cargo_autonomo }}">{{ c.nome_cargo }}</option>
         {% endfor %}
       </select>
-      <input type="hidden" name="tipo_autonomo" id="tipo_autonomo">
+      
+    <div>
+      <label class="label">Tipo autônomo</label>
+      <input class="input" name="tipo_autonomo" id="tipo_autonomo">
+    </div>
+
     </div>
 
     <div>
@@ -89,7 +114,12 @@
       </select>
     </div>
 
+    
     <div class="span-3">
+      <label class="label">Motivo saída</label>
+      <textarea class="input" name="motivo_saida" id="motivo_saida"></textarea>
+    </div>
+<div class="span-3">
       <label class="label">Observações</label>
       <textarea class="input" name="observacoes" id="observacoes"></textarea>
     </div>
@@ -106,7 +136,8 @@
     <thead>
       <tr>
         <th>Foto</th>
-        <th>ID / Autônomo</th>
+        <th>ID</th>
+        <th>Autônomo</th>
         <th>Cargo</th>
         <th>Especialidade</th>
         <th>Status</th>
@@ -125,8 +156,8 @@
           {% endif %}
         </td>
 
-        <td class="font-bold"><!-- id-no-nome-id_autonomo -->
-<span class="id-inline">#{{ a.id_autonomo or "-" }}</span> {{ a.nome_autonomo }}</td>
+        <td><span class="id-pill">{{ a.id_autonomo or "-" }}</span></td>
+        <td class="font-bold">{{ a.nome_autonomo }}</td>
         <td>{{ a.tipo_autonomo or '-' }}</td>
         <td>{{ a.especialidade or '-' }}</td>
         <td><span class="badge badge-{{ a.status_autonomo|lower }}">{{ a.status_autonomo }}</span></td>
@@ -135,14 +166,14 @@
             class="btn-muted"
             type="button"
             onclick="editarAutonomo(this)"
-            data-fill='{"id_autonomo":"{{a.id_autonomo}}","nome_autonomo":"{{a.nome_autonomo}}","cpf":"{{a.cpf or ''}}","telefone":"{{a.telefone or ''}}","email":"{{a.email or ''}}","id_cargo_autonomo":"{{a.id_cargo_autonomo or ''}}","tipo_autonomo":"{{a.tipo_autonomo or ''}}","especialidade":"{{a.especialidade or ''}}","data_inclusao":"{{a.data_inclusao}}","status_autonomo":"{{a.status_autonomo}}","observacoes":"{{a.observacoes or ''}}","foto_url":"{{a.foto_url or ''}}"}'
+            data-fill=\'{"current_id_autonomo":"{{a.id_autonomo}}","id_autonomo":"{{a.id_autonomo}}","nome_autonomo":"{{a.nome_autonomo}}","cpf":"{{a.cpf or ''}}","telefone":"{{a.telefone or ''}}","email":"{{a.email or ''}}","id_cargo_autonomo":"{{a.id_cargo_autonomo or ''}}","tipo_autonomo":"{{a.tipo_autonomo or ''}}","especialidade":"{{a.especialidade or ''}}","data_inclusao":"{{a.data_inclusao}}","status_autonomo":"{{a.status_autonomo}}","observacoes":"{{a.observacoes or ''}}","foto_url":"{{a.foto_url or ''}}"}'
           >
             Editar
           </button>
 
           <form method="post" action="/autonomos/{{ a.id_autonomo }}/desligar" class="actions">
             <input class="input" type="date" name="data_saida" required>
-            <input class="input" name="motivo" placeholder="Motivo" required>
+            <input class="input" name="motivo_saida" placeholder="Motivo" required>
             <button class="btn-danger">Desligar</button>
           </form>
         </td>
@@ -173,6 +204,12 @@ function editarAutonomo(btn) {
   } else {
     preview.src = "";
     preview.style.display = "none";
+  }
+
+
+  const form = document.querySelector("form[method='post']");
+  if (form && data.id_autonomo) {
+    form.action = "/autonomos?" + "current_id_autonomo=" + encodeURIComponent(data.id_autonomo);
   }
 
   window.scrollTo({ top: 0, behavior: "smooth" });

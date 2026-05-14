@@ -1,21 +1,156 @@
-
-<div class="excel-import-box">
-    <span class="excel-title">Excel - Etapas</span>
-
-    <a href="/excel/modelo/etapas">
-        Baixar modelo
-    </a>
-
-    <form action="/excel/importar/etapas" method="post" enctype="multipart/form-data" style="display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin:0;">
-        <input type="file" name="arquivo" accept=".xlsx" required>
-        <button type="submit">Importar Excel</button>
-    </form>
-</div>
-
 {% extends "base.html" %}
+
+{% block header %}Etapas{% endblock %}
+{% block subtitle %}Cadastro das etapas da temporada. O ID pode ser automático ou informado manualmente para bater com o layout de importação.{% endblock %}
 
 {% block header_action %}
 <button type="button" class="quick-action primary btn-novo-cadastro" onclick="novoCadastro()">+ Novo</button>
-{% endblock %}{% block header %}Etapas{% endblock %}
-{% block content %}<section class="panel mb-6"><form method="post" class="form-grid"><div><label class="label">Temporada</label><input class="input" name="temporada" value="2026" required></div><div><label class="label">Nome etapa</label><input class="input" name="nome_etapa" required></div><div><label class="label">Local</label><input class="input" name="local"></div><div><label class="label">Inicio</label><input class="input" type="date" name="data_inicio"></div><div><label class="label">Fim</label><input class="input" type="date" name="data_fim"></div><div><label class="label">Status</label><select class="input" name="status_etapa">{% for s in ['Planejada','Em andamento','Concluida','Cancelada'] %}<option>{{ s }}</option>{% endfor %}</select></div><div class="span-3"><label class="label">Observacoes</label><textarea class="input" name="observacoes"></textarea></div><div><button class="btn-primary">Cadastrar etapa</button></div></form></section><section class="panel"><table class="table"><thead><tr><th>Temporada</th><th>ID / Etapa</th><th>Local</th><th>Periodo</th><th>Status</th></tr></thead><tbody>{% for e in items %}<tr><td>{{ e.temporada }}</td><td class="font-bold"><!-- id-no-nome-id_etapa -->
-<span class="id-inline">#{{ e.id_etapa or "-" }}</span> {{ e.nome_etapa }}</td><td>{{ e.local }}</td><td>{{ e.data_inicio|date_br }} a {{ e.data_fim|date_br }}</td><td><span class="badge badge-{{ e.status_etapa|lower|replace(' ', '-') }}">{{ e.status_etapa }}</span></td></tr>{% endfor %}</tbody></table></section>{% endblock %}
+<a class="quick-action light" href="/excel/modelo/etapas">Modelo Excel</a>
+<a class="quick-action light" href="/excel/">Importar Excel</a>
+{% endblock %}
+
+{% block content %}
+
+<section class="panel mb-6">
+  <div class="panel-head">
+    <h3>Novo / editar etapa</h3>
+  </div>
+
+  <form method="post" class="form-grid" id="form_etapa">
+
+    <div>
+      <label class="label">ID Etapa</label>
+      <input class="input" type="number" name="id_etapa" id="id_etapa" placeholder="Automático">
+      <p class="text-sm text-zinc-500 mt-1">Deixe em branco para gerar automático ou informe o ID do layout.</p>
+    </div>
+
+    <div>
+      <label class="label">Temporada</label>
+      <input class="input" name="temporada" id="temporada" value="2026" required>
+    </div>
+
+    <div>
+      <label class="label">Nome etapa</label>
+      <input class="input" name="nome_etapa" id="nome_etapa" required>
+    </div>
+
+    <div>
+      <label class="label">Local</label>
+      <input class="input" name="local" id="local">
+    </div>
+
+    <div>
+      <label class="label">Data início</label>
+      <input class="input" type="date" name="data_inicio" id="data_inicio">
+    </div>
+
+    <div>
+      <label class="label">Data fim</label>
+      <input class="input" type="date" name="data_fim" id="data_fim">
+    </div>
+
+    <div>
+      <label class="label">Status</label>
+      <select class="input" name="status_etapa" id="status_etapa">
+        {% for s in ['Planejada','Confirmada','Cancelada','Concluída'] %}
+          <option>{{ s }}</option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div class="span-3">
+      <label class="label">Observações</label>
+      <textarea class="input" name="observacoes" id="observacoes"></textarea>
+    </div>
+
+    <div class="span-3 ux-actions-row">
+      <button class="btn-primary">Salvar etapa</button>
+    </div>
+  </form>
+</section>
+
+<section class="panel">
+  <div class="table-wrap">
+    <table class="table">
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Temporada</th>
+          <th>Etapa</th>
+          <th>Local</th>
+          <th>Período</th>
+          <th>Status</th>
+          <th>Ações</th>
+        </tr>
+      </thead>
+
+      <tbody>
+        {% for e in items %}
+        <tr>
+          <td><span class="id-pill">{{ e.id_etapa }}</span></td>
+          <td>{{ e.temporada or "-" }}</td>
+          <td class="font-bold">{{ e.nome_etapa }}</td>
+          <td>{{ e.local or "-" }}</td>
+          <td>
+            {% if e.data_inicio or e.data_fim %}
+              {{ e.data_inicio.strftime('%d/%m/%Y') if e.data_inicio else '-' }}
+              a
+              {{ e.data_fim.strftime('%d/%m/%Y') if e.data_fim else '-' }}
+            {% else %}
+              -
+            {% endif %}
+          </td>
+          <td><span class="badge">{{ e.status_etapa or "-" }}</span></td>
+          <td class="actions">
+            <button
+              class="btn-muted"
+              type="button"
+              onclick="editarEtapa(this)"
+              data-fill='{"id_etapa":"{{ e.id_etapa }}","temporada":"{{ e.temporada or '' }}","nome_etapa":"{{ e.nome_etapa or '' }}","local":"{{ e.local or '' }}","data_inicio":"{{ e.data_inicio or '' }}","data_fim":"{{ e.data_fim or '' }}","status_etapa":"{{ e.status_etapa or '' }}","observacoes":"{{ e.observacoes or '' }}"}'
+            >
+              Editar
+            </button>
+          </td>
+        </tr>
+        {% else %}
+        <tr>
+          <td colspan="7" class="empty">Nenhuma etapa cadastrada.</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<script>
+function editarEtapa(btn) {
+  const data = JSON.parse(btn.dataset.fill || "{}");
+
+  Object.keys(data).forEach(k => {
+    const el = document.getElementById(k);
+    if (el) el.value = data[k] || "";
+  });
+
+  const form = document.getElementById("form_etapa");
+  if (form && data.id_etapa) {
+    form.action = "/etapas?current_id_etapa=" + encodeURIComponent(data.id_etapa);
+  }
+
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+function novoCadastro() {
+  const form = document.getElementById("form_etapa");
+  if (form) {
+    form.action = "/etapas";
+    form.reset();
+  }
+
+  const temporada = document.getElementById("temporada");
+  if (temporada && !temporada.value) temporada.value = "2026";
+
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+</script>
+
+{% endblock %}

@@ -1,6 +1,22 @@
 {% extends "base.html" %}
 
-{% block header %}Tipos de Categoria{% endblock %}
+{% block header %}Tipos de Categoria
+<script>
+function novoCadastro() {
+  const form = document.querySelector("form[method='post']");
+  if (form) form.action = "/tipos-prova";
+  form?.reset();
+
+  const form = document.querySelector("form[method='post']");
+  if (form && data.id_tipo_prova) {
+    form.action = "/tipos-prova?" + "current_id_tipo_prova=" + encodeURIComponent(data.id_tipo_prova);
+  }
+
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+</script>
+
+{% endblock %}
 {% block subtitle %}Cadastre e edite os tipos de prova usados nas etapas{% endblock %}
 
 {% block header_action %}
@@ -21,7 +37,13 @@
   </div>
 
   <form method="post" class="form-grid">
-    <input type="hidden" name="id_tipo_prova" id="id_tipo_prova">
+    
+    <div>
+      <label class="label">ID Tipo</label>
+      <input class="input" type="number" name="id_tipo_prova" id="id_tipo_prova" placeholder="Automático">
+      <p class="text-sm text-zinc-500 mt-1">Deixe em branco para gerar automático ou informe o ID do layout.</p>
+    </div>
+
 
     <div>
       <label class="label">Nome</label>
@@ -102,6 +124,12 @@ function editarTipo(btn) {
   document.getElementById("descricao").value = btn.dataset.descricao || "";
   document.getElementById("form-title").innerText = "Editar tipo de categoria";
   document.getElementById("btn-salvar").innerText = "Atualizar tipo";
+
+  const form = document.querySelector("form[method='post']");
+  if (form && data.id_tipo_prova) {
+    form.action = "/tipos-prova?" + "current_id_tipo_prova=" + encodeURIComponent(data.id_tipo_prova);
+  }
+
   window.scrollTo({ top: 0, behavior: "smooth" });
 }
 

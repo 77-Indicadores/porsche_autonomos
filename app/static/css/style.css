@@ -1555,6 +1555,7 @@ textarea:focus {
 
 /* Tela de IDs para Importação */
 .id-pill{
+  min-width:42px;
   display:inline-flex;
   align-items:center;
   justify-content:center;

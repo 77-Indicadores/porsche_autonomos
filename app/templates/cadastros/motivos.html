@@ -1,6 +1,22 @@
 {% extends "base.html" %}
 
-{% block header %}Motivos de Troca{% endblock %}
+{% block header %}Motivos de Troca
+<script>
+function novoCadastro() {
+  const form = document.querySelector("form[method='post']");
+  if (form) form.action = "/motivos-troca";
+  form?.reset();
+
+  const form = document.querySelector("form[method='post']");
+  if (form && data.id_motivo_troca) {
+    form.action = "/motivos-troca?" + "current_id_motivo_troca=" + encodeURIComponent(data.id_motivo_troca);
+  }
+
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+</script>
+
+{% endblock %}
 {% block subtitle %}Cadastre e edite os motivos usados nas substituições de autônomos{% endblock %}
 
 {% block header_action %}
@@ -21,7 +37,11 @@
   </div>
 
   <form method="post" class="form-grid">
-    <input type="hidden" name="id_motivo_troca" id="id_motivo_troca">
+<div>
+      <label class="label">ID Motivo</label>
+      <input class="input" type="number" name="id_motivo_troca" id="id_motivo_troca" placeholder="Automático">
+      <p class="text-sm text-zinc-500 mt-1">Deixe em branco para gerar automático.</p>
+    </div>
 
     <div>
       <label class="label">ID / Motivo</label>
@@ -67,8 +87,8 @@
       <tbody>
         {% for i in items %}
         <tr>
-          <td class="font-bold"><!-- id-no-nome-id_motivo_troca -->
-<span class="id-inline">#{{ i.id_motivo_troca or "-" }}</span> {{ i.motivo_troca }}</td>
+          <td><span class="id-pill">{{ i.id_motivo_troca or "-" }}</span></td>
+        <td class="font-bold">{{ i.motivo_troca }}</td>
           <td>{{ i.status }}</td>
           <td>{{ i.descricao or '-' }}</td>
           <td>
@@ -103,6 +123,12 @@ function editarMotivo(btn) {
   document.getElementById("descricao").value = btn.dataset.descricao || "";
   document.getElementById("form-title").innerText = "Editar motivo de troca";
   document.getElementById("btn-salvar").innerText = "Atualizar motivo";
+
+  const form = document.querySelector("form[method='post']");
+  if (form && data.id_motivo_troca) {
+    form.action = "/motivos-troca?" + "current_id_motivo_troca=" + encodeURIComponent(data.id_motivo_troca);
+  }
+
   window.scrollTo({ top: 0, behavior: "smooth" });
 }
 

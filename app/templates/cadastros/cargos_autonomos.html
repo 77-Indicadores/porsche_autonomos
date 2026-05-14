@@ -1,6 +1,22 @@
 {% extends "base.html" %}
 
-{% block header %}Cargos de Autônomos{% endblock %}
+{% block header %}Cargos de Autônomos
+<script>
+function novoCadastro() {
+  const form = document.querySelector("form[method='post']");
+  if (form) form.action = "/cargos-autonomos";
+  form?.reset();
+
+  const form = document.querySelector("form[method='post']");
+  if (form && data.id_cargo_autonomo) {
+    form.action = "/cargos-autonomos?" + "current_id_cargo_autonomo=" + encodeURIComponent(data.id_cargo_autonomo);
+  }
+
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+</script>
+
+{% endblock %}
 {% block subtitle %}Cadastre os cargos usados para filtrar autônomos na alocação{% endblock %}
 
 {% block header_action %}
@@ -22,7 +38,11 @@
   </div>
 
   <form method="post" class="form-grid">
-    <input type="hidden" name="id_cargo_autonomo" id="id_cargo_autonomo">
+<div>
+      <label class="label">ID Cargo</label>
+      <input class="input" type="number" name="id_cargo_autonomo" id="id_cargo_autonomo" placeholder="Automático">
+      <p class="text-sm text-zinc-500 mt-1">Deixe em branco para gerar automático.</p>
+    </div>
 
     <div>
       <label class="label">Nome do cargo</label>
@@ -57,7 +77,8 @@
   <table class="table">
     <thead>
       <tr>
-        <th>ID / Cargo</th>
+        <th>ID</th>
+        <th>Cargo</th>
         <th>Status</th>
         <th>Descrição</th>
         <th>Ações</th>
@@ -67,8 +88,8 @@
     <tbody>
       {% for i in items %}
       <tr>
-        <td class="font-bold"><!-- id-no-nome-id_cargo_autonomo -->
-<span class="id-inline">#{{ i.id_cargo_autonomo or "-" }}</span> {{ i.nome_cargo }}</td>
+        <td><span class="id-pill">{{ i.id_cargo_autonomo or "-" }}</span></td>
+        <td class="font-bold">{{ i.nome_cargo }}</td>
         <td>{{ i.status }}</td>
         <td>{{ i.descricao or '-' }}</td>
         <td>
@@ -102,6 +123,12 @@ function editarCargo(btn) {
   document.getElementById("descricao").value = btn.dataset.descricao || "";
   document.getElementById("form-title").innerText = "Editar cargo";
   document.getElementById("btn-salvar").innerText = "Atualizar cargo";
+
+  const form = document.querySelector("form[method='post']");
+  if (form && data.id_cargo_autonomo) {
+    form.action = "/cargos-autonomos?" + "current_id_cargo_autonomo=" + encodeURIComponent(data.id_cargo_autonomo);
+  }
+
   window.scrollTo({ top: 0, behavior: "smooth" });
 }
 
