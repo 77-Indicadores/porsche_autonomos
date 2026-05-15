@@ -525,6 +525,46 @@ def get_table_column_defs(conn, table: str) -> dict[str, Any]:
     return {col["name"]: col for col in inspector.get_columns(table)}
 
 
+def coerce_value_for_column(value: Any, col_def: dict[str, Any]) -> Any:
+    if value is None:
+        return None
+
+    col_type = str(col_def.get("type", "")).lower()
+
+    if any(token in col_type for token in ["char", "text", "varchar"]):
+        return str(value)
+
+    if any(token in col_type for token in ["int", "smallint", "bigint"]):
+        if isinstance(value, bool):
+            return int(value)
+        if isinstance(value, (int, float, Decimal)):
+            return int(value)
+        text_value = str(value).strip()
+        if text_value == "":
+            return None
+        return int(Decimal(text_value.replace(",", ".")))
+
+    if any(token in col_type for token in ["numeric", "decimal", "real", "double", "float"]):
+        if isinstance(value, (int, float, Decimal)):
+            return float(value)
+        text_value = str(value).strip()
+        if text_value == "":
+            return None
+        return float(Decimal(text_value.replace(",", ".")))
+
+    if "bool" in col_type:
+        if isinstance(value, bool):
+            return value
+        text_value = str(value).strip().lower()
+        if text_value in ["1", "true", "t", "sim", "s", "yes", "y"]:
+            return True
+        if text_value in ["0", "false", "f", "nao", "não", "n", "no"]:
+            return False
+        return value
+
+    return value
+
+
 def get_pk_column(conn, table: str) -> str | None:
     inspector = inspect(conn)
     for col in inspector.get_columns(table):
@@ -786,10 +826,7 @@ def insert_or_update(conn, table: str, row: dict[str, Any], unique_keys: list[st
         return "ignorado"
 
     for key, value in list(clean.items()):
-        col_def = db_col_defs.get(key) or {}
-        col_type = str(col_def.get("type", "")).lower()
-        if value is not None and any(token in col_type for token in ["char", "text", "varchar"]):
-            clean[key] = str(value)
+        clean[key] = coerce_value_for_column(value, db_col_defs.get(key) or {})
 
     usable_keys = [key for key in unique_keys if key in clean and clean.get(key) not in [None, ""]]
     existing = None
