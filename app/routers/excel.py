@@ -32,6 +32,28 @@ DB_PATH = BASE_DIR / "data" / "app.db"
 IMPORT_ENGINE = create_engine(DATABASE_URL, future=True)
 
 
+def extract_db_error_details(exc: Exception) -> dict[str, Any]:
+    details: dict[str, Any] = {"erro": str(exc)}
+    orig = getattr(exc, "orig", None)
+    if orig is None:
+        return details
+
+    details["db_error_type"] = type(orig).__name__
+    details["db_error_message"] = str(orig)
+    details["pgcode"] = getattr(orig, "pgcode", None)
+
+    diag = getattr(orig, "diag", None)
+    if diag is not None:
+        details["constraint_name"] = getattr(diag, "constraint_name", None)
+        details["table_name"] = getattr(diag, "table_name", None)
+        details["column_name"] = getattr(diag, "column_name", None)
+        details["schema_name"] = getattr(diag, "schema_name", None)
+        details["detail"] = getattr(diag, "message_detail", None)
+        details["hint"] = getattr(diag, "message_hint", None)
+
+    return details
+
+
 ENTIDADES = {
     "pilotos": {
         "label": "Pilotos",
@@ -552,9 +574,11 @@ async def importar_excel(entity_key: str, arquivo: UploadFile = File(...)):
 
         for row in rows:
             linha = row.get("_linha_excel")
+            row_tx = conn.begin_nested()
 
             try:
                 status = insert_or_update(conn, cfg["table"], row, cfg["unique"])
+                row_tx.commit()
 
                 if status == "criado":
                     criados += 1
@@ -564,6 +588,8 @@ async def importar_excel(entity_key: str, arquivo: UploadFile = File(...)):
                     ignorados += 1
 
             except Exception as exc:
+                row_tx.rollback()
+                db_error_details = extract_db_error_details(exc)
                 error_id = log_error(
                     "ERRO_LINHA_IMPORTACAO_EXCEL",
                     exc,
@@ -573,10 +599,11 @@ async def importar_excel(entity_key: str, arquivo: UploadFile = File(...)):
                         "arquivo": arquivo.filename,
                         "linha_excel": linha,
                         "row": row,
+                        "db_error": db_error_details,
                     },
                     excel=True,
                 )
-                erros.append((linha, error_id, str(exc)))
+                erros.append((linha, error_id, db_error_details.get("db_error_message") or str(exc)))
 
         trans.commit()
 
