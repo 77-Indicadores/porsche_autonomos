@@ -520,6 +520,11 @@ def get_table_columns(conn, table: str) -> list[str]:
     return [col["name"] for col in inspector.get_columns(table)]
 
 
+def get_table_column_defs(conn, table: str) -> dict[str, Any]:
+    inspector = inspect(conn)
+    return {col["name"]: col for col in inspector.get_columns(table)}
+
+
 def get_pk_column(conn, table: str) -> str | None:
     inspector = inspect(conn)
     for col in inspector.get_columns(table):
@@ -767,7 +772,8 @@ def prepare_row_for_entity(conn, entity_key: str, row: dict[str, Any]) -> dict[s
 
 
 def insert_or_update(conn, table: str, row: dict[str, Any], unique_keys: list[str]):
-    db_cols = get_table_columns(conn, table)
+    db_col_defs = get_table_column_defs(conn, table)
+    db_cols = set(db_col_defs.keys())
     pk = get_pk_column(conn, table)
 
     clean = {
@@ -778,6 +784,12 @@ def insert_or_update(conn, table: str, row: dict[str, Any], unique_keys: list[st
 
     if not clean:
         return "ignorado"
+
+    for key, value in list(clean.items()):
+        col_def = db_col_defs.get(key) or {}
+        col_type = str(col_def.get("type", "")).lower()
+        if value is not None and any(token in col_type for token in ["char", "text", "varchar"]):
+            clean[key] = str(value)
 
     usable_keys = [key for key in unique_keys if key in clean and clean.get(key) not in [None, ""]]
     existing = None
