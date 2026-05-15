@@ -7,10 +7,6 @@ function novoCadastro() {
   if (form) form.action = "/cargos-autonomos";
   form?.reset();
 
-  const form = document.querySelector("form[method='post']");
-  if (form && data.id_cargo_autonomo) {
-    form.action = "/cargos-autonomos?" + "current_id_cargo_autonomo=" + encodeURIComponent(data.id_cargo_autonomo);
-  }
 
   window.scrollTo({ top: 0, behavior: "smooth" });
 }
@@ -38,11 +34,6 @@ function novoCadastro() {
   </div>
 
   <form method="post" class="form-grid">
-<div>
-      <label class="label">ID Cargo</label>
-      <input class="input" type="number" name="id_cargo_autonomo" id="id_cargo_autonomo" placeholder="Automático">
-      <p class="text-sm text-zinc-500 mt-1">Deixe em branco para gerar automático.</p>
-    </div>
 
     <div>
       <label class="label">Nome do cargo</label>
@@ -117,7 +108,6 @@ function novoCadastro() {
 
 <script>
 function editarCargo(btn) {
-  document.getElementById("id_cargo_autonomo").value = btn.dataset.id || "";
   document.getElementById("nome_cargo").value = btn.dataset.nome || "";
   document.getElementById("status").value = btn.dataset.status || "Ativo";
   document.getElementById("descricao").value = btn.dataset.descricao || "";
@@ -125,15 +115,14 @@ function editarCargo(btn) {
   document.getElementById("btn-salvar").innerText = "Atualizar cargo";
 
   const form = document.querySelector("form[method='post']");
-  if (form && data.id_cargo_autonomo) {
-    form.action = "/cargos-autonomos?" + "current_id_cargo_autonomo=" + encodeURIComponent(data.id_cargo_autonomo);
+  if (form && btn.dataset.id) {
+    form.action = "/cargos-autonomos?" + "current_id_cargo_autonomo=" + encodeURIComponent(btn.dataset.id);
   }
 
   window.scrollTo({ top: 0, behavior: "smooth" });
 }
 
 function limparCargo() {
-  document.getElementById("id_cargo_autonomo").value = "";
   document.getElementById("nome_cargo").value = "";
   document.getElementById("status").value = "Ativo";
   document.getElementById("descricao").value = "";

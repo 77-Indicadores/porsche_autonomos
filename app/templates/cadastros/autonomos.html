@@ -44,11 +44,6 @@ function novoCadastro() {
   </div>
 
   <form method="post" class="form-grid" enctype="multipart/form-data">
-    <div>
-      <label class="label">ID Autonomo</label>
-      <input class="input" type="number" name="id_autonomo" id="id_autonomo" placeholder="Automatico">
-      <p class="text-sm text-zinc-500 mt-1">Deixe em branco para gerar automatico.</p>
-    </div>
     <input type="hidden" name="foto_url" id="foto_url">
 
     <div class="span-3">
@@ -204,6 +199,7 @@ function editarAutonomo(btn) {
   if (form && data.id_autonomo) {
     form.action = "/autonomos?" + "current_id_autonomo=" + encodeURIComponent(data.id_autonomo);
   }
+
 
   window.scrollTo({ top: 0, behavior: "smooth" });
 }

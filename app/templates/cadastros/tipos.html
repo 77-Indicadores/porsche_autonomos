@@ -7,10 +7,6 @@ function novoCadastro() {
   if (form) form.action = "/tipos-prova";
   form?.reset();
 
-  const form = document.querySelector("form[method='post']");
-  if (form && data.id_tipo_prova) {
-    form.action = "/tipos-prova?" + "current_id_tipo_prova=" + encodeURIComponent(data.id_tipo_prova);
-  }
 
   window.scrollTo({ top: 0, behavior: "smooth" });
 }
@@ -38,11 +34,6 @@ function novoCadastro() {
 
   <form method="post" class="form-grid">
     
-    <div>
-      <label class="label">ID Tipo</label>
-      <input class="input" type="number" name="id_tipo_prova" id="id_tipo_prova" placeholder="Automático">
-      <p class="text-sm text-zinc-500 mt-1">Deixe em branco para gerar automático ou informe o ID do layout.</p>
-    </div>
 
 
     <div>
@@ -118,7 +109,6 @@ function novoCadastro() {
 
 <script>
 function editarTipo(btn) {
-  document.getElementById("id_tipo_prova").value = btn.dataset.id || "";
   document.getElementById("nome_tipo_prova").value = btn.dataset.nome || "";
   document.getElementById("status_tipo_prova").value = btn.dataset.status || "Ativo";
   document.getElementById("descricao").value = btn.dataset.descricao || "";
@@ -126,15 +116,14 @@ function editarTipo(btn) {
   document.getElementById("btn-salvar").innerText = "Atualizar tipo";
 
   const form = document.querySelector("form[method='post']");
-  if (form && data.id_tipo_prova) {
-    form.action = "/tipos-prova?" + "current_id_tipo_prova=" + encodeURIComponent(data.id_tipo_prova);
+  if (form && btn.dataset.id) {
+    form.action = "/tipos-prova?" + "current_id_tipo_prova=" + encodeURIComponent(btn.dataset.id);
   }
 
   window.scrollTo({ top: 0, behavior: "smooth" });
 }
 
 function limparTipo() {
-  document.getElementById("id_tipo_prova").value = "";
   document.getElementById("nome_tipo_prova").value = "";
   document.getElementById("status_tipo_prova").value = "Ativo";
   document.getElementById("descricao").value = "";

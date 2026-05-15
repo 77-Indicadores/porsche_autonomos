@@ -7,10 +7,6 @@ function novoCadastro() {
   if (form) form.action = "/pilotos";
   form?.reset();
 
-  const form = document.querySelector("form[method='post']");
-  if (form && data.id_piloto) {
-    form.action = "/pilotos?" + "current_id_piloto=" + encodeURIComponent(data.id_piloto);
-  }
 
   window.scrollTo({ top: 0, behavior: "smooth" });
 }
@@ -40,11 +36,6 @@ function novoCadastro() {
   </div>
 
   <form method="post" class="form-grid" enctype="multipart/form-data">
-<div>
-      <label class="label">ID Piloto</label>
-      <input class="input" type="number" name="id_piloto" id="id_piloto" placeholder="Automático">
-      <p class="text-sm text-zinc-500 mt-1">Deixe em branco para gerar automático.</p>
-    </div>
     <input type="hidden" name="foto_url" id="foto_url">
 
     <div class="span-3">

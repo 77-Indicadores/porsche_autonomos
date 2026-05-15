@@ -308,7 +308,7 @@ def salvar_tipo(
     db.add(tipo)
     db.commit()
 
-    msg = "Tipo de prova atualizado." if id_tipo_prova else "Tipo de prova cadastrado."
+    msg = "Tipo de prova atualizado." if (current_id_tipo_prova or id_tipo_prova) else "Tipo de prova cadastrado."
     return redirect_with_message("/tipos-prova", success=msg)
 
 
@@ -342,7 +342,7 @@ def salvar_motivo(
     db.add(motivo)
     db.commit()
 
-    msg = "Motivo de troca atualizado." if id_motivo_troca else "Motivo cadastrado."
+    msg = "Motivo de troca atualizado." if (current_id_motivo_troca or id_motivo_troca) else "Motivo cadastrado."
     return redirect_with_message("/motivos-troca", success=msg)
 
 
@@ -385,6 +385,6 @@ def salvar_cargo_autonomo(
     db.add(cargo)
     db.commit()
 
-    msg = "Cargo atualizado." if id_cargo_autonomo else "Cargo cadastrado."
+    msg = "Cargo atualizado." if (current_id_cargo_autonomo or id_cargo_autonomo) else "Cargo cadastrado."
     return redirect_with_message("/cargos-autonomos", success=msg)
 

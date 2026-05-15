@@ -7,10 +7,6 @@ function novoCadastro() {
   if (form) form.action = "/motivos-troca";
   form?.reset();
 
-  const form = document.querySelector("form[method='post']");
-  if (form && data.id_motivo_troca) {
-    form.action = "/motivos-troca?" + "current_id_motivo_troca=" + encodeURIComponent(data.id_motivo_troca);
-  }
 
   window.scrollTo({ top: 0, behavior: "smooth" });
 }
@@ -37,14 +33,9 @@ function novoCadastro() {
   </div>
 
   <form method="post" class="form-grid">
-<div>
-      <label class="label">ID Motivo</label>
-      <input class="input" type="number" name="id_motivo_troca" id="id_motivo_troca" placeholder="Automático">
-      <p class="text-sm text-zinc-500 mt-1">Deixe em branco para gerar automático.</p>
-    </div>
 
     <div>
-      <label class="label">ID / Motivo</label>
+      <label class="label">Motivo</label>
       <input class="input" name="motivo_troca" id="motivo_troca" required>
     </div>
 
@@ -87,8 +78,7 @@ function novoCadastro() {
       <tbody>
         {% for i in items %}
         <tr>
-          <td><span class="id-pill">{{ i.id_motivo_troca or "-" }}</span></td>
-        <td class="font-bold">{{ i.motivo_troca }}</td>
+          <td class="font-bold">{{ i.motivo_troca }}</td>
           <td>{{ i.status }}</td>
           <td>{{ i.descricao or '-' }}</td>
           <td>
@@ -117,7 +107,6 @@ function novoCadastro() {
 
 <script>
 function editarMotivo(btn) {
-  document.getElementById("id_motivo_troca").value = btn.dataset.id || "";
   document.getElementById("motivo_troca").value = btn.dataset.motivo || "";
   document.getElementById("status").value = btn.dataset.status || "Ativo";
   document.getElementById("descricao").value = btn.dataset.descricao || "";
@@ -125,15 +114,14 @@ function editarMotivo(btn) {
   document.getElementById("btn-salvar").innerText = "Atualizar motivo";
 
   const form = document.querySelector("form[method='post']");
-  if (form && data.id_motivo_troca) {
-    form.action = "/motivos-troca?" + "current_id_motivo_troca=" + encodeURIComponent(data.id_motivo_troca);
+  if (form && btn.dataset.id) {
+    form.action = "/motivos-troca?" + "current_id_motivo_troca=" + encodeURIComponent(btn.dataset.id);
   }
 
   window.scrollTo({ top: 0, behavior: "smooth" });
 }
 
 function limparMotivo() {
-  document.getElementById("id_motivo_troca").value = "";
   document.getElementById("motivo_troca").value = "";
   document.getElementById("status").value = "Ativo";
   document.getElementById("descricao").value = "";

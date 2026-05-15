@@ -7,10 +7,6 @@ function novoCadastro() {
   if (form) form.action = "/carros";
   form?.reset();
 
-  const form = document.querySelector("form[method='post']");
-  if (form && data.id_carro) {
-    form.action = "/carros?" + "current_id_carro=" + encodeURIComponent(data.id_carro);
-  }
 
   window.scrollTo({ top: 0, behavior: "smooth" });
 }
@@ -39,11 +35,6 @@ function novoCadastro() {
   </div>
 
   <form method="post" class="form-grid">
-<div>
-      <label class="label">ID Carro</label>
-      <input class="input" type="number" name="id_carro" id="id_carro" placeholder="Automático">
-      <p class="text-sm text-zinc-500 mt-1">Deixe em branco para gerar automático.</p>
-    </div>
 
     <div>
       <label class="label">Número do carro</label>
