@@ -139,7 +139,7 @@ def desligar_piloto(id_piloto: int, data_desligamento: str = Form(...), motivo_d
         return redirect_with_message("/pilotos", error="Piloto nao encontrado.")
     piloto.status_piloto = "Desligado"
     piloto.data_desligamento = parse_date(data_desligamento)
-    piloto.motivo_desligamento = motivo_desligamento_desligamento
+    piloto.motivo_desligamento = motivo_desligamento
     db.commit()
     return redirect_with_message("/pilotos", success="Piloto desligado sem exclusao fisica.")
 
@@ -205,7 +205,7 @@ def desligar_autonomo(id_autonomo: int, data_saida: str = Form(...), motivo_said
         return redirect_with_message("/autonomos", error="Autonomo nao encontrado.")
     autonomo.status_autonomo = "Desligado"
     autonomo.data_saida = parse_date(data_saida)
-    autonomo.motivo_saida = motivo_saida_saida
+    autonomo.motivo_saida = motivo_saida
     db.commit()
     return redirect_with_message("/autonomos", success="Autonomo desligado sem exclusao fisica.")
 

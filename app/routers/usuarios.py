@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, Form, Request
 from fastapi.responses import RedirectResponse
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.auth import hash_password
@@ -54,6 +55,14 @@ def create_user(
         )
 
     db.add(Usuario(nome=nome, email=email, senha_hash=hash_password(senha), perfil=perfil, ativo="Sim"))
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        return templates.TemplateResponse(
+            "usuarios/form.html",
+            {"request": request, "usuario": None, "error": "Email ja cadastrado"},
+            status_code=400,
+        )
     return RedirectResponse("/usuarios", status_code=303)
 

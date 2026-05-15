@@ -203,3 +203,14 @@ class Usuario(Base):
     perfil = Column(String(30), nullable=False, default="operador")
     ativo = Column(String(3), nullable=False, default="Sim")
 
+
+# Compatibilidade legada para routers antigos.
+# Mantemos aliases para evitar falha de import enquanto os fluxos antigos
+# coexistem no repositório.
+Piloto = DimPiloto
+Autonomo = DimAutonomo
+Etapa = DimEtapa
+Cargo = DimCargoAutonomo
+Vinculo = FatoPilotoAutonomoProva
+Movimentacao = FatoPilotoAutonomoProva
+
