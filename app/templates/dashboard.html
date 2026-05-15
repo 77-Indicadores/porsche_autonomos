@@ -10,35 +10,13 @@
 
 {% block content %}
 
-{% set pilotos = 0 %}
-{% set autonomos = 0 %}
-{% set alocacoes = 0 %}
-{% set trocas = 0 %}
-{% set custo_temporada = 'R$ 0,00' %}
-{% set custo_pendente = 'R$ 0,00' %}
-{% set custo_pago = 'R$ 0,00' %}
-
-{% for card in cards %}
-  {% set titulo = card.titulo or card.title or card.label or card.nome or card.name %}
-  {% set valor = card.valor or card.value or card.total or card.qtd or card.quantidade %}
-  {% set t = (titulo|string)|lower %}
-
-  {% if 'piloto' in t %}
-    {% set pilotos = valor %}
-  {% elif 'autonomo' in t or 'autônomo' in t %}
-    {% set autonomos = valor %}
-  {% elif 'aloc' in t %}
-    {% set alocacoes = valor %}
-  {% elif 'troca' in t %}
-    {% set trocas = valor %}
-  {% elif 'temporada' in t %}
-    {% set custo_temporada = valor %}
-  {% elif 'pendente' in t %}
-    {% set custo_pendente = valor %}
-  {% elif 'pago' in t %}
-    {% set custo_pago = valor %}
-  {% endif %}
-{% endfor %}
+{% set pilotos = cards.get('pilotos', 0) %}
+{% set autonomos = cards.get('autonomos', 0) %}
+{% set alocacoes = cards.get('vinculos', 0) %}
+{% set trocas = cards.get('trocas_mes', 0) %}
+{% set custo_temporada = 'R$ {:,.2f}'.format(cards.get('custo_total', 0)).replace(',', 'X').replace('.', ',').replace('X', '.') %}
+{% set custo_pendente = 'R$ {:,.2f}'.format(cards.get('custo_pendente', 0)).replace(',', 'X').replace('.', ',').replace('X', '.') %}
+{% set custo_pago = 'R$ {:,.2f}'.format(cards.get('custo_pago', 0)).replace(',', 'X').replace('.', ',').replace('X', '.') %}
 
 <section class="exec-hero">
   <div>
