@@ -6,6 +6,8 @@ function novoCadastro() {
   const form = document.querySelector("form[method='post']");
   if (form) form.action = "/carros";
   form?.reset();
+  const idField = document.getElementById("id_carro");
+  if (idField) idField.value = "";
 
 
   window.scrollTo({ top: 0, behavior: "smooth" });
@@ -35,6 +37,7 @@ function novoCadastro() {
   </div>
 
   <form method="post" class="form-grid">
+    <input type="hidden" name="id_carro" id="id_carro">
 
     <div>
       <label class="label">Número do carro</label>

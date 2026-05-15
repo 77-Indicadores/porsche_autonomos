@@ -85,6 +85,15 @@ def lists(db: Session):
     }
 
 
+def parse_date_safe(value: str, msg: str):
+    if not value:
+        return None
+    try:
+        return parse_date(value)
+    except ValueError:
+        raise ValueError(msg)
+
+
 @router.get("/pilotos")
 def pilotos(request: Request, q: str = "", db: Session = Depends(get_db)):
     query = db.query(DimPiloto)
@@ -118,7 +127,11 @@ def salvar_piloto(
     piloto.cpf = cpf
     piloto.telefone = telefone
     piloto.email = email
-    piloto.data_inclusao = parse_date(data_inclusao) or piloto.data_inclusao
+    try:
+        data = parse_date_safe(data_inclusao, "Data de inclusao invalida.")
+    except ValueError as e:
+        return redirect_with_message("/pilotos", error=str(e))
+    piloto.data_inclusao = data or piloto.data_inclusao
     piloto.status_piloto = status_piloto
     piloto.observacoes = observacoes
     foto_salva = salvar_upload_foto(foto_upload, "pilotos")
@@ -138,7 +151,10 @@ def desligar_piloto(id_piloto: int, data_desligamento: str = Form(...), motivo_d
     if not piloto:
         return redirect_with_message("/pilotos", error="Piloto nao encontrado.")
     piloto.status_piloto = "Desligado"
-    piloto.data_desligamento = parse_date(data_desligamento)
+    try:
+        piloto.data_desligamento = parse_date(data_desligamento)
+    except ValueError:
+        return redirect_with_message("/pilotos", error="Data de desligamento invalida.")
     piloto.motivo_desligamento = motivo_desligamento
     db.commit()
     return redirect_with_message("/pilotos", success="Piloto desligado sem exclusao fisica.")
@@ -183,7 +199,11 @@ def salvar_autonomo(
     cargo_obj = db.get(DimCargoAutonomo, int(id_cargo_autonomo)) if id_cargo_autonomo else None
     autonomo.id_cargo_autonomo = int(id_cargo_autonomo) if id_cargo_autonomo else None
     autonomo.tipo_autonomo = cargo_obj.nome_cargo if cargo_obj else tipo_autonomo
-    autonomo.data_inclusao = parse_date(data_inclusao) or autonomo.data_inclusao
+    try:
+        data = parse_date_safe(data_inclusao, "Data de inclusao invalida.")
+    except ValueError as e:
+        return redirect_with_message("/autonomos", error=str(e))
+    autonomo.data_inclusao = data or autonomo.data_inclusao
     autonomo.status_autonomo = status_autonomo
     autonomo.observacoes = observacoes
 
@@ -204,7 +224,10 @@ def desligar_autonomo(id_autonomo: int, data_saida: str = Form(...), motivo_said
     if not autonomo:
         return redirect_with_message("/autonomos", error="Autonomo nao encontrado.")
     autonomo.status_autonomo = "Desligado"
-    autonomo.data_saida = parse_date(data_saida)
+    try:
+        autonomo.data_saida = parse_date(data_saida)
+    except ValueError:
+        return redirect_with_message("/autonomos", error="Data de saida invalida.")
     autonomo.motivo_saida = motivo_saida
     db.commit()
     return redirect_with_message("/autonomos", success="Autonomo desligado sem exclusao fisica.")
@@ -239,8 +262,13 @@ def salvar_etapa(
     etapa.temporada = temporada
     etapa.nome_etapa = nome_etapa
     etapa.local = local
-    etapa.data_inicio = parse_date(data_inicio) or etapa.data_inicio
-    etapa.data_fim = parse_date(data_fim) or etapa.data_fim
+    try:
+        data_inicio_parsed = parse_date_safe(data_inicio, "Data de inicio invalida.")
+        data_fim_parsed = parse_date_safe(data_fim, "Data de fim invalida.")
+    except ValueError as e:
+        return redirect_with_message("/etapas", error=str(e))
+    etapa.data_inicio = data_inicio_parsed or etapa.data_inicio
+    etapa.data_fim = data_fim_parsed or etapa.data_fim
     etapa.status_etapa = status_etapa
     etapa.observacoes = observacoes
 
@@ -277,7 +305,11 @@ def salvar_prova(id_prova: str = Form(""), current_id_prova: str = Form(""), id_
     prova.id_etapa = id_etapa
     prova.id_tipo_prova = id_tipo_prova
     prova.nome_prova = nome_prova
-    prova.data_prova = parse_date(data_prova) or prova.data_prova
+    try:
+        data_prova_parsed = parse_date_safe(data_prova, "Data da categoria invalida.")
+    except ValueError as e:
+        return redirect_with_message("/categorias", error=str(e))
+    prova.data_prova = data_prova_parsed or prova.data_prova
     prova.status_prova = status_prova
     prova.observacoes = observacoes
 

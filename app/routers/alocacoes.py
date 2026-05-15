@@ -106,6 +106,8 @@ def criar(
 
         if not anterior:
             return redirect_with_message("/alocacoes/nova", error="Alocação anterior não encontrada.")
+        if anterior.id_piloto != id_piloto or anterior.id_prova != id_prova or (anterior.funcao_autonomo or "") != funcao_autonomo:
+            return redirect_with_message("/alocacoes/nova", error="Substituicao inconsistente com piloto, categoria ou cargo selecionado.")
 
         data_troca = date.today()
 
@@ -294,5 +296,6 @@ def encerrar(id_fato: int, data_fim: str = Form(...), motivo: str = Form("Encerr
     fato.justificativa_troca = motivo
     db.commit()
     return redirect_with_message("/alocacoes", success="Vinculo encerrado.")
+
 
 

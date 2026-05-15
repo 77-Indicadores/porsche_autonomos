@@ -79,6 +79,8 @@ def criar_guiada(
 
         if not anterior:
             return redirect_with_message("/operacao/nova-guiada", error="Alocação anterior não encontrada.")
+        if anterior.id_piloto != id_piloto or anterior.id_prova != id_prova or (anterior.funcao_autonomo or "") != funcao_autonomo:
+            return redirect_with_message("/operacao/nova-guiada", error="Substituicao inconsistente com piloto, categoria ou cargo selecionado.")
 
         data_troca = date.today()
 
