@@ -1,21 +1,21 @@
 {% extends "base.html" %}
-{% block title %}Novo Usuario{% endblock %}
-{% block header %}Novo Usuario{% endblock %}
+{% block title %}{% if usuario %}Editar Usuario{% else %}Novo Usuario{% endif %}{% endblock %}
+{% block header %}{% if usuario %}Editar Usuario{% else %}Novo Usuario{% endif %}{% endblock %}
 {% block content %}
-<form method="post" action="/usuarios/novo">
+<form method="post" action="{% if usuario %}/usuarios/{{ usuario.id_usuario }}/editar{% else %}/usuarios/novo{% endif %}">
   {% if error %}<div class="alert error">{{ error }}</div>{% endif %}
   <label>Nome</label>
-  <input type="text" name="nome" required>
+  <input type="text" name="nome" value="{{ usuario.nome if usuario else '' }}" required>
   <label>Email</label>
-  <input type="email" name="email" required>
-  <label>Senha</label>
-  <input type="password" name="senha" required>
+  <input type="email" name="email" value="{{ usuario.email if usuario else '' }}" required>
+  <label>Senha {% if usuario %}(deixe em branco para manter){% endif %}</label>
+  <input type="password" name="senha" {% if not usuario %}required{% endif %}>
   <label>Perfil</label>
   <select name="perfil">
-    <option value="operador">operador</option>
-    <option value="admin">admin</option>
+    <option value="operador" {% if usuario and usuario.perfil == 'operador' %}selected{% endif %}>operador</option>
+    <option value="admin" {% if usuario and usuario.perfil == 'admin' %}selected{% endif %}>admin</option>
   </select>
-  <button type="submit">Salvar</button>
+  <button type="submit">{% if usuario %}Atualizar{% else %}Salvar{% endif %}</button>
 </form>
 {% endblock %}
 

@@ -249,6 +249,16 @@ def salvar_etapa(
     return redirect_with_message("/etapas", success="Etapa salva.")
 
 
+@router.post("/etapas/{id_etapa}/inativar")
+def inativar_etapa(id_etapa: int, db: Session = Depends(get_db)):
+    etapa = db.get(DimEtapa, id_etapa)
+    if not etapa:
+        return redirect_with_message("/etapas", error="Etapa nao encontrada.")
+    etapa.status_etapa = "Cancelada"
+    db.commit()
+    return redirect_with_message("/etapas", success="Etapa inativada.")
+
+
 @router.get("/categorias")
 @router.get("/provas")
 def provas(request: Request, db: Session = Depends(get_db)):
@@ -274,6 +284,17 @@ def salvar_prova(id_prova: str = Form(""), current_id_prova: str = Form(""), id_
     db.add(prova)
     db.commit()
     return redirect_with_message("/categorias", success="Categoria salva.")
+
+
+@router.post("/provas/{id_prova}/inativar")
+@router.post("/categorias/{id_prova}/inativar")
+def inativar_prova(id_prova: int, db: Session = Depends(get_db)):
+    prova = db.get(DimProva, id_prova)
+    if not prova:
+        return redirect_with_message("/categorias", error="Categoria nao encontrada.")
+    prova.status_prova = "Cancelada"
+    db.commit()
+    return redirect_with_message("/categorias", success="Categoria inativada.")
 
 
 @router.get("/tipos-categoria")

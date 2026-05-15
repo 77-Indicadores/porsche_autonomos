@@ -114,6 +114,9 @@ function novoCadastro() {
           >
             Editar
           </button>
+          <form method="post" action="/carros/{{ c.id_carro }}/inativar" class="actions">
+            <button class="btn-danger" type="submit">Inativar</button>
+          </form>
         </td>
       </tr>
       {% else %}

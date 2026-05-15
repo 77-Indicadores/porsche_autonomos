@@ -65,3 +65,13 @@ def salvar_carro(
     db.commit()
 
     return redirect_with_message("/carros", success="Carro salvo com sucesso.")
+
+
+@router.post("/carros/{id_carro}/inativar")
+def inativar_carro(id_carro: int, db: Session = Depends(get_db)):
+    carro = db.get(DimCarro, id_carro)
+    if not carro:
+        return redirect_with_message("/carros", error="Carro não encontrado.")
+    carro.status_carro = "Inativo"
+    db.commit()
+    return redirect_with_message("/carros", success="Carro inativado com sucesso.")
