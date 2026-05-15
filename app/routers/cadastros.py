@@ -105,6 +105,7 @@ def pilotos(request: Request, q: str = "", db: Session = Depends(get_db)):
 
 @router.post("/pilotos")
 def salvar_piloto(
+    request: Request,
     id_piloto: str = Form(""),
     current_id_piloto: str = "",
     nome_piloto: str = Form(...),
@@ -118,6 +119,7 @@ def salvar_piloto(
     foto_upload: UploadFile = File(None),
     db: Session = Depends(get_db),
 ):
+    current_id_piloto = (current_id_piloto or request.query_params.get("current_id_piloto", "")).strip()
     piloto = db.get(DimPiloto, int(current_id_piloto or id_piloto)) if (current_id_piloto or id_piloto) else DimPiloto()
     try:
         aplicar_id_manual(db, piloto, DimPiloto, "id_piloto", id_piloto, current_id_piloto)
@@ -171,6 +173,7 @@ def autonomos(request: Request, q: str = "", db: Session = Depends(get_db)):
 
 @router.post("/autonomos")
 def salvar_autonomo(
+    request: Request,
     id_autonomo: str = Form(""),
     current_id_autonomo: str = "",
     nome_autonomo: str = Form(...),
@@ -186,6 +189,7 @@ def salvar_autonomo(
     foto_upload: UploadFile = File(None),
     db: Session = Depends(get_db),
 ):
+    current_id_autonomo = (current_id_autonomo or request.query_params.get("current_id_autonomo", "")).strip()
     autonomo = db.get(DimAutonomo, int(current_id_autonomo or id_autonomo)) if (current_id_autonomo or id_autonomo) else DimAutonomo()
     try:
         aplicar_id_manual(db, autonomo, DimAutonomo, "id_autonomo", id_autonomo, current_id_autonomo)
@@ -240,6 +244,7 @@ def etapas(request: Request, db: Session = Depends(get_db)):
 
 @router.post("/etapas")
 def salvar_etapa(
+    request: Request,
     id_etapa: str = Form(""),
     current_id_etapa: str = "",
     temporada: str = Form(...),
@@ -253,6 +258,7 @@ def salvar_etapa(
     foto_upload: UploadFile = File(None),
     db: Session = Depends(get_db),
 ):
+    current_id_etapa = (current_id_etapa or request.query_params.get("current_id_etapa", "")).strip()
     etapa = db.get(DimEtapa, int(current_id_etapa or id_etapa)) if (current_id_etapa or id_etapa) else DimEtapa()
     try:
         aplicar_id_manual(db, etapa, DimEtapa, "id_etapa", id_etapa, current_id_etapa)
@@ -338,6 +344,7 @@ def tipos_prova(request: Request, db: Session = Depends(get_db)):
 @router.post("/tipos-categoria")
 @router.post("/tipos-prova")
 def salvar_tipo(
+    request: Request,
     id_tipo_prova: str = Form(""),
     current_id_tipo_prova: str = "",
     nome_tipo_prova: str = Form(...),
@@ -345,6 +352,7 @@ def salvar_tipo(
     status_tipo_prova: str = Form("Ativo"),
     db: Session = Depends(get_db),
 ):
+    current_id_tipo_prova = (current_id_tipo_prova or request.query_params.get("current_id_tipo_prova", "")).strip()
     tipo = db.get(DimTipoProva, int(current_id_tipo_prova or id_tipo_prova)) if (current_id_tipo_prova or id_tipo_prova) else DimTipoProva()
     try:
         aplicar_id_manual(db, tipo, DimTipoProva, "id_tipo_prova", id_tipo_prova, current_id_tipo_prova)
@@ -372,6 +380,7 @@ def motivos_troca(request: Request, db: Session = Depends(get_db)):
 
 @router.post("/motivos-troca")
 def salvar_motivo(
+    request: Request,
     id_motivo_troca: str = Form(""),
     current_id_motivo_troca: str = "",
     motivo_troca: str = Form(...),
@@ -379,6 +388,7 @@ def salvar_motivo(
     status: str = Form("Ativo"),
     db: Session = Depends(get_db),
 ):
+    current_id_motivo_troca = (current_id_motivo_troca or request.query_params.get("current_id_motivo_troca", "")).strip()
     motivo = db.get(DimMotivoTroca, int(current_id_motivo_troca or id_motivo_troca)) if (current_id_motivo_troca or id_motivo_troca) else DimMotivoTroca()
     try:
         aplicar_id_manual(db, motivo, DimMotivoTroca, "id_motivo_troca", id_motivo_troca, current_id_motivo_troca)
@@ -415,6 +425,7 @@ def cargos_autonomos(request: Request, db: Session = Depends(get_db)):
 
 @router.post("/cargos-autonomos")
 def salvar_cargo_autonomo(
+    request: Request,
     id_cargo_autonomo: str = Form(""),
     current_id_cargo_autonomo: str = "",
     nome_cargo: str = Form(...),
@@ -422,6 +433,7 @@ def salvar_cargo_autonomo(
     status: str = Form("Ativo"),
     db: Session = Depends(get_db),
 ):
+    current_id_cargo_autonomo = (current_id_cargo_autonomo or request.query_params.get("current_id_cargo_autonomo", "")).strip()
     cargo = db.get(DimCargoAutonomo, int(current_id_cargo_autonomo or id_cargo_autonomo)) if (current_id_cargo_autonomo or id_cargo_autonomo) else DimCargoAutonomo()
     try:
         aplicar_id_manual(db, cargo, DimCargoAutonomo, "id_cargo_autonomo", id_cargo_autonomo, current_id_cargo_autonomo)

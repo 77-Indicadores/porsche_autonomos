@@ -37,6 +37,7 @@ def carros(request: Request, q: str = "", db: Session = Depends(get_db)):
 
 @router.post("/carros")
 def salvar_carro(
+    request: Request,
     id_carro: str = Form(""),
     current_id_carro: str = "",
     numero_carro: str = Form(...),
@@ -47,6 +48,7 @@ def salvar_carro(
     observacoes: str = Form(""),
     db: Session = Depends(get_db),
 ):
+    current_id_carro = (current_id_carro or request.query_params.get("current_id_carro", "")).strip()
     carro_id_raw = (current_id_carro or id_carro or "").strip()
     if carro_id_raw:
         try:

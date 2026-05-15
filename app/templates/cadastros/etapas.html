@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 
 {% block header %}Etapas{% endblock %}
-{% block subtitle %}Cadastro das etapas da temporada usadas nas alocações.{% endblock %}
+{% block subtitle %}Cadastro das etapas da temporada usadas nas alocaÃ§Ãµes.{% endblock %}
 
 {% block header_action %}
 <button type="button" class="quick-action primary btn-novo-cadastro" onclick="novoCadastro()">+ Novo</button>
@@ -35,7 +35,7 @@
     </div>
 
     <div>
-      <label class="label">Data início</label>
+      <label class="label">Data inÃ­cio</label>
       <input class="input" type="date" name="data_inicio" id="data_inicio">
     </div>
 
@@ -47,14 +47,14 @@
     <div>
       <label class="label">Status</label>
       <select class="input" name="status_etapa" id="status_etapa">
-        {% for s in ['Planejada','Confirmada','Cancelada','Concluída'] %}
+        {% for s in ['Planejada','Confirmada','Cancelada','ConcluÃ­da'] %}
           <option>{{ s }}</option>
         {% endfor %}
       </select>
     </div>
 
     <div class="span-3">
-      <label class="label">Observações</label>
+      <label class="label">ObservaÃ§Ãµes</label>
       <textarea class="input" name="observacoes" id="observacoes"></textarea>
     </div>
 
@@ -73,9 +73,9 @@
           <th>Temporada</th>
           <th>Etapa</th>
           <th>Local</th>
-          <th>Período</th>
+          <th>PerÃ­odo</th>
           <th>Status</th>
-          <th>Ações</th>
+          <th>AÃ§Ãµes</th>
         </tr>
       </thead>
 
