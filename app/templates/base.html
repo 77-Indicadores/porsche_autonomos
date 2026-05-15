@@ -9,7 +9,12 @@
 </head>
 
 <body>
-  <aside class="sidebar">
+  
+<a class="nav-link {% if request.url.path.startswith('/ids-importacao') %}active{% endif %}" href="/ids-importacao">
+  🧾 IDs para Importação
+</a>
+
+<aside class="sidebar">
     <div class="sidebar-logo-porsche-img">
       <a href="https://www.porschegt3cup.com.br" target="_blank" rel="noopener">
         <img src="/static/img/porsche.png" alt="Porsche Carrera Cup Brasil">

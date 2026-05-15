@@ -1,6 +1,22 @@
 {% extends "base.html" %}
 
-{% block header %}Carros{% endblock %}
+{% block header %}Carros
+<script>
+function novoCadastro() {
+  const form = document.querySelector("form[method='post']");
+  if (form) form.action = "/carros";
+  form?.reset();
+
+  const form = document.querySelector("form[method='post']");
+  if (form && data.id_carro) {
+    form.action = "/carros?" + "current_id_carro=" + encodeURIComponent(data.id_carro);
+  }
+
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+</script>
+
+{% endblock %}
 {% block subtitle %}Cadastro dos carros utilizados por etapa, categoria e piloto{% endblock %}
 
 {% block header_action %}
@@ -23,7 +39,11 @@
   </div>
 
   <form method="post" class="form-grid">
-    <input type="hidden" name="id_carro" id="id_carro">
+<div>
+      <label class="label">ID Carro</label>
+      <input class="input" type="number" name="id_carro" id="id_carro" placeholder="Automático">
+      <p class="text-sm text-zinc-500 mt-1">Deixe em branco para gerar automático.</p>
+    </div>
 
     <div>
       <label class="label">Número do carro</label>
@@ -75,6 +95,7 @@
   <table class="table">
     <thead>
       <tr>
+        <th>ID</th>
         <th>Número</th>
         <th>Modelo</th>
         <th>Categoria padrão</th>
@@ -87,6 +108,7 @@
     <tbody>
       {% for c in items %}
       <tr>
+        <td><span class="id-pill">{{ c.id_carro or "-" }}</span></td>
         <td class="font-bold">{{ c.numero_carro }}</td>
         <td>{{ c.modelo or '-' }}</td>
         <td>{{ c.categoria_padrao or '-' }}</td>
@@ -97,7 +119,7 @@
             class="btn-muted"
             type="button"
             onclick="editarCarro(this)"
-            data-fill='{"id_carro":"{{c.id_carro}}","numero_carro":"{{c.numero_carro or ''}}","modelo":"{{c.modelo or ''}}","categoria_padrao":"{{c.categoria_padrao or ''}}","chassi":"{{c.chassi or ''}}","status_carro":"{{c.status_carro or ''}}","observacoes":"{{c.observacoes or ''}}"}'
+            data-fill=\'{"current_id_carro":"{{c.id_carro}}","id_carro":"{{c.id_carro}}","numero_carro":"{{c.numero_carro or ''}}","modelo":"{{c.modelo or ''}}","categoria_padrao":"{{c.categoria_padrao or ''}}","chassi":"{{c.chassi or ''}}","status_carro":"{{c.status_carro or ''}}","observacoes":"{{c.observacoes or ''}}"}'
           >
             Editar
           </button>
@@ -120,6 +142,12 @@ function editarCarro(btn) {
     const el = document.getElementById(k);
     if (el) el.value = data[k] || "";
   });
+
+
+  const form = document.querySelector("form[method='post']");
+  if (form && data.id_carro) {
+    form.action = "/carros?" + "current_id_carro=" + encodeURIComponent(data.id_carro);
+  }
 
   window.scrollTo({ top: 0, behavior: "smooth" });
 }

@@ -74,7 +74,6 @@ def equipes(
         equipe["membros"].append({
             "funcao": f.funcao_autonomo or "-",
             "nome": getattr(f.autonomo, "nome_autonomo", "-"),
-            "especialidade": getattr(f.autonomo, "especialidade", "") or "",
             "valor": valor,
             "dias": dias,
             "valor_dia": valor_dia,

@@ -106,7 +106,6 @@ Opcionais:
 - `foto_url`
 - `id_cargo_autonomo`
 - `tipo_autonomo`
-- `especialidade`
 - `data_inclusao`
 - `data_saida`
 - `motivo_saida`

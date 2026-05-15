@@ -1,6 +1,22 @@
 {% extends "base.html" %}
 
-{% block header %}Categorias{% endblock %}
+{% block header %}Categorias
+<script>
+function novoCadastro() {
+  const form = document.querySelector("form[method='post']");
+  if (form) form.action = "/categorias";
+  form?.reset();
+
+  const form = document.querySelector("form[method='post']");
+  if (form && data.id_prova) {
+    form.action = "/categorias?" + "current_id_prova=" + encodeURIComponent(data.id_prova);
+  }
+
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+</script>
+
+{% endblock %}
 {% block subtitle %}Cadastre as categorias usadas em cada etapa{% endblock %}
 
 {% block header_action %}
@@ -17,6 +33,11 @@
   </div>
 
   <form method="post" class="form-grid">
+<div>
+      <label class="label">ID Categoria</label>
+      <input class="input" type="number" name="id_prova" id="id_prova" placeholder="Automático">
+      <p class="text-sm text-zinc-500 mt-1">Deixe em branco para gerar automático.</p>
+    </div>
     <div>
       <label class="label">Etapa</label>
       <select class="input" name="id_etapa" required>
@@ -70,6 +91,7 @@
   <table class="table">
     <thead>
       <tr>
+        <th>ID</th>
         <th>Categoria</th>
         <th>Tipo</th>
         <th>Etapa</th>
@@ -81,6 +103,7 @@
     <tbody>
       {% for i in items %}
       <tr>
+        <td><span class="id-pill">{{ i.id_prova or "-" }}</span></td>
         <td class="font-bold">{{ i.nome_prova }}</td>
         <td>{{ i.tipo_prova.nome_tipo_prova if i.tipo_prova else '-' }}</td>
         <td>{{ i.etapa.nome_etapa if i.etapa else '-' }}</td>
