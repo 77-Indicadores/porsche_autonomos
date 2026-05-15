@@ -299,7 +299,8 @@ body {
 /* Conteúdo */
 .main-content {
   margin-left: 252px;
-  width: calc(100% - 252px);
+  width: auto;
+  flex: 1;
   min-height: 100vh;
   background: #f4f4f5;
 }
@@ -625,7 +626,7 @@ textarea:focus {
 
   .main-content {
     margin-left: 230px;
-    width: calc(100% - 230px);
+    width: auto;
   }
 
   .ux-grid-3,

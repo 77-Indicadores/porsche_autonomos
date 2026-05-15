@@ -10,9 +10,6 @@
 
 <body>
   
-<a class="nav-link {% if request.url.path.startswith('/ids-importacao') %}active{% endif %}" href="/ids-importacao">
-  🧾 IDs para Importação
-</a>
 
 <aside class="sidebar">
     <div class="sidebar-logo-porsche-img">
@@ -50,6 +47,7 @@
         <div class="nav-section-title">Configurações</div>
         <a class="nav-link {% if request.url.path.startswith('/usuarios') %}active{% endif %}" href="/usuarios">Usuarios</a>
         <a class="nav-link {% if request.url.path.startswith('/excel') %}active{% endif %}" href="/excel/">📥 Importações Excel</a>
+        <a class="nav-link {% if request.url.path.startswith('/ids-importacao') %}active{% endif %}" href="/ids-importacao">IDs para Importacao</a>
         <a class="nav-link {% if request.url.path.startswith('/setup') %}active{% endif %}" href="/setup">⚙️ Listas de Apoio</a>
         <a class="nav-link {% if request.url.path.startswith('/logs') %}active{% endif %}" href="/logs/">🧾 Logs</a>
       </div>
