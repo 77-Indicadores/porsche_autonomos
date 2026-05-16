@@ -1,0 +1,184 @@
+{% extends "base.html" %}
+
+{% block header %}Editar Alocação{% endblock %}
+{% block subtitle %}Atualize piloto, etapa, categoria, carro, autônomo, pacote, dias e observações.{% endblock %}
+
+{% block header_action %}
+<a class="quick-action light" href="/alocacoes">Voltar</a>
+{% endblock %}
+
+{% block content %}
+
+<div class="ux-help mb-6">
+  Editando alocação #{{ fato.id_fato }}.
+</div>
+
+<form method="post" class="panel form-grid">
+
+  <div>
+    <label class="label">ID Alocação</label>
+    <input class="input" value="{{ fato.id_fato }}" disabled>
+  </div>
+
+  <div>
+    <label class="label">Status</label>
+    <select class="input" name="status_vinculo" id="status_vinculo" required>
+      {% for s in ['Ativo','Substituido','Encerrado','Cancelado'] %}
+        <option value="{{ s }}" {% if fato.status_vinculo == s %}selected{% endif %}>{{ s }}</option>
+      {% endfor %}
+    </select>
+  </div>
+
+  <div>
+    <label class="label">Etapa</label>
+    <select class="input" name="id_etapa" id="id_etapa" required>
+      <option value="">Selecione</option>
+      {% for e in etapas %}
+        <option value="{{ e.id_etapa }}" {% if fato.id_etapa == e.id_etapa %}selected{% endif %}>
+          {{ e.temporada }} - {{ e.nome_etapa }}
+        </option>
+      {% endfor %}
+    </select>
+  </div>
+
+  <div>
+    <label class="label">Categoria</label>
+    <select class="input" name="id_prova" id="id_prova" required>
+      <option value="">Selecione</option>
+      {% for p in provas %}
+        <option value="{{ p.id_prova }}" data-etapa="{{ p.id_etapa }}" {% if fato.id_prova == p.id_prova %}selected{% endif %}>
+          {{ p.nome_prova }}
+        </option>
+      {% endfor %}
+    </select>
+  </div>
+
+  <div>
+    <label class="label">Piloto</label>
+    <select class="input" name="id_piloto" id="id_piloto" required>
+      <option value="">Selecione</option>
+      {% for p in pilotos %}
+        <option value="{{ p.id_piloto }}" {% if fato.id_piloto == p.id_piloto %}selected{% endif %}>
+          {{ p.nome_piloto }}
+        </option>
+      {% endfor %}
+    </select>
+  </div>
+
+  <div>
+    <label class="label">Carro</label>
+    <select class="input" name="id_carro" id="id_carro" required>
+      <option value="">Selecione</option>
+      {% for c in carros %}
+        <option value="{{ c.id_carro }}" {% if fato.id_carro == c.id_carro %}selected{% endif %}>
+          {{ c.numero_carro }}{% if c.modelo %} - {{ c.modelo }}{% endif %}{% if c.categoria_padrao %} - {{ c.categoria_padrao }}{% endif %}
+        </option>
+      {% endfor %}
+    </select>
+  </div>
+
+  <div>
+    <label class="label">Cargo</label>
+    <select class="input" name="id_cargo_autonomo" id="id_cargo_autonomo" required>
+      <option value="">Selecione</option>
+      {% for c in cargos_autonomos %}
+        <option value="{{ c.id_cargo_autonomo }}" {% if cargo_atual_id == c.id_cargo_autonomo %}selected{% endif %}>
+          {{ c.nome_cargo }}
+        </option>
+      {% endfor %}
+    </select>
+  </div>
+
+  <div>
+    <label class="label">Autônomo</label>
+    <select class="input" name="id_autonomo" id="id_autonomo" required>
+      <option value="">Selecione</option>
+      {% for a in autonomos %}
+        <option
+          value="{{ a.id_autonomo }}"
+          data-cargo="{{ a.id_cargo_autonomo or '' }}"
+          data-nome="{{ a.nome_autonomo }}"
+          {% if fato.id_autonomo == a.id_autonomo %}selected{% endif %}
+        >
+          {{ a.nome_autonomo }}
+        </option>
+      {% endfor %}
+    </select>
+  </div>
+
+  <div>
+    <label class="label">Data início vínculo</label>
+    <input class="input" type="date" name="data_inicio_vinculo" value="{{ fato.data_inicio_vinculo or '' }}">
+  </div>
+
+  <div>
+    <label class="label">Data fim vínculo</label>
+    <input class="input" type="date" name="data_fim_vinculo" value="{{ fato.data_fim_vinculo or '' }}">
+  </div>
+
+  <div>
+    <label class="label">Valor do pacote</label>
+    <input class="input" name="valor_fechado_etapa" value="{{ fato.valor_fechado_etapa or '' }}" placeholder="3300,00">
+  </div>
+
+  <div>
+    <label class="label">Dias trabalhados</label>
+    <input class="input" type="number" min="1" name="dias_trabalhados" value="{{ fato.dias_trabalhados or '' }}" placeholder="Ex.: 3">
+  </div>
+
+  <div class="span-3">
+    <label class="label">Observações</label>
+    <textarea class="input" name="observacoes">{{ fato.observacoes or '' }}</textarea>
+  </div>
+
+  <div class="span-3 ux-actions-row">
+    <a class="btn-muted" href="/alocacoes">Cancelar</a>
+    <button class="btn-primary">Salvar alterações</button>
+  </div>
+
+</form>
+
+<script>
+(function() {
+  const cargo = document.getElementById("id_cargo_autonomo");
+  const autonomo = document.getElementById("id_autonomo");
+  const etapa = document.getElementById("id_etapa");
+  const categoria = document.getElementById("id_prova");
+
+  function filtrarAutonomos() {
+    const cargoId = cargo.value;
+    const valorAtual = autonomo.value;
+
+    Array.from(autonomo.options).forEach(o => {
+      if (!o.value) return;
+      o.hidden = cargoId && o.dataset.cargo !== cargoId;
+    });
+
+    if (valorAtual && autonomo.selectedOptions.length && autonomo.selectedOptions[0].hidden) {
+      autonomo.value = "";
+    }
+  }
+
+  function filtrarCategorias() {
+    const etapaId = etapa.value;
+    const valorAtual = categoria.value;
+
+    Array.from(categoria.options).forEach(o => {
+      if (!o.value) return;
+      o.hidden = etapaId && o.dataset.etapa !== etapaId;
+    });
+
+    if (valorAtual && categoria.selectedOptions.length && categoria.selectedOptions[0].hidden) {
+      categoria.value = "";
+    }
+  }
+
+  cargo.addEventListener("change", filtrarAutonomos);
+  etapa.addEventListener("change", filtrarCategorias);
+
+  filtrarAutonomos();
+  filtrarCategorias();
+})();
+</script>
+
+{% endblock %}

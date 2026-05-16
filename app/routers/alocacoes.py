@@ -149,6 +149,123 @@ def criar(
     return redirect_with_message("/alocacoes", success="Alocação salva com sucesso.")
 
 
+
+
+@router.get("/alocacoes/{id_fato}/editar")
+def editar_form(id_fato: int, request: Request, db: Session = Depends(get_db)):
+    fato = db.get(FatoPilotoAutonomoProva, id_fato)
+
+    if not fato:
+        return redirect_with_message("/alocacoes", error="Alocação não encontrada.")
+
+    cargo_atual_id = None
+
+    if fato.autonomo and getattr(fato.autonomo, "id_cargo_autonomo", None):
+        cargo_atual_id = fato.autonomo.id_cargo_autonomo
+
+    if not cargo_atual_id and fato.funcao_autonomo:
+        cargo = (
+            db.query(DimCargoAutonomo)
+            .filter(DimCargoAutonomo.nome_cargo == fato.funcao_autonomo)
+            .first()
+        )
+        if cargo:
+            cargo_atual_id = cargo.id_cargo_autonomo
+
+    return templates.TemplateResponse(
+        "alocacoes/editar.html",
+        {
+            "request": request,
+            "fato": fato,
+            "cargo_atual_id": cargo_atual_id,
+            **options(db),
+            **flash_from_request(request),
+        },
+    )
+
+
+@router.post("/alocacoes/{id_fato}/editar")
+def editar(
+    id_fato: int,
+    id_piloto: int = Form(...),
+    id_etapa: int = Form(...),
+    id_prova: int = Form(...),
+    id_carro: int = Form(...),
+    id_cargo_autonomo: int = Form(...),
+    id_autonomo: int = Form(...),
+    status_vinculo: str = Form("Ativo"),
+    data_inicio_vinculo: str = Form(""),
+    data_fim_vinculo: str = Form(""),
+    valor_fechado_etapa: str = Form(""),
+    dias_trabalhados: str = Form(""),
+    observacoes: str = Form(""),
+    db: Session = Depends(get_db),
+):
+    fato = db.get(FatoPilotoAutonomoProva, id_fato)
+
+    if not fato:
+        return redirect_with_message("/alocacoes", error="Alocação não encontrada.")
+
+    cargo = db.get(DimCargoAutonomo, id_cargo_autonomo)
+
+    if not cargo:
+        return redirect_with_message(f"/alocacoes/{id_fato}/editar", error="Cargo não encontrado.")
+
+    funcao_autonomo = cargo.nome_cargo
+
+    if status_vinculo == "Ativo":
+        conflito = conflito_ativo(
+            db,
+            id_piloto=id_piloto,
+            id_prova=id_prova,
+            funcao_autonomo=funcao_autonomo,
+            ignore_id=id_fato,
+        )
+
+        if conflito:
+            return redirect_with_message(
+                f"/alocacoes/{id_fato}/editar",
+                error="Já existe outro autônomo ativo para este piloto, categoria e cargo.",
+            )
+
+    dias = None
+    if dias_trabalhados:
+        try:
+            dias = int(dias_trabalhados)
+        except Exception:
+            return redirect_with_message(f"/alocacoes/{id_fato}/editar", error="Dias trabalhados deve ser número inteiro.")
+
+        if dias <= 0:
+            return redirect_with_message(f"/alocacoes/{id_fato}/editar", error="Dias trabalhados deve ser maior que zero.")
+
+    try:
+        data_inicio = parse_date(data_inicio_vinculo) if data_inicio_vinculo else fato.data_inicio_vinculo
+    except ValueError:
+        return redirect_with_message(f"/alocacoes/{id_fato}/editar", error="Data início inválida.")
+
+    try:
+        data_fim = parse_date(data_fim_vinculo) if data_fim_vinculo else None
+    except ValueError:
+        return redirect_with_message(f"/alocacoes/{id_fato}/editar", error="Data fim inválida.")
+
+    fato.id_piloto = id_piloto
+    fato.id_etapa = id_etapa
+    fato.id_prova = id_prova
+    fato.id_carro = id_carro
+    fato.id_autonomo = id_autonomo
+    fato.funcao_autonomo = funcao_autonomo
+    fato.status_vinculo = status_vinculo
+    fato.data_inicio_vinculo = data_inicio
+    fato.data_fim_vinculo = data_fim
+    fato.valor_fechado_etapa = parse_money(valor_fechado_etapa)
+    fato.dias_trabalhados = dias
+    fato.observacoes = observacoes
+
+    db.commit()
+
+    return redirect_with_message("/alocacoes", success="Alocação atualizada com sucesso.")
+
+
 @router.get("/alocacoes/{id_fato}/substituir")
 def substituir_form(id_fato: int, request: Request, db: Session = Depends(get_db)):
     fato = db.get(FatoPilotoAutonomoProva, id_fato)

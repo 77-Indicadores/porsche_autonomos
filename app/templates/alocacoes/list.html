@@ -22,7 +22,7 @@
     <td>{{ f.dias_trabalhados or '-' }}</td>
     <td>{{ f.valor_dia|money_br }}</td>
     
-    <td class="actions"><a class="btn-muted" href="/alocacoes/{{ f.id_fato }}/substituir">Substituir</a><a class="btn-muted" href="/alocacoes/{{ f.id_fato }}/link-avaliacao">Link avaliacao</a><a class="btn-muted" href="/alocacoes/{{ f.id_fato }}/custo">Custo</a>{% if f.status_vinculo == 'Ativo' %}<form method="post" action="/alocacoes/{{ f.id_fato }}/encerrar" class="actions"><input class="input" type="date" name="data_fim" required><input class="input" name="motivo" placeholder="Motivo"><button class="btn-danger">Encerrar</button></form>{% endif %}</td>
+    <td class="actions"><a class="btn-muted" href="/alocacoes/{{ f.id_fato }}/editar">Editar</a><a class="btn-muted" href="/alocacoes/{{ f.id_fato }}/substituir">Substituir</a><a class="btn-muted" href="/alocacoes/{{ f.id_fato }}/link-avaliacao">Link avaliacao</a><a class="btn-muted" href="/alocacoes/{{ f.id_fato }}/custo">Custo</a>{% if f.status_vinculo == 'Ativo' %}<form method="post" action="/alocacoes/{{ f.id_fato }}/encerrar" class="actions"><input class="input" type="date" name="data_fim" required><input class="input" name="motivo" placeholder="Motivo"><button class="btn-danger">Encerrar</button></form>{% endif %}</td>
   </tr>
   {% else %}<tr><td colspan="8" class="empty">Nenhuma alocacao.</td></tr>{% endfor %}
   </tbody>
