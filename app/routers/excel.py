@@ -286,6 +286,46 @@ ENTIDADES = {
             "valor_fechado_etapa e o valor total do pacote, nao quantidade x valor unitario.",
         ],
     },
+
+    "composicao-padrao": {
+        "label": "Composicao Padrao",
+        "table": "composicao_padrao_equipe",
+        "unique": [
+            "id_etapa",
+            "id_prova",
+            "id_carro",
+            "id_cargo_autonomo",
+        ],
+        "columns": [
+            "id_etapa",
+            "id_prova",
+            "id_carro",
+            "id_cargo_autonomo",
+            "qtd_esperada",
+            "custo_medio_esperado",
+            "status",
+            "observacoes",
+        ],
+        "example": [
+            "1",
+            "1",
+            "12",
+            "1",
+            "3",
+            "3500",
+            "Ativo",
+            "Exemplo: 3 mecanicos esperados para este carro/categoria.",
+        ],
+        "references": ["etapas", "provas", "carros", "cargos"],
+        "tips": [
+            "Use id_etapa para regra especifica de uma etapa. Deixe vazio apenas se quiser regra geral.",
+            "Use id_prova para regra especifica de uma categoria. Deixe vazio apenas se quiser regra geral.",
+            "Use id_carro para regra especifica de um carro. Deixe vazio para regra por categoria/todos os carros.",
+            "Use id_cargo_autonomo para informar o cargo esperado, como Mecanico, Analista de Dados ou Apoio.",
+            "qtd_esperada e a quantidade esperada de autonomos daquele cargo.",
+            "custo_medio_esperado e o custo medio esperado por autonomo. O custo total esperado sera qtd_esperada x custo_medio_esperado.",
+        ],
+    },
 }
 
 
@@ -377,7 +417,10 @@ FIELD_HINTS = {
     "valor_fechado_etapa": "Informe o valor total do pacote da etapa.",
     "dias_trabalhados": "Informe a quantidade de dias trabalhados na etapa.",
     "status_pagamento": "Use um valor cadastrado em status-pagamento, como Pendente, Aprovado ou Pago.",
+    "qtd_esperada": "Informe a quantidade esperada de autônomos para este cargo/regra.",
+    "custo_medio_esperado": "Informe o custo médio esperado por autônomo. Exemplo: 3500 ou 3500,00.",
 }
+
 
 
 def prettify_field_name(field_name: str) -> str:
