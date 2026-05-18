@@ -1,0 +1,327 @@
+{% extends "base.html" %}
+
+{% block header %}Composição Padrão{% endblock %}
+{% block subtitle %}Defina a quantidade esperada de autônomos por carro, categoria, etapa e cargo.{% endblock %}
+
+{% block header_action %}
+<button type="button" class="quick-action primary" onclick="novoCadastro()">+ Nova regra</button>
+{% endblock %}
+
+{% block content %}
+
+<section class="panel mb-6">
+  <div class="panel-head">
+    <h3>Nova / editar composição padrão</h3>
+  </div>
+
+  <form method="post" action="/composicao-padrao" class="form-grid" id="form_composicao">
+    <input type="hidden" name="id_composicao" id="id_composicao">
+
+    <div>
+      <label class="label">Etapa</label>
+      <select class="input" name="id_etapa" id="id_etapa">
+        <option value="">Todas as etapas</option>
+        {% for e in etapas %}
+          <option value="{{ e.id_etapa }}">{{ e.temporada }} - {{ e.nome_etapa }}</option>
+        {% endfor %}
+      </select>
+      <p class="text-sm text-zinc-500 mt-1">Deixe vazio para regra geral.</p>
+    </div>
+
+    <div>
+      <label class="label">Categoria</label>
+      <select class="input" name="id_prova" id="id_prova">
+        <option value="">Todas as categorias</option>
+        {% for p in provas %}
+          <option value="{{ p.id_prova }}" data-etapa="{{ p.id_etapa }}">{{ p.nome_prova }}</option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div>
+      <label class="label">Carro</label>
+      <select class="input" name="id_carro" id="id_carro">
+        <option value="">Todos os carros</option>
+        {% for c in carros %}
+          <option value="{{ c.id_carro }}">
+            {{ c.numero_carro }}{% if c.modelo %} - {{ c.modelo }}{% endif %}{% if c.categoria_padrao %} - {{ c.categoria_padrao }}{% endif %}
+          </option>
+        {% endfor %}
+      </select>
+      <p class="text-sm text-zinc-500 mt-1">Deixe vazio para regra por categoria.</p>
+    </div>
+
+    <div>
+      <label class="label">Cargo do autônomo</label>
+      <select class="input" name="id_cargo_autonomo" id="id_cargo_autonomo" required>
+        <option value="">Selecione</option>
+        {% for c in cargos %}
+          <option value="{{ c.id_cargo_autonomo }}">{{ c.nome_cargo }}</option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div>
+      <label class="label">Quantidade esperada</label>
+      <input class="input" type="number" min="1" name="qtd_esperada" id="qtd_esperada" value="1" required>
+    </div>
+
+    <div>
+      <label class="label">Custo médio esperado</label>
+      <input class="input" name="custo_medio_esperado" id="custo_medio_esperado" placeholder="3500,00">
+    </div>
+
+    <div>
+      <label class="label">Status</label>
+      <select class="input" name="status" id="status">
+        {% for s in ['Ativo','Inativo'] %}
+          <option value="{{ s }}">{{ s }}</option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div class="span-3">
+      <label class="label">Observações</label>
+      <textarea class="input" name="observacoes" id="observacoes" placeholder="Ex.: padrão utilizado para etapa cheia, regra por carro, regra por categoria..."></textarea>
+    </div>
+
+    <div class="span-3 ux-actions-row">
+      <button class="btn-primary" id="btn_salvar_composicao">Salvar composição</button>
+      <button type="button" class="btn-secondary" onclick="novoCadastro()">Limpar</button>
+    </div>
+  </form>
+</section>
+
+<section class="panel mb-6">
+  <div class="panel-head">
+    <h3>Filtros</h3>
+  </div>
+
+  <form method="get" class="form-grid">
+    <div>
+      <label class="label">Etapa</label>
+      <select class="input" name="id_etapa">
+        <option value="">Todas</option>
+        {% for e in etapas %}
+          <option value="{{ e.id_etapa }}" {% if filtros.id_etapa|string == e.id_etapa|string %}selected{% endif %}>
+            {{ e.temporada }} - {{ e.nome_etapa }}
+          </option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div>
+      <label class="label">Categoria</label>
+      <select class="input" name="id_prova">
+        <option value="">Todas</option>
+        {% for p in provas %}
+          <option value="{{ p.id_prova }}" {% if filtros.id_prova|string == p.id_prova|string %}selected{% endif %}>
+            {{ p.nome_prova }}
+          </option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div>
+      <label class="label">Carro</label>
+      <select class="input" name="id_carro">
+        <option value="">Todos</option>
+        {% for c in carros %}
+          <option value="{{ c.id_carro }}" {% if filtros.id_carro|string == c.id_carro|string %}selected{% endif %}>
+            {{ c.numero_carro }}{% if c.modelo %} - {{ c.modelo }}{% endif %}
+          </option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div>
+      <label class="label">Cargo</label>
+      <select class="input" name="id_cargo_autonomo">
+        <option value="">Todos</option>
+        {% for c in cargos %}
+          <option value="{{ c.id_cargo_autonomo }}" {% if filtros.id_cargo_autonomo|string == c.id_cargo_autonomo|string %}selected{% endif %}>
+            {{ c.nome_cargo }}
+          </option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div>
+      <label class="label">Status</label>
+      <select class="input" name="status">
+        <option value="">Todos</option>
+        {% for s in ['Ativo','Inativo'] %}
+          <option value="{{ s }}" {% if filtros.status == s %}selected{% endif %}>{{ s }}</option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div class="ux-actions-row">
+      <button class="btn-secondary">Filtrar</button>
+      <a class="btn-muted" href="/composicao-padrao">Limpar</a>
+    </div>
+  </form>
+</section>
+
+<section class="panel mb-6">
+  <div class="grid gap-3 md:grid-cols-3">
+    <div class="kpi-card">
+      <span>Total de regras</span>
+      <strong>{{ items|length }}</strong>
+    </div>
+
+    <div class="kpi-card">
+      <span>Autônomos esperados</span>
+      <strong>{{ total_qtd }}</strong>
+    </div>
+
+    <div class="kpi-card">
+      <span>Custo esperado</span>
+      <strong>R$ {{ "{:,.2f}".format(total_custo).replace(",", "X").replace(".", ",").replace("X", ".") }}</strong>
+    </div>
+  </div>
+</section>
+
+<section class="panel">
+  <div class="panel-head">
+    <h3>Regras cadastradas</h3>
+  </div>
+
+  <div class="overflow-x-auto">
+    <table class="table">
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Etapa</th>
+          <th>Categoria</th>
+          <th>Carro</th>
+          <th>Cargo</th>
+          <th>Qtd esperada</th>
+          <th>Custo médio</th>
+          <th>Custo total</th>
+          <th>Status</th>
+          <th>Ações</th>
+        </tr>
+      </thead>
+
+      <tbody>
+        {% for item in items %}
+        <tr>
+          <td><span class="id-pill">{{ item.id_composicao }}</span></td>
+          <td>{{ item.nome_etapa }}</td>
+          <td>{{ item.nome_prova }}</td>
+          <td>{{ item.nome_carro }}</td>
+          <td class="font-bold">{{ item.nome_cargo }}</td>
+          <td>{{ item.qtd_esperada }}</td>
+          <td>
+            {% if item.custo_medio_esperado is not none %}
+              R$ {{ "{:,.2f}".format(item.custo_medio_esperado).replace(",", "X").replace(".", ",").replace("X", ".") }}
+            {% else %}
+              -
+            {% endif %}
+          </td>
+          <td class="font-bold">
+            R$ {{ "{:,.2f}".format(item.custo_total_esperado).replace(",", "X").replace(".", ",").replace("X", ".") }}
+          </td>
+          <td><span class="badge">{{ item.status }}</span></td>
+          <td class="actions">
+            <button
+              class="btn-muted"
+              type="button"
+              onclick="editarComposicao(this)"
+              data-id_composicao="{{ item.id_composicao }}"
+              data-id_etapa="{{ item.id_etapa or '' }}"
+              data-id_prova="{{ item.id_prova or '' }}"
+              data-id_carro="{{ item.id_carro or '' }}"
+              data-id_cargo_autonomo="{{ item.id_cargo_autonomo }}"
+              data-qtd_esperada="{{ item.qtd_esperada }}"
+              data-custo_medio_esperado="{{ item.custo_medio_esperado or '' }}"
+              data-status="{{ item.status }}"
+              data-observacoes="{{ item.observacoes or '' }}"
+            >
+              Editar
+            </button>
+
+            <form method="post" action="/composicao-padrao/{{ item.id_composicao }}/excluir" onsubmit="return confirm('Excluir esta regra?');">
+              <button class="btn-danger">Excluir</button>
+            </form>
+          </td>
+        </tr>
+        {% else %}
+        <tr>
+          <td colspan="10" class="empty">Nenhuma composição padrão cadastrada.</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<script>
+function setValue(id, value) {
+  const el = document.getElementById(id);
+  if (el) el.value = value || "";
+}
+
+function editarComposicao(btn) {
+  const d = btn.dataset || {};
+
+  setValue("id_composicao", d.id_composicao);
+  setValue("id_etapa", d.id_etapa);
+  setValue("id_prova", d.id_prova);
+  setValue("id_carro", d.id_carro);
+  setValue("id_cargo_autonomo", d.id_cargo_autonomo);
+  setValue("qtd_esperada", d.qtd_esperada);
+  setValue("custo_medio_esperado", d.custo_medio_esperado);
+  setValue("status", d.status);
+  setValue("observacoes", d.observacoes);
+
+  const titulo = document.querySelector(".panel-head h3");
+  if (titulo) titulo.innerText = "Editar composição padrão #" + d.id_composicao;
+
+  const botao = document.getElementById("btn_salvar_composicao");
+  if (botao) botao.innerText = "Salvar alterações";
+
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+function novoCadastro() {
+  const form = document.getElementById("form_composicao");
+  if (form) form.reset();
+
+  setValue("id_composicao", "");
+
+  const titulo = document.querySelector(".panel-head h3");
+  if (titulo) titulo.innerText = "Nova / editar composição padrão";
+
+  const botao = document.getElementById("btn_salvar_composicao");
+  if (botao) botao.innerText = "Salvar composição";
+
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+(function() {
+  const etapa = document.getElementById("id_etapa");
+  const categoria = document.getElementById("id_prova");
+
+  function filtrarCategorias() {
+    if (!etapa || !categoria) return;
+
+    const etapaId = etapa.value;
+
+    Array.from(categoria.options).forEach(o => {
+      if (!o.value) return;
+      o.hidden = etapaId && o.dataset.etapa !== etapaId;
+    });
+
+    if (categoria.selectedOptions.length && categoria.selectedOptions[0].hidden) {
+      categoria.value = "";
+    }
+  }
+
+  if (etapa) etapa.addEventListener("change", filtrarCategorias);
+  filtrarCategorias();
+})();
+</script>
+
+{% endblock %}
