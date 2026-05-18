@@ -1,0 +1,142 @@
+{% extends "base.html" %}
+
+{% block header %}Pesquisas{% endblock %}
+{% block subtitle %}Upload, classificação e padronização de avaliações e feedbacks.{% endblock %}
+
+{% block content %}
+
+<section class="panel mb-6">
+  <div class="panel-head">
+    <h3>Novo upload de pesquisa</h3>
+  </div>
+
+  <form method="post" action="/pesquisas/upload" enctype="multipart/form-data" class="form-grid">
+
+    <div>
+      <label class="label">Etapa</label>
+      <select class="input" name="id_etapa" required>
+        <option value="">Selecione a etapa</option>
+        {% for e in etapas %}
+          <option value="{{ e.id_etapa }}">{{ e.temporada }} - {{ e.nome_etapa }}</option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div>
+      <label class="label">Tipo de pesquisa</label>
+      <select class="input" name="tipo_pesquisa" required>
+        <option value="">Selecione</option>
+        {% for value, label in tipos_pesquisa %}
+          <option value="{{ value }}">{{ label }}</option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div>
+      <label class="label">Arquivo Excel do Forms</label>
+      <input class="input" type="file" name="arquivo" accept=".xlsx" required>
+    </div>
+
+    <div class="ux-actions-row">
+      <button class="btn-primary">Importar e padronizar</button>
+    </div>
+
+  </form>
+</section>
+
+<section class="panel mb-6">
+  <div class="panel-head">
+    <h3>Pendências de relacionamento</h3>
+  </div>
+
+  {% if pendencias %}
+    <table class="table">
+      <thead>
+        <tr>
+          <th>Tipo</th>
+          <th>Nome no Forms</th>
+          <th>Qtd respostas</th>
+          <th>Relacionar com cadastro</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for p in pendencias %}
+        <tr>
+          <td><span class="badge">{{ p.tipo_alvo }}</span></td>
+          <td class="font-bold">{{ p.alvo_nome }}</td>
+          <td>{{ p.qtd }}</td>
+          <td>
+            <form method="post" action="/pesquisas/mapear" class="actions">
+              <input type="hidden" name="texto_origem" value="{{ p.alvo_nome }}">
+              <input type="hidden" name="tipo_alvo" value="{{ p.tipo_alvo }}">
+              <input type="hidden" name="redirect_to" value="/pesquisas">
+
+              {% if p.tipo_alvo == 'autonomo' %}
+                <select class="input" name="id_autonomo" required>
+                  <option value="">Selecione autônomo</option>
+                  {% for a in autonomos %}
+                    <option value="{{ a.id_autonomo }}">#{{ a.id_autonomo }} - {{ a.nome_autonomo }}</option>
+                  {% endfor %}
+                </select>
+              {% else %}
+                <select class="input" name="id_piloto" required>
+                  <option value="">Selecione piloto</option>
+                  {% for pi in pilotos %}
+                    <option value="{{ pi.id_piloto }}">#{{ pi.id_piloto }} - {{ pi.nome_piloto }}</option>
+                  {% endfor %}
+                </select>
+              {% endif %}
+
+              <button class="btn-secondary">Salvar vínculo</button>
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% else %}
+    <div class="empty">Nenhuma pendência de relacionamento.</div>
+  {% endif %}
+</section>
+
+<section class="panel">
+  <div class="panel-head">
+    <h3>Uploads realizados</h3>
+  </div>
+
+  <table class="table">
+    <thead>
+      <tr>
+        <th>ID</th>
+        <th>Arquivo</th>
+        <th>Tipo</th>
+        <th>Etapa</th>
+        <th>Linhas</th>
+        <th>Respostas</th>
+        <th>Status</th>
+        <th>Ações</th>
+      </tr>
+    </thead>
+
+    <tbody>
+      {% for u in uploads %}
+      <tr>
+        <td><span class="id-pill">{{ u.id_upload }}</span></td>
+        <td class="font-bold">{{ u.arquivo_nome }}</td>
+        <td>{{ u.tipo_pesquisa }}</td>
+        <td>{{ u.id_etapa }}</td>
+        <td>{{ u.qtd_linhas }}</td>
+        <td>{{ u.qtd_respostas }}</td>
+        <td><span class="badge">{{ u.status }}</span></td>
+        <td><a class="btn-muted" href="/pesquisas/{{ u.id_upload }}">Ver detalhes</a></td>
+      </tr>
+      {% else %}
+      <tr>
+        <td colspan="8" class="empty">Nenhuma pesquisa importada.</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+
+{% endblock %}
