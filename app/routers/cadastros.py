@@ -1,6 +1,6 @@
 from pathlib import Path
-import uuid
-import shutil
+import base64
+import mimetypes
 from fastapi import APIRouter, Depends, Form, Request, UploadFile, File
 from sqlalchemy import or_, text
 from sqlalchemy.orm import Session
@@ -13,64 +13,54 @@ from app.utils import flash_from_request, parse_date, redirect_with_message
 router = APIRouter(tags=["cadastros"])
 
 
+
+# Mantido apenas por compatibilidade com fotos antigas que já estavam salvas em /static/uploads.
 UPLOAD_BASE = Path(__file__).resolve().parents[1] / "static" / "uploads"
 
 
-
-def aplicar_id_manual(db: Session, obj, model, pk_name: str, novo_id: str, atual_id: str = ""):
-    """
-    Permite informar ID manualmente no cadastro.
-    - Novo registro sem ID: banco gera automático.
-    - Novo registro com ID: usa o ID informado, se não existir.
-    - Edição sem troca: mantém ID.
-    - Edição com troca: altera PK, se o novo ID não existir.
-    """
-    novo_id = str(novo_id or "").strip()
-    atual_id = str(atual_id or "").strip()
-
-    if not novo_id:
-        return obj
-
-    try:
-        novo = int(novo_id)
-    except Exception:
-        raise ValueError(f"ID inválido: {novo_id}")
-
-    atual = None
-    if atual_id:
-        try:
-            atual = int(atual_id)
-        except Exception:
-            atual = None
-
-    existente = db.get(model, novo)
-
-    if existente and (not atual or novo != atual):
-        raise ValueError(f"ID {novo} já existe.")
-
-    setattr(obj, pk_name, novo)
-    return obj
-
-
 def salvar_upload_foto(arquivo: UploadFile, pasta: str):
+    """
+    Salva a imagem diretamente no banco em formato Base64 Data URI.
+
+    Antes:
+        - salvava arquivo físico em app/static/uploads
+        - gravava no banco apenas /static/uploads/...
+
+    Agora:
+        - não grava arquivo local
+        - grava no banco data:image/...;base64,...
+    """
     if not arquivo or not arquivo.filename:
         return None
 
     extensao = Path(arquivo.filename).suffix.lower()
 
-    if extensao not in [".jpg", ".jpeg", ".png", ".webp"]:
+    mime_por_extensao = {
+        ".jpg": "image/jpeg",
+        ".jpeg": "image/jpeg",
+        ".png": "image/png",
+        ".webp": "image/webp",
+    }
+
+    mime_type = mime_por_extensao.get(extensao)
+
+    if not mime_type:
         return None
 
-    destino_dir = UPLOAD_BASE / pasta
-    destino_dir.mkdir(parents=True, exist_ok=True)
+    conteudo = arquivo.file.read()
 
-    nome_arquivo = f"{uuid.uuid4().hex}{extensao}"
-    destino = destino_dir / nome_arquivo
+    if not conteudo:
+        return None
 
-    with destino.open("wb") as buffer:
-        shutil.copyfileobj(arquivo.file, buffer)
+    # Limite preventivo de 3 MB para não estourar banco/renderização.
+    # Se precisar, podemos aumentar depois.
+    limite_mb = 3
+    if len(conteudo) > limite_mb * 1024 * 1024:
+        return None
 
-    return f"/static/uploads/{pasta}/{nome_arquivo}"
+    base64_str = base64.b64encode(conteudo).decode("utf-8")
+
+    return f"{mime_type};base64,{base64_str}".join(["data:", ""])
 
 
 

@@ -19,7 +19,7 @@ class DimPiloto(Base):
     motivo_desligamento: Mapped[str | None] = mapped_column(String(255))
     status_piloto: Mapped[str] = mapped_column(String(30), default="Ativo", nullable=False)
     observacoes: Mapped[str | None] = mapped_column(Text)
-    foto_url = Column(String)
+    foto_url = Column(Text)
 
     fatos = relationship("FatoPilotoAutonomoProva", back_populates="piloto")
 
@@ -48,7 +48,7 @@ class DimAutonomo(Base):
     motivo_saida: Mapped[str | None] = mapped_column(String(255))
     status_autonomo: Mapped[str] = mapped_column(String(30), default="Ativo", nullable=False)
     observacoes: Mapped[str | None] = mapped_column(Text)
-    foto_url = Column(String)
+    foto_url = Column(Text)
     id_cargo_autonomo = Column(Integer, ForeignKey("dim_cargos_autonomos.id_cargo_autonomo"))
 
 fatos = relationship("FatoPilotoAutonomoProva", foreign_keys="FatoPilotoAutonomoProva.id_autonomo", back_populates="autonomo")
