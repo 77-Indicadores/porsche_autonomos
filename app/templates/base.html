@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>{% block title %}Porsche Cup | Controle de Autônomos{% endblock %}</title>
+  <title>{% block title %}Sistema Porsche{% endblock %}</title>
 
   <link rel="stylesheet" href="/static/css/style.css">
 </head>
@@ -19,50 +19,75 @@
     </div>
 
     <nav class="sidebar-nav">
+      {% if request.url.path != '/' %}
       <div class="nav-section">
-        <div class="nav-section-title">Dashboard</div>
-        <a class="nav-link {% if request.url.path == '/' %}active{% endif %}" href="/">Visão Geral</a>
+        <div class="nav-section-title">Sistema Porsche</div>
+        <a class="nav-link" href="/">🏠 Trocar módulo</a>
+      </div>
+      {% endif %}
+
+      {% if request.url.path.startswith('/dho') %}
+      <div class="nav-section">
+        <div class="nav-section-title">DHO</div>
+        <a class="nav-link {% if request.url.path == '/dho' %}active{% endif %}" href="/dho">📊 Visão Geral DHO</a>
+        <a class="nav-link {% if request.url.path.startswith('/dho/estrutura') %}active{% endif %}" href="/dho/estrutura">🏢 Cadastros DHO</a>
+        <a class="nav-link {% if request.url.path.startswith('/dho/vagas') %}active{% endif %}" href="/dho/vagas">💼 Vagas Abertas</a>
+        <a class="nav-link {% if request.url.path.startswith('/dho/treinamentos') %}active{% endif %}" href="/dho/treinamentos">🎓 Treinamentos</a>
+        <a class="nav-link {% if request.url.path.startswith('/dho/aplicacoes-treinamento') %}active{% endif %}" href="/dho/aplicacoes-treinamento">✅ Aplicar Treinamento</a>
+      </div>
+
+      {% elif request.url.path != '/' %}
+      <div class="nav-section">
+        <div class="nav-section-title">Autônomos</div>
+        <a class="nav-link {% if request.url.path == '/autonomos/dashboard' %}active{% endif %}" href="/autonomos/dashboard">📊 Visão Geral</a>
       </div>
 
       <div class="nav-section">
         <div class="nav-section-title">Cadastros</div>
-        <a class="nav-link {% if request.url.path.startswith('/provas') %}active{% endif %}" href="/provas">🏁 Categorias</a>
-        <a class="nav-link {% if request.url.path.startswith('/tipos-prova') %}active{% endif %}" href="/tipos-prova">🗂️ Tipo Categoria</a>
+        <a class="nav-link {% if request.url.path.startswith('/provas') or request.url.path.startswith('/categorias') %}active{% endif %}" href="/provas">🏁 Categorias</a>
+        <a class="nav-link {% if request.url.path.startswith('/tipos-prova') or request.url.path.startswith('/tipos-categoria') %}active{% endif %}" href="/tipos-prova">🗂️ Tipo Categoria</a>
         <a class="nav-link {% if request.url.path.startswith('/motivos-troca') %}active{% endif %}" href="/motivos-troca">🔄 Motivo Troca</a>
         <a class="nav-link {% if request.url.path.startswith('/etapas') %}active{% endif %}" href="/etapas">📍 Etapa</a>
         <a class="nav-link {% if request.url.path.startswith('/carros') %}active{% endif %}" href="/carros">🏎️ Carros</a>
-
         <a class="nav-link {% if request.url.path.startswith('/cargos-autonomos') %}active{% endif %}" href="/cargos-autonomos">🪪 Cargos Autônomo</a>
         <a class="nav-link {% if request.url.path.startswith('/pilotos') %}active{% endif %}" href="/pilotos">👨‍✈️ Piloto</a>
-        <a class="nav-link {% if request.url.path.startswith('/autonomos') %}active{% endif %}" href="/autonomos">🧰 Autônomo</a>
+        <a class="nav-link {% if request.url.path == '/autonomos' %}active{% endif %}" href="/autonomos">🧰 Autônomo</a>
         <a class="nav-link {% if request.url.path.startswith('/equipe-geral') %}active{% endif %}" href="/equipe-geral">👥 Gestão da Equipe Geral</a>
       </div>
 
       <div class="nav-section">
         <div class="nav-section-title">Operação</div>
-        <a class="nav-link {% if request.url.path == '/alocacoes' %}active{% endif %}" href="/alocacoes">📋 Gestão de Alocação</a>
+        <a class="nav-link {% if request.url.path.startswith('/alocacoes') %}active{% endif %}" href="/alocacoes">📋 Gestão de Alocação</a>
         <a class="nav-link {% if request.url.path.startswith('/composicao-padrao') %}active{% endif %}" href="/composicao-padrao">🧩 Composição Meta Equipe</a>
         <a class="nav-link {% if request.url.path.startswith('/equipes') %}active{% endif %}" href="/equipes">👥 Equipes Alocadas</a>
         <a class="nav-link {% if request.url.path.startswith('/pesquisas') %}active{% endif %}" href="/pesquisas">📝 Pesquisas</a>
       </div>
+      {% endif %}
 
+      {% if request.url.path != '/' %}
       <div class="nav-section">
         <div class="nav-section-title">Configurações</div>
-        <a class="nav-link {% if request.url.path.startswith('/usuarios') %}active{% endif %}" href="/usuarios">Usuarios</a>
-        <a class="nav-link {% if request.url.path.startswith('/excel') %}active{% endif %}" href="/excel/">📥 Importações Excel</a>
-        <a class="nav-link {% if request.url.path.startswith('/ids-importacao') %}active{% endif %}" href="/ids-importacao">IDs para Importacao</a>
-        <a class="nav-link {% if request.url.path.startswith('/setup') %}active{% endif %}" href="/setup">⚙️ Listas de Apoio</a>
+        <a class="nav-link {% if request.url.path.startswith('/usuarios') %}active{% endif %}" href="/usuarios">Usuários</a>
+
+        {% if request.url.path.startswith('/dho') %}
+          <a class="nav-link {% if request.url.path.startswith('/dho/importacoes') %}active{% endif %}" href="/dho/importacoes">📥 Importações</a>
+        {% else %}
+          <a class="nav-link {% if request.url.path.startswith('/excel') %}active{% endif %}" href="/excel/">📥 Importações Autônomos</a>
+          <a class="nav-link {% if request.url.path.startswith('/ids-importacao') %}active{% endif %}" href="/ids-importacao">IDs para Importação</a>
+          <a class="nav-link {% if request.url.path.startswith('/setup') %}active{% endif %}" href="/setup">⚙️ Listas de Apoio</a>
+        {% endif %}
+
         <a class="nav-link {% if request.url.path.startswith('/logs') %}active{% endif %}" href="/logs/">🧾 Logs</a>
       </div>
-
-</nav>
+      {% endif %}
+    </nav>
   </aside>
 
   <main class="main-content">
     <header class="page-header">
       <div>
-        <div class="breadcrumbs">cadastro -> etapa/categoria -> alocacao -> troca -> equipe</div>
-        <h1>{% block header %}Dashboard Porsche Cup{% endblock %}</h1>
+        <div class="breadcrumbs">Sistema Porsche -> módulos -> operação</div>
+        <h1>{% block header %}Sistema Porsche{% endblock %}</h1>
         <p>{% block subtitle %}{% endblock %}</p>
       </div>
 

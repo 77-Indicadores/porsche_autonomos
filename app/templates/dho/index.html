@@ -1,0 +1,143 @@
+{% extends "base.html" %}
+
+{% block header %}DHO{% endblock %}
+{% block subtitle %}Recrutamento, vagas abertas e treinamentos{% endblock %}
+
+{% block header_action %}
+<a class="quick-action primary" href="/dho/vagas">Nova vaga</a>
+<a class="quick-action light" href="/dho/treinamentos">Cadastrar treinamento</a>
+<a class="quick-action light" href="/dho/aplicacoes-treinamento">Aplicar treinamento</a>
+{% endblock %}
+
+{% block content %}
+
+<section class="exec-hero">
+  <div>
+    <span class="exec-label">Sistema Porsche</span>
+    <h2>Módulo DHO</h2>
+    <p>
+      Controle simples de vagas abertas por departamento/cargo e treinamentos aplicados
+      para equipe, RH e autônomos.
+    </p>
+  </div>
+
+  <div class="exec-hero-card">
+    <span>Status do módulo</span>
+    <strong>Ativo</strong>
+    <small>DHO separado do ambiente de Autônomos</small>
+  </div>
+</section>
+
+<section class="exec-kpis">
+  <article class="exec-kpi">
+    <div class="exec-kpi-icon">💼</div>
+    <span>Vagas abertas</span>
+    <strong>{{ cards.vagas_abertas }}</strong>
+  </article>
+
+  <article class="exec-kpi">
+    <div class="exec-kpi-icon">🎓</div>
+    <span>Treinamentos ativos</span>
+    <strong>{{ cards.treinamentos_ativos }}</strong>
+  </article>
+
+  <article class="exec-kpi">
+    <div class="exec-kpi-icon">✅</div>
+    <span>Treinamentos aplicados</span>
+    <strong>{{ cards.qtd_aplicacoes }}</strong>
+  </article>
+
+  <article class="exec-kpi">
+    <div class="exec-kpi-icon">⏱️</div>
+    <span>Horas realizadas</span>
+    <strong>{{ cards.horas_realizadas }}</strong>
+  </article>
+</section>
+
+<section class="exec-grid">
+  <article class="exec-panel">
+    <div class="exec-panel-head">
+      <div>
+        <span>Recrutamento e seleção</span>
+        <h3>Últimas vagas</h3>
+      </div>
+    </div>
+
+    <div class="exec-flow">
+      {% for item in ultimas_vagas %}
+      <a href="/dho/vagas">
+        <b>{{ loop.index }}</b>
+        <div>
+          <strong>{{ item.nome_cargo or "Cargo não definido" }}</strong>
+          <small>{{ item.nome_departamento or "-" }} · {{ item.tipo_vaga or "-" }} · {{ item.status or "-" }}</small>
+        </div>
+      </a>
+      {% else %}
+      <a href="/dho/vagas">
+        <b>+</b>
+        <div>
+          <strong>Nenhuma vaga cadastrada</strong>
+          <small>Clique para cadastrar a primeira vaga</small>
+        </div>
+      </a>
+      {% endfor %}
+    </div>
+  </article>
+
+  <article class="exec-panel">
+    <div class="exec-panel-head">
+      <div>
+        <span>Treinamentos</span>
+        <h3>Últimas aplicações</h3>
+      </div>
+    </div>
+
+    <div class="exec-flow">
+      {% for item in ultimas_aplicacoes %}
+      <a href="/dho/aplicacoes-treinamento">
+        <b>{{ loop.index }}</b>
+        <div>
+          <strong>{{ item.pessoa_nome or "-" }}</strong>
+          <small>{{ item.nome_treinamento or "-" }} · {{ fmt_num(item.carga_horaria) }}h · {{ item.status or "-" }}</small>
+        </div>
+      </a>
+      {% else %}
+      <a href="/dho/aplicacoes-treinamento">
+        <b>+</b>
+        <div>
+          <strong>Nenhum treinamento aplicado</strong>
+          <small>Clique para aplicar o primeiro treinamento</small>
+        </div>
+      </a>
+      {% endfor %}
+    </div>
+  </article>
+</section>
+
+<section class="exec-grid-3">
+  <a class="exec-shortcut" href="/dho/estrutura">
+    <span>🏢</span>
+    <strong>Cadastros DHO</strong>
+    <small>Departamentos e cargos</small>
+  </a>
+
+  <a class="exec-shortcut" href="/dho/vagas">
+    <span>💼</span>
+    <strong>Vagas abertas</strong>
+    <small>Cargo, departamento, tipo e motivo</small>
+  </a>
+
+  <a class="exec-shortcut" href="/dho/treinamentos">
+    <span>🎓</span>
+    <strong>Treinamentos</strong>
+    <small>Cadastro simples dos treinamentos</small>
+  </a>
+
+  <a class="exec-shortcut" href="/dho/aplicacoes-treinamento">
+    <span>✅</span>
+    <strong>Aplicar treinamento</strong>
+    <small>Pessoa, data e horas realizadas</small>
+  </a>
+</section>
+
+{% endblock %}

@@ -174,7 +174,7 @@ def carregar_indicadores_composicao(db: Session):
     return base
 
 
-@router.get("/")
+@router.get("/autonomos/dashboard")
 def dashboard(request: Request, db: Session = Depends(get_db)):
     hoje = date.today()
 
@@ -262,6 +262,16 @@ def dashboard(request: Request, db: Session = Depends(get_db)):
             "resumo": resumo,
             "equipe_geral": equipe_geral,
             "composicao": composicao,
+            **flash_from_request(request),
+        },
+    )
+
+@router.get("/")
+def sistema_home(request: Request):
+    return templates.TemplateResponse(
+        "modulos.html",
+        {
+            "request": request,
             **flash_from_request(request),
         },
     )

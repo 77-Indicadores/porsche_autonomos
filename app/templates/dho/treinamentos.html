@@ -1,0 +1,148 @@
+{% extends "base.html" %}
+
+{% block header %}Treinamentos{% endblock %}
+{% block subtitle %}Cadastro simples dos treinamentos do DHO{% endblock %}
+
+{% block header_action %}
+<a class="quick-action light" href="/dho/aplicacoes-treinamento">Aplicar treinamento</a>
+<button type="button" class="quick-action primary" onclick="novoTreinamento()">+ Novo treinamento</button>
+{% endblock %}
+
+{% block content %}
+
+<section class="panel mb-6">
+  <form method="get" class="flex gap-3">
+    <input class="input" name="q" placeholder="Pesquisar por treinamento, tipo ou status" value="{{ q }}">
+    <button class="btn-secondary">Pesquisar</button>
+  </form>
+</section>
+
+<section class="panel mb-6">
+  <div class="panel-head">
+    <h3 id="titulo-form-dho">Novo / editar treinamento</h3>
+  </div>
+
+  <form method="post" action="/dho/treinamentos" class="form-grid" id="form_dho">
+    <input type="hidden" name="id_treinamento" id="id_treinamento">
+
+    <div>
+      <label class="label">Nome do treinamento</label>
+      <input class="input" name="nome_treinamento" id="nome_treinamento" required>
+    </div>
+
+    <div>
+      <label class="label">Tipo</label>
+      <select class="input" name="tipo_treinamento" id="tipo_treinamento" required>
+        {% for t in tipos_treinamento %}
+          <option>{{ t }}</option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div>
+      <label class="label">Carga horária padrão</label>
+      <input class="input" name="carga_horaria_padrao" id="carga_horaria_padrao" placeholder="Ex.: 2">
+    </div>
+
+    <div>
+      <label class="label">Status</label>
+      <select class="input" name="status" id="status">
+        {% for s in status_treinamento %}
+          <option>{{ s }}</option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div class="span-3">
+      <label class="label">Observações</label>
+      <textarea class="input" name="observacoes" id="observacoes"></textarea>
+    </div>
+
+    <div class="span-3 ux-actions-row">
+      <button class="btn-primary" id="btn_salvar_dho">Salvar treinamento</button>
+      <button type="button" class="btn-secondary" onclick="novoTreinamento()">Limpar</button>
+    </div>
+  </form>
+</section>
+
+<section class="panel">
+  <table class="table">
+    <thead>
+      <tr>
+        <th>ID</th>
+        <th>Treinamento</th>
+        <th>Tipo</th>
+        <th>Carga padrão</th>
+        <th>Status</th>
+        <th>Ações</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for item in items %}
+      <tr>
+        <td><span class="id-pill">{{ item.id_treinamento }}</span></td>
+        <td class="font-bold">{{ item.nome_treinamento }}</td>
+        <td>{{ item.tipo_treinamento or "-" }}</td>
+        <td>{{ fmt_num(item.carga_horaria_padrao) if item.carga_horaria_padrao is not none else "-" }}</td>
+        <td><span class="badge">{{ item.status }}</span></td>
+        <td class="actions">
+          <button
+            class="btn-muted"
+            type="button"
+            onclick="editarTreinamento(this)"
+            data-id-treinamento="{{ item.id_treinamento }}"
+            data-nome-treinamento="{{ item.nome_treinamento or '' }}"
+            data-tipo-treinamento="{{ item.tipo_treinamento or '' }}"
+            data-carga-horaria-padrao="{{ item.carga_horaria_padrao or '' }}"
+            data-status="{{ item.status or '' }}"
+            data-observacoes="{{ item.observacoes or '' }}"
+          >Editar</button>
+
+          <form method="post" action="/dho/treinamentos/{{ item.id_treinamento }}/excluir" onsubmit="return confirm('Excluir treinamento?');">
+            <button class="btn-danger">Excluir</button>
+          </form>
+        </td>
+      </tr>
+      {% else %}
+      <tr><td colspan="6" class="empty">Nenhum treinamento cadastrado.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+
+<script>
+function setValue(id, value) {
+  const el = document.getElementById(id);
+  if (el) el.value = value || "";
+}
+
+function editarTreinamento(btn) {
+  const d = btn.dataset || {};
+
+  setValue("id_treinamento", d.idTreinamento);
+  setValue("nome_treinamento", d.nomeTreinamento);
+  setValue("tipo_treinamento", d.tipoTreinamento);
+  setValue("carga_horaria_padrao", d.cargaHorariaPadrao);
+  setValue("status", d.status);
+  setValue("observacoes", d.observacoes);
+
+  document.getElementById("titulo-form-dho").innerText = "Editar treinamento #" + d.idTreinamento;
+  document.getElementById("btn_salvar_dho").innerText = "Salvar alterações";
+
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+function novoTreinamento() {
+  const form = document.getElementById("form_dho");
+  if (form) form.reset();
+
+  setValue("id_treinamento", "");
+
+  document.getElementById("titulo-form-dho").innerText = "Novo / editar treinamento";
+  document.getElementById("btn_salvar_dho").innerText = "Salvar treinamento";
+
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+</script>
+
+{% endblock %}

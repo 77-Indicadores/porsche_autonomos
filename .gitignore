@@ -53,3 +53,8 @@ app/static/uploads/autonomos/*
 
 # Ambiente local
 .env
+
+token_dw.json
+patch_*.py
+fix_*.py
+auditoria/

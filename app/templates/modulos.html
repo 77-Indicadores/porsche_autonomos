@@ -1,0 +1,369 @@
+{% extends "base.html" %}
+
+{% block title %}Sistema Porsche{% endblock %}
+{% block header %}Sistema Porsche{% endblock %}
+{% block subtitle %}Escolha o ambiente que deseja acessar{% endblock %}
+
+{% block content %}
+
+<style>
+  body:has(.modulos-home-full) {
+    background:
+      radial-gradient(circle at top left, rgba(15, 23, 42, .16), transparent 34%),
+      linear-gradient(135deg, #f8fafc 0%, #eef2f7 48%, #e5e7eb 100%);
+  }
+
+  body:has(.modulos-home-full) .sidebar {
+    display: none !important;
+  }
+
+  body:has(.modulos-home-full) .main-content {
+    margin-left: 0 !important;
+    width: 100% !important;
+    max-width: none !important;
+    padding: 0 !important;
+  }
+
+  body:has(.modulos-home-full) .page-header {
+    display: none !important;
+  }
+
+  body:has(.modulos-home-full) .content-area {
+    padding: 0 !important;
+  }
+
+  .modulos-home-full {
+    min-height: 100vh;
+    display: grid;
+    grid-template-rows: auto 1fr;
+    padding: 42px;
+    box-sizing: border-box;
+  }
+
+  .modulos-topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 24px;
+    margin-bottom: 34px;
+  }
+
+  .modulos-brand {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+
+  .modulos-brand-logo {
+    width: 58px;
+    height: 58px;
+    border-radius: 20px;
+    background: #0f172a;
+    color: #fff;
+    display: grid;
+    place-items: center;
+    font-size: 28px;
+    box-shadow: 0 18px 40px rgba(15, 23, 42, .22);
+  }
+
+  .modulos-brand span {
+    display: block;
+    font-size: 12px;
+    letter-spacing: .16em;
+    text-transform: uppercase;
+    font-weight: 900;
+    color: #64748b;
+  }
+
+  .modulos-brand strong {
+    display: block;
+    font-size: 28px;
+    color: #0f172a;
+    line-height: 1;
+  }
+
+  .modulos-user-pill {
+    border: 1px solid rgba(148, 163, 184, .5);
+    background: rgba(255, 255, 255, .72);
+    backdrop-filter: blur(10px);
+    border-radius: 999px;
+    padding: 11px 16px;
+    color: #334155;
+    font-weight: 800;
+    font-size: 13px;
+  }
+
+  .modulos-main {
+    display: grid;
+    grid-template-columns: 1.05fr 1.95fr;
+    gap: 34px;
+    align-items: stretch;
+  }
+
+  .modulos-intro {
+    background: #0f172a;
+    color: #fff;
+    border-radius: 34px;
+    padding: 38px;
+    box-shadow: 0 28px 80px rgba(15, 23, 42, .24);
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    min-height: 590px;
+  }
+
+  .modulos-intro small {
+    text-transform: uppercase;
+    letter-spacing: .18em;
+    font-weight: 900;
+    color: #cbd5e1;
+  }
+
+  .modulos-intro h1 {
+    margin: 22px 0 16px;
+    font-size: clamp(38px, 5vw, 64px);
+    line-height: .96;
+  }
+
+  .modulos-intro p {
+    color: #cbd5e1;
+    font-size: 16px;
+    line-height: 1.7;
+    max-width: 520px;
+  }
+
+  .modulos-mini-kpis {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 14px;
+    margin-top: 34px;
+  }
+
+  .modulos-mini-kpis div {
+    background: rgba(255, 255, 255, .08);
+    border: 1px solid rgba(255, 255, 255, .12);
+    border-radius: 20px;
+    padding: 18px;
+  }
+
+  .modulos-mini-kpis b {
+    display: block;
+    font-size: 28px;
+  }
+
+  .modulos-mini-kpis span {
+    color: #cbd5e1;
+    font-size: 13px;
+  }
+
+  .modulos-grid-full {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(300px, 1fr));
+    gap: 26px;
+  }
+
+  .modulo-card-full {
+    position: relative;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    min-height: 590px;
+    border-radius: 34px;
+    padding: 36px;
+    text-decoration: none;
+    color: inherit;
+    background: rgba(255, 255, 255, .9);
+    border: 1px solid rgba(203, 213, 225, .8);
+    box-shadow: 0 24px 70px rgba(15, 23, 42, .12);
+    transition: .18s ease;
+  }
+
+  .modulo-card-full:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 34px 90px rgba(15, 23, 42, .18);
+  }
+
+  .modulo-card-full::after {
+    content: "";
+    position: absolute;
+    inset: auto -20% -30% -20%;
+    height: 260px;
+    background: radial-gradient(circle, rgba(15, 23, 42, .08), transparent 68%);
+  }
+
+  .modulo-card-top {
+    position: relative;
+    z-index: 1;
+  }
+
+  .modulo-icon-full {
+    width: 78px;
+    height: 78px;
+    border-radius: 26px;
+    display: grid;
+    place-items: center;
+    font-size: 38px;
+    background: #f8fafc;
+    margin-bottom: 28px;
+    box-shadow: inset 0 0 0 1px rgba(226, 232, 240, .9);
+  }
+
+  .modulo-card-full h2 {
+    font-size: 42px;
+    line-height: 1;
+    margin: 0 0 14px;
+    color: #0f172a;
+  }
+
+  .modulo-card-full p {
+    color: #64748b;
+    font-size: 16px;
+    line-height: 1.65;
+    max-width: 520px;
+  }
+
+  .modulo-tags-full {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+
+  .modulo-tags-full span {
+    background: #f1f5f9;
+    border: 1px solid #e2e8f0;
+    border-radius: 999px;
+    padding: 9px 13px;
+    font-size: 12px;
+    font-weight: 900;
+    color: #334155;
+  }
+
+  .modulo-enter {
+    position: relative;
+    z-index: 1;
+    margin-top: 28px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: fit-content;
+    border-radius: 999px;
+    padding: 13px 18px;
+    background: #0f172a;
+    color: #fff;
+    font-weight: 900;
+    font-size: 13px;
+  }
+
+  @media (max-width: 1120px) {
+    .modulos-main {
+      grid-template-columns: 1fr;
+    }
+
+    .modulos-intro,
+    .modulo-card-full {
+      min-height: auto;
+    }
+  }
+
+  @media (max-width: 760px) {
+    .modulos-home-full {
+      padding: 22px;
+    }
+
+    .modulos-grid-full {
+      grid-template-columns: 1fr;
+    }
+
+    .modulos-topbar {
+      flex-direction: column;
+      align-items: flex-start;
+    }
+  }
+</style>
+
+<section class="modulos-home-full">
+  <div class="modulos-topbar">
+    <div class="modulos-brand">
+      <div class="modulos-brand-logo">P</div>
+      <div>
+        <span>Central de módulos</span>
+        <strong>Sistema Porsche</strong>
+      </div>
+    </div>
+
+    {% if request.state.current_user %}
+      <div class="modulos-user-pill">{{ request.state.current_user.nome }} · {{ request.state.current_user.perfil }}</div>
+    {% endif %}
+  </div>
+
+  <div class="modulos-main">
+    <aside class="modulos-intro">
+      <div>
+        <small>Ambientes separados</small>
+        <h1>Escolha o módulo de trabalho.</h1>
+        <p>
+          Cada ambiente possui menus, dados e rotinas próprias. Isso prepara o sistema
+          para permissões separadas por perfil e evita misturar operação de pista com DHO.
+        </p>
+      </div>
+
+      <div class="modulos-mini-kpis">
+        <div>
+          <b>2</b>
+          <span>Módulos ativos</span>
+        </div>
+        <div>
+          <b>100%</b>
+          <span>Ambientes separados</span>
+        </div>
+      </div>
+    </aside>
+
+    <div class="modulos-grid-full">
+      <a class="modulo-card-full" href="/autonomos/dashboard">
+        <div class="modulo-card-top">
+          <div class="modulo-icon-full">🏎️</div>
+          <h2>Autônomos</h2>
+          <p>
+            Gestão de pilotos, autônomos, carros, etapas, composição de equipe,
+            alocações, pesquisas, equipes alocadas e rateios operacionais.
+          </p>
+          <div class="modulo-enter">Entrar no módulo</div>
+        </div>
+
+        <div class="modulo-tags-full">
+          <span>Cadastros</span>
+          <span>Alocações</span>
+          <span>Equipes</span>
+          <span>Pesquisas</span>
+          <span>Importações</span>
+        </div>
+      </a>
+
+      <a class="modulo-card-full" href="/dho">
+        <div class="modulo-card-top">
+          <div class="modulo-icon-full">🧭</div>
+          <h2>DHO</h2>
+          <p>
+            Gestão de vagas abertas por departamento e cargo, treinamentos cadastrados,
+            aplicação de treinamentos, horas realizadas e cadastros de apoio.
+          </p>
+          <div class="modulo-enter">Entrar no módulo</div>
+        </div>
+
+        <div class="modulo-tags-full">
+          <span>Departamentos</span>
+          <span>Cargos</span>
+          <span>Vagas</span>
+          <span>Treinamentos</span>
+          <span>Importações DHO</span>
+        </div>
+      </a>
+    </div>
+  </div>
+</section>
+
+{% endblock %}

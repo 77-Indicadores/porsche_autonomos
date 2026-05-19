@@ -1,0 +1,208 @@
+{% extends "base.html" %}
+
+{% block header %}Vagas Abertas{% endblock %}
+{% block subtitle %}Controle de vagas por departamento e cargo{% endblock %}
+
+{% block header_action %}
+<a class="quick-action light" href="/dho/estrutura">Cadastros DHO</a>
+<button type="button" class="quick-action primary" onclick="novoDho()">+ Nova vaga</button>
+{% endblock %}
+
+{% block content %}
+
+<section class="panel mb-6">
+  <form method="get" class="flex gap-3">
+    <input class="input" name="q" placeholder="Pesquisar por cargo, departamento, tipo ou status" value="{{ q }}">
+    <button class="btn-secondary">Pesquisar</button>
+  </form>
+</section>
+
+<section class="panel mb-6">
+  <div class="panel-head">
+    <h3 id="titulo-form-dho">Nova / editar vaga</h3>
+  </div>
+
+  <form method="post" action="/dho/vagas" class="form-grid" id="form_dho">
+    <input type="hidden" name="id_vaga" id="id_vaga">
+
+    <div>
+      <label class="label">Departamento</label>
+      <select class="input" name="id_departamento" id="id_departamento" required>
+        <option value="">Selecione</option>
+        {% for d in departamentos %}
+          <option value="{{ d.id_departamento }}">{{ d.nome_departamento }}</option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div>
+      <label class="label">Cargo</label>
+      <select class="input" name="id_cargo" id="id_cargo" required>
+        <option value="">Selecione</option>
+        {% for c in cargos %}
+          <option value="{{ c.id_cargo }}" data-departamento="{{ c.id_departamento or '' }}">{{ c.nome_cargo }}</option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div>
+      <label class="label">Tipo da vaga</label>
+      <select class="input" name="tipo_vaga" id="tipo_vaga">
+        {% for t in tipos_vaga %}
+          <option>{{ t }}</option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div>
+      <label class="label">Motivo substituição</label>
+      <select class="input" name="motivo_substituicao" id="motivo_substituicao">
+        {% for m in motivos_substituicao %}
+          <option value="{{ m }}">{{ m if m else "Não se aplica" }}</option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div>
+      <label class="label">Sexo</label>
+      <select class="input" name="sexo" id="sexo">
+        {% for s in sexos %}
+          <option>{{ s }}</option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div>
+      <label class="label">Quantidade</label>
+      <input class="input" type="number" min="1" name="qtd_vagas" id="qtd_vagas" value="1">
+    </div>
+
+    <div>
+      <label class="label">Status</label>
+      <select class="input" name="status" id="status">
+        {% for s in status_vaga %}
+          <option>{{ s }}</option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div>
+      <label class="label">Responsável</label>
+      <input class="input" name="responsavel" id="responsavel">
+    </div>
+
+    <div>
+      <label class="label">Data abertura</label>
+      <input class="input" name="data_abertura" id="data_abertura" placeholder="dd/mm/aaaa">
+    </div>
+
+    <div class="span-3">
+      <label class="label">Observações</label>
+      <textarea class="input" name="observacoes" id="observacoes"></textarea>
+    </div>
+
+    <div class="span-3 ux-actions-row">
+      <button class="btn-primary" id="btn_salvar_dho">Salvar vaga</button>
+      <button type="button" class="btn-secondary" onclick="novoDho()">Limpar</button>
+    </div>
+  </form>
+</section>
+
+<section class="panel">
+  <table class="table">
+    <thead>
+      <tr>
+        <th>ID</th>
+        <th>Departamento</th>
+        <th>Cargo</th>
+        <th>Tipo</th>
+        <th>Motivo</th>
+        <th>Sexo</th>
+        <th>Qtd</th>
+        <th>Status</th>
+        <th>Ações</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for item in items %}
+      <tr>
+        <td><span class="id-pill">{{ item.id_vaga }}</span></td>
+        <td>{{ item.nome_departamento or "-" }}</td>
+        <td class="font-bold">{{ item.nome_cargo or "-" }}</td>
+        <td>{{ item.tipo_vaga or "-" }}</td>
+        <td>{{ item.motivo_substituicao or "-" }}</td>
+        <td>{{ item.sexo or "-" }}</td>
+        <td>{{ item.qtd_vagas or 1 }}</td>
+        <td><span class="badge">{{ item.status }}</span></td>
+        <td class="actions">
+          <button
+            class="btn-muted"
+            type="button"
+            onclick="editarVaga(this)"
+            data-id-vaga="{{ item.id_vaga }}"
+            data-id-departamento="{{ item.id_departamento or '' }}"
+            data-id-cargo="{{ item.id_cargo or '' }}"
+            data-tipo-vaga="{{ item.tipo_vaga or '' }}"
+            data-motivo-substituicao="{{ item.motivo_substituicao or '' }}"
+            data-sexo="{{ item.sexo or '' }}"
+            data-qtd-vagas="{{ item.qtd_vagas or 1 }}"
+            data-status="{{ item.status or '' }}"
+            data-responsavel="{{ item.responsavel or '' }}"
+            data-data-abertura="{{ item.data_abertura or '' }}"
+            data-observacoes="{{ item.observacoes or '' }}"
+          >Editar</button>
+
+          <form method="post" action="/dho/vagas/{{ item.id_vaga }}/excluir" onsubmit="return confirm('Excluir vaga?');">
+            <button class="btn-danger">Excluir</button>
+          </form>
+        </td>
+      </tr>
+      {% else %}
+      <tr><td colspan="9" class="empty">Nenhuma vaga cadastrada.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+
+<script>
+function setValue(id, value) {
+  const el = document.getElementById(id);
+  if (el) el.value = value || "";
+}
+
+function editarVaga(btn) {
+  const d = btn.dataset || {};
+
+  setValue("id_vaga", d.idVaga);
+  setValue("id_departamento", d.idDepartamento);
+  setValue("id_cargo", d.idCargo);
+  setValue("tipo_vaga", d.tipoVaga);
+  setValue("motivo_substituicao", d.motivoSubstituicao);
+  setValue("sexo", d.sexo);
+  setValue("qtd_vagas", d.qtdVagas);
+  setValue("status", d.status);
+  setValue("responsavel", d.responsavel);
+  setValue("data_abertura", d.dataAbertura);
+  setValue("observacoes", d.observacoes);
+
+  document.getElementById("titulo-form-dho").innerText = "Editar vaga #" + d.idVaga;
+  document.getElementById("btn_salvar_dho").innerText = "Salvar alterações";
+
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+function novoDho() {
+  const form = document.getElementById("form_dho");
+  if (form) form.reset();
+
+  setValue("id_vaga", "");
+  setValue("qtd_vagas", "1");
+
+  document.getElementById("titulo-form-dho").innerText = "Nova / editar vaga";
+  document.getElementById("btn_salvar_dho").innerText = "Salvar vaga";
+
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+</script>
+
+{% endblock %}
