@@ -243,12 +243,12 @@ def salvar(
             .values(**dados)
         )
 
-        msg = "Composição padrão atualizada com sucesso."
+        msg = "Composição meta equipe atualizada com sucesso."
 
     else:
         dados["criado_em"] = datetime.utcnow()
         db.execute(insert(composicao_padrao_equipe).values(**dados))
-        msg = "Composição padrão cadastrada com sucesso."
+        msg = "Composição meta equipe cadastrada com sucesso."
 
     db.commit()
 

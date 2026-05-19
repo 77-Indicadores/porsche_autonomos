@@ -75,20 +75,44 @@
 
       <div class="equipe-kpis">
         <div class="equipe-kpi">
+          <span>Custo autônomos</span>
+          <strong>R$ {{ "{:,.2f}".format(equipe.custo_autonomos).replace(",", "X").replace(".", ",").replace("X", ".") }}</strong>
+        </div>
+
+        <div class="equipe-kpi">
+          <span>Rateio equipe geral</span>
+          <strong>R$ {{ "{:,.2f}".format(equipe.custo_rateio_equipe_geral).replace(",", "X").replace(".", ",").replace("X", ".") }}</strong>
+        </div>
+
+        <div class="equipe-kpi">
           <span>Custo total</span>
           <strong>R$ {{ "{:,.2f}".format(equipe.custo_total).replace(",", "X").replace(".", ",").replace("X", ".") }}</strong>
         </div>
-
-        <div class="equipe-kpi">
-          <span>Membros da equipe</span>
-          <strong>{{ equipe.qtd_membros }}</strong>
-        </div>
-
-        <div class="equipe-kpi">
-          <span>Substituições</span>
-          <strong>{{ equipe.substituicoes|length }}</strong>
-        </div>
       </div>
+
+
+      {% if equipe.rateios_equipe_geral %}
+      <div class="equipe-section" style="border-top:1px solid #e5e7eb;margin-top:14px;padding-top:14px;">
+        <div class="equipe-section-title">Rateio da Equipe Geral</div>
+
+        {% for r in equipe.rateios_equipe_geral %}
+          <div class="membro-row">
+            <div class="membro-left">
+              <div class="membro-funcao">{{ r.nome_equipe }}</div>
+              <div class="membro-nome">
+                {{ r.qtd_pessoas }} pessoa(s) · rateado por {{ r.qtd_carros_rateio }} carro(s)
+              </div>
+            </div>
+
+            <div class="membro-right">
+              <div><span>Custo geral</span><strong>{{ r.custo_total_fmt }}</strong></div>
+              <div><span>Rateio</span><strong>{{ r.qtd_carros_rateio }} carro(s)</strong></div>
+              <div><span>Valor no carro</span><strong>{{ r.valor_rateado_fmt }}</strong></div>
+            </div>
+          </div>
+        {% endfor %}
+      </div>
+      {% endif %}
 
       <div class="equipe-section">
         <div class="equipe-section-title">Equipe atual</div>

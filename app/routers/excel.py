@@ -288,7 +288,7 @@ ENTIDADES = {
     },
 
     "composicao-padrao": {
-        "label": "Composicao Padrao",
+        "label": "Composicao Meta Equipe",
         "table": "composicao_padrao_equipe",
         "unique": [
             "id_etapa",

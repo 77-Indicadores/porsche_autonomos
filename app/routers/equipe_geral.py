@@ -76,9 +76,6 @@ def garantir_schema():
 garantir_schema()
 
 
-QTD_OPTIONS = [1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5]
-
-
 def fmt_qtd(value):
     try:
         v = float(value or 0)
@@ -99,14 +96,16 @@ def to_float_qtd(value):
     value = str(value or "").strip().replace(",", ".")
     if not value:
         return 1.0
-    return float(value)
+    qtd = float(value)
+    if qtd <= 0 or (qtd * 2) % 1 != 0:
+        raise ValueError
+    return qtd
 
 
 def options(db: Session):
     return {
         "etapas": db.query(DimEtapa).order_by(DimEtapa.temporada.desc(), DimEtapa.data_inicio.desc()).all(),
         "provas": db.query(DimProva).order_by(DimProva.data_prova.desc()).all(),
-        "qtd_options": QTD_OPTIONS,
     }
 
 
@@ -166,9 +165,9 @@ def salvar_equipe(
     observacoes: str = Form(""),
     db: Session = Depends(get_db),
 ):
-    qtd = to_float_qtd(qtd_pessoas)
-
-    if qtd not in QTD_OPTIONS:
+    try:
+        qtd = to_float_qtd(qtd_pessoas)
+    except ValueError:
         return redirect_with_message("/equipe-geral", error="Quantidade de pessoas inválida.")
 
     dados = {

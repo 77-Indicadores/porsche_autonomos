@@ -40,9 +40,9 @@
 
       <div class="nav-section">
         <div class="nav-section-title">Operação</div>
-        <a class="nav-link {% if request.url.path.startswith('/equipes') %}active{% endif %}" href="/equipes">👥 Equipes Alocadas</a>
         <a class="nav-link {% if request.url.path == '/alocacoes' %}active{% endif %}" href="/alocacoes">📋 Gestão de Alocação</a>
-        <a class="nav-link {% if request.url.path.startswith('/composicao-padrao') %}active{% endif %}" href="/composicao-padrao">🧩 Composição Padrão</a>
+        <a class="nav-link {% if request.url.path.startswith('/composicao-padrao') %}active{% endif %}" href="/composicao-padrao">🧩 Composição Meta Equipe</a>
+        <a class="nav-link {% if request.url.path.startswith('/equipes') %}active{% endif %}" href="/equipes">👥 Equipes Alocadas</a>
         <a class="nav-link {% if request.url.path.startswith('/pesquisas') %}active{% endif %}" href="/pesquisas">📝 Pesquisas</a>
       </div>
 
