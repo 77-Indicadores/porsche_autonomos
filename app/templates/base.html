@@ -35,6 +35,7 @@
         <a class="nav-link {% if request.url.path.startswith('/cargos-autonomos') %}active{% endif %}" href="/cargos-autonomos">🪪 Cargos Autônomo</a>
         <a class="nav-link {% if request.url.path.startswith('/pilotos') %}active{% endif %}" href="/pilotos">👨‍✈️ Piloto</a>
         <a class="nav-link {% if request.url.path.startswith('/autonomos') %}active{% endif %}" href="/autonomos">🧰 Autônomo</a>
+        <a class="nav-link {% if request.url.path.startswith('/equipe-geral') %}active{% endif %}" href="/equipe-geral">👥 Gestão da Equipe Geral</a>
       </div>
 
       <div class="nav-section">
@@ -53,7 +54,8 @@
         <a class="nav-link {% if request.url.path.startswith('/setup') %}active{% endif %}" href="/setup">⚙️ Listas de Apoio</a>
         <a class="nav-link {% if request.url.path.startswith('/logs') %}active{% endif %}" href="/logs/">🧾 Logs</a>
       </div>
-    </nav>
+
+</nav>
   </aside>
 
   <main class="main-content">
