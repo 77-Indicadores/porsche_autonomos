@@ -1,10 +1,11 @@
 {% extends "base.html" %}
 
 {% block header %}Visão Geral{% endblock %}
-{% block subtitle %}Dashboard executivo de alocações, equipes e custos{% endblock %}
+{% block subtitle %}Dashboard executivo de alocações, composição padrão, equipes gerais e custos{% endblock %}
 
 {% block header_action %}
 <a class="quick-action primary" href="/alocacoes/nova">Nova Alocação</a>
+<a class="quick-action light" href="/equipe-geral">Gestão da Equipe Geral</a>
 <a class="quick-action light" href="/equipes">Equipes Alocadas</a>
 {% endblock %}
 
@@ -14,24 +15,28 @@
 {% set autonomos = cards.get('autonomos', 0) %}
 {% set alocacoes = cards.get('vinculos', 0) %}
 {% set trocas = cards.get('trocas_mes', 0) %}
+{% set carros_alocados = cards.get('carros_alocados', 0) %}
+
 {% set custo_temporada = 'R$ {:,.2f}'.format(cards.get('custo_total', 0)).replace(',', 'X').replace('.', ',').replace('X', '.') %}
+{% set custo_autonomos = 'R$ {:,.2f}'.format(cards.get('custo_autonomos', 0)).replace(',', 'X').replace('.', ',').replace('X', '.') %}
+{% set custo_equipe_geral = 'R$ {:,.2f}'.format(cards.get('custo_equipe_geral', 0)).replace(',', 'X').replace('.', ',').replace('X', '.') %}
 {% set custo_pendente = 'R$ {:,.2f}'.format(cards.get('custo_pendente', 0)).replace(',', 'X').replace('.', ',').replace('X', '.') %}
 {% set custo_pago = 'R$ {:,.2f}'.format(cards.get('custo_pago', 0)).replace(',', 'X').replace('.', ',').replace('X', '.') %}
 
 <section class="exec-hero">
   <div>
     <span class="exec-label">Porsche Cup</span>
-    <h2>Controle de Autônomos</h2>
+    <h2>Controle Operacional de Autônomos e Equipes</h2>
     <p>
-      Acompanhe a formação das equipes por etapa e categoria, controle substituições
-      e visualize os custos dos profissionais alocados.
+      Acompanhe cadastros, composição esperada por carro, alocações por piloto,
+      equipe geral para rateio e custos totais por etapa e categoria.
     </p>
   </div>
 
   <div class="exec-hero-card">
     <span>Status operacional</span>
     <strong>Ativo</strong>
-    <small>Sistema pronto para cadastro e alocação</small>
+    <small>Fluxo atualizado com gestão da equipe geral</small>
   </div>
 </section>
 
@@ -55,6 +60,32 @@
   </article>
 
   <article class="exec-kpi">
+    <div class="exec-kpi-icon">🏎️</div>
+    <span>Carros alocados</span>
+    <strong>{{ carros_alocados }}</strong>
+  </article>
+</section>
+
+<section class="exec-kpis">
+  <article class="exec-kpi">
+    <div class="exec-kpi-icon">👥</div>
+    <span>Equipes gerais</span>
+    <strong>{{ equipe_geral.qtd_equipes }}</strong>
+  </article>
+
+  <article class="exec-kpi">
+    <div class="exec-kpi-icon">🧑‍🔧</div>
+    <span>Pessoas equipe geral</span>
+    <strong>{{ equipe_geral.qtd_pessoas_fmt }}</strong>
+  </article>
+
+  <article class="exec-kpi">
+    <div class="exec-kpi-icon">🧩</div>
+    <span>Regras composição</span>
+    <strong>{{ composicao.qtd_regras }}</strong>
+  </article>
+
+  <article class="exec-kpi">
     <div class="exec-kpi-icon">🔄</div>
     <span>Trocas no mês</span>
     <strong>{{ trocas }}</strong>
@@ -66,13 +97,25 @@
     <div class="exec-panel-head">
       <div>
         <span>Financeiro</span>
-        <h3>Custos da temporada</h3>
+        <h3>Custos consolidados</h3>
       </div>
     </div>
 
     <div class="exec-cost-main">
-      <span>Custo total</span>
+      <span>Custo total estimado</span>
       <strong>{{ custo_temporada }}</strong>
+    </div>
+
+    <div class="exec-cost-row">
+      <div>
+        <span>Autônomos alocados</span>
+        <strong>{{ custo_autonomos }}</strong>
+      </div>
+
+      <div>
+        <span>Equipe geral</span>
+        <strong>{{ custo_equipe_geral }}</strong>
+      </div>
     </div>
 
     <div class="exec-cost-row">
@@ -92,40 +135,135 @@
     <div class="exec-panel-head">
       <div>
         <span>Operação</span>
-        <h3>Fluxo principal</h3>
+        <h3>Fluxo principal atualizado</h3>
       </div>
     </div>
 
     <div class="exec-flow">
-      <a href="/provas">
+      <a href="/alocacoes">
         <b>1</b>
         <div>
-          <strong>Categoria</strong>
-          <small>Definir categoria por etapa</small>
+          <strong>Gestão de Alocação</strong>
+          <small>Controlar piloto, carro e autônomos</small>
         </div>
       </a>
 
-      <a href="/autonomos">
+      <a href="/composicao-padrao">
         <b>2</b>
         <div>
-          <strong>Autônomos</strong>
-          <small>Cadastrar cargo e foto</small>
-        </div>
-      </a>
-
-      <a href="/alocacoes/nova">
-        <b>3</b>
-        <div>
-          <strong>Alocação</strong>
-          <small>Montar equipe ou substituir</small>
+          <strong>Composição Padrão</strong>
+          <small>Quantidade esperada por carro</small>
         </div>
       </a>
 
       <a href="/equipes">
+        <b>3</b>
+        <div>
+          <strong>Equipes Alocadas</strong>
+          <small>Consultar equipe e rateio por carro</small>
+        </div>
+      </a>
+
+      <a href="/pesquisas">
         <b>4</b>
         <div>
-          <strong>Equipes</strong>
-          <small>Consultar equipe por piloto</small>
+          <strong>Pesquisas</strong>
+          <small>Upload e avaliação de feedbacks</small>
+        </div>
+      </a>
+    </div>
+  </article>
+</section>
+
+<section class="exec-grid">
+  <article class="exec-panel">
+    <div class="exec-panel-head">
+      <div>
+        <span>Equipe Geral</span>
+        <h3>Resumo para rateio</h3>
+      </div>
+    </div>
+
+    <div class="exec-cost-main">
+      <span>Custo da equipe geral</span>
+      <strong>{{ equipe_geral.custo_total_fmt }}</strong>
+    </div>
+
+    <div class="exec-cost-row">
+      <div>
+        <span>Qtd pessoas</span>
+        <strong>{{ equipe_geral.qtd_pessoas_fmt }}</strong>
+      </div>
+
+      <div>
+        <span>Custo médio/pessoa</span>
+        <strong>{{ equipe_geral.custo_medio_pessoa_fmt }}</strong>
+      </div>
+    </div>
+
+    <div class="exec-flow">
+      {% for e in equipe_geral.top_equipes %}
+      <a href="/equipe-geral">
+        <b>{{ loop.index }}</b>
+        <div>
+          <strong>{{ e.nome_equipe }}</strong>
+          <small>
+            {{ e.nome_etapa or '-' }} · {{ e.nome_prova or '-' }} ·
+            {{ 'R$ {:,.2f}'.format(e.custo_total or 0).replace(',', 'X').replace('.', ',').replace('X', '.') }}
+          </small>
+        </div>
+      </a>
+      {% else %}
+      <a href="/equipe-geral">
+        <b>+</b>
+        <div>
+          <strong>Nenhuma equipe geral cadastrada</strong>
+          <small>Clique para cadastrar a primeira equipe</small>
+        </div>
+      </a>
+      {% endfor %}
+    </div>
+  </article>
+
+  <article class="exec-panel">
+    <div class="exec-panel-head">
+      <div>
+        <span>Composição</span>
+        <h3>Quantidade esperada</h3>
+      </div>
+    </div>
+
+    <div class="exec-cost-main">
+      <span>Total esperado nas regras</span>
+      <strong>{{ composicao.qtd_esperada_fmt }}</strong>
+    </div>
+
+    <div class="exec-cost-row">
+      <div>
+        <span>Regras cadastradas</span>
+        <strong>{{ composicao.qtd_regras }}</strong>
+      </div>
+
+      <div>
+        <span>Alocações ativas</span>
+        <strong>{{ alocacoes }}</strong>
+      </div>
+    </div>
+
+    <div class="exec-flow">
+      <a href="/composicao-padrao">
+        <b>1</b>
+        <div>
+          <strong>Definir padrão por carro</strong>
+          <small>Etapa, categoria, carro e quantidade</small>
+        </div>
+      </a>
+
+      <a href="/equipes">
+        <b>2</b>
+        <div>
+          <strong>Comparar com o realizado</strong>
+          <small>Ver equipe alocada e rateio da equipe geral</small>
         </div>
       </a>
     </div>
@@ -139,10 +277,28 @@
     <small>Montar equipe ou registrar substituição</small>
   </a>
 
-  <a class="exec-shortcut" href="/equipes">
+  <a class="exec-shortcut" href="/equipe-geral">
     <span>👥</span>
+    <strong>Gestão da Equipe Geral</strong>
+    <small>Cadastrar pessoas e custo para rateio</small>
+  </a>
+
+  <a class="exec-shortcut" href="/composicao-padrao">
+    <span>🧩</span>
+    <strong>Composição Padrão</strong>
+    <small>Quantidade esperada por carro</small>
+  </a>
+
+  <a class="exec-shortcut" href="/equipes">
+    <span>🏎️</span>
     <strong>Equipes Alocadas</strong>
-    <small>Visualizar equipe por etapa e categoria</small>
+    <small>Visualizar equipe, custo e rateio</small>
+  </a>
+
+  <a class="exec-shortcut" href="/pesquisas">
+    <span>📝</span>
+    <strong>Pesquisas</strong>
+    <small>Upload e avaliação dos feedbacks</small>
   </a>
 
   <a class="exec-shortcut" href="/excel/">
