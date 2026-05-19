@@ -6,11 +6,12 @@ from starlette.requests import Request
 from starlette.responses import RedirectResponse
 
 from app.auth import SESSION_COOKIE, read_session_token
-from app.database import Base, engine
+from app.database import Base, engine, limpar_datas_vazias_sqlite
 from app.routers import alocacoes, auth, cadastros, dashboard, relatorios, usuarios, referencias_importacao, pesquisas, composicao_padrao, equipe_geral
 
 
 Base.metadata.create_all(bind=engine)
+limpar_datas_vazias_sqlite()
 
 app = FastAPI(title="Porsche Cup Autonomos")
 

@@ -1,7 +1,7 @@
 from pathlib import Path
 import os
 
-from sqlalchemy import create_engine
+from sqlalchemy import Date, create_engine, inspect, text
 from sqlalchemy.orm import declarative_base, sessionmaker
 
 
@@ -46,4 +46,26 @@ def get_db():
         yield db
     finally:
         db.close()
+
+
+def limpar_datas_vazias_sqlite():
+    if not DATABASE_URL.startswith("sqlite"):
+        return
+
+    inspector = inspect(engine)
+    with engine.begin() as conn:
+        for table_name in inspector.get_table_names():
+            for column in inspector.get_columns(table_name):
+                if not isinstance(column.get("type"), Date):
+                    continue
+
+                quoted_table = table_name.replace('"', '""')
+                quoted_column = column["name"].replace('"', '""')
+                conn.execute(
+                    text(
+                        f'UPDATE "{quoted_table}" '
+                        f'SET "{quoted_column}" = NULL '
+                        f'WHERE "{quoted_column}" = ""'
+                    )
+                )
 

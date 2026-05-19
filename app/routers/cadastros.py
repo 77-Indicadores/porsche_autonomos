@@ -84,6 +84,32 @@ def parse_date_safe(value: str, msg: str):
         raise ValueError(msg)
 
 
+def aplicar_id_manual(db: Session, obj, model, pk_name: str, requested_id: str, current_id: str = ""):
+    requested_id = str(requested_id or "").strip()
+    current_id = str(current_id or "").strip()
+
+    if not requested_id:
+        return
+
+    try:
+        requested = int(requested_id)
+    except ValueError:
+        raise ValueError("ID manual invalido.")
+
+    if requested <= 0:
+        raise ValueError("ID manual deve ser maior que zero.")
+
+    current = int(current_id) if current_id else getattr(obj, pk_name, None)
+    if current and requested == int(current):
+        setattr(obj, pk_name, requested)
+        return
+
+    if db.get(model, requested):
+        raise ValueError(f"ID {requested} ja esta em uso.")
+
+    setattr(obj, pk_name, requested)
+
+
 @router.get("/pilotos")
 def pilotos(request: Request, q: str = "", db: Session = Depends(get_db)):
     query = db.query(DimPiloto)

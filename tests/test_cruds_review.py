@@ -2,7 +2,7 @@ from starlette.requests import Request
 from sqlalchemy.exc import IntegrityError
 
 from app.models import DimAutonomo, DimPiloto
-from app.routers.cadastros import desligar_autonomo, desligar_piloto
+from app.routers.cadastros import aplicar_id_manual, desligar_autonomo, desligar_piloto
 from app.routers.usuarios import create_user
 
 
@@ -50,6 +50,14 @@ class _DbGetCommitStub:
         return None
 
 
+class _ManualIdDbStub:
+    def __init__(self, existing=None):
+        self.existing = existing
+
+    def get(self, *args, **kwargs):
+        return self.existing
+
+
 def test_create_user_handles_integrity_error():
     response = create_user(
         request=_admin_request(),
@@ -74,3 +82,19 @@ def test_desligar_autonomo_uses_request_param():
     db = _DbGetCommitStub(autonomo)
     desligar_autonomo(id_autonomo=1, data_saida="2026-05-01", motivo_saida="Fim de contrato", db=db)
     assert autonomo.motivo_saida == "Fim de contrato"
+
+
+def test_aplicar_id_manual_sets_available_id():
+    piloto = DimPiloto(nome_piloto="Piloto Teste", status_piloto="Ativo")
+    aplicar_id_manual(_ManualIdDbStub(), piloto, DimPiloto, "id_piloto", "77")
+    assert piloto.id_piloto == 77
+
+
+def test_aplicar_id_manual_rejects_existing_id():
+    piloto = DimPiloto(nome_piloto="Piloto Teste", status_piloto="Ativo")
+    try:
+        aplicar_id_manual(_ManualIdDbStub(existing=object()), piloto, DimPiloto, "id_piloto", "77")
+    except ValueError as exc:
+        assert "ja esta em uso" in str(exc)
+    else:
+        raise AssertionError("ID duplicado deveria ser rejeitado")
