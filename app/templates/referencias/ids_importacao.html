@@ -12,7 +12,7 @@
     esta tela serve como referência para preencher os campos de importação:
     <code>id_piloto</code>, <code>id_autonomo</code>, <code>id_etapa</code>,
     <code>id_prova</code>, <code>id_carro</code>, <code>id_cargo_autonomo</code>
-    e <code>id_motivo_troca</code>.
+    e <code>id_motivo_troca</code>. Para equipe geral, use <code>id_equipe_geral</code>. Para equipe geral, use <code>id_equipe_geral</code>.
   </div>
 </section>
 
@@ -226,6 +226,44 @@
           </tr>
           {% else %}
           <tr><td colspan="3">Nenhum motivo cadastrado.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+
+  <section class="panel">
+    <div class="panel-head">
+      <h3>Equipe Geral</h3>
+      <span class="muted">Campo no Excel: <code>id_equipe_geral</code></span>
+    </div>
+    <div class="table-wrap">
+      <table class="table">
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Equipe</th>
+            <th>ID Etapa</th>
+            <th>Etapa</th>
+            <th>ID Categoria</th>
+            <th>Categoria</th>
+            <th>Qtd Pessoas</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for item in equipes_gerais %}
+          <tr>
+            <td><span class="id-pill">#{{ item.id_equipe_geral }}</span></td>
+            <td>{{ item.nome_equipe }}</td>
+            <td>{{ item.id_etapa or "-" }}</td>
+            <td>{{ item.nome_etapa or "-" }}</td>
+            <td>{{ item.id_prova or "-" }}</td>
+            <td>{{ item.nome_prova or "-" }}</td>
+            <td>{{ item.qtd_pessoas or "-" }}</td>
+          </tr>
+          {% else %}
+          <tr><td colspan="7">Nenhuma equipe geral cadastrada.</td></tr>
           {% endfor %}
         </tbody>
       </table>

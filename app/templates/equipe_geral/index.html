@@ -1,0 +1,212 @@
+{% extends "base.html" %}
+
+{% block header %}Gestão da Equipe Geral{% endblock %}
+{% block subtitle %}Cadastro da equipe geral por etapa e categoria, com quantidade de pessoas e custo total para rateio futuro.{% endblock %}
+
+{% block header_action %}
+<button type="button" class="quick-action primary" onclick="novoCadastro()">+ Nova equipe</button>
+{% endblock %}
+
+{% block content %}
+
+<section class="panel mb-6">
+  <div class="panel-head">
+    <h3>Nova / editar equipe geral</h3>
+  </div>
+
+  <form method="post" action="/equipe-geral" class="form-grid" id="form_equipe">
+    <input type="hidden" name="id_equipe_geral" id="id_equipe_geral">
+
+    <div>
+      <label class="label">Etapa</label>
+      <select class="input" name="id_etapa" id="id_etapa" required>
+        <option value="">Selecione</option>
+        {% for e in etapas %}
+          <option value="{{ e.id_etapa }}">{{ e.temporada }} - {{ e.nome_etapa }}</option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div>
+      <label class="label">Categoria</label>
+      <select class="input" name="id_prova" id="id_prova" required>
+        <option value="">Selecione</option>
+        {% for p in provas %}
+          <option value="{{ p.id_prova }}" data-etapa="{{ p.id_etapa }}">{{ p.nome_prova }}</option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div>
+      <label class="label">Nome da equipe</label>
+      <input class="input" name="nome_equipe" id="nome_equipe" placeholder="Ex.: Equipe Técnica Geral" required>
+    </div>
+
+    <div>
+      <label class="label">Quantidade de pessoas</label>
+      <select class="input" name="qtd_pessoas" id="qtd_pessoas" required>
+        {% for q in qtd_options %}
+          <option value="{{ q }}">{{ q|string|replace(".", ",") }}</option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div>
+      <label class="label">Custo total</label>
+      <input class="input" name="custo_total" id="custo_total" placeholder="12000,00">
+    </div>
+
+    <div class="span-3">
+      <label class="label">Observações</label>
+      <textarea class="input" name="observacoes" id="observacoes"></textarea>
+    </div>
+
+    <div class="span-3 ux-actions-row">
+      <button class="btn-primary" id="btn_salvar_equipe">Salvar equipe</button>
+      <button type="button" class="btn-secondary" onclick="novoCadastro()">Limpar</button>
+    </div>
+  </form>
+</section>
+
+<section class="panel mb-6">
+  <div class="grid gap-3 md:grid-cols-3">
+    <div class="kpi-card">
+      <span>Equipes cadastradas</span>
+      <strong>{{ equipes|length }}</strong>
+    </div>
+    <div class="kpi-card">
+      <span>Qtd pessoas</span>
+      <strong>{{ total_qtd }}</strong>
+    </div>
+    <div class="kpi-card">
+      <span>Custo total</span>
+      <strong>{{ total_custo }}</strong>
+    </div>
+  </div>
+</section>
+
+<section class="panel">
+  <div class="panel-head">
+    <h3>Equipes cadastradas</h3>
+  </div>
+
+  <div class="overflow-x-auto">
+    <table class="table">
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Equipe</th>
+          <th>Etapa</th>
+          <th>Categoria</th>
+          <th>Qtd pessoas</th>
+          <th>Custo total</th>
+          <th>Ações</th>
+        </tr>
+      </thead>
+
+      <tbody>
+        {% for e in equipes %}
+        <tr>
+          <td><span class="id-pill">{{ e.id_equipe_geral }}</span></td>
+          <td class="font-bold">{{ e.nome_equipe }}</td>
+          <td>{{ e.nome_etapa }}</td>
+          <td>{{ e.nome_prova }}</td>
+          <td class="font-bold">{{ e.qtd_pessoas_fmt }}</td>
+          <td class="font-bold">{{ e.custo_total_fmt }}</td>
+          <td class="actions">
+            <button
+              class="btn-muted"
+              type="button"
+              onclick="editarEquipe(this)"
+              data-id_equipe_geral="{{ e.id_equipe_geral }}"
+              data-id_etapa="{{ e.id_etapa }}"
+              data-id_prova="{{ e.id_prova }}"
+              data-nome_equipe="{{ e.nome_equipe }}"
+              data-qtd_pessoas="{{ e.qtd_pessoas or 1 }}"
+              data-custo_total="{{ e.custo_total or '' }}"
+              data-observacoes="{{ e.observacoes or '' }}"
+            >
+              Editar
+            </button>
+
+            <form method="post" action="/equipe-geral/{{ e.id_equipe_geral }}/excluir" onsubmit="return confirm('Excluir esta equipe?');">
+              <button class="btn-danger">Excluir</button>
+            </form>
+          </td>
+        </tr>
+        {% else %}
+        <tr>
+          <td colspan="7" class="empty">Nenhuma equipe geral cadastrada.</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<script>
+function setValue(id, value) {
+  const el = document.getElementById(id);
+  if (el) el.value = value || "";
+}
+
+function editarEquipe(btn) {
+  const d = btn.dataset || {};
+
+  setValue("id_equipe_geral", d.id_equipe_geral);
+  setValue("id_etapa", d.id_etapa);
+  setValue("id_prova", d.id_prova);
+  setValue("nome_equipe", d.nome_equipe);
+  setValue("qtd_pessoas", d.qtd_pessoas);
+  setValue("custo_total", d.custo_total);
+  setValue("observacoes", d.observacoes);
+
+  const titulo = document.querySelector(".panel-head h3");
+  if (titulo) titulo.innerText = "Editar equipe geral #" + d.id_equipe_geral;
+
+  const botao = document.getElementById("btn_salvar_equipe");
+  if (botao) botao.innerText = "Salvar alterações";
+
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+function novoCadastro() {
+  const form = document.getElementById("form_equipe");
+  if (form) form.reset();
+
+  setValue("id_equipe_geral", "");
+
+  const titulo = document.querySelector(".panel-head h3");
+  if (titulo) titulo.innerText = "Nova / editar equipe geral";
+
+  const botao = document.getElementById("btn_salvar_equipe");
+  if (botao) botao.innerText = "Salvar equipe";
+
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+(function() {
+  const etapa = document.getElementById("id_etapa");
+  const categoria = document.getElementById("id_prova");
+
+  function filtrarCategorias() {
+    if (!etapa || !categoria) return;
+
+    const etapaId = etapa.value;
+
+    Array.from(categoria.options).forEach(o => {
+      if (!o.value) return;
+      o.hidden = etapaId && o.dataset.etapa !== etapaId;
+    });
+
+    if (categoria.selectedOptions.length && categoria.selectedOptions[0].hidden) {
+      categoria.value = "";
+    }
+  }
+
+  if (etapa) etapa.addEventListener("change", filtrarCategorias);
+  filtrarCategorias();
+})();
+</script>
+
+{% endblock %}

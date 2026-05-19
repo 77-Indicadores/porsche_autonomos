@@ -294,36 +294,57 @@ ENTIDADES = {
             "id_etapa",
             "id_prova",
             "id_carro",
-            "id_cargo_autonomo",
         ],
         "columns": [
             "id_etapa",
             "id_prova",
             "id_carro",
-            "id_cargo_autonomo",
             "qtd_esperada",
-            "custo_medio_esperado",
-            "status",
-            "observacoes",
         ],
         "example": [
             "1",
             "1",
             "12",
-            "1",
-            "3",
-            "3500",
-            "Ativo",
-            "Exemplo: 3 mecanicos esperados para este carro/categoria.",
+            "2.5",
         ],
-        "references": ["etapas", "provas", "carros", "cargos"],
+        "references": ["etapas", "provas", "carros"],
         "tips": [
-            "Use id_etapa para regra especifica de uma etapa. Deixe vazio apenas se quiser regra geral.",
-            "Use id_prova para regra especifica de uma categoria. Deixe vazio apenas se quiser regra geral.",
-            "Use id_carro para regra especifica de um carro. Deixe vazio para regra por categoria/todos os carros.",
-            "Use id_cargo_autonomo para informar o cargo esperado, como Mecanico, Analista de Dados ou Apoio.",
-            "qtd_esperada e a quantidade esperada de autonomos daquele cargo.",
-            "custo_medio_esperado e o custo medio esperado por autonomo. O custo total esperado sera qtd_esperada x custo_medio_esperado.",
+            "Use id_etapa para selecionar a etapa.",
+            "Use id_prova para selecionar a categoria.",
+            "Use id_carro para selecionar o carro.",
+            "qtd_esperada aceita 1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5 ou 5.",
+        ],
+    },
+
+    "equipe-geral": {
+        "label": "Equipe Geral",
+        "table": "equipe_geral",
+        "unique": [
+            "id_etapa",
+            "id_prova",
+            "nome_equipe",
+        ],
+        "columns": [
+            "id_etapa",
+            "id_prova",
+            "nome_equipe",
+            "qtd_pessoas",
+            "custo_total",
+            "observacoes",
+        ],
+        "example": [
+            "1",
+            "1",
+            "Equipe Técnica Geral",
+            "3",
+            "12000",
+            "Equipe usada para rateio futuro por carro/piloto.",
+        ],
+        "references": ["etapas", "provas"],
+        "tips": [
+            "Use id_etapa e id_prova das abas de referência.",
+            "qtd_pessoas aceita 1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5 ou 5.",
+            "custo_total é o custo total da equipe para posterior rateio.",
         ],
     },
 }
@@ -419,7 +440,10 @@ FIELD_HINTS = {
     "status_pagamento": "Use um valor cadastrado em status-pagamento, como Pendente, Aprovado ou Pago.",
     "qtd_esperada": "Informe a quantidade esperada de autônomos para este cargo/regra.",
     "custo_medio_esperado": "Informe o custo médio esperado por autônomo. Exemplo: 3500 ou 3500,00.",
+    "qtd_pessoas": "Informe a quantidade de pessoas da equipe geral. Exemplo: 1, 1.5, 2, 2.5 ou 3.",
+    "custo_total": "Informe o custo total da equipe para posterior rateio.",
 }
+
 
 
 
