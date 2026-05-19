@@ -55,7 +55,7 @@
       <option value="">Selecione</option>
       {% for c in carros %}
         <option value="{{ c.id_carro }}">
-          {{ c.numero_carro }}{% if c.modelo %} - {{ c.modelo }}{% endif %}{% if c.categoria_padrao %} - {{ c.categoria_padrao }}{% endif %}
+          {{ c.numero_carro }}{% if c.chassi %} - {{ c.chassi }}{% endif %}
         </option>
       {% endfor %}
     </select>

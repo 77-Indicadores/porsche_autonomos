@@ -1,24 +1,10 @@
 {% extends "base.html" %}
 
-{% block header %}Carros
-<script>
-function novoCadastro() {
-  const form = document.querySelector("form[method='post']");
-  if (form) form.action = "/carros";
-  form?.reset();
-  const idField = document.getElementById("id_carro");
-  if (idField) idField.value = "";
-
-
-  window.scrollTo({ top: 0, behavior: "smooth" });
-}
-</script>
-
-{% endblock %}
+{% block header %}Carros{% endblock %}
 {% block subtitle %}Cadastro dos carros utilizados por etapa, categoria e piloto{% endblock %}
 
 {% block header_action %}
-<button type="button" class="quick-action primary btn-novo-cadastro" onclick="novoCadastro()">+ Novo</button>
+<button type="button" class="quick-action primary btn-novo-cadastro" onclick="novoCarro()">+ Novo</button>
 <a class="quick-action light" href="/excel/">Importar Excel</a>
 {% endblock %}
 
@@ -33,10 +19,10 @@ function novoCadastro() {
 
 <section class="panel mb-6">
   <div class="panel-head">
-    <h3>Novo / editar carro</h3>
+    <h3 id="titulo-form-carro">Novo / editar carro</h3>
   </div>
 
-  <form method="post" class="form-grid">
+  <form method="post" action="/carros" class="form-grid" id="form_carro">
     <input type="hidden" name="id_carro" id="id_carro">
 
     <div>
@@ -53,9 +39,9 @@ function novoCadastro() {
       <label class="label">Categoria padrão</label>
       <select class="input" name="categoria_padrao" id="categoria_padrao">
         <option value="">Selecione</option>
-        <option>Carrera Cup</option>
-        <option>Sprint Challenge</option>
-        <option>Endurance</option>
+        <option value="Carrera Cup">Carrera Cup</option>
+        <option value="Sprint Challenge">Sprint Challenge</option>
+        <option value="Endurance">Endurance</option>
       </select>
     </div>
 
@@ -67,10 +53,10 @@ function novoCadastro() {
     <div>
       <label class="label">Status</label>
       <select class="input" name="status_carro" id="status_carro">
-        <option>Ativo</option>
-        <option>Inativo</option>
-        <option>Manutenção</option>
-        <option>Reserva</option>
+        <option value="Ativo">Ativo</option>
+        <option value="Inativo">Inativo</option>
+        <option value="Manutenção">Manutenção</option>
+        <option value="Reserva">Reserva</option>
       </select>
     </div>
 
@@ -80,7 +66,8 @@ function novoCadastro() {
     </div>
 
     <div class="span-3 ux-actions-row">
-      <button class="btn-primary">Salvar carro</button>
+      <button class="btn-primary" id="btn_salvar_carro">Salvar carro</button>
+      <button type="button" class="btn-secondary" onclick="novoCarro()">Limpar</button>
     </div>
   </form>
 </section>
@@ -108,23 +95,30 @@ function novoCadastro() {
         <td>{{ c.categoria_padrao or '-' }}</td>
         <td>{{ c.chassi or '-' }}</td>
         <td><span class="badge">{{ c.status_carro }}</span></td>
-        <td>
+        <td class="actions">
           <button
             class="btn-muted"
             type="button"
             onclick="editarCarro(this)"
-            data-fill=\'{"current_id_carro":"{{c.id_carro}}","id_carro":"{{c.id_carro}}","numero_carro":"{{c.numero_carro or ''}}","modelo":"{{c.modelo or ''}}","categoria_padrao":"{{c.categoria_padrao or ''}}","chassi":"{{c.chassi or ''}}","status_carro":"{{c.status_carro or ''}}","observacoes":"{{c.observacoes or ''}}"}'
+            data-id-carro="{{ c.id_carro }}"
+            data-numero-carro="{{ c.numero_carro or '' }}"
+            data-modelo="{{ c.modelo or '' }}"
+            data-categoria-padrao="{{ c.categoria_padrao or '' }}"
+            data-chassi="{{ c.chassi or '' }}"
+            data-status-carro="{{ c.status_carro or '' }}"
+            data-observacoes="{{ c.observacoes or '' }}"
           >
             Editar
           </button>
-          <form method="post" action="/carros/{{ c.id_carro }}/inativar" class="actions">
+
+          <form method="post" action="/carros/{{ c.id_carro }}/inativar" onsubmit="return confirm('Inativar este carro?');">
             <button class="btn-danger" type="submit">Inativar</button>
           </form>
         </td>
       </tr>
       {% else %}
       <tr>
-        <td colspan="6" class="empty">Nenhum carro cadastrado.</td>
+        <td colspan="7" class="empty">Nenhum carro cadastrado.</td>
       </tr>
       {% endfor %}
     </tbody>
@@ -132,19 +126,51 @@ function novoCadastro() {
 </section>
 
 <script>
+function setCarroField(id, value) {
+  const el = document.getElementById(id);
+  if (el) el.value = value || "";
+}
+
 function editarCarro(btn) {
-  const data = JSON.parse(btn.dataset.fill || "{}");
+  const d = btn.dataset || {};
 
-  Object.keys(data).forEach(function(k) {
-    const el = document.getElementById(k);
-    if (el) el.value = data[k] || "";
-  });
+  setCarroField("id_carro", d.idCarro);
+  setCarroField("numero_carro", d.numeroCarro);
+  setCarroField("modelo", d.modelo);
+  setCarroField("categoria_padrao", d.categoriaPadrao);
+  setCarroField("chassi", d.chassi);
+  setCarroField("status_carro", d.statusCarro || "Ativo");
+  setCarroField("observacoes", d.observacoes);
 
-
-  const form = document.querySelector("form[method='post']");
-  if (form && data.id_carro) {
-    form.action = "/carros?" + "current_id_carro=" + encodeURIComponent(data.id_carro);
+  const form = document.getElementById("form_carro");
+  if (form && d.idCarro) {
+    form.action = "/carros?current_id_carro=" + encodeURIComponent(d.idCarro);
   }
+
+  const titulo = document.getElementById("titulo-form-carro");
+  if (titulo) titulo.innerText = "Editar carro #" + d.idCarro;
+
+  const botao = document.getElementById("btn_salvar_carro");
+  if (botao) botao.innerText = "Salvar alterações";
+
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+function novoCarro() {
+  const form = document.getElementById("form_carro");
+
+  if (form) {
+    form.reset();
+    form.action = "/carros";
+  }
+
+  setCarroField("id_carro", "");
+
+  const titulo = document.getElementById("titulo-form-carro");
+  if (titulo) titulo.innerText = "Novo / editar carro";
+
+  const botao = document.getElementById("btn_salvar_carro");
+  if (botao) botao.innerText = "Salvar carro";
 
   window.scrollTo({ top: 0, behavior: "smooth" });
 }
