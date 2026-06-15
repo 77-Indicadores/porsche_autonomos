@@ -4,6 +4,11 @@ jinja2
 sqlalchemy
 python-multipart
 openpyxl
+gspread
+google-auth
+google-auth-oauthlib
+requests
+pandas
 passlib[bcrypt]
 bcrypt==4.0.1
 itsdangerous

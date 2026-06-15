@@ -31,6 +31,8 @@ from app.utils import flash_from_request, redirect_with_message
 
 router = APIRouter(tags=["dho"])
 
+BASE = Path(__file__).resolve().parents[2]
+
 metadata_dho = MetaData()
 
 dho_departamentos = Table(
@@ -361,12 +363,22 @@ def count_table(db: Session, table):
 
 
 def get_departamentos(db: Session):
+    try:
+        sincronizar_estrutura_dataworld(db)
+    except Exception as exc:
+        print(f"AVISO - não consegui sincronizar departamentos Data.World: {exc}")
+
     return db.execute(
         select(dho_departamentos).order_by(dho_departamentos.c.nome_departamento)
     ).mappings().all()
 
 
 def get_cargos(db: Session):
+    try:
+        sincronizar_estrutura_dataworld(db)
+    except Exception as exc:
+        print(f"AVISO - não consegui sincronizar cargos Data.World: {exc}")
+
     rows = db.execute(
         select(
             dho_cargos,
@@ -394,6 +406,11 @@ def get_autonomos(db: Session):
 
 @router.get("/dho")
 def dho_home(request: Request, db: Session = Depends(get_db)):
+    try:
+        sincronizar_estrutura_dataworld(db)
+    except Exception as exc:
+        print(f"AVISO - não consegui sincronizar estrutura DHO Data.World: {exc}")
+
     qtd_vagas = count_table(db, dho_vagas)
     qtd_treinamentos = count_table(db, dho_treinamentos)
     qtd_aplicacoes = count_table(db, dho_treinamento_aplicacoes)
@@ -466,6 +483,13 @@ def dho_home(request: Request, db: Session = Depends(get_db)):
 
 @router.get("/dho/estrutura")
 def estrutura(request: Request, db: Session = Depends(get_db)):
+    erro_dataworld = ""
+
+    try:
+        sincronizar_estrutura_dataworld(db)
+    except Exception as exc:
+        erro_dataworld = str(exc)
+
     departamentos = get_departamentos(db)
     cargos = get_cargos(db)
 
@@ -475,8 +499,28 @@ def estrutura(request: Request, db: Session = Depends(get_db)):
             "request": request,
             "departamentos": departamentos,
             "cargos": cargos,
+            "erro_dataworld": erro_dataworld,
             **flash_from_request(request),
         },
+    )
+
+
+@router.post("/dho/estrutura/sincronizar")
+def sincronizar_estrutura(request: Request, db: Session = Depends(get_db)):
+    _CACHE_PESSOAS_DW["dados"] = None
+    _CACHE_ESTRUTURA_DW["sincronizada"] = False
+
+    try:
+        sincronizar_estrutura_dataworld(db, force=True)
+    except Exception as exc:
+        return redirect_with_message(
+            "/dho/estrutura",
+            error=f"Não consegui sincronizar Data.World rel_colab_77: {exc}",
+        )
+
+    return redirect_with_message(
+        "/dho/estrutura",
+        success="Departamentos e cargos sincronizados pela tabela rel_colab_77.",
     )
 
 
@@ -757,10 +801,14 @@ _CACHE_PESSOAS_DW = {
     "dados": None,
 }
 
+_CACHE_ESTRUTURA_DW = {
+    "sincronizada": False,
+}
+
 
 def carregar_pessoas_dataworld():
     """
-    Busca pessoas na tabela worksheet do dataset 77indicadores/porsche.
+    Busca pessoas na tabela rel_colab_77 do dataset 77indicadores/porsche.
 
     Campos usados:
     - nome
@@ -776,16 +824,8 @@ def carregar_pessoas_dataworld():
         return _CACHE_PESSOAS_DW["dados"]
 
     sql = """
-        SELECT
-            nome,
-            nome_completo,
-            matricula,
-            email,
-            cargo,
-            cargo_visivel,
-            departamento
-        FROM worksheet
-        WHERE nome IS NOT NULL
+        SELECT *
+        FROM rel_colab_77
     """
 
     pessoas = []
@@ -799,11 +839,11 @@ def carregar_pessoas_dataworld():
 
         for _, row in df.iterrows():
             nome = str(row.get("nome") or "").strip()
-            nome_completo = str(row.get("nome_completo") or "").strip()
-            matricula = str(row.get("matricula") or "").strip()
-            email = str(row.get("email") or "").strip()
-            cargo = str(row.get("cargo_visivel") or row.get("cargo") or "").strip()
-            departamento = str(row.get("departamento") or "").strip()
+            nome_completo = str(row.get("nome_completo") or row.get("colaborador") or row.get("funcionario") or "").strip()
+            matricula = str(row.get("matricula") or row.get("chapa") or "").strip()
+            email = str(row.get("email") or row.get("email_corporativo") or "").strip()
+            cargo = str(row.get("cargo_visivel") or row.get("cargo") or row.get("funcao") or "").strip()
+            departamento = str(row.get("departamento") or row.get("centro_custo") or row.get("setor") or "").strip()
 
             nome_exibicao = nome_completo or nome
 
@@ -862,11 +902,11 @@ def carregar_pessoas_dataworld():
 
                     for row in rows:
                         nome = str(row.get("nome") or "").strip()
-                        nome_completo = str(row.get("nome_completo") or "").strip()
-                        matricula = str(row.get("matricula") or "").strip()
-                        email = str(row.get("email") or "").strip()
-                        cargo = str(row.get("cargo") or "").strip()
-                        departamento = str(row.get("departamento") or "").strip()
+                        nome_completo = str(row.get("nome_completo") or row.get("colaborador") or row.get("funcionario") or "").strip()
+                        matricula = str(row.get("matricula") or row.get("chapa") or "").strip()
+                        email = str(row.get("email") or row.get("email_corporativo") or "").strip()
+                        cargo = str(row.get("cargo_visivel") or row.get("cargo") or row.get("funcao") or "").strip()
+                        departamento = str(row.get("departamento") or row.get("centro_custo") or row.get("setor") or "").strip()
 
                         nome_exibicao = nome_completo or nome
 
@@ -918,6 +958,82 @@ def carregar_pessoas_dataworld():
     _CACHE_PESSOAS_DW["dados"] = pessoas
 
     return pessoas
+
+
+def carregar_estrutura_dataworld():
+    pessoas = carregar_pessoas_dataworld()
+    departamentos = sorted({
+        str(p.get("departamento") or "").strip()
+        for p in pessoas
+        if str(p.get("departamento") or "").strip()
+    }, key=lambda x: x.lower())
+
+    cargos = sorted({
+        (
+            str(p.get("cargo") or "").strip(),
+            str(p.get("departamento") or "").strip(),
+        )
+        for p in pessoas
+        if str(p.get("cargo") or "").strip()
+    }, key=lambda x: (x[0].lower(), x[1].lower()))
+
+    return departamentos, cargos
+
+
+def sincronizar_estrutura_dataworld(db: Session, force: bool = False):
+    if _CACHE_ESTRUTURA_DW.get("sincronizada") and not force:
+        return
+
+    departamentos_dw, cargos_dw = carregar_estrutura_dataworld()
+
+    departamentos_por_nome = {}
+    for row in db.execute(select(dho_departamentos)).mappings().all():
+        nome = str(row.get("nome_departamento") or "").strip().lower()
+        if nome:
+            departamentos_por_nome[nome] = row.get("id_departamento")
+
+    for nome_departamento in departamentos_dw:
+        chave = nome_departamento.strip().lower()
+        if not chave:
+            continue
+
+        if chave not in departamentos_por_nome:
+            result = db.execute(
+                insert(dho_departamentos).values(
+                    nome_departamento=nome_departamento,
+                    status="Ativo",
+                    criado_em=datetime.utcnow(),
+                    atualizado_em=datetime.utcnow(),
+                )
+            )
+            departamentos_por_nome[chave] = result.inserted_primary_key[0] if result.inserted_primary_key else None
+
+    cargos_existentes = set()
+    for row in db.execute(select(dho_cargos)).mappings().all():
+        cargos_existentes.add((
+            str(row.get("nome_cargo") or "").strip().lower(),
+            row.get("id_departamento"),
+        ))
+
+    for nome_cargo, nome_departamento in cargos_dw:
+        id_departamento = departamentos_por_nome.get(nome_departamento.strip().lower())
+        chave = (nome_cargo.strip().lower(), id_departamento)
+        if not nome_cargo.strip() or chave in cargos_existentes:
+            continue
+
+        db.execute(
+            insert(dho_cargos).values(
+                id_departamento=id_departamento,
+                nome_cargo=nome_cargo,
+                status="Ativo",
+                criado_em=datetime.utcnow(),
+                atualizado_em=datetime.utcnow(),
+            )
+        )
+        cargos_existentes.add(chave)
+
+    db.commit()
+    _CACHE_ESTRUTURA_DW["sincronizada"] = True
 
 
 
