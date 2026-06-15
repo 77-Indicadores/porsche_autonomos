@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 
 {% block header %}Composição Meta Equipe{% endblock %}
-{% block subtitle %}Controle da meta de equipe por etapa, categoria e carro.{% endblock %}
+{% block subtitle %}Controle da meta de equipe por etapa, categoria, quantidade de pessoas e valor.{% endblock %}
 
 {% block header_action %}
 <button type="button" class="quick-action primary" onclick="novoCadastro()">+ Nova regra</button>
@@ -19,8 +19,8 @@
 
     <div>
       <label class="label">Etapa</label>
-      <select class="input" name="id_etapa" id="id_etapa">
-        <option value="">Todas as etapas</option>
+      <select class="input" name="id_etapa" id="id_etapa" required>
+        <option value="">Selecione</option>
         {% for e in etapas %}
           <option value="{{ e.id_etapa }}">{{ e.temporada }} - {{ e.nome_etapa }}</option>
         {% endfor %}
@@ -29,8 +29,8 @@
 
     <div>
       <label class="label">Categoria</label>
-      <select class="input" name="id_prova" id="id_prova">
-        <option value="">Todas as categorias</option>
+      <select class="input" name="id_prova" id="id_prova" required disabled>
+        <option value="">Selecione uma etapa primeiro</option>
         {% for p in provas %}
           <option value="{{ p.id_prova }}" data-etapa="{{ p.id_etapa }}">{{ p.nome_prova }}</option>
         {% endfor %}
@@ -38,24 +38,17 @@
     </div>
 
     <div>
-      <label class="label">Carro</label>
-      <select class="input" name="id_carro" id="id_carro">
-        <option value="">Todos os carros</option>
-        {% for c in carros %}
-          <option value="{{ c.id_carro }}">
-            {{ c.numero_carro }}{% if c.modelo %} - {{ c.modelo }}{% endif %}{% if c.categoria_padrao %} - {{ c.categoria_padrao }}{% endif %}
-          </option>
-        {% endfor %}
-      </select>
-    </div>
-
-    <div>
-      <label class="label">Quantidade</label>
+      <label class="label">Quantidade de pessoas</label>
       <select class="input" name="qtd_esperada" id="qtd_esperada" required>
         {% for q in qtd_options %}
           <option value="{{ q }}">{{ q|string|replace(".", ",") }}</option>
         {% endfor %}
       </select>
+    </div>
+
+    <div>
+      <label class="label">Valor</label>
+      <input class="input" name="custo_medio_esperado" id="custo_medio_esperado" placeholder="12000,00">
     </div>
 
     <div class="span-3 ux-actions-row">
@@ -73,7 +66,7 @@
   <form method="get" class="form-grid">
     <div>
       <label class="label">Etapa</label>
-      <select class="input" name="id_etapa">
+      <select class="input" name="id_etapa" id="filtro_id_etapa">
         <option value="">Todas</option>
         {% for e in etapas %}
           <option value="{{ e.id_etapa }}" {% if filtros.id_etapa|string == e.id_etapa|string %}selected{% endif %}>
@@ -85,23 +78,11 @@
 
     <div>
       <label class="label">Categoria</label>
-      <select class="input" name="id_prova">
-        <option value="">Todas</option>
+      <select class="input" name="id_prova" id="filtro_id_prova" {% if not filtros.id_etapa %}disabled{% endif %}>
+        <option value="">{% if filtros.id_etapa %}Todas{% else %}Selecione uma etapa primeiro{% endif %}</option>
         {% for p in provas %}
-          <option value="{{ p.id_prova }}" {% if filtros.id_prova|string == p.id_prova|string %}selected{% endif %}>
+          <option value="{{ p.id_prova }}" data-etapa="{{ p.id_etapa }}" {% if filtros.id_prova|string == p.id_prova|string %}selected{% endif %}>
             {{ p.nome_prova }}
-          </option>
-        {% endfor %}
-      </select>
-    </div>
-
-    <div>
-      <label class="label">Carro</label>
-      <select class="input" name="id_carro">
-        <option value="">Todos</option>
-        {% for c in carros %}
-          <option value="{{ c.id_carro }}" {% if filtros.id_carro|string == c.id_carro|string %}selected{% endif %}>
-            {{ c.numero_carro }}{% if c.modelo %} - {{ c.modelo }}{% endif %}
           </option>
         {% endfor %}
       </select>
@@ -115,15 +96,20 @@
 </section>
 
 <section class="panel mb-6">
-  <div class="grid gap-3 md:grid-cols-2">
+  <div class="grid gap-3 md:grid-cols-3">
     <div class="kpi-card">
       <span>Total de regras</span>
       <strong>{{ items|length }}</strong>
     </div>
 
     <div class="kpi-card">
-      <span>Quantidade esperada</span>
+      <span>Quantidade de pessoas</span>
       <strong>{{ total_qtd }}</strong>
+    </div>
+
+    <div class="kpi-card">
+      <span>Valor</span>
+      <strong>{{ total_valor }}</strong>
     </div>
   </div>
 </section>
@@ -140,8 +126,8 @@
           <th>ID</th>
           <th>Etapa</th>
           <th>Categoria</th>
-          <th>Carro</th>
-          <th>Quantidade</th>
+          <th>Quantidade de pessoas</th>
+          <th>Valor</th>
           <th>Ações</th>
         </tr>
       </thead>
@@ -152,8 +138,8 @@
           <td><span class="id-pill">{{ item.id_composicao }}</span></td>
           <td>{{ item.nome_etapa }}</td>
           <td>{{ item.nome_prova }}</td>
-          <td>{{ item.nome_carro }}</td>
           <td class="font-bold">{{ item.qtd_formatada }}</td>
+          <td class="font-bold">{{ item.valor_formatado }}</td>
           <td class="actions">
             <button
               class="btn-muted"
@@ -162,8 +148,8 @@
               data-id_composicao="{{ item.id_composicao }}"
               data-id_etapa="{{ item.id_etapa or '' }}"
               data-id_prova="{{ item.id_prova or '' }}"
-              data-id_carro="{{ item.id_carro or '' }}"
               data-qtd_esperada="{{ item.qtd_esperada }}"
+              data-custo_medio_esperado="{{ item.custo_medio_esperado or '' }}"
             >
               Editar
             </button>
@@ -194,9 +180,12 @@ function editarComposicao(btn) {
 
   setValue("id_composicao", d.id_composicao);
   setValue("id_etapa", d.id_etapa);
+  if (window.filtrarCategoriasComposicao) {
+    window.filtrarCategoriasComposicao();
+  }
   setValue("id_prova", d.id_prova);
-  setValue("id_carro", d.id_carro);
   setValue("qtd_esperada", d.qtd_esperada);
+  setValue("custo_medio_esperado", d.custo_medio_esperado);
 
   const titulo = document.querySelector(".panel-head h3");
   if (titulo) titulo.innerText = "Editar composição meta equipe #" + d.id_composicao;
@@ -212,6 +201,9 @@ function novoCadastro() {
   if (form) form.reset();
 
   setValue("id_composicao", "");
+  if (window.filtrarCategoriasComposicao) {
+    window.filtrarCategoriasComposicao();
+  }
 
   const titulo = document.querySelector(".panel-head h3");
   if (titulo) titulo.innerText = "Nova / editar composição meta equipe";
@@ -223,26 +215,46 @@ function novoCadastro() {
 }
 
 (function() {
-  const etapa = document.getElementById("id_etapa");
-  const categoria = document.getElementById("id_prova");
-
-  function filtrarCategorias() {
+  function prepararFiltro(etapa, categoria, textoVazio) {
     if (!etapa || !categoria) return;
 
     const etapaId = etapa.value;
+    const placeholder = categoria.options[0];
+
+    categoria.disabled = !etapaId;
+    if (placeholder) {
+      placeholder.textContent = etapaId ? textoVazio : "Selecione uma etapa primeiro";
+    }
 
     Array.from(categoria.options).forEach(o => {
       if (!o.value) return;
-      o.hidden = etapaId && o.dataset.etapa !== etapaId;
+      o.hidden = !etapaId || o.dataset.etapa !== etapaId;
     });
 
-    if (categoria.selectedOptions.length && categoria.selectedOptions[0].hidden) {
+    if (!etapaId || (categoria.selectedOptions.length && categoria.selectedOptions[0].hidden)) {
       categoria.value = "";
     }
   }
 
+  const etapa = document.getElementById("id_etapa");
+  const categoria = document.getElementById("id_prova");
+  const filtroEtapa = document.getElementById("filtro_id_etapa");
+  const filtroCategoria = document.getElementById("filtro_id_prova");
+
+  function filtrarCategorias() {
+    prepararFiltro(etapa, categoria, "Selecione");
+  }
+
+  function filtrarCategoriasFiltro() {
+    prepararFiltro(filtroEtapa, filtroCategoria, "Todas");
+  }
+
+  window.filtrarCategoriasComposicao = filtrarCategorias;
+
   if (etapa) etapa.addEventListener("change", filtrarCategorias);
+  if (filtroEtapa) filtroEtapa.addEventListener("change", filtrarCategoriasFiltro);
   filtrarCategorias();
+  filtrarCategoriasFiltro();
 })();
 </script>
 

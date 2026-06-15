@@ -1,0 +1,185 @@
+{% extends "base.html" %}
+
+{% block header %}Facilities{% endblock %}
+{% block subtitle %}Cadastro e acompanhamento dos campos importados da planilha compartilhada.{% endblock %}
+
+{% block header_action %}
+<button type="button" class="quick-action primary" onclick="novoCadastroFacilities()">+ Novo registro</button>
+{% endblock %}
+
+{% block content %}
+
+<section class="panel mb-6">
+  <div class="panel-head">
+    <h3>Conectar Google Drive</h3>
+  </div>
+
+  <form method="post" action="/facilities/sincronizar" class="form-grid">
+    <div class="span-2">
+      <label class="label">Link da planilha Google</label>
+      <input class="input" name="sheet_url" value="{{ google_sheet_url }}" placeholder="Cole aqui o link da planilha compartilhada">
+    </div>
+
+    <div>
+      <label class="label">Modo</label>
+      <select class="input" name="modo">
+        <option value="substituir">Substituir dados atuais</option>
+        <option value="adicionar">Adicionar aos dados atuais</option>
+      </select>
+    </div>
+
+    <div class="span-3 ux-actions-row">
+      <button class="btn-primary">Sincronizar Google Drive</button>
+    </div>
+  </form>
+</section>
+
+<section class="panel mb-6">
+  <div class="panel-head">
+    <h3>Campos da tela</h3>
+  </div>
+
+  <form method="post" action="/facilities/campos" class="form-grid">
+    <div class="span-3">
+      <label class="label">Campos</label>
+      <textarea class="input" name="campos_texto" rows="4" placeholder="Um campo por linha">{% for campo in campos %}{{ campo }}{% if not loop.last %}
+{% endif %}{% endfor %}</textarea>
+    </div>
+
+    <div class="span-3 ux-actions-row">
+      <button class="btn-secondary">Salvar campos</button>
+    </div>
+  </form>
+</section>
+
+{% if campos %}
+<section class="panel mb-6">
+  <div class="panel-head">
+    <h3 id="titulo-form-facilities">Novo registro Facilities</h3>
+  </div>
+
+  <form method="post" action="/facilities" class="form-grid" id="form_facilities">
+    <input type="hidden" name="id_registro" id="id_registro">
+
+    {% for campo in campos %}
+    <div>
+      <label class="label">{{ campo }}</label>
+      <input class="input" name="campo__{{ campo }}" id="campo_{{ loop.index0 }}" data-campo="{{ campo }}">
+    </div>
+    {% endfor %}
+
+    <div class="span-3 ux-actions-row">
+      <button class="btn-primary" id="btn_salvar_facilities">Salvar registro</button>
+      <button type="button" class="btn-secondary" onclick="novoCadastroFacilities()">Limpar</button>
+    </div>
+  </form>
+</section>
+{% endif %}
+
+<section class="panel mb-6">
+  <div class="grid gap-3 md:grid-cols-2">
+    <div class="kpi-card">
+      <span>Campos</span>
+      <strong>{{ campos|length }}</strong>
+    </div>
+
+    <div class="kpi-card">
+      <span>Registros</span>
+      <strong>{{ total_registros }}</strong>
+    </div>
+  </div>
+</section>
+
+<section class="panel">
+  <div class="panel-head">
+    <h3>Registros Facilities</h3>
+  </div>
+
+  <div class="overflow-x-auto">
+    <table class="table">
+      <thead>
+        <tr>
+          <th>ID</th>
+          {% for campo in campos %}
+          <th>{{ campo }}</th>
+          {% endfor %}
+          <th>Ações</th>
+        </tr>
+      </thead>
+
+      <tbody>
+        {% for item in registros %}
+        <tr>
+          <td><span class="id-pill">{{ item.id_registro }}</span></td>
+          {% for campo in campos %}
+          <td>{{ item.dados.get(campo, "") }}</td>
+          {% endfor %}
+          <td class="actions">
+            <button
+              type="button"
+              class="btn-muted"
+              onclick="editarFacilities(this)"
+              data-id_registro="{{ item.id_registro }}"
+              data-dados='{{ item.dados|tojson }}'
+            >
+              Editar
+            </button>
+
+            <form method="post" action="/facilities/{{ item.id_registro }}/excluir" onsubmit="return confirm('Excluir este registro?');">
+              <button class="btn-danger">Excluir</button>
+            </form>
+          </td>
+        </tr>
+        {% else %}
+        <tr>
+          <td colspan="{{ campos|length + 2 }}" class="empty">Nenhum registro Facilities cadastrado.</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<script>
+function novoCadastroFacilities() {
+  const form = document.getElementById("form_facilities");
+  if (form) form.reset();
+
+  const id = document.getElementById("id_registro");
+  if (id) id.value = "";
+
+  const titulo = document.getElementById("titulo-form-facilities");
+  if (titulo) titulo.innerText = "Novo registro Facilities";
+
+  const botao = document.getElementById("btn_salvar_facilities");
+  if (botao) botao.innerText = "Salvar registro";
+
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+function editarFacilities(btn) {
+  const id = document.getElementById("id_registro");
+  if (id) id.value = btn.dataset.id_registro || "";
+
+  let dados = {};
+  try {
+    dados = JSON.parse(btn.dataset.dados || "{}");
+  } catch (e) {
+    dados = {};
+  }
+
+  document.querySelectorAll("#form_facilities [data-campo]").forEach(function(input) {
+    input.value = dados[input.dataset.campo] || "";
+  });
+
+  const titulo = document.getElementById("titulo-form-facilities");
+  if (titulo) titulo.innerText = "Editar registro Facilities #" + (btn.dataset.id_registro || "");
+
+  const botao = document.getElementById("btn_salvar_facilities");
+  if (botao) botao.innerText = "Salvar alterações";
+
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+</script>
+
+{% endblock %}
