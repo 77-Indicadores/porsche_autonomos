@@ -62,7 +62,12 @@ maintenance_tickets = Table(
     Column("updated_system_at", DateTime, default=datetime.utcnow),
 )
 
-metadata_maintenance.create_all(engine)
+
+def criar_tabela_maintenance():
+    try:
+        metadata_maintenance.create_all(engine)
+    except Exception as exc:
+        print(f"AVISO - não consegui criar tabela maintenance_tickets: {exc}")
 
 
 def garantir_schema():
@@ -113,6 +118,7 @@ def garantir_schema():
 
 
 garantir_schema()
+criar_tabela_maintenance()
 
 
 def json_default(value):

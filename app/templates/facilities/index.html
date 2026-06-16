@@ -1,14 +1,11 @@
 {% extends "base.html" %}
 
 {% block header %}Facilities{% endblock %}
-{% block subtitle %}Espelho dos chamados de manutenção predial vindos do Google Sheets.{% endblock %}
+{% block subtitle %}Espelho da planilha online Controle de Reformas Prediais V1.{% endblock %}
 
 {% block header_action %}
-<form method="post" action="/facilities/sincronizar" style="display:inline;">
-  <input type="hidden" name="oauth_client_path" value="{{ config.oauth_client_path }}">
-  <input type="hidden" name="token_path" value="{{ config.token_path }}">
-  <input type="hidden" name="audit_dir" value="{{ config.audit_dir }}">
-  <button class="quick-action primary">Sincronizar</button>
+<form method="post" action="/facilities/sincronizar">
+  <button class="quick-action primary" type="submit">Atualizar espelho</button>
 </form>
 {% endblock %}
 
@@ -16,41 +13,66 @@
 
 <section class="panel mb-6">
   <div class="panel-head">
-    <h3>Conexão Google Sheets</h3>
+    <h3>Planilha espelhada</h3>
   </div>
 
-  <form method="post" action="/facilities/sincronizar" class="form-grid">
-    <div class="span-3">
-      <label class="label">Planilha</label>
-      <input class="input" value="{{ config.sheet_name }} · {{ config.worksheet_name }} · GID {{ config.gid }}" disabled>
+  <div class="grid gap-3 md:grid-cols-4">
+    <div class="kpi-card">
+      <span>Planilha</span>
+      <strong>{{ config.sheet_name }}</strong>
     </div>
 
-    <div>
-      <label class="label">OAuth Client</label>
-      <input class="input" name="oauth_client_path" value="{{ config.oauth_client_path }}">
+    <div class="kpi-card">
+      <span>Aba</span>
+      <strong>{{ config.worksheet_name }}</strong>
     </div>
 
-    <div>
-      <label class="label">Token Google</label>
-      <input class="input" name="token_path" value="{{ config.token_path }}">
+    <div class="kpi-card">
+      <span>Linhas lidas</span>
+      <strong>{{ sync_result.total if sync_result else cards.total }}</strong>
     </div>
 
-    <div>
-      <label class="label">Auditoria CSV/Excel</label>
-      <input class="input" name="audit_dir" value="{{ config.audit_dir }}">
+    <div class="kpi-card">
+      <span>Credenciais</span>
+      <strong>{{ "OK" if config.has_oauth_client and config.has_token else "Pendente" }}</strong>
     </div>
+  </div>
 
-    <div class="span-3 ux-actions-row">
-      <button class="btn-primary">Sincronizar Google Sheets</button>
-      <a class="btn-muted" href="/facilities/diagnostico" target="_blank">Diagnóstico</a>
+  {% if sync_result %}
+    <div class="alert success mt-4">
+      Espelho atualizado: {{ sync_result.total }} solicitações lidas da planilha online.
     </div>
-  </form>
+  {% endif %}
+
+  {% if cache_notice %}
+    <div class="alert success mt-4">
+      {{ cache_notice }}
+    </div>
+  {% endif %}
+
+  {% if sync_error %}
+    <div class="alert error mt-4">
+      {{ sync_error }}
+    </div>
+  {% endif %}
+
+  {% if not sync_error and not sync_result and cards.total == 0 %}
+    <div class="alert error mt-4">
+      O espelho ainda não recebeu dados da planilha online nesta execução.
+    </div>
+  {% endif %}
+
+  {% if sync_result and sync_result.total == 0 %}
+    <div class="alert error mt-4">
+      A conexão com o Google funcionou, mas a aba configurada voltou sem linhas. Verifique se os chamados estão na aba {{ config.worksheet_name }}.
+    </div>
+  {% endif %}
 </section>
 
 <section class="panel mb-6">
   <div class="grid gap-3 md:grid-cols-4">
     <div class="kpi-card">
-      <span>Chamados</span>
+      <span>Solicitações</span>
       <strong>{{ cards.total }}</strong>
     </div>
 
@@ -60,7 +82,7 @@
     </div>
 
     <div class="kpi-card">
-      <span>Concluídos</span>
+      <span>Concluídas</span>
       <strong>{{ cards.concluidos }}</strong>
     </div>
 
@@ -73,45 +95,49 @@
 
 <section class="panel">
   <div class="panel-head">
-    <h3>Chamados de manutenção</h3>
+    <h3>Solicitações da planilha</h3>
   </div>
 
   <div class="overflow-x-auto">
     <table class="table">
       <thead>
         <tr>
-          <th>Origem</th>
+          <th>Linha</th>
           <th>Data</th>
           <th>Solicitante</th>
           <th>Setor</th>
           <th>Local</th>
           <th>Categoria</th>
+          <th>Natureza</th>
           <th>Status</th>
-          <th>Urgência</th>
-          <th>Valor</th>
-          <th>Fornecedor</th>
-          <th>OS</th>
+          <th>Complemento</th>
+          <th>Início</th>
+          <th>Finalização</th>
+          <th>Prazo</th>
+          <th>Retrabalho</th>
+          <th>Custo</th>
           <th>Foto</th>
+          <th>Ações</th>
         </tr>
       </thead>
 
       <tbody>
         {% for item in chamados %}
         <tr>
-          <td><span class="id-pill">Linha {{ item.source_row }}</span></td>
+          <td><span class="id-pill">{{ item.source_row }}</span></td>
           <td>{{ item.created_at_fmt }}</td>
-          <td>
-            <strong>{{ item.requester_name or "-" }}</strong><br>
-            <small>{{ item.requester_email or "" }}</small>
-          </td>
+          <td><strong>{{ item.requester_name or "-" }}</strong></td>
           <td>{{ item.department or "-" }}</td>
           <td>{{ item.location or "-" }}</td>
           <td>{{ item.category or "-" }}</td>
+          <td>{{ item.maintenance_type or "-" }}</td>
           <td class="font-bold">{{ item.status_label }}</td>
-          <td class="font-bold">{{ item.priority_label }}</td>
-          <td class="font-bold">{{ item.amount_fmt }}</td>
-          <td>{{ item.supplier or "-" }}</td>
-          <td>{{ item.work_order or "-" }}</td>
+          <td class="font-bold">{{ item.complemento_status }}</td>
+          <td>{{ item.complemento_data_inicio_fmt }}</td>
+          <td>{{ item.complemento_data_finalizacao_fmt }}</td>
+          <td>{{ item.complemento.dentro_prazo or "-" }}</td>
+          <td>{{ item.complemento.retrabalho or "-" }}</td>
+          <td class="font-bold">{{ item.complemento_custo_fmt }}</td>
           <td>
             {% if item.photo_url %}
               <a class="btn-muted" href="{{ item.photo_url }}" target="_blank" rel="noopener">Abrir</a>
@@ -119,15 +145,295 @@
               -
             {% endif %}
           </td>
+          <td>
+            <button
+              type="button"
+              class="btn-muted"
+              onclick="editarComplemento(this)"
+              data-source-row="{{ item.source_row }}"
+              data-solicitante="{{ item.requester_name or '' }}"
+              data-setor="{{ item.department or '' }}"
+              data-unit="{{ item.unit or '' }}"
+              data-location="{{ item.location or '' }}"
+              data-category="{{ item.category or '' }}"
+              data-maintenance-type="{{ item.maintenance_type or '' }}"
+              data-complemento='{{ item.complemento|tojson|e }}'
+            >Complementar</button>
+          </td>
         </tr>
         {% else %}
         <tr>
-          <td colspan="12" class="empty">Nenhum chamado sincronizado.</td>
+          <td colspan="16" class="empty">
+            Nenhuma solicitação espelhada ainda. Assim que o Google Sheets retornar as linhas, elas aparecem aqui automaticamente.
+          </td>
         </tr>
         {% endfor %}
       </tbody>
     </table>
   </div>
 </section>
+
+<style>
+  .facilities-modal {
+    position: fixed;
+    inset: 0;
+    z-index: 1000;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    background: rgba(15, 23, 42, .62);
+  }
+
+  .facilities-modal.open {
+    display: flex;
+  }
+
+  .facilities-dialog {
+    width: min(1080px, 100%);
+    max-height: calc(100vh - 48px);
+    overflow: auto;
+    border-radius: 8px;
+    background: #fff;
+    box-shadow: 0 24px 80px rgba(15, 23, 42, .28);
+  }
+
+  .facilities-dialog-head {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 18px 20px;
+    border-bottom: 1px solid #e4e7ec;
+    background: #fff;
+  }
+
+  .facilities-dialog-head h3 {
+    margin: 0;
+  }
+
+  .facilities-dialog-head p {
+    margin: 4px 0 0;
+    color: #667085;
+  }
+
+  .modal-close {
+    width: 36px;
+    height: 36px;
+    border: 1px solid #d0d5dd;
+    border-radius: 8px;
+    background: #fff;
+    color: #101828;
+    font-size: 20px;
+    font-weight: 800;
+    cursor: pointer;
+  }
+
+  .facilities-dialog-body {
+    padding: 20px;
+  }
+</style>
+
+<div class="facilities-modal" id="modal_complemento" aria-hidden="true">
+  <div class="facilities-dialog" role="dialog" aria-modal="true" aria-labelledby="modal_complemento_titulo">
+    <div class="facilities-dialog-head">
+      <div>
+        <h3 id="modal_complemento_titulo">Complementar solicitação</h3>
+        <p id="modal_complemento_resumo">Selecione uma solicitação na tabela.</p>
+      </div>
+      <button type="button" class="modal-close" onclick="fecharComplemento()" aria-label="Fechar">×</button>
+    </div>
+
+    <div class="facilities-dialog-body">
+      <form method="post" action="/facilities/complementar" class="form-grid" id="form_complemento">
+        <input type="hidden" name="source_row" id="source_row">
+
+        <div>
+          <label class="label">Linha da planilha</label>
+          <input class="input" id="linha_visual" readonly>
+        </div>
+
+        <div>
+          <label class="label">Solicitante</label>
+          <input class="input" id="solicitante_visual" readonly>
+        </div>
+
+        <div>
+          <label class="label">Setor</label>
+          <input class="input" id="setor_visual" readonly>
+        </div>
+
+        <div>
+          <label class="label">Área / serviço</label>
+          <select class="input" name="area_servico" id="area_servico">
+            <option value="">Selecione</option>
+            {% for item in opcoes.areas %}
+              <option value="{{ item }}">{{ item }}</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div>
+          <label class="label">Unidade / local</label>
+          <select class="input" name="unidade_local" id="unidade_local">
+            <option value="">Selecione</option>
+            {% for item in opcoes.unidades %}
+              <option value="{{ item }}">{{ item }}</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div>
+          <label class="label">Tipo atendimento</label>
+          <select class="input" name="tipo_atendimento" id="tipo_atendimento">
+            <option value="">Selecione</option>
+            {% for item in opcoes.tipos %}
+              <option value="{{ item }}">{{ item }}</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div>
+          <label class="label">Data início</label>
+          <input class="input" type="date" name="data_inicio" id="data_inicio">
+        </div>
+
+        <div>
+          <label class="label">Data finalização</label>
+          <input class="input" type="date" name="data_finalizacao" id="data_finalizacao">
+        </div>
+
+        <div>
+          <label class="label">Dentro do prazo</label>
+          <select class="input" name="dentro_prazo" id="dentro_prazo">
+            <option value="">Selecione</option>
+            {% for item in opcoes.prazos %}
+              <option value="{{ item }}">{{ item }}</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div>
+          <label class="label">Retrabalho</label>
+          <select class="input" name="retrabalho" id="retrabalho">
+            <option value="">Selecione</option>
+            {% for item in opcoes.retrabalhos %}
+              <option value="{{ item }}">{{ item }}</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div>
+          <label class="label">Custo</label>
+          <input class="input" name="custo" id="custo" placeholder="R$ 0,00">
+        </div>
+
+        <div class="span-3">
+          <label class="label">Observação</label>
+          <textarea class="input" name="observacao" id="observacao" rows="2"></textarea>
+        </div>
+
+        <div class="span-3">
+          <label class="label">Rastreamento / identificação do serviço</label>
+          <textarea class="input" name="rastreamento" id="rastreamento" rows="2"></textarea>
+        </div>
+
+        <div class="span-3 ux-actions-row">
+          <button class="btn-primary" id="btn_salvar_complemento" disabled>Concluir complemento</button>
+          <button class="btn-secondary" type="button" onclick="fecharComplemento()">Cancelar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script>
+function setValue(id, value) {
+  const el = document.getElementById(id);
+  if (el) el.value = value || "";
+}
+
+function ensureOption(selectId, value) {
+  const select = document.getElementById(selectId);
+  if (!select || !value) return;
+  const exists = Array.from(select.options).some((option) => option.value === value);
+  if (!exists) {
+    const option = document.createElement("option");
+    option.value = value;
+    option.textContent = value;
+    select.appendChild(option);
+  }
+}
+
+function editarComplemento(btn) {
+  const d = btn.dataset || {};
+  let complemento = {};
+  try {
+    complemento = JSON.parse(d.complemento || "{}");
+  } catch (e) {
+    complemento = {};
+  }
+
+  const area = complemento.area_servico || d.category || "";
+  const unidade = complemento.unidade_local || d.unit || d.location || "";
+  const tipo = complemento.tipo_atendimento || d.maintenanceType || "";
+
+  ensureOption("area_servico", area);
+  ensureOption("unidade_local", unidade);
+  ensureOption("tipo_atendimento", tipo);
+
+  setValue("source_row", d.sourceRow);
+  setValue("linha_visual", d.sourceRow);
+  setValue("solicitante_visual", d.solicitante);
+  setValue("setor_visual", d.setor);
+  setValue("area_servico", area);
+  setValue("unidade_local", unidade);
+  setValue("tipo_atendimento", tipo);
+  setValue("data_inicio", complemento.data_inicio);
+  setValue("data_finalizacao", complemento.data_finalizacao);
+  setValue("dentro_prazo", complemento.dentro_prazo);
+  setValue("retrabalho", complemento.retrabalho);
+  setValue("custo", complemento.custo);
+  setValue("observacao", complemento.observacao);
+  setValue("rastreamento", complemento.rastreamento);
+
+  document.getElementById("btn_salvar_complemento").disabled = false;
+  document.getElementById("modal_complemento_resumo").innerText =
+    "Linha " + d.sourceRow + " · " + (d.solicitante || "Sem solicitante");
+  abrirComplemento();
+}
+
+function limparComplemento() {
+  const form = document.getElementById("form_complemento");
+  if (form) form.reset();
+  setValue("source_row", "");
+  document.getElementById("btn_salvar_complemento").disabled = true;
+}
+
+function abrirComplemento() {
+  const modal = document.getElementById("modal_complemento");
+  modal.classList.add("open");
+  modal.setAttribute("aria-hidden", "false");
+  document.body.style.overflow = "hidden";
+}
+
+function fecharComplemento() {
+  const modal = document.getElementById("modal_complemento");
+  modal.classList.remove("open");
+  modal.setAttribute("aria-hidden", "true");
+  document.body.style.overflow = "";
+}
+
+document.getElementById("modal_complemento").addEventListener("click", function (event) {
+  if (event.target === this) fecharComplemento();
+});
+
+document.addEventListener("keydown", function (event) {
+  if (event.key === "Escape") fecharComplemento();
+});
+</script>
 
 {% endblock %}

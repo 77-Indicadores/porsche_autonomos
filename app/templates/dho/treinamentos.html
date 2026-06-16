@@ -45,6 +45,11 @@
     </div>
 
     <div>
+      <label class="label">Valor do treinamento</label>
+      <input class="input" name="valor_treinamento" id="valor_treinamento" placeholder="R$ 0,00">
+    </div>
+
+    <div>
       <label class="label">Status</label>
       <select class="input" name="status" id="status">
         {% for s in status_treinamento %}
@@ -73,6 +78,7 @@
         <th>Treinamento</th>
         <th>Tipo</th>
         <th>Carga padrão</th>
+        <th>Valor</th>
         <th>Status</th>
         <th>Ações</th>
       </tr>
@@ -84,6 +90,7 @@
         <td class="font-bold">{{ item.nome_treinamento }}</td>
         <td>{{ item.tipo_treinamento or "-" }}</td>
         <td>{{ fmt_num(item.carga_horaria_padrao) if item.carga_horaria_padrao is not none else "-" }}</td>
+        <td>{{ "R$ " ~ fmt_num(item.valor_treinamento) if item.valor_treinamento is not none else "-" }}</td>
         <td><span class="badge">{{ item.status }}</span></td>
         <td class="actions">
           <button
@@ -94,6 +101,7 @@
             data-nome-treinamento="{{ item.nome_treinamento or '' }}"
             data-tipo-treinamento="{{ item.tipo_treinamento or '' }}"
             data-carga-horaria-padrao="{{ item.carga_horaria_padrao or '' }}"
+            data-valor-treinamento="{{ item.valor_treinamento or '' }}"
             data-status="{{ item.status or '' }}"
             data-observacoes="{{ item.observacoes or '' }}"
           >Editar</button>
@@ -104,7 +112,7 @@
         </td>
       </tr>
       {% else %}
-      <tr><td colspan="6" class="empty">Nenhum treinamento cadastrado.</td></tr>
+      <tr><td colspan="7" class="empty">Nenhum treinamento cadastrado.</td></tr>
       {% endfor %}
     </tbody>
   </table>
@@ -123,6 +131,7 @@ function editarTreinamento(btn) {
   setValue("nome_treinamento", d.nomeTreinamento);
   setValue("tipo_treinamento", d.tipoTreinamento);
   setValue("carga_horaria_padrao", d.cargaHorariaPadrao);
+  setValue("valor_treinamento", d.valorTreinamento);
   setValue("status", d.status);
   setValue("observacoes", d.observacoes);
 
