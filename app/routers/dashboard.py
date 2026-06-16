@@ -4,6 +4,8 @@ from fastapi import APIRouter, Depends, Request
 from sqlalchemy import extract, func, text
 from sqlalchemy.orm import Session
 
+import json
+from app.auth import tem_acesso_modulo, MODULOS
 from app.database import get_db
 from app.models import DimAutonomo, DimPiloto, FatoPilotoAutonomoProva
 from app.template_config import templates
@@ -176,6 +178,8 @@ def carregar_indicadores_composicao(db: Session):
 
 @router.get("/autonomos/dashboard")
 def dashboard(request: Request, db: Session = Depends(get_db)):
+    if not tem_acesso_modulo(request, "autonomos"):
+        return RedirectResponse("/?sem_acesso=autonomos", status_code=303)
     hoje = date.today()
 
     fatos = db.query(FatoPilotoAutonomoProva).all()
@@ -267,11 +271,27 @@ def dashboard(request: Request, db: Session = Depends(get_db)):
     )
 
 @router.get("/")
-def sistema_home(request: Request):
+def sistema_home(request: Request, sem_acesso: str = ""):
+    user = getattr(request.state, "current_user", None)
+    perfil = user.get("perfil") if user else "operador"
+    if perfil == "admin":
+        modulos_usuario = MODULOS
+    else:
+        raw = user.get("modulos_acesso") if user else None
+        if not raw or raw == "[]":
+            modulos_usuario = MODULOS  # legado: sem configuração = acesso total
+        else:
+            try:
+                modulos_usuario = json.loads(raw)
+            except Exception:
+                modulos_usuario = MODULOS
+
     return templates.TemplateResponse(
         "modulos.html",
         {
             "request": request,
+            "modulos_usuario": modulos_usuario,
+            "sem_acesso": sem_acesso,
             **flash_from_request(request),
         },
     )

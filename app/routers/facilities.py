@@ -11,6 +11,7 @@ from sqlalchemy import func, select
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
+from app.auth import tem_acesso_modulo, is_admin as _is_admin
 from app.database import get_db
 from app.integrations.google_sheets.client import GoogleSheetsPermissionError
 from app.integrations.google_sheets.mapper import map_row
@@ -295,6 +296,8 @@ def carregar_chamados_para_tela(db: Session):
 
 @router.get("/facilities")
 def index(request: Request, db: Session = Depends(get_db)):
+    if not tem_acesso_modulo(request, "facilities"):
+        return RedirectResponse("/?sem_acesso=facilities", status_code=303)
     sync_result, sync_error = tentar_atualizar_espelho(db)
     cache_notice = ""
 
@@ -359,6 +362,7 @@ def index(request: Request, db: Session = Depends(get_db)):
             "sync_result": sync_result,
             "sync_error": sync_error,
             "cache_notice": cache_notice,
+            "is_admin": _is_admin(request),
             **flash_from_request(request),
         },
     )

@@ -1,21 +1,106 @@
 {% extends "base.html" %}
-{% block title %}{% if usuario %}Editar Usuario{% else %}Novo Usuario{% endif %}{% endblock %}
-{% block header %}{% if usuario %}Editar Usuario{% else %}Novo Usuario{% endif %}{% endblock %}
-{% block content %}
-<form method="post" action="{% if usuario %}/usuarios/{{ usuario.id_usuario }}/editar{% else %}/usuarios/novo{% endif %}">
-  {% if error %}<div class="alert error">{{ error }}</div>{% endif %}
-  <label>Nome</label>
-  <input type="text" name="nome" value="{{ usuario.nome if usuario else '' }}" required>
-  <label>Email</label>
-  <input type="email" name="email" value="{{ usuario.email if usuario else '' }}" required>
-  <label>Senha {% if usuario %}(deixe em branco para manter){% endif %}</label>
-  <input type="password" name="senha" {% if not usuario %}required{% endif %}>
-  <label>Perfil</label>
-  <select name="perfil">
-    <option value="operador" {% if usuario and usuario.perfil == 'operador' %}selected{% endif %}>operador</option>
-    <option value="admin" {% if usuario and usuario.perfil == 'admin' %}selected{% endif %}>admin</option>
-  </select>
-  <button type="submit">{% if usuario %}Atualizar{% else %}Salvar{% endif %}</button>
-</form>
-{% endblock %}
+{% block title %}{% if usuario %}Editar Usuário{% else %}Novo Usuário{% endif %}{% endblock %}
+{% block header %}{% if usuario %}Editar Usuário{% else %}Novo Usuário{% endif %}{% endblock %}
 
+{% block content %}
+
+{% set modulos_atuais = (usuario.modulos_acesso | default("[]")) | tojson if usuario else "[]" %}
+
+<style>
+  .user-form { max-width: 560px; display: flex; flex-direction: column; gap: 18px; }
+  .modulos-check { display: flex; flex-direction: column; gap: 10px; margin-top: 4px; }
+  .modulo-check-item {
+    display: flex; align-items: center; gap: 12px;
+    padding: 12px 16px;
+    border: 1px solid #e4e7ec;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: background .12s;
+  }
+  .modulo-check-item:has(input:checked) { background: #f0f9ff; border-color: #2e90fa; }
+  .modulo-check-item input[type=checkbox] { width: 18px; height: 18px; accent-color: #2e90fa; cursor: pointer; }
+  .modulo-check-label { font-weight: 700; font-size: 14px; color: #101828; }
+  .modulo-check-desc  { font-size: 12px; color: #667085; }
+  #modulos-wrap { display: block; }
+</style>
+
+<form method="post" action="{% if usuario %}/usuarios/{{ usuario.id_usuario }}/editar{% else %}/usuarios/novo{% endif %}" class="user-form">
+
+  {% if error %}<div class="alert error">{{ error }}</div>{% endif %}
+
+  <div>
+    <label class="label">Nome</label>
+    <input class="input" type="text" name="nome" value="{{ usuario.nome if usuario else '' }}" required>
+  </div>
+
+  <div>
+    <label class="label">Email</label>
+    <input class="input" type="email" name="email" value="{{ usuario.email if usuario else '' }}" required>
+  </div>
+
+  <div>
+    <label class="label">Senha {% if usuario %}(deixe em branco para manter){% endif %}</label>
+    <input class="input" type="password" name="senha" {% if not usuario %}required{% endif %}>
+  </div>
+
+  <div>
+    <label class="label">Perfil</label>
+    <select class="input" name="perfil" id="perfil_select" onchange="toggleModulos()">
+      <option value="operador" {% if not usuario or usuario.perfil == 'operador' %}selected{% endif %}>Operador</option>
+      <option value="admin" {% if usuario and usuario.perfil == 'admin' %}selected{% endif %}>Admin</option>
+    </select>
+  </div>
+
+  <div id="modulos-wrap">
+    <label class="label">Acesso aos módulos</label>
+    <div class="modulos-check">
+
+      {% set modulos_icones = {"autonomos": "🏎️", "dho": "🧭", "facilities": "🏢"} %}
+      {% set modulos_nomes  = {"autonomos": "Autônomos", "dho": "DHO", "facilities": "Facilities"} %}
+      {% set modulos_descs  = {
+        "autonomos": "Pilotos, carros, etapas, alocações, equipes",
+        "dho": "Vagas, treinamentos, DataWorld",
+        "facilities": "Reformas prediais, planilha Google"
+      } %}
+
+      {% if usuario and usuario.modulos_acesso %}
+        {% set modulos_ativos = usuario.modulos_acesso | fromjson %}
+      {% else %}
+        {% set modulos_ativos = [] %}
+      {% endif %}
+
+      {% for mod in modulos %}
+      <label class="modulo-check-item">
+        <input type="checkbox" name="modulos" value="{{ mod }}"
+          {% if mod in modulos_ativos %}checked{% endif %}>
+        <div>
+          <div class="modulo-check-label">{{ modulos_icones[mod] }} {{ modulos_nomes[mod] }}</div>
+          <div class="modulo-check-desc">{{ modulos_descs[mod] }}</div>
+        </div>
+      </label>
+      {% endfor %}
+    </div>
+  </div>
+
+  <div>
+    <button class="btn-primary" type="submit">{% if usuario %}Atualizar{% else %}Salvar{% endif %}</button>
+  </div>
+
+</form>
+
+<script>
+function toggleModulos() {
+  const perfil = document.getElementById("perfil_select").value;
+  const wrap = document.getElementById("modulos-wrap");
+  if (perfil === "admin") {
+    wrap.style.opacity = ".4";
+    wrap.style.pointerEvents = "none";
+  } else {
+    wrap.style.opacity = "1";
+    wrap.style.pointerEvents = "";
+  }
+}
+toggleModulos();
+</script>
+
+{% endblock %}

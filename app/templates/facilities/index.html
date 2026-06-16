@@ -4,9 +4,11 @@
 {% block subtitle %}Espelho da planilha online Controle de Reformas Prediais V1.{% endblock %}
 
 {% block header_action %}
+{% if is_admin %}
 <form method="post" action="/facilities/sincronizar">
   <button class="quick-action primary" type="submit">Atualizar espelho</button>
 </form>
+{% endif %}
 {% endblock %}
 
 {% block content %}
@@ -69,64 +71,74 @@
   {% endif %}
 </section>
 
-<section class="panel mb-6">
-  <div class="grid gap-3 md:grid-cols-4">
-    <div class="kpi-card">
-      <span>Solicitações</span>
-      <strong>{{ cards.total }}</strong>
-    </div>
-
-    <div class="kpi-card">
-      <span>Em aberto</span>
-      <strong>{{ cards.abertos }}</strong>
-    </div>
-
-    <div class="kpi-card">
-      <span>Concluídas</span>
-      <strong>{{ cards.concluidos }}</strong>
-    </div>
-
-    <div class="kpi-card">
-      <span>Valor total</span>
-      <strong>{{ cards.valor_total }}</strong>
-    </div>
+<div class="fac-cards mb-6">
+  <div class="fac-card">
+    <span class="fac-card-label">Solicitações</span>
+    <strong class="fac-card-value">{{ cards.total }}</strong>
   </div>
-</section>
+  <div class="fac-card fac-card-warning">
+    <span class="fac-card-label">Em aberto</span>
+    <strong class="fac-card-value">{{ cards.abertos }}</strong>
+  </div>
+  <div class="fac-card fac-card-success">
+    <span class="fac-card-label">Concluídas</span>
+    <strong class="fac-card-value">{{ cards.concluidos }}</strong>
+  </div>
+  <div class="fac-card fac-card-blue">
+    <span class="fac-card-label">Valor total</span>
+    <strong class="fac-card-value">{{ cards.valor_total }}</strong>
+  </div>
+</div>
 
 <section class="panel">
   <div class="panel-head">
     <h3>Solicitações da planilha</h3>
   </div>
 
+  <!-- Filtros -->
+  <div class="fac-filters">
+    <input class="input fac-filter-input" type="text" id="flt_solicitante" placeholder="Solicitante…" oninput="filtrarTabela()">
+    <input class="input fac-filter-input" type="text" id="flt_setor"      placeholder="Setor…"       oninput="filtrarTabela()">
+    <input class="input fac-filter-input" type="text" id="flt_local"      placeholder="Local…"       oninput="filtrarTabela()">
+    <input class="input fac-filter-input" type="text" id="flt_categoria"  placeholder="Categoria…"   oninput="filtrarTabela()">
+    <select class="input fac-filter-input" id="flt_status" onchange="filtrarTabela()">
+      <option value="">Todos os status</option>
+      <option>CONCLUÍDO</option>
+      <option>FECHADO</option>
+      <option>PENDENTE</option>
+      <option>EM ANDAMENTO</option>
+    </select>
+  </div>
+
   <div class="overflow-x-auto">
-    <table class="table">
+    <table class="table" id="tbl_facilities">
       <thead>
         <tr>
-          <th>Linha</th>
-          <th>Data</th>
-          <th>Solicitante</th>
-          <th>Setor</th>
-          <th>Local</th>
-          <th>Categoria</th>
-          <th>Natureza</th>
-          <th>Status</th>
+          <th class="sortable" data-col="0">Linha <span class="sort-icon">⇅</span></th>
+          <th class="sortable" data-col="1">Data <span class="sort-icon">⇅</span></th>
+          <th class="sortable" data-col="2">Solicitante <span class="sort-icon">⇅</span></th>
+          <th class="sortable" data-col="3">Setor <span class="sort-icon">⇅</span></th>
+          <th class="sortable" data-col="4">Local <span class="sort-icon">⇅</span></th>
+          <th class="sortable" data-col="5">Categoria <span class="sort-icon">⇅</span></th>
+          <th class="sortable" data-col="6">Natureza <span class="sort-icon">⇅</span></th>
+          <th class="sortable" data-col="7">Status <span class="sort-icon">⇅</span></th>
           <th>Complemento</th>
-          <th>Início</th>
-          <th>Finalização</th>
+          <th class="sortable" data-col="9">Início <span class="sort-icon">⇅</span></th>
+          <th class="sortable" data-col="10">Finalização <span class="sort-icon">⇅</span></th>
           <th>Prazo</th>
           <th>Retrabalho</th>
-          <th>Custo</th>
-          <th>Foto</th>
+          <th class="sortable" data-col="13">Custo <span class="sort-icon">⇅</span></th>
           <th>Ações</th>
         </tr>
       </thead>
 
       <tbody>
         {% for item in chamados %}
+        {% if item.requester_name %}
         <tr>
           <td><span class="id-pill">{{ item.source_row }}</span></td>
           <td>{{ item.created_at_fmt }}</td>
-          <td><strong>{{ item.requester_name or "-" }}</strong></td>
+          <td><strong>{{ item.requester_name }}</strong></td>
           <td>{{ item.department or "-" }}</td>
           <td>{{ item.location or "-" }}</td>
           <td>{{ item.category or "-" }}</td>
@@ -139,13 +151,7 @@
           <td>{{ item.complemento.retrabalho or "-" }}</td>
           <td class="font-bold">{{ item.complemento_custo_fmt }}</td>
           <td>
-            {% if item.photo_url %}
-              <a class="btn-muted" href="{{ item.photo_url }}" target="_blank" rel="noopener">Abrir</a>
-            {% else %}
-              -
-            {% endif %}
-          </td>
-          <td>
+            {% if is_admin %}
             <button
               type="button"
               class="btn-muted"
@@ -159,8 +165,12 @@
               data-maintenance-type="{{ item.maintenance_type or '' }}"
               data-complemento='{{ item.complemento|tojson|e }}'
             >Complementar</button>
+            {% else %}
+            -
+            {% endif %}
           </td>
         </tr>
+        {% endif %}
         {% else %}
         <tr>
           <td colspan="16" class="empty">
@@ -174,6 +184,54 @@
 </section>
 
 <style>
+  /* ── Cards de resumo ── */
+  .fac-cards {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+  }
+  @media (max-width: 768px) { .fac-cards { grid-template-columns: repeat(2, 1fr); } }
+
+  .fac-card {
+    background: #fff;
+    border: 1px solid #e4e7ec;
+    border-radius: 12px;
+    padding: 20px 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    box-shadow: 0 1px 4px rgba(15,23,42,.06);
+  }
+  .fac-card-label { font-size: 12px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: #667085; }
+  .fac-card-value { font-size: 28px; font-weight: 700; color: #101828; line-height: 1.1; }
+  .fac-card-warning { border-top: 4px solid #f79009; }
+  .fac-card-warning .fac-card-value { color: #b54708; }
+  .fac-card-success { border-top: 4px solid #12b76a; }
+  .fac-card-success .fac-card-value { color: #027a48; }
+  .fac-card-blue   { border-top: 4px solid #2e90fa; }
+  .fac-card-blue   .fac-card-value { color: #1849a9; }
+
+  /* ── Filtros ── */
+  .fac-filters {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    padding: 14px 0 18px;
+  }
+  .fac-filter-input { min-width: 150px; flex: 1; max-width: 220px; }
+
+  /* ── Ordenação ── */
+  th.sortable { cursor: pointer; user-select: none; white-space: nowrap; }
+  th.sortable:hover { background: #f2f4f7; }
+  .sort-icon { font-size: 11px; opacity: .45; margin-left: 4px; }
+  th.sort-asc  .sort-icon { opacity: 1; }
+  th.sort-desc .sort-icon { opacity: 1; }
+  th.sort-asc  .sort-icon::after { content: " ▲"; }
+  th.sort-desc .sort-icon::after { content: " ▼"; }
+  th.sort-asc  .sort-icon { font-size: 0; }
+  th.sort-desc .sort-icon { font-size: 0; }
+
+  /* ── Modal ── */
   .facilities-modal {
     position: fixed;
     inset: 0;
@@ -434,6 +492,64 @@ document.getElementById("modal_complemento").addEventListener("click", function 
 document.addEventListener("keydown", function (event) {
   if (event.key === "Escape") fecharComplemento();
 });
+
+// ── Filtro ──
+function filtrarTabela() {
+  const sol = document.getElementById("flt_solicitante").value.toLowerCase();
+  const set = document.getElementById("flt_setor").value.toLowerCase();
+  const loc = document.getElementById("flt_local").value.toLowerCase();
+  const cat = document.getElementById("flt_categoria").value.toLowerCase();
+  const sta = document.getElementById("flt_status").value.toLowerCase();
+
+  document.querySelectorAll("#tbl_facilities tbody tr").forEach(function(tr) {
+    const cells = tr.querySelectorAll("td");
+    if (cells.length < 8) return;
+    const match =
+      (!sol || cells[2].textContent.toLowerCase().includes(sol)) &&
+      (!set || cells[3].textContent.toLowerCase().includes(set)) &&
+      (!loc || cells[4].textContent.toLowerCase().includes(loc)) &&
+      (!cat || cells[5].textContent.toLowerCase().includes(cat)) &&
+      (!sta || cells[7].textContent.toLowerCase().includes(sta));
+    tr.style.display = match ? "" : "none";
+  });
+}
+
+// ── Ordenação ──
+(function() {
+  var sortCol = -1, sortDir = 1;
+
+  document.querySelectorAll("#tbl_facilities th.sortable").forEach(function(th) {
+    th.addEventListener("click", function() {
+      const col = parseInt(th.dataset.col);
+      if (sortCol === col) { sortDir *= -1; } else { sortCol = col; sortDir = 1; }
+
+      document.querySelectorAll("#tbl_facilities th").forEach(function(h) {
+        h.classList.remove("sort-asc", "sort-desc");
+        const ic = h.querySelector(".sort-icon");
+        if (ic) ic.textContent = "⇅";
+      });
+      th.classList.add(sortDir === 1 ? "sort-asc" : "sort-desc");
+      const ic = th.querySelector(".sort-icon");
+      if (ic) ic.textContent = sortDir === 1 ? " ▲" : " ▼";
+
+      const tbody = document.querySelector("#tbl_facilities tbody");
+      const rows = Array.from(tbody.querySelectorAll("tr")).filter(function(r) {
+        return r.querySelectorAll("td").length > 1;
+      });
+
+      rows.sort(function(a, b) {
+        const ta = (a.querySelectorAll("td")[col] || {}).textContent || "";
+        const tb = (b.querySelectorAll("td")[col] || {}).textContent || "";
+        const na = parseFloat(ta.replace(/[^0-9,.-]/g, "").replace(",", "."));
+        const nb = parseFloat(tb.replace(/[^0-9,.-]/g, "").replace(",", "."));
+        if (!isNaN(na) && !isNaN(nb)) return (na - nb) * sortDir;
+        return ta.localeCompare(tb, "pt-BR") * sortDir;
+      });
+
+      rows.forEach(function(r) { tbody.appendChild(r); });
+    });
+  });
+})();
 </script>
 
 {% endblock %}

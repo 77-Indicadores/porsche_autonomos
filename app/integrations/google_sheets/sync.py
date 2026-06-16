@@ -156,6 +156,8 @@ def fetch_maintenance_tickets(oauth_client_path: str, token_path: str):
 
     tickets = []
     for index, row in enumerate(rows, start=2):
+        if not str(row.get("Carimbo de data/hora", "")).strip():
+            continue
         ticket = map_row(row)
         ticket["source"] = "google_sheets"
         ticket["source_row"] = index

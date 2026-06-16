@@ -24,6 +24,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import Session
 
+from app.auth import tem_acesso_modulo, is_admin as _is_admin
 from app.database import engine, get_db
 from app.models import DimAutonomo
 from app.template_config import templates
@@ -421,6 +422,8 @@ def get_autonomos(db: Session):
 
 @router.get("/dho")
 def dho_home(request: Request, db: Session = Depends(get_db)):
+    if not tem_acesso_modulo(request, "dho"):
+        return RedirectResponse("/?sem_acesso=dho", status_code=303)
     try:
         sincronizar_estrutura_dataworld(db)
     except Exception as exc:
