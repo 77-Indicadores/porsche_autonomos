@@ -1,19 +1,85 @@
+import os
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
+from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.requests import Request
+from starlette.responses import RedirectResponse
 
-from app.database import Base, engine
-from app.routers import alocacoes, cadastros, dashboard, relatorios
+from app.auth import SESSION_COOKIE, read_session_token
+from app.database import Base, engine, limpar_datas_vazias_sqlite
+from app.routers import alocacoes, auth, cadastros, dashboard, relatorios, usuarios, referencias_importacao, pesquisas, composicao_padrao, equipe_geral, dho, facilities
 
 
 Base.metadata.create_all(bind=engine)
+limpar_datas_vazias_sqlite()
 
 app = FastAPI(title="Porsche Cup Autonomos")
+
+
+# ============================================================
+# AUTO LOGIN LOCAL / DEMO
+# ============================================================
+@app.middleware("http")
+async def auto_login_local_middleware(request, call_next):
+    """
+    Modo demo/local.
+    Deixa o sistema logado automaticamente como admin@local quando
+    AUTO_LOGIN_LOCAL=1 no arquivo .env ou variável de ambiente.
+    """
+    try:
+        auto_login = os.getenv("AUTO_LOGIN_LOCAL", "0")
+        if auto_login == "1":
+            request.state.user = {
+                "email": os.getenv("AUTO_LOGIN_EMAIL", "admin@local"),
+                "nome": os.getenv("AUTO_LOGIN_NOME", "Administrador Local"),
+                "perfil": "admin",
+                "is_authenticated": True,
+            }
+    except Exception:
+        pass
+
+    return await call_next(request)
+
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
 
+
+class AuthMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        public_paths = {"/auth/login", "/docs", "/openapi.json", "/redoc"}
+        if request.url.path.startswith("/static") or request.url.path in public_paths:
+            return await call_next(request)
+
+        if os.getenv("AUTO_LOGIN_LOCAL", "0") == "1":
+            request.state.current_user = {
+                "email": os.getenv("AUTO_LOGIN_EMAIL", "admin@local"),
+                "nome": os.getenv("AUTO_LOGIN_NOME", "Admin"),
+                "perfil": "admin",
+                "is_authenticated": True,
+            }
+            return await call_next(request)
+
+        token = request.cookies.get(SESSION_COOKIE)
+        session_user = read_session_token(token) if token else None
+        request.state.current_user = session_user
+        if session_user is None:
+            return RedirectResponse("/auth/login", status_code=303)
+
+        return await call_next(request)
+
+
+app.add_middleware(AuthMiddleware)
+
 app.include_router(dashboard.router)
+app.include_router(dho.router)
+app.include_router(facilities.router)
 app.include_router(cadastros.router)
+app.include_router(equipe_geral.router)
 app.include_router(alocacoes.router)
+app.include_router(composicao_padrao.router)
 app.include_router(relatorios.router)
+app.include_router(pesquisas.router)
+app.include_router(auth.router)
+app.include_router(usuarios.router)
 
 
 # Router de visualizacao de logs
@@ -251,7 +317,6 @@ except Exception as exc:
     print(traceback.format_exc())
 
 
-
 # ============================================================
 # Router Cadastro de Carros
 # ============================================================
@@ -259,9 +324,13 @@ try:
     import importlib
     carros_runtime = importlib.import_module("app.routers.carros")
     app.include_router(carros_runtime.router)
+
     print("OK - Rota /carros registrada.")
 except Exception as exc:
     import traceback
     print("ERRO AO REGISTRAR /carros")
     print(exc)
     print(traceback.format_exc())
+
+# Rota de referência de IDs para importação Excel
+app.include_router(referencias_importacao.router)

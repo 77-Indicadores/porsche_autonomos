@@ -37,7 +37,9 @@ def carros(request: Request, q: str = "", db: Session = Depends(get_db)):
 
 @router.post("/carros")
 def salvar_carro(
+    request: Request,
     id_carro: str = Form(""),
+    current_id_carro: str = "",
     numero_carro: str = Form(...),
     modelo: str = Form(""),
     categoria_padrao: str = Form(""),
@@ -46,8 +48,13 @@ def salvar_carro(
     observacoes: str = Form(""),
     db: Session = Depends(get_db),
 ):
-    if id_carro:
-        carro = db.get(DimCarro, int(id_carro))
+    current_id_carro = (current_id_carro or request.query_params.get("current_id_carro", "")).strip()
+    carro_id_raw = (current_id_carro or id_carro or "").strip()
+    if carro_id_raw:
+        try:
+            carro = db.get(DimCarro, int(carro_id_raw))
+        except ValueError:
+            return redirect_with_message("/carros", error="ID de carro invalido.")
 
         if not carro:
             return redirect_with_message("/carros", error="Carro não encontrado.")
@@ -65,3 +72,14 @@ def salvar_carro(
     db.commit()
 
     return redirect_with_message("/carros", success="Carro salvo com sucesso.")
+
+
+@router.post("/carros/{id_carro}/inativar")
+def inativar_carro(id_carro: int, db: Session = Depends(get_db)):
+    carro = db.get(DimCarro, id_carro)
+    if not carro:
+        return redirect_with_message("/carros", error="Carro não encontrado.")
+    carro.status_carro = "Inativo"
+    db.commit()
+    return redirect_with_message("/carros", success="Carro inativado com sucesso.")
+

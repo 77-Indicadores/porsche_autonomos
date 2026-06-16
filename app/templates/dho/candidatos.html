@@ -1,0 +1,174 @@
+{% extends "base.html" %}
+
+{% block header %}Candidatos{% endblock %}
+{% block subtitle %}Cadastro de candidatos para recrutamento e seleção{% endblock %}
+
+{% block header_action %}
+<button type="button" class="quick-action primary" onclick="novoDhoCadastro()">+ Novo candidato</button>
+{% endblock %}
+
+{% block content %}
+
+<section class="panel mb-6">
+  <form method="get" class="flex gap-3">
+    <input class="input" name="q" placeholder="Pesquisar por nome, cargo ou status" value="{{ q }}">
+    <button class="btn-secondary">Pesquisar</button>
+  </form>
+</section>
+
+<section class="panel mb-6">
+  <div class="panel-head">
+    <h3 id="titulo-form-dho">Novo / editar candidato</h3>
+  </div>
+
+  <form method="post" action="/dho/candidatos" class="form-grid" id="form_dho">
+    <input type="hidden" name="id_candidato" id="id_candidato">
+
+    <div>
+      <label class="label">Nome</label>
+      <input class="input" name="nome" id="nome" required>
+    </div>
+
+    <div>
+      <label class="label">Telefone</label>
+      <input class="input" name="telefone" id="telefone">
+    </div>
+
+    <div>
+      <label class="label">E-mail</label>
+      <input class="input" name="email" id="email">
+    </div>
+
+    <div>
+      <label class="label">Cargo de interesse</label>
+      <input class="input" name="cargo_interesse" id="cargo_interesse">
+    </div>
+
+    <div>
+      <label class="label">Origem</label>
+      <select class="input" name="origem" id="origem">
+        <option value="">Selecione</option>
+        <option>Indicação</option>
+        <option>LinkedIn</option>
+        <option>Banco de talentos</option>
+        <option>Site</option>
+        <option>Outro</option>
+      </select>
+    </div>
+
+    <div>
+      <label class="label">Status</label>
+      <select class="input" name="status" id="status">
+        <option>Novo</option>
+        <option>Triagem</option>
+        <option>Entrevista</option>
+        <option>Aprovado</option>
+        <option>Reprovado</option>
+        <option>Banco de talentos</option>
+      </select>
+    </div>
+
+    <div>
+      <label class="label">Data cadastro</label>
+      <input class="input" name="data_cadastro" id="data_cadastro" placeholder="dd/mm/aaaa">
+    </div>
+
+    <div class="span-3">
+      <label class="label">Observações</label>
+      <textarea class="input" name="observacoes" id="observacoes"></textarea>
+    </div>
+
+    <div class="span-3 ux-actions-row">
+      <button class="btn-primary" id="btn_salvar_dho">Salvar candidato</button>
+      <button type="button" class="btn-secondary" onclick="novoDhoCadastro()">Limpar</button>
+    </div>
+  </form>
+</section>
+
+<section class="panel">
+  <table class="table">
+    <thead>
+      <tr>
+        <th>ID</th>
+        <th>Nome</th>
+        <th>Cargo</th>
+        <th>Telefone</th>
+        <th>Status</th>
+        <th>Ações</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for item in items %}
+      <tr>
+        <td><span class="id-pill">{{ item.id_candidato }}</span></td>
+        <td class="font-bold">{{ item.nome }}</td>
+        <td>{{ item.cargo_interesse or '-' }}</td>
+        <td>{{ item.telefone or '-' }}</td>
+        <td><span class="badge">{{ item.status }}</span></td>
+        <td class="actions">
+          <button
+            class="btn-muted"
+            type="button"
+            onclick="editarDho(this)"
+            data-id-candidato="{{ item.id_candidato }}"
+            data-nome="{{ item.nome or '' }}"
+            data-telefone="{{ item.telefone or '' }}"
+            data-email="{{ item.email or '' }}"
+            data-cargo-interesse="{{ item.cargo_interesse or '' }}"
+            data-origem="{{ item.origem or '' }}"
+            data-status="{{ item.status or '' }}"
+            data-data-cadastro="{{ item.data_cadastro or '' }}"
+            data-observacoes="{{ item.observacoes or '' }}"
+          >Editar</button>
+
+          <form method="post" action="/dho/candidatos/{{ item.id_candidato }}/excluir" onsubmit="return confirm('Excluir candidato?');">
+            <button class="btn-danger">Excluir</button>
+          </form>
+        </td>
+      </tr>
+      {% else %}
+      <tr><td colspan="6" class="empty">Nenhum candidato cadastrado.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+
+<script>
+function setValue(id, value) {
+  const el = document.getElementById(id);
+  if (el) el.value = value || "";
+}
+
+function editarDho(btn) {
+  const d = btn.dataset || {};
+
+  setValue("id_candidato", d.idCandidato);
+  setValue("nome", d.nome);
+  setValue("telefone", d.telefone);
+  setValue("email", d.email);
+  setValue("cargo_interesse", d.cargoInteresse);
+  setValue("origem", d.origem);
+  setValue("status", d.status);
+  setValue("data_cadastro", d.dataCadastro);
+  setValue("observacoes", d.observacoes);
+
+  document.getElementById("titulo-form-dho").innerText = "Editar candidato #" + d.idCandidato;
+  document.getElementById("btn_salvar_dho").innerText = "Salvar alterações";
+
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+function novoDhoCadastro() {
+  const form = document.getElementById("form_dho");
+  if (form) form.reset();
+
+  setValue("id_candidato", "");
+
+  document.getElementById("titulo-form-dho").innerText = "Novo / editar candidato";
+  document.getElementById("btn_salvar_dho").innerText = "Salvar candidato";
+
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+</script>
+
+{% endblock %}

@@ -1,0 +1,131 @@
+{% extends "base.html" %}
+
+{% block header %}Cadastrar Equipe{% endblock %}
+{% block subtitle %}Cadastro simples de equipes com ID automático e nome da equipe.{% endblock %}
+
+{% block header_action %}
+<button type="button" class="quick-action primary" onclick="novoCadastro()">+ Nova equipe</button>
+{% endblock %}
+
+{% block content %}
+
+<section class="panel mb-6">
+  <div class="panel-head">
+    <h3 id="titulo-form-equipe">Nova / editar equipe</h3>
+  </div>
+
+  <form method="post" action="/equipe-geral" class="form-grid" id="form_equipe">
+    <input type="hidden" name="id_equipe_geral" id="id_equipe_geral">
+
+    <div>
+      <label class="label">ID</label>
+      <input class="input" id="id_visual" value="Criado automaticamente" disabled>
+    </div>
+
+    <div class="span-2">
+      <label class="label">Nome da equipe</label>
+      <input class="input" name="nome_equipe" id="nome_equipe" placeholder="Ex.: Equipe Técnica Geral" required>
+    </div>
+
+    <div class="span-3 ux-actions-row">
+      <button class="btn-primary" id="btn_salvar_equipe">Salvar equipe</button>
+      <button type="button" class="btn-secondary" onclick="novoCadastro()">Limpar</button>
+    </div>
+  </form>
+</section>
+
+<section class="panel mb-6">
+  <div class="grid gap-3 md:grid-cols-1">
+    <div class="kpi-card">
+      <span>Equipes cadastradas</span>
+      <strong>{{ equipes|length }}</strong>
+    </div>
+  </div>
+</section>
+
+<section class="panel">
+  <div class="panel-head">
+    <h3>Equipes cadastradas</h3>
+  </div>
+
+  <div class="overflow-x-auto">
+    <table class="table">
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Nome da equipe</th>
+          <th>Ações</th>
+        </tr>
+      </thead>
+
+      <tbody>
+        {% for e in equipes %}
+        <tr>
+          <td><span class="id-pill">{{ e.id_equipe_geral }}</span></td>
+          <td class="font-bold">{{ e.nome_equipe }}</td>
+          <td class="actions">
+            <button
+              class="btn-muted"
+              type="button"
+              onclick="editarEquipe(this)"
+              data-id_equipe_geral="{{ e.id_equipe_geral }}"
+              data-nome_equipe="{{ e.nome_equipe }}"
+            >
+              Editar
+            </button>
+
+            <form method="post" action="/equipe-geral/{{ e.id_equipe_geral }}/excluir" onsubmit="return confirm('Excluir esta equipe?');">
+              <button class="btn-danger">Excluir</button>
+            </form>
+          </td>
+        </tr>
+        {% else %}
+        <tr>
+          <td colspan="3" class="empty">Nenhuma equipe cadastrada.</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<script>
+function setValue(id, value) {
+  const el = document.getElementById(id);
+  if (el) el.value = value || "";
+}
+
+function editarEquipe(btn) {
+  const d = btn.dataset || {};
+
+  setValue("id_equipe_geral", d.id_equipe_geral);
+  setValue("id_visual", d.id_equipe_geral);
+  setValue("nome_equipe", d.nome_equipe);
+
+  const titulo = document.getElementById("titulo-form-equipe");
+  if (titulo) titulo.innerText = "Editar equipe #" + d.id_equipe_geral;
+
+  const botao = document.getElementById("btn_salvar_equipe");
+  if (botao) botao.innerText = "Salvar alterações";
+
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+function novoCadastro() {
+  const form = document.getElementById("form_equipe");
+  if (form) form.reset();
+
+  setValue("id_equipe_geral", "");
+  setValue("id_visual", "Criado automaticamente");
+
+  const titulo = document.getElementById("titulo-form-equipe");
+  if (titulo) titulo.innerText = "Nova / editar equipe";
+
+  const botao = document.getElementById("btn_salvar_equipe");
+  if (botao) botao.innerText = "Salvar equipe";
+
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+</script>
+
+{% endblock %}

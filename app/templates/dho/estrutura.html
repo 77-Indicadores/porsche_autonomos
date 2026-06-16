@@ -1,0 +1,104 @@
+{% extends "base.html" %}
+
+{% block header %}Estrutura DataWorld{% endblock %}
+{% block subtitle %}Departamentos e cargos vindos da tabela rel_colab_77.{% endblock %}
+
+{% block header_action %}
+<form method="post" action="/dho/estrutura/sincronizar" style="display:inline;">
+  <button class="quick-action primary">Sincronizar DataWorld</button>
+</form>
+{% endblock %}
+
+{% block content %}
+
+{% if erro_dataworld %}
+<div class="alert error">Não consegui consultar a DataWorld agora: {{ erro_dataworld }}</div>
+{% endif %}
+
+<section class="panel mb-6">
+  <div class="panel-head">
+    <h3>Fonte dos dados</h3>
+  </div>
+
+  <div class="grid gap-3 md:grid-cols-3">
+    <div class="kpi-card">
+      <span>Dataset</span>
+      <strong>77indicadores/porsche</strong>
+    </div>
+
+    <div class="kpi-card">
+      <span>Tabela</span>
+      <strong>rel_colab_77</strong>
+    </div>
+
+    <div class="kpi-card">
+      <span>Uso</span>
+      <strong>Listas distintas</strong>
+    </div>
+  </div>
+</section>
+
+<section class="panel mb-6">
+  <div class="grid gap-3 md:grid-cols-2">
+    <div class="kpi-card">
+      <span>Departamentos</span>
+      <strong>{{ departamentos|length }}</strong>
+    </div>
+
+    <div class="kpi-card">
+      <span>Cargos</span>
+      <strong>{{ cargos|length }}</strong>
+    </div>
+  </div>
+</section>
+
+<section class="exec-grid">
+  <article class="panel">
+    <div class="panel-head">
+      <h3>Departamentos</h3>
+    </div>
+
+    <table class="table mt-4">
+      <thead>
+        <tr><th>ID</th><th>Departamento</th><th>Status</th></tr>
+      </thead>
+      <tbody>
+        {% for d in departamentos %}
+        <tr>
+          <td><span class="id-pill">{{ d.id_departamento }}</span></td>
+          <td>{{ d.nome_departamento }}</td>
+          <td><span class="badge">{{ d.status }}</span></td>
+        </tr>
+        {% else %}
+        <tr><td colspan="3" class="empty">Nenhum departamento encontrado em rel_colab_77.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </article>
+
+  <article class="panel">
+    <div class="panel-head">
+      <h3>Cargos</h3>
+    </div>
+
+    <table class="table mt-4">
+      <thead>
+        <tr><th>ID</th><th>Cargo</th><th>Departamento</th><th>Status</th></tr>
+      </thead>
+      <tbody>
+        {% for c in cargos %}
+        <tr>
+          <td><span class="id-pill">{{ c.id_cargo }}</span></td>
+          <td>{{ c.nome_cargo }}</td>
+          <td>{{ c.nome_departamento or "-" }}</td>
+          <td><span class="badge">{{ c.status }}</span></td>
+        </tr>
+        {% else %}
+        <tr><td colspan="4" class="empty">Nenhum cargo encontrado em rel_colab_77.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </article>
+</section>
+
+{% endblock %}

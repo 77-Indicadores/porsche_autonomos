@@ -1,0 +1,133 @@
+{% extends "base.html" %}
+
+{% block header %}Facilities{% endblock %}
+{% block subtitle %}Espelho dos chamados de manutenção predial vindos do Google Sheets.{% endblock %}
+
+{% block header_action %}
+<form method="post" action="/facilities/sincronizar" style="display:inline;">
+  <input type="hidden" name="oauth_client_path" value="{{ config.oauth_client_path }}">
+  <input type="hidden" name="token_path" value="{{ config.token_path }}">
+  <input type="hidden" name="audit_dir" value="{{ config.audit_dir }}">
+  <button class="quick-action primary">Sincronizar</button>
+</form>
+{% endblock %}
+
+{% block content %}
+
+<section class="panel mb-6">
+  <div class="panel-head">
+    <h3>Conexão Google Sheets</h3>
+  </div>
+
+  <form method="post" action="/facilities/sincronizar" class="form-grid">
+    <div class="span-3">
+      <label class="label">Planilha</label>
+      <input class="input" value="{{ config.sheet_name }} · {{ config.worksheet_name }} · GID {{ config.gid }}" disabled>
+    </div>
+
+    <div>
+      <label class="label">OAuth Client</label>
+      <input class="input" name="oauth_client_path" value="{{ config.oauth_client_path }}">
+    </div>
+
+    <div>
+      <label class="label">Token Google</label>
+      <input class="input" name="token_path" value="{{ config.token_path }}">
+    </div>
+
+    <div>
+      <label class="label">Auditoria CSV/Excel</label>
+      <input class="input" name="audit_dir" value="{{ config.audit_dir }}">
+    </div>
+
+    <div class="span-3 ux-actions-row">
+      <button class="btn-primary">Sincronizar Google Sheets</button>
+      <a class="btn-muted" href="/facilities/diagnostico" target="_blank">Diagnóstico</a>
+    </div>
+  </form>
+</section>
+
+<section class="panel mb-6">
+  <div class="grid gap-3 md:grid-cols-4">
+    <div class="kpi-card">
+      <span>Chamados</span>
+      <strong>{{ cards.total }}</strong>
+    </div>
+
+    <div class="kpi-card">
+      <span>Em aberto</span>
+      <strong>{{ cards.abertos }}</strong>
+    </div>
+
+    <div class="kpi-card">
+      <span>Concluídos</span>
+      <strong>{{ cards.concluidos }}</strong>
+    </div>
+
+    <div class="kpi-card">
+      <span>Valor total</span>
+      <strong>{{ cards.valor_total }}</strong>
+    </div>
+  </div>
+</section>
+
+<section class="panel">
+  <div class="panel-head">
+    <h3>Chamados de manutenção</h3>
+  </div>
+
+  <div class="overflow-x-auto">
+    <table class="table">
+      <thead>
+        <tr>
+          <th>Origem</th>
+          <th>Data</th>
+          <th>Solicitante</th>
+          <th>Setor</th>
+          <th>Local</th>
+          <th>Categoria</th>
+          <th>Status</th>
+          <th>Urgência</th>
+          <th>Valor</th>
+          <th>Fornecedor</th>
+          <th>OS</th>
+          <th>Foto</th>
+        </tr>
+      </thead>
+
+      <tbody>
+        {% for item in chamados %}
+        <tr>
+          <td><span class="id-pill">Linha {{ item.source_row }}</span></td>
+          <td>{{ item.created_at_fmt }}</td>
+          <td>
+            <strong>{{ item.requester_name or "-" }}</strong><br>
+            <small>{{ item.requester_email or "" }}</small>
+          </td>
+          <td>{{ item.department or "-" }}</td>
+          <td>{{ item.location or "-" }}</td>
+          <td>{{ item.category or "-" }}</td>
+          <td class="font-bold">{{ item.status_label }}</td>
+          <td class="font-bold">{{ item.priority_label }}</td>
+          <td class="font-bold">{{ item.amount_fmt }}</td>
+          <td>{{ item.supplier or "-" }}</td>
+          <td>{{ item.work_order or "-" }}</td>
+          <td>
+            {% if item.photo_url %}
+              <a class="btn-muted" href="{{ item.photo_url }}" target="_blank" rel="noopener">Abrir</a>
+            {% else %}
+              -
+            {% endif %}
+          </td>
+        </tr>
+        {% else %}
+        <tr>
+          <td colspan="12" class="empty">Nenhum chamado sincronizado.</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+
+{% endblock %}

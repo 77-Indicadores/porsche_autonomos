@@ -1,0 +1,233 @@
+{% extends "base.html" %}
+
+{% block header %}Importações DHO{% endblock %}
+{% block subtitle %}Importe departamentos e cargos por Excel, separados do módulo de Autônomos{% endblock %}
+
+{% block header_action %}
+<a class="quick-action light" href="/dho/estrutura">Cadastros DHO</a>
+{% endblock %}
+
+{% block content %}
+
+<section class="exec-hero">
+  <div>
+    <span class="exec-label">DHO</span>
+    <h2>Importações do módulo</h2>
+    <p>
+      Como o DHO possui apenas dois tipos de importação neste momento, deixamos as duas áreas visíveis
+      para evitar erro de seleção e facilitar o uso.
+    </p>
+  </div>
+
+  <div class="exec-hero-card">
+    <span>Tipos disponíveis</span>
+    <strong>2</strong>
+    <small>Departamentos e Cargos</small>
+  </div>
+</section>
+
+<section class="exec-grid">
+  <article class="panel">
+    <div class="panel-head">
+      <div>
+        <h3>🏢 Importar Departamentos</h3>
+        <p style="margin:6px 0 0;color:#64748b;font-size:13px;">
+          Use para carregar a estrutura de áreas/departamentos do DHO.
+        </p>
+      </div>
+    </div>
+
+    <div class="exec-flow" style="margin-bottom:18px;">
+      <div>
+        <b>1</b>
+        <div>
+          <strong>Baixe o modelo</strong>
+          <small>Preencha exatamente as colunas recomendadas</small>
+        </div>
+      </div>
+
+      <div>
+        <b>2</b>
+        <div>
+          <strong>Importe o Excel</strong>
+          <small>O sistema cria ou atualiza departamentos pelo nome</small>
+        </div>
+      </div>
+    </div>
+
+    <div class="ux-actions-row" style="margin-bottom:18px;">
+      <a class="btn-secondary" href="/dho/importacoes/modelo/departamentos">Baixar modelo de departamentos</a>
+    </div>
+
+    <form method="post" action="/dho/importacoes" enctype="multipart/form-data" class="form-grid">
+      <input type="hidden" name="tipo_importacao" value="departamentos">
+
+      <div class="span-3">
+        <label class="label">Arquivo Excel de departamentos</label>
+        <input class="input" type="file" name="arquivo" accept=".xlsx,.xls" required>
+      </div>
+
+      <div class="span-3 ux-actions-row">
+        <button class="btn-primary">Importar departamentos</button>
+      </div>
+    </form>
+
+    <div style="margin-top:18px;padding:14px;border-radius:16px;background:#f8fafc;border:1px solid #e2e8f0;">
+      <strong style="display:block;margin-bottom:6px;">Colunas do modelo</strong>
+      <code>nome_departamento</code>
+      <code>status</code>
+    </div>
+  </article>
+
+  <article class="panel">
+    <div class="panel-head">
+      <div>
+        <h3>🪪 Importar Cargos</h3>
+        <p style="margin:6px 0 0;color:#64748b;font-size:13px;">
+          Use para carregar cargos e relacionar cada cargo ao departamento.
+        </p>
+      </div>
+    </div>
+
+    <div class="exec-flow" style="margin-bottom:18px;">
+      <div>
+        <b>1</b>
+        <div>
+          <strong>Baixe o modelo</strong>
+          <small>Informe cargo e departamento</small>
+        </div>
+      </div>
+
+      <div>
+        <b>2</b>
+        <div>
+          <strong>Importe o Excel</strong>
+          <small>Se o departamento não existir, ele será criado automaticamente</small>
+        </div>
+      </div>
+    </div>
+
+    <div class="ux-actions-row" style="margin-bottom:18px;">
+      <a class="btn-secondary" href="/dho/importacoes/modelo/cargos">Baixar modelo de cargos</a>
+    </div>
+
+    <form method="post" action="/dho/importacoes" enctype="multipart/form-data" class="form-grid">
+      <input type="hidden" name="tipo_importacao" value="cargos">
+
+      <div class="span-3">
+        <label class="label">Arquivo Excel de cargos</label>
+        <input class="input" type="file" name="arquivo" accept=".xlsx,.xls" required>
+      </div>
+
+      <div class="span-3 ux-actions-row">
+        <button class="btn-primary">Importar cargos</button>
+      </div>
+    </form>
+
+    <div style="margin-top:18px;padding:14px;border-radius:16px;background:#f8fafc;border:1px solid #e2e8f0;">
+      <strong style="display:block;margin-bottom:6px;">Colunas do modelo</strong>
+      <code>nome_cargo</code>
+      <code>nome_departamento</code>
+      <code>status</code>
+    </div>
+  </article>
+
+
+  <article class="panel">
+    <div class="panel-head">
+      <div>
+        <h3>🎓 Cadastro de treinamento</h3>
+        <p style="margin:6px 0 0;color:#64748b;font-size:13px;">
+          Importa a base cadastral de treinamentos/cursos do DHO.
+        </p>
+      </div>
+    </div>
+
+    <div class="ux-actions-row" style="margin:14px 0 18px;">
+      <a class="btn-secondary" href="/dho/importacoes/modelo/treinamentos">Baixar modelo</a>
+    </div>
+
+    <form method="post" action="/dho/importacoes" enctype="multipart/form-data" class="form-grid">
+      <input type="hidden" name="tipo_importacao" value="treinamentos">
+
+      <div class="span-3">
+        <label class="label">Arquivo Excel</label>
+        <input class="input" type="file" name="arquivo" accept=".xlsx,.xls" required>
+      </div>
+
+      <div class="span-3 ux-actions-row">
+        <button class="btn-primary">Importar treinamentos</button>
+      </div>
+    </form>
+
+    <div style="margin-top:16px;padding:12px;border-radius:14px;background:#f8fafc;border:1px solid #e2e8f0;">
+      <strong style="display:block;margin-bottom:6px;">Colunas</strong>
+      <code>nome_treinamento</code>
+      <code>tipo_treinamento</code>
+      <code>carga_horaria_padrao</code>
+      <code>status</code>
+      <code>observacoes</code>
+    </div>
+  </article>
+
+  <article class="panel">
+    <div class="panel-head">
+      <div>
+        <h3>✅ Aplicação de treinamento</h3>
+        <p style="margin:6px 0 0;color:#64748b;font-size:13px;">
+          Importa treinamentos aplicados em massa por pessoa.
+        </p>
+      </div>
+    </div>
+
+    <div class="ux-actions-row" style="margin:14px 0 18px;">
+      <a class="btn-secondary" href="/dho/importacoes/modelo-aplicacoes-treinamento">Baixar modelo</a>
+    </div>
+
+    <form method="post" action="/dho/importacoes/aplicacoes-treinamento" enctype="multipart/form-data" class="form-grid">
+      <div class="span-3">
+        <label class="label">Arquivo Excel</label>
+        <input class="input" type="file" name="arquivo" accept=".xlsx,.xls" required>
+      </div>
+
+      <div class="span-3 ux-actions-row">
+        <button class="btn-primary">Importar aplicações</button>
+      </div>
+    </form>
+
+    <div style="margin-top:16px;padding:12px;border-radius:14px;background:#f8fafc;border:1px solid #e2e8f0;">
+      <strong style="display:block;margin-bottom:6px;">Colunas</strong>
+      <code>nome_treinamento</code>
+      <code>pessoa_nome</code>
+      <code>matricula</code>
+      <code>funcao</code>
+      <code>centro_custo</code>
+      <code>data_treinamento</code>
+      <code>carga_horaria</code>
+      <code>status</code>
+    </div>
+  </article>
+
+</section>
+
+<section class="exec-grid">
+  <a class="exec-shortcut" href="/dho/estrutura">
+    <span>🏢</span>
+    <strong>Conferir cadastros</strong>
+    <small>Veja departamentos e cargos importados</small>
+  </a>
+
+  <a class="exec-shortcut" href="/dho/vagas">
+    <span>💼</span>
+    <strong>Usar nas vagas</strong>
+    <small>Departamento e cargo ficam disponíveis nas vagas abertas</small>
+  </a>
+
+  <a class="exec-shortcut" href="/dho">
+    <span>📊</span>
+    <strong>Voltar ao DHO</strong>
+    <small>Resumo do módulo DHO</small>
+  </a>
+</section>
+
+{% endblock %}

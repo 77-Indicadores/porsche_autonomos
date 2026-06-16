@@ -1,6 +1,18 @@
 {% extends "base.html" %}
 
-{% block header %}Categorias{% endblock %}
+{% block header %}Categorias
+<script>
+function novoCadastro() {
+  const form = document.querySelector("form[method='post']");
+  if (form) form.action = "/categorias";
+  form?.reset();
+
+
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+</script>
+
+{% endblock %}
 {% block subtitle %}Cadastre as categorias usadas em cada etapa{% endblock %}
 
 {% block header_action %}
@@ -17,6 +29,7 @@
   </div>
 
   <form method="post" class="form-grid">
+    <input type="hidden" name="id_prova" id="id_prova">
     <div>
       <label class="label">Etapa</label>
       <select class="input" name="id_etapa" required>
@@ -70,30 +83,61 @@
   <table class="table">
     <thead>
       <tr>
+        <th>ID</th>
         <th>Categoria</th>
         <th>Tipo</th>
         <th>Etapa</th>
         <th>Data</th>
         <th>Status</th>
+        <th>Acoes</th>
       </tr>
     </thead>
 
     <tbody>
       {% for i in items %}
       <tr>
+        <td><span class="id-pill">{{ i.id_prova or "-" }}</span></td>
         <td class="font-bold">{{ i.nome_prova }}</td>
         <td>{{ i.tipo_prova.nome_tipo_prova if i.tipo_prova else '-' }}</td>
         <td>{{ i.etapa.nome_etapa if i.etapa else '-' }}</td>
         <td>{{ i.data_prova|date_br }}</td>
         <td>{{ i.status_prova }}</td>
+        <td class="actions">
+          <button
+            class="btn-muted"
+            type="button"
+            onclick="editarProva(this)"
+            data-fill='{"id_prova":"{{ i.id_prova }}","id_etapa":"{{ i.id_etapa }}","id_tipo_prova":"{{ i.id_tipo_prova }}","nome_prova":"{{ i.nome_prova or '' }}","data_prova":"{{ i.data_prova or '' }}","status_prova":"{{ i.status_prova or '' }}","observacoes":"{{ i.observacoes or '' }}"}'
+          >
+            Editar
+          </button>
+          <form method="post" action="/provas/{{ i.id_prova }}/inativar" class="actions">
+            <button class="btn-danger" type="submit">Inativar</button>
+          </form>
+        </td>
       </tr>
       {% else %}
       <tr>
-        <td colspan="5" class="empty">Nenhuma categoria cadastrada.</td>
+        <td colspan="7" class="empty">Nenhuma categoria cadastrada.</td>
       </tr>
       {% endfor %}
     </tbody>
   </table>
 </section>
+
+<script>
+function editarProva(btn) {
+  const data = JSON.parse(btn.dataset.fill || "{}");
+  const form = document.querySelector("form[method='post']");
+  if (form) {
+    form.action = "/provas";
+  }
+  Object.entries(data).forEach(([k, v]) => {
+    const el = document.querySelector(`[name="${k}"]`) || document.getElementById(k);
+    if (el) el.value = v || "";
+  });
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+</script>
 
 {% endblock %}

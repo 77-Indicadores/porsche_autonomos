@@ -1,23 +1,134 @@
+from collections import OrderedDict
+
 from fastapi import APIRouter, Depends, Request
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
+from sqlalchemy import text
+from sqlalchemy import text
 
 from app.database import get_db
 from app.models import DimEtapa, DimProva, FatoPilotoAutonomoProva
 from app.template_config import templates
-from app.utils import flash_from_request
 
 router = APIRouter(tags=["equipes"])
 
 
+def fmt_money(value):
+    try:
+        return f"R$ {float(value or 0):,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+    except Exception:
+        return "R$ 0,00"
+
+
+def fmt_qtd(value):
+    try:
+        v = float(value or 0)
+        if v.is_integer():
+            return str(int(v))
+        return str(v).replace(".", ",")
+    except Exception:
+        return str(value or "")
+
+
+def garantir_exemplo_equipe_geral(db: Session):
+    """
+    Cria um lançamento local de exemplo para demonstrar o rateio da Equipe Geral.
+    Só cria se a tabela equipe_geral existir e ainda não houver nenhum registro.
+    """
+    try:
+        qtd = db.execute(text("SELECT COUNT(*) FROM equipe_geral")).scalar() or 0
+
+        if qtd > 0:
+            return
+
+        etapa = db.query(DimEtapa).order_by(DimEtapa.id_etapa).first()
+        categoria = db.query(DimProva).order_by(DimProva.id_prova).first()
+
+        if not etapa or not categoria:
+            return
+
+        db.execute(
+            text("""
+                INSERT INTO equipe_geral
+                    (id_etapa, id_prova, nome_equipe, qtd_pessoas, custo_total, observacoes, criado_em, atualizado_em)
+                VALUES
+                    (:id_etapa, :id_prova, :nome_equipe, :qtd_pessoas, :custo_total, :observacoes, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+            """),
+            {
+                "id_etapa": etapa.id_etapa,
+                "id_prova": categoria.id_prova,
+                "nome_equipe": "Equipe Geral - Exemplo de Rateio",
+                "qtd_pessoas": 3,
+                "custo_total": 12000,
+                "observacoes": "Lançamento de exemplo para demonstrar rateio por carro em Equipes Alocadas.",
+            },
+        )
+
+        db.commit()
+
+    except Exception as exc:
+        db.rollback()
+        print(f"AVISO - não consegui criar exemplo de equipe geral: {exc}")
+
+
+def carregar_equipes_gerais(db: Session):
+    try:
+        rows = db.execute(
+            text("""
+                SELECT
+                    id_equipe_geral,
+                    id_etapa,
+                    id_prova,
+                    nome_equipe,
+                    qtd_pessoas,
+                    custo_total
+                FROM equipe_geral
+            """)
+        ).mappings().all()
+
+        mapa = {}
+
+        for r in rows:
+            chave = (r["id_etapa"], r["id_prova"])
+            mapa.setdefault(chave, []).append(dict(r))
+
+        return mapa
+
+    except Exception as exc:
+        print(f"AVISO - não consegui carregar equipe_geral para rateio: {exc}")
+        return {}
+
+
+
 @router.get("/equipes")
-def equipes(request: Request, id_etapa: str = "", id_prova: str = "", db: Session = Depends(get_db)):
-    query = db.query(FatoPilotoAutonomoProva)
+def equipes(
+    request: Request,
+    id_etapa: int | None = None,
+    id_prova: int | None = None,
+    db: Session = Depends(get_db),
+):
+    etapas = db.query(DimEtapa).order_by(DimEtapa.nome_etapa).all()
+    categorias = db.query(DimProva).order_by(DimProva.nome_prova).all()
+
+    garantir_exemplo_equipe_geral(db)
+
+    query = (
+        db.query(FatoPilotoAutonomoProva)
+        .options(
+            joinedload(FatoPilotoAutonomoProva.piloto),
+            joinedload(FatoPilotoAutonomoProva.autonomo),
+            joinedload(FatoPilotoAutonomoProva.autonomo_substituto),
+            joinedload(FatoPilotoAutonomoProva.etapa),
+            joinedload(FatoPilotoAutonomoProva.prova),
+            joinedload(FatoPilotoAutonomoProva.carro),
+            joinedload(FatoPilotoAutonomoProva.motivo_troca),
+        )
+    )
 
     if id_etapa:
-        query = query.filter(FatoPilotoAutonomoProva.id_etapa == int(id_etapa))
+        query = query.filter(FatoPilotoAutonomoProva.id_etapa == id_etapa)
 
     if id_prova:
-        query = query.filter(FatoPilotoAutonomoProva.id_prova == int(id_prova))
+        query = query.filter(FatoPilotoAutonomoProva.id_prova == id_prova)
 
     fatos = query.order_by(
         FatoPilotoAutonomoProva.id_etapa,
@@ -27,39 +138,114 @@ def equipes(request: Request, id_etapa: str = "", id_prova: str = "", db: Sessio
         FatoPilotoAutonomoProva.funcao_autonomo,
     ).all()
 
-    grupos = {}
+    equipes_map = OrderedDict()
 
     for f in fatos:
         chave = (f.id_etapa, f.id_prova, f.id_piloto, f.id_carro)
 
-        if chave not in grupos:
-            grupos[chave] = {
+        if chave not in equipes_map:
+            equipes_map[chave] = {
+                "piloto": f.piloto,
                 "etapa": f.etapa,
                 "categoria": f.prova,
-                "piloto": f.piloto,
                 "carro": f.carro,
-                "ativos": [],
-                "substituidos": [],
-                "valor_total": 0,
-                "dias_total": 0,
+                "membros": [],
+                "substituicoes": [],
+                "custo_autonomos": 0.0,
+                "custo_rateio_equipe_geral": 0.0,
+                "custo_autonomos": 0.0,
+                "custo_rateio_equipe_geral": 0.0,
+                "custo_total": 0.0,
+                "qtd_membros": 0,
+                "teve_troca": False,
+                "rateios_equipe_geral": [],
+                "rateios_equipe_geral": [],
             }
 
-        if f.status_vinculo == "Ativo":
-            grupos[chave]["ativos"].append(f)
-            grupos[chave]["valor_total"] += float(f.valor_fechado_etapa or 0)
-            grupos[chave]["dias_total"] += int(f.dias_trabalhados or 0)
+        equipe = equipes_map[chave]
 
-        elif f.status_vinculo == "Substituido":
-            grupos[chave]["substituidos"].append(f)
+        valor = float(f.valor_fechado_etapa or 0)
+        dias = int(f.dias_trabalhados or 0)
+        valor_dia = float(f.valor_dia or 0)
+
+        equipe["membros"].append({
+            "funcao": f.funcao_autonomo or "-",
+            "nome": getattr(f.autonomo, "nome_autonomo", "-"),
+            "valor": valor,
+            "dias": dias,
+            "valor_dia": valor_dia,
+            "status": f.status_vinculo or "",
+            "foi_substituido": (f.foi_substituido or "").lower() == "sim",
+            "observacoes": f.observacoes or "",
+        })
+
+        equipe["custo_autonomos"] += valor
+        equipe["custo_autonomos"] += valor
+        equipe["custo_total"] += valor
+        equipe["qtd_membros"] += 1
+
+        if (f.foi_substituido or "").lower() == "sim":
+            equipe["teve_troca"] = True
+            equipe["substituicoes"].append({
+                "funcao": f.funcao_autonomo or "-",
+                "saiu": getattr(f.autonomo, "nome_autonomo", "-"),
+                "entrou": getattr(f.autonomo_substituto, "nome_autonomo", "-"),
+                "data": f.data_troca,
+                "motivo": getattr(f.motivo_troca, "motivo_troca", "-"),
+                "justificativa": f.justificativa_troca or "",
+            })
+
+    # ------------------------------------------------------------
+    # Rateio da Equipe Geral
+    # ------------------------------------------------------------
+    equipes_gerais_map = carregar_equipes_gerais(db)
+
+    carros_por_etapa_categoria = {}
+
+    for equipe in equipes_map.values():
+        etapa_id = getattr(equipe["etapa"], "id_etapa", None)
+        prova_id = getattr(equipe["categoria"], "id_prova", None)
+        carro_id = getattr(equipe["carro"], "id_carro", None)
+
+        if etapa_id and prova_id and carro_id:
+            carros_por_etapa_categoria.setdefault((etapa_id, prova_id), set()).add(carro_id)
+
+    for equipe in equipes_map.values():
+        etapa_id = getattr(equipe["etapa"], "id_etapa", None)
+        prova_id = getattr(equipe["categoria"], "id_prova", None)
+        chave_ep = (etapa_id, prova_id)
+
+        qtd_carros_rateio = len(carros_por_etapa_categoria.get(chave_ep, set())) or 1
+        rateios = equipes_gerais_map.get(chave_ep, [])
+
+        for rateio in rateios:
+            custo_total_geral = float(rateio.get("custo_total") or 0)
+            valor_rateado = custo_total_geral / qtd_carros_rateio
+
+            equipe["rateios_equipe_geral"].append({
+                "id_equipe_geral": rateio.get("id_equipe_geral"),
+                "nome_equipe": rateio.get("nome_equipe") or "Equipe Geral",
+                "qtd_pessoas": fmt_qtd(rateio.get("qtd_pessoas")),
+                "custo_total": custo_total_geral,
+                "custo_total_fmt": fmt_money(custo_total_geral),
+                "qtd_carros_rateio": qtd_carros_rateio,
+                "valor_rateado": valor_rateado,
+                "valor_rateado_fmt": fmt_money(valor_rateado),
+            })
+
+            equipe["custo_rateio_equipe_geral"] += valor_rateado
+            equipe["custo_total"] += valor_rateado
+
+    equipes = list(equipes_map.values())
 
     return templates.TemplateResponse(
         "equipes/index.html",
         {
             "request": request,
-            "equipes": list(grupos.values()),
-            "etapas": db.query(DimEtapa).order_by(DimEtapa.temporada.desc(), DimEtapa.nome_etapa).all(),
-            "categorias": db.query(DimProva).order_by(DimProva.data_prova.desc()).all(),
-            "filtros": {"id_etapa": id_etapa, "id_prova": id_prova},
-            **flash_from_request(request),
+            "equipes": equipes,
+            "etapas": etapas,
+            "categorias": categorias,
+            "id_etapa": id_etapa,
+            "id_prova": id_prova,
         },
     )

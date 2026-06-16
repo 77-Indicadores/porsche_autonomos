@@ -1,144 +1,167 @@
 {% extends "base.html" %}
 
 {% block header %}Equipes Alocadas{% endblock %}
-{% block subtitle %}Visualize por etapa e categoria a equipe formada para cada piloto{% endblock %}
+{% block subtitle %}Visualize o piloto, a equipe completa, o carro e o custo total da alocação{% endblock %}
 
 {% block header_action %}
-<a class="quick-action primary" href="/alocacoes/nova">Nova Alocação</a>
-<a class="quick-action light" href="/alocacoes">Gestão de Alocação</a>
+<a href="/alocacoes" class="quick-action primary">Ir para Gestão de Alocação</a>
 {% endblock %}
 
 {% block content %}
 
 <section class="panel mb-6">
   <div class="panel-head">
-    <div>
-      <h3>Filtros</h3>
-      <p class="text-sm text-zinc-500">Selecione a etapa e a categoria para visualizar a equipe alocada.</p>
-    </div>
+    <h3>Filtros</h3>
   </div>
 
-  <form method="get" class="grid gap-3 md:grid-cols-3">
-    <select class="input" name="id_etapa" id="id_etapa_filtro">
-      <option value="">Todas as etapas</option>
-      {% for e in etapas %}
-        <option value="{{ e.id_etapa }}" {% if filtros.id_etapa|string == e.id_etapa|string %}selected{% endif %}>
-          {{ e.temporada }} - {{ e.nome_etapa }}
-        </option>
-      {% endfor %}
-    </select>
+  <form method="get" class="form-grid">
+    <div>
+      <label class="label">Etapa</label>
+      <select class="input" name="id_etapa">
+        <option value="">Todas as etapas</option>
+        {% for etapa in etapas %}
+          <option value="{{ etapa.id_etapa }}" {% if id_etapa == etapa.id_etapa %}selected{% endif %}>
+            {{ etapa.nome_etapa }}
+          </option>
+        {% endfor %}
+      </select>
+    </div>
 
-    <select class="input" name="id_prova" id="id_categoria_filtro">
-      <option value="">Todas as categorias</option>
-      {% for c in categorias %}
-        <option value="{{ c.id_prova }}" data-etapa="{{ c.id_etapa }}" {% if filtros.id_prova|string == c.id_prova|string %}selected{% endif %}>
-          {{ c.nome_prova }}
-        </option>
-      {% endfor %}
-    </select>
+    <div>
+      <label class="label">Categoria</label>
+      <select class="input" name="id_prova">
+        <option value="">Todas as categorias</option>
+        {% for cat in categorias %}
+          <option value="{{ cat.id_prova }}" {% if id_prova == cat.id_prova %}selected{% endif %}>
+            {{ cat.nome_prova }}
+          </option>
+        {% endfor %}
+      </select>
+    </div>
 
-    <button class="btn-secondary">Filtrar equipes</button>
+    <div class="ux-actions-row">
+      <button class="btn-primary">Filtrar equipes</button>
+    </div>
   </form>
 </section>
 
-<div class="ux-grid ux-grid-3">
+<section class="equipes-grid">
   {% for equipe in equipes %}
-    <section class="ux-card">
-      <div class="flex items-start justify-between gap-3 mb-5">
-        <div class="flex items-center gap-4">
-          <div style="width:64px;height:64px;border-radius:999px;background:#18181b;color:white;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:22px;">
-            {{ equipe.piloto.nome_piloto[:1] }}
+    <article class="equipe-card">
+      <div class="equipe-card-top">
+        <div class="equipe-piloto">
+          <div class="equipe-avatar">
+            {{ equipe.piloto.nome_piloto[:1] if equipe.piloto and equipe.piloto.nome_piloto else "P" }}
           </div>
 
           <div>
-            <h3 class="ux-card-title">{{ equipe.piloto.nome_piloto }}</h3>
-            <div class="ux-muted">{{ equipe.etapa.nome_etapa }}</div>
-            <div class="ux-pill mt-2">{{ equipe.categoria.nome_prova }}</div>
-            {% if equipe.carro %}<div class="ux-muted mt-2">🏎️ {{ equipe.carro.numero_carro }}{% if equipe.carro.modelo %} - {{ equipe.carro.modelo }}{% endif %}</div>{% endif %}
+            <h3>{{ equipe.piloto.nome_piloto if equipe.piloto else "Piloto" }}</h3>
+            <div class="equipe-meta">
+              <span>📍 {{ equipe.etapa.nome_etapa if equipe.etapa else "-" }}</span>
+              <span>🏁 {{ equipe.categoria.nome_prova if equipe.categoria else "-" }}</span>
+              <span>🏎️ {{ equipe.carro.numero_carro if equipe.carro else "-" }}{% if equipe.carro and equipe.carro.modelo %} - {{ equipe.carro.modelo }}{% endif %}</span>
+            </div>
           </div>
         </div>
 
-        {% if equipe.substituidos %}
-          <span class="ux-pill yellow">Teve troca</span>
-        {% else %}
-          <span class="ux-pill green">Equipe formada</span>
-        {% endif %}
+        <div class="equipe-top-right">
+          {% if equipe.teve_troca %}
+            <span class="badge badge-warning">Teve troca</span>
+          {% else %}
+            <span class="badge badge-success">Equipe estável</span>
+          {% endif %}
+        </div>
       </div>
 
-      <div class="grid gap-3">
-        {% for f in equipe.ativos %}
-          {% set valor_dia = (f.valor_fechado_etapa / f.dias_trabalhados) if f.valor_fechado_etapa and f.dias_trabalhados else None %}
+      <div class="equipe-kpis">
+        <div class="equipe-kpi">
+          <span>Custo autônomos</span>
+          <strong>R$ {{ "{:,.2f}".format(equipe.custo_autonomos).replace(",", "X").replace(".", ",").replace("X", ".") }}</strong>
+        </div>
 
-          <div class="p-3 rounded-xl border border-zinc-200 bg-zinc-50">
-            <div class="font-black text-zinc-950">{{ f.funcao_autonomo }}</div>
-            <div class="font-bold">{{ f.autonomo.nome_autonomo }}</div>
-            <div class="ux-muted">{{ f.autonomo.especialidade or '-' }}</div>
+        <div class="equipe-kpi">
+          <span>Rateio equipe geral</span>
+          <strong>R$ {{ "{:,.2f}".format(equipe.custo_rateio_equipe_geral).replace(",", "X").replace(".", ",").replace("X", ".") }}</strong>
+        </div>
 
-            <div class="mt-3 grid grid-cols-3 gap-2 text-sm">
-              <div>
-                <div class="ux-muted">Pacote</div>
-                <div class="font-bold">{{ f.valor_fechado_etapa|money_br }}</div>
-              </div>
+        <div class="equipe-kpi">
+          <span>Custo total</span>
+          <strong>R$ {{ "{:,.2f}".format(equipe.custo_total).replace(",", "X").replace(".", ",").replace("X", ".") }}</strong>
+        </div>
+      </div>
 
-              <div>
-                <div class="ux-muted">Dias</div>
-                <div class="font-bold">{{ f.dias_trabalhados or '-' }}</div>
-              </div>
 
-              <div>
-                <div class="ux-muted">Valor dia</div>
-                <div class="font-bold">
-                  {% if valor_dia %}
-                    {{ valor_dia|money_br }}
-                  {% else %}
-                    -
-                  {% endif %}
-                </div>
+      {% if equipe.rateios_equipe_geral %}
+      <div class="equipe-section" style="border-top:1px solid #e5e7eb;margin-top:14px;padding-top:14px;">
+        <div class="equipe-section-title">Rateio da Equipe Geral</div>
+
+        {% for r in equipe.rateios_equipe_geral %}
+          <div class="membro-row">
+            <div class="membro-left">
+              <div class="membro-funcao">{{ r.nome_equipe }}</div>
+              <div class="membro-nome">
+                {{ r.qtd_pessoas }} pessoa(s) · rateado por {{ r.qtd_carros_rateio }} carro(s)
               </div>
             </div>
+
+            <div class="membro-right">
+              <div><span>Custo geral</span><strong>{{ r.custo_total_fmt }}</strong></div>
+              <div><span>Rateio</span><strong>{{ r.qtd_carros_rateio }} carro(s)</strong></div>
+              <div><span>Valor no carro</span><strong>{{ r.valor_rateado_fmt }}</strong></div>
+            </div>
           </div>
-        {% else %}
-          <div class="ux-muted">Nenhum autônomo ativo nessa equipe.</div>
         {% endfor %}
       </div>
+      {% endif %}
 
-      {% if equipe.substituidos %}
-        <div class="mt-5">
-          <h4 class="font-black mb-2">Substituições</h4>
+      <div class="equipe-section">
+        <div class="equipe-section-title">Equipe atual</div>
 
-          {% for f in equipe.substituidos %}
-            <div class="p-3 mb-2 rounded-xl border border-yellow-200 bg-yellow-50">
-              <div class="font-bold">{{ f.funcao_autonomo }}</div>
-              <div>Substituído: <b>{{ f.autonomo.nome_autonomo }}</b></div>
-
-              {% if f.autonomo_substituto %}
-                <div>Entrou: <b>{{ f.autonomo_substituto.nome_autonomo }}</b></div>
-              {% endif %}
-
-              <div class="ux-muted">
-                Data: {{ f.data_troca|date_br }}
-                {% if f.motivo_troca %}
-                  | Motivo: {{ f.motivo_troca.motivo_troca }}
-                {% endif %}
+        <div class="equipe-membros">
+          {% for membro in equipe.membros %}
+            <div class="membro-row">
+              <div class="membro-left">
+                <div class="membro-funcao">{{ membro.funcao }}</div>
+                <div class="membro-nome">{{ membro.nome }}</div>
               </div>
 
-              {% if f.justificativa_troca %}
-                <div class="ux-muted mt-1">{{ f.justificativa_troca }}</div>
-              {% endif %}
+              <div class="membro-right">
+                <div><span>Pacote</span><strong>R$ {{ "{:,.2f}".format(membro.valor).replace(",", "X").replace(".", ",").replace("X", ".") }}</strong></div>
+                <div><span>Dias</span><strong>{{ membro.dias }}</strong></div>
+                <div><span>Valor/dia</span><strong>R$ {{ "{:,.2f}".format(membro.valor_dia).replace(",", "X").replace(".", ",").replace("X", ".") }}</strong></div>
+              </div>
             </div>
           {% endfor %}
         </div>
+      </div>
+
+      {% if equipe.substituicoes %}
+      <div class="equipe-section substituicoes-box">
+        <div class="equipe-section-title">Histórico de substituições</div>
+
+        {% for s in equipe.substituicoes %}
+          <div class="sub-row">
+            <div class="sub-main">
+              <strong>{{ s.funcao }}</strong> · saiu <b>{{ s.saiu }}</b> · entrou <b>{{ s.entrou }}</b>
+            </div>
+            <div class="sub-meta">
+              Data: {{ s.data or "-" }} | Motivo: {{ s.motivo or "-" }}
+            </div>
+            {% if s.justificativa %}
+              <div class="sub-obs">{{ s.justificativa }}</div>
+            {% endif %}
+          </div>
+        {% endfor %}
+      </div>
       {% endif %}
-    </section>
+    </article>
   {% else %}
-    <section class="ux-card">
-      <h3 class="ux-card-title">Nenhuma equipe encontrada</h3>
-      <p class="ux-muted">Use a Nova Alocação para formar a equipe.</p>
-      <div class="ux-actions-row mt-5">
-        <a class="btn-primary" href="/alocacoes/nova">Criar Alocação</a>
+    <section class="panel">
+      <div class="empty-state">
+        Nenhuma equipe encontrada para os filtros selecionados.
       </div>
     </section>
   {% endfor %}
-</div>
+</section>
 
 {% endblock %}

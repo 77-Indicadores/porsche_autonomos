@@ -19,11 +19,9 @@ class DimPiloto(Base):
     motivo_desligamento: Mapped[str | None] = mapped_column(String(255))
     status_piloto: Mapped[str] = mapped_column(String(30), default="Ativo", nullable=False)
     observacoes: Mapped[str | None] = mapped_column(Text)
-    foto_url = Column(String)
+    foto_url = Column(Text)
 
     fatos = relationship("FatoPilotoAutonomoProva", back_populates="piloto")
-
-
 
 
 class DimCargoAutonomo(Base):
@@ -50,10 +48,10 @@ class DimAutonomo(Base):
     motivo_saida: Mapped[str | None] = mapped_column(String(255))
     status_autonomo: Mapped[str] = mapped_column(String(30), default="Ativo", nullable=False)
     observacoes: Mapped[str | None] = mapped_column(Text)
-    foto_url = Column(String)
+    foto_url = Column(Text)
+    id_cargo_autonomo = Column(Integer, ForeignKey("dim_cargos_autonomos.id_cargo_autonomo"))
 
 fatos = relationship("FatoPilotoAutonomoProva", foreign_keys="FatoPilotoAutonomoProva.id_autonomo", back_populates="autonomo")
-
 
 class DimEtapa(Base):
     __tablename__ = "dim_etapas"
@@ -193,4 +191,26 @@ class DimCarro(Base):
     chassi = Column(String)
     status_carro = Column(String, default="Ativo")
     observacoes = Column(String)
+
+
+class Usuario(Base):
+    __tablename__ = "usuarios"
+
+    id_usuario = Column(Integer, primary_key=True, index=True)
+    nome = Column(String(140), nullable=False)
+    email = Column(String(140), nullable=False, unique=True, index=True)
+    senha_hash = Column(String(255), nullable=False)
+    perfil = Column(String(30), nullable=False, default="operador")
+    ativo = Column(String(3), nullable=False, default="Sim")
+
+
+# Compatibilidade legada para routers antigos.
+# Mantemos aliases para evitar falha de import enquanto os fluxos antigos
+# coexistem no repositório.
+Piloto = DimPiloto
+Autonomo = DimAutonomo
+Etapa = DimEtapa
+Cargo = DimCargoAutonomo
+Vinculo = FatoPilotoAutonomoProva
+Movimentacao = FatoPilotoAutonomoProva
 

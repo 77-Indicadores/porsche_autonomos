@@ -1,6 +1,18 @@
 {% extends "base.html" %}
 
-{% block header %}Cargos de Autônomos{% endblock %}
+{% block header %}Cargos de Autônomos
+<script>
+function novoCadastro() {
+  const form = document.querySelector("form[method='post']");
+  if (form) form.action = "/cargos-autonomos";
+  form?.reset();
+
+
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+</script>
+
+{% endblock %}
 {% block subtitle %}Cadastre os cargos usados para filtrar autônomos na alocação{% endblock %}
 
 {% block header_action %}
@@ -22,7 +34,6 @@
   </div>
 
   <form method="post" class="form-grid">
-    <input type="hidden" name="id_cargo_autonomo" id="id_cargo_autonomo">
 
     <div>
       <label class="label">Nome do cargo</label>
@@ -57,6 +68,7 @@
   <table class="table">
     <thead>
       <tr>
+        <th>ID</th>
         <th>Cargo</th>
         <th>Status</th>
         <th>Descrição</th>
@@ -67,6 +79,7 @@
     <tbody>
       {% for i in items %}
       <tr>
+        <td><span class="id-pill">{{ i.id_cargo_autonomo or "-" }}</span></td>
         <td class="font-bold">{{ i.nome_cargo }}</td>
         <td>{{ i.status }}</td>
         <td>{{ i.descricao or '-' }}</td>
@@ -95,17 +108,21 @@
 
 <script>
 function editarCargo(btn) {
-  document.getElementById("id_cargo_autonomo").value = btn.dataset.id || "";
   document.getElementById("nome_cargo").value = btn.dataset.nome || "";
   document.getElementById("status").value = btn.dataset.status || "Ativo";
   document.getElementById("descricao").value = btn.dataset.descricao || "";
   document.getElementById("form-title").innerText = "Editar cargo";
   document.getElementById("btn-salvar").innerText = "Atualizar cargo";
+
+  const form = document.querySelector("form[method='post']");
+  if (form && btn.dataset.id) {
+    form.action = "/cargos-autonomos?" + "current_id_cargo_autonomo=" + encodeURIComponent(btn.dataset.id);
+  }
+
   window.scrollTo({ top: 0, behavior: "smooth" });
 }
 
 function limparCargo() {
-  document.getElementById("id_cargo_autonomo").value = "";
   document.getElementById("nome_cargo").value = "";
   document.getElementById("status").value = "Ativo";
   document.getElementById("descricao").value = "";

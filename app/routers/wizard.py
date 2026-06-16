@@ -38,6 +38,7 @@ def criar_guiada(
     id_etapa: int = Form(...),
     id_prova: int = Form(...),
     id_piloto: int = Form(...),
+    id_carro: int = Form(...),
     id_cargo_autonomo: int = Form(...),
     id_autonomo: int = Form(...),
     tipo_alocacao: str = Form("Formar equipe"),
@@ -78,6 +79,8 @@ def criar_guiada(
 
         if not anterior:
             return redirect_with_message("/operacao/nova-guiada", error="Alocação anterior não encontrada.")
+        if anterior.id_piloto != id_piloto or anterior.id_prova != id_prova or (anterior.funcao_autonomo or "") != funcao_autonomo:
+            return redirect_with_message("/operacao/nova-guiada", error="Substituicao inconsistente com piloto, categoria ou cargo selecionado.")
 
         data_troca = date.today()
 
@@ -103,6 +106,7 @@ def criar_guiada(
         id_autonomo=id_autonomo,
         id_etapa=id_etapa,
         id_prova=id_prova,
+        id_carro=id_carro,
         funcao_autonomo=funcao_autonomo,
         data_inicio_vinculo=date.today(),
         status_vinculo="Ativo",

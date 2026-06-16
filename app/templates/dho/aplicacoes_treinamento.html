@@ -1,0 +1,310 @@
+{% extends "base.html" %}
+
+{% block header %}Aplicar Treinamento
+<script>
+function atualizarDetalhesPessoaDataWorld() {
+  const input = document.getElementById("pessoa_nome");
+  const detalhes = document.getElementById("detalhes_pessoa");
+  const lista = document.getElementById("lista_pessoas_dataworld");
+
+  if (!input || !detalhes || !lista) return;
+
+  const valor = (input.value || "").trim();
+  let texto = "";
+
+  const opcoes = Array.from(lista.options || []);
+  const opt = opcoes.find(o => (o.value || "").trim() === valor);
+
+  if (opt) {
+    const partes = [];
+
+    if (opt.dataset.matricula) partes.push("Matrícula " + opt.dataset.matricula);
+    if (opt.dataset.cargo) partes.push(opt.dataset.cargo);
+    if (opt.dataset.departamento) partes.push(opt.dataset.departamento);
+    if (opt.dataset.email) partes.push(opt.dataset.email);
+
+    texto = partes.join(" · ");
+  }
+
+  detalhes.value = texto;
+}
+
+document.getElementById("pessoa_nome")?.addEventListener("input", atualizarDetalhesPessoaDataWorld);
+document.getElementById("pessoa_nome")?.addEventListener("change", atualizarDetalhesPessoaDataWorld);
+</script>
+
+{% endblock %}
+{% block subtitle %}Registro de treinamento aplicado por pessoa/autônomo{% endblock %}
+
+{% block header_action %}
+<a class="quick-action light" href="/dho/treinamentos">Treinamentos</a>
+<button type="button" class="quick-action primary" onclick="novaAplicacao()">+ Aplicar treinamento</button>
+{% endblock %}
+
+{% block content %}
+
+<section class="panel mb-6">
+  <form method="get" class="flex gap-3">
+    <input class="input" name="q" placeholder="Pesquisar por pessoa ou treinamento" value="{{ q }}">
+    <button class="btn-secondary">Pesquisar</button>
+  </form>
+</section>
+
+<section class="panel mb-6">
+  <div class="panel-head">
+    <h3 id="titulo-form-dho">Nova / editar aplicação</h3>
+  </div>
+
+  <form method="post" action="/dho/aplicacoes-treinamento" class="form-grid" id="form_dho">
+    <input type="hidden" name="id_aplicacao" id="id_aplicacao">
+
+    <div>
+      <label class="label">Treinamento</label>
+      <select class="input" name="id_treinamento" id="id_treinamento" required>
+        <option value="">Selecione</option>
+        {% for t in treinamentos %}
+          <option value="{{ t.id_treinamento }}" data-carga="{{ t.carga_horaria_padrao or '' }}">
+            {{ t.nome_treinamento }} - {{ t.tipo_treinamento }}
+          </option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div>
+      <label class="label">Tipo pessoa</label>
+      <select class="input" name="tipo_pessoa" id="tipo_pessoa">
+        <option>Autônomo</option>
+        <option>Colaborador</option>
+        <option>Terceiro</option>
+      </select>
+    </div>
+
+    <div class="span-3">
+      <label class="label">Pessoa</label>
+      <input
+        class="input"
+        name="pessoa_nome"
+        id="pessoa_nome"
+        list="lista_pessoas_dataworld"
+        placeholder="Digite as primeiras letras para buscar..."
+        autocomplete="off"
+        required
+      >
+
+      <datalist id="lista_pessoas_dataworld">
+        {% for p in pessoas_dataworld %}
+          <option
+            value="{{ p.nome_exibicao }}"
+            data-matricula="{{ p.matricula }}"
+            data-funcao="{{ p.cargo }}"
+            data-centro-custo="{{ p.departamento }}"
+            data-email="{{ p.email }}"
+          >
+            {{ p.nome_exibicao }}{% if p.matricula %} - {{ p.matricula }}{% endif %}{% if p.cargo %} - {{ p.cargo }}{% endif %}{% if p.departamento %} - {{ p.departamento }}{% endif %}
+          </option>
+        {% endfor %}
+      </datalist>
+
+      <small style="display:block;margin-top:6px;color:#64748b;">
+        Digite o nome e selecione uma opção da lista.
+      </small>
+    </div>
+
+    <input type="hidden" name="id_autonomo" id="id_autonomo" value="">
+
+    <div>
+      <label class="label">Matrícula</label>
+      <input class="input" name="matricula" id="matricula" readonly>
+    </div>
+
+    <div>
+      <label class="label">Função</label>
+      <input class="input" name="funcao" id="funcao" readonly>
+    </div>
+
+    <div>
+      <label class="label">Centro de custo</label>
+      <input class="input" name="centro_custo" id="centro_custo" readonly>
+    </div>
+
+    <div>
+      <label class="label">Data treinamento</label>
+      <input class="input" name="data_treinamento" id="data_treinamento" placeholder="dd/mm/aaaa">
+    </div>
+
+    <div>
+      <label class="label">Carga horária</label>
+      <input class="input" name="carga_horaria" id="carga_horaria" placeholder="Ex.: 2">
+    </div>
+
+    <div>
+      <label class="label">Status</label>
+      <select class="input" name="status" id="status">
+        {% for s in status_aplicacao %}
+          <option>{{ s }}</option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div class="span-3">
+      <label class="label">Observações</label>
+      <textarea class="input" name="observacoes" id="observacoes"></textarea>
+    </div>
+
+    <div class="span-3 ux-actions-row">
+      <button class="btn-primary" id="btn_salvar_dho">Salvar aplicação</button>
+      <button type="button" class="btn-secondary" onclick="novaAplicacao()">Limpar</button>
+    </div>
+  </form>
+</section>
+
+<section class="panel">
+  <table class="table">
+    <thead>
+      <tr>
+        <th>ID</th>
+        <th>Pessoa</th>
+        <th>Matrícula</th>
+        <th>Função</th>
+        <th>Centro de custo</th>
+        <th>Treinamento</th>
+        <th>Tipo treinamento</th>
+        <th>Data</th>
+        <th>Horas</th>
+        <th>Status</th>
+        <th>Ações</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for item in items %}
+      <tr>
+        <td><span class="id-pill">{{ item.id_aplicacao }}</span></td>
+        <td class="font-bold">{{ item.pessoa_nome or "-" }}</td>
+        <td>{{ item.matricula or "-" }}</td>
+        <td>{{ item.funcao or "-" }}</td>
+        <td>{{ item.centro_custo or "-" }}</td>
+        <td>{{ item.nome_treinamento or "-" }}</td>
+        <td>{{ item.tipo_treinamento or "-" }}</td>
+        <td>{{ item.data_treinamento or "-" }}</td>
+        <td>{{ fmt_num(item.carga_horaria) if item.carga_horaria is not none else "-" }}</td>
+        <td><span class="badge">{{ item.status }}</span></td>
+        <td class="actions">
+          <button
+            class="btn-muted"
+            type="button"
+            onclick="editarAplicacao(this)"
+            data-id-aplicacao="{{ item.id_aplicacao }}"
+            data-id-treinamento="{{ item.id_treinamento }}"
+            data-tipo-pessoa="{{ item.tipo_pessoa or '' }}"
+            data-id-autonomo="{{ item.id_autonomo or '' }}"
+            data-pessoa-nome="{{ item.pessoa_nome or '' }}"
+            data-matricula="{{ item.matricula or '' }}"
+            data-funcao="{{ item.funcao or '' }}"
+            data-centro-custo="{{ item.centro_custo or '' }}"
+            data-data-treinamento="{{ item.data_treinamento or '' }}"
+            data-carga-horaria="{{ item.carga_horaria or '' }}"
+            data-status="{{ item.status or '' }}"
+            data-observacoes="{{ item.observacoes or '' }}"
+          >Editar</button>
+
+          <form method="post" action="/dho/aplicacoes-treinamento/{{ item.id_aplicacao }}/excluir" onsubmit="return confirm('Excluir aplicação?');">
+            <button class="btn-danger">Excluir</button>
+          </form>
+        </td>
+      </tr>
+      {% else %}
+      <tr><td colspan="11" class="empty">Nenhum treinamento aplicado.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+
+
+<script>
+function setValue(id, value) {
+  const el = document.getElementById(id);
+  if (el) el.value = value || "";
+}
+
+function buscarOpcaoPessoa(valor) {
+  const lista = document.getElementById("lista_pessoas_dataworld");
+  if (!lista) return null;
+
+  const valorNormalizado = (valor || "").trim().toLowerCase();
+
+  return Array.from(lista.options || []).find(function(opt) {
+    return (opt.value || "").trim().toLowerCase() === valorNormalizado;
+  });
+}
+
+function atualizarCamposPessoa() {
+  const input = document.getElementById("pessoa_nome");
+  if (!input) return;
+
+  const opt = buscarOpcaoPessoa(input.value);
+
+  if (!opt) {
+    setValue("matricula", "");
+    setValue("funcao", "");
+    setValue("centro_custo", "");
+    return;
+  }
+
+  setValue("matricula", opt.dataset.matricula || "");
+  setValue("funcao", opt.dataset.funcao || "");
+  setValue("centro_custo", opt.dataset.centroCusto || "");
+}
+
+function editarAplicacao(btn) {
+  const d = btn.dataset || {};
+
+  setValue("id_aplicacao", d.idAplicacao);
+  setValue("id_treinamento", d.idTreinamento);
+  setValue("tipo_pessoa", d.tipoPessoa);
+  setValue("id_autonomo", d.idAutonomo);
+  setValue("pessoa_nome", d.pessoaNome);
+  setValue("matricula", d.matricula);
+  setValue("funcao", d.funcao);
+  setValue("centro_custo", d.centroCusto);
+  setValue("data_treinamento", d.dataTreinamento);
+  setValue("carga_horaria", d.cargaHoraria);
+  setValue("status", d.status);
+  setValue("observacoes", d.observacoes);
+
+  atualizarCamposPessoa();
+
+  document.getElementById("titulo-form-dho").innerText = "Editar aplicação #" + d.idAplicacao;
+  document.getElementById("btn_salvar_dho").innerText = "Salvar alterações";
+
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+function novaAplicacao() {
+  const form = document.getElementById("form_dho");
+  if (form) form.reset();
+
+  setValue("id_aplicacao", "");
+  setValue("id_autonomo", "");
+  setValue("matricula", "");
+  setValue("funcao", "");
+  setValue("centro_custo", "");
+
+  document.getElementById("titulo-form-dho").innerText = "Nova / editar aplicação";
+  document.getElementById("btn_salvar_dho").innerText = "Salvar aplicação";
+
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+document.getElementById("pessoa_nome")?.addEventListener("input", atualizarCamposPessoa);
+document.getElementById("pessoa_nome")?.addEventListener("change", atualizarCamposPessoa);
+
+document.getElementById("id_treinamento")?.addEventListener("change", function() {
+  const opt = this.selectedOptions[0];
+  if (opt && opt.dataset.carga) {
+    setValue("carga_horaria", opt.dataset.carga);
+  }
+});
+</script>
+
+
+{% endblock %}

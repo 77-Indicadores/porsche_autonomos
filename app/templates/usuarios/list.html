@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block title %}Usuarios{% endblock %}
+{% block header %}Gestao de Usuarios{% endblock %}
+{% block content %}
+<div class="panel">
+  <a class="btn" href="/usuarios/novo">Novo usuario</a>
+  <table class="table">
+    <thead>
+      <tr>
+        <th>Nome</th>
+        <th>Email</th>
+        <th>Perfil</th>
+        <th>Status</th>
+        <th>Acoes</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for u in usuarios %}
+      <tr>
+        <td>{{ u.nome }}</td>
+        <td>{{ u.email }}</td>
+        <td>{{ u.perfil }}</td>
+        <td>{{ u.ativo }}</td>
+        <td class="actions">
+          <a class="btn-muted" href="/usuarios/{{ u.id_usuario }}/editar">Editar</a>
+          <form method="post" action="/usuarios/{{ u.id_usuario }}/toggle-ativo" class="actions">
+            <button class="btn-danger" type="submit">{% if u.ativo == 'Sim' %}Inativar{% else %}Reativar{% endif %}</button>
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}
+

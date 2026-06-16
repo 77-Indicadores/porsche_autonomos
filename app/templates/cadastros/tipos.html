@@ -1,6 +1,18 @@
 {% extends "base.html" %}
 
-{% block header %}Tipos de Categoria{% endblock %}
+{% block header %}Tipos de Categoria
+<script>
+function novoCadastro() {
+  const form = document.querySelector("form[method='post']");
+  if (form) form.action = "/tipos-prova";
+  form?.reset();
+
+
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+</script>
+
+{% endblock %}
 {% block subtitle %}Cadastre e edite os tipos de prova usados nas etapas{% endblock %}
 
 {% block header_action %}
@@ -21,7 +33,8 @@
   </div>
 
   <form method="post" class="form-grid">
-    <input type="hidden" name="id_tipo_prova" id="id_tipo_prova">
+    
+
 
     <div>
       <label class="label">Nome</label>
@@ -96,17 +109,21 @@
 
 <script>
 function editarTipo(btn) {
-  document.getElementById("id_tipo_prova").value = btn.dataset.id || "";
   document.getElementById("nome_tipo_prova").value = btn.dataset.nome || "";
   document.getElementById("status_tipo_prova").value = btn.dataset.status || "Ativo";
   document.getElementById("descricao").value = btn.dataset.descricao || "";
   document.getElementById("form-title").innerText = "Editar tipo de categoria";
   document.getElementById("btn-salvar").innerText = "Atualizar tipo";
+
+  const form = document.querySelector("form[method='post']");
+  if (form && btn.dataset.id) {
+    form.action = "/tipos-prova?" + "current_id_tipo_prova=" + encodeURIComponent(btn.dataset.id);
+  }
+
   window.scrollTo({ top: 0, behavior: "smooth" });
 }
 
 function limparTipo() {
-  document.getElementById("id_tipo_prova").value = "";
   document.getElementById("nome_tipo_prova").value = "";
   document.getElementById("status_tipo_prova").value = "Ativo";
   document.getElementById("descricao").value = "";

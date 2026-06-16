@@ -1,6 +1,6 @@
 from pathlib import Path
-import uuid
-import shutil
+import base64
+import mimetypes
 from fastapi import APIRouter, Depends, Form, Request, UploadFile, File
 from sqlalchemy import or_, text
 from sqlalchemy.orm import Session
@@ -13,27 +13,54 @@ from app.utils import flash_from_request, parse_date, redirect_with_message
 router = APIRouter(tags=["cadastros"])
 
 
+
+# Mantido apenas por compatibilidade com fotos antigas que já estavam salvas em /static/uploads.
 UPLOAD_BASE = Path(__file__).resolve().parents[1] / "static" / "uploads"
 
+
 def salvar_upload_foto(arquivo: UploadFile, pasta: str):
+    """
+    Salva a imagem diretamente no banco em formato Base64 Data URI.
+
+    Antes:
+        - salvava arquivo físico em app/static/uploads
+        - gravava no banco apenas /static/uploads/...
+
+    Agora:
+        - não grava arquivo local
+        - grava no banco data:image/...;base64,...
+    """
     if not arquivo or not arquivo.filename:
         return None
 
     extensao = Path(arquivo.filename).suffix.lower()
 
-    if extensao not in [".jpg", ".jpeg", ".png", ".webp"]:
+    mime_por_extensao = {
+        ".jpg": "image/jpeg",
+        ".jpeg": "image/jpeg",
+        ".png": "image/png",
+        ".webp": "image/webp",
+    }
+
+    mime_type = mime_por_extensao.get(extensao)
+
+    if not mime_type:
         return None
 
-    destino_dir = UPLOAD_BASE / pasta
-    destino_dir.mkdir(parents=True, exist_ok=True)
+    conteudo = arquivo.file.read()
 
-    nome_arquivo = f"{uuid.uuid4().hex}{extensao}"
-    destino = destino_dir / nome_arquivo
+    if not conteudo:
+        return None
 
-    with destino.open("wb") as buffer:
-        shutil.copyfileobj(arquivo.file, buffer)
+    # Limite preventivo de 3 MB para não estourar banco/renderização.
+    # Se precisar, podemos aumentar depois.
+    limite_mb = 3
+    if len(conteudo) > limite_mb * 1024 * 1024:
+        return None
 
-    return f"/static/uploads/{pasta}/{nome_arquivo}"
+    base64_str = base64.b64encode(conteudo).decode("utf-8")
+
+    return f"{mime_type};base64,{base64_str}".join(["data:", ""])
 
 
 
@@ -48,6 +75,41 @@ def lists(db: Session):
     }
 
 
+def parse_date_safe(value: str, msg: str):
+    if not value:
+        return None
+    try:
+        return parse_date(value)
+    except ValueError:
+        raise ValueError(msg)
+
+
+def aplicar_id_manual(db: Session, obj, model, pk_name: str, requested_id: str, current_id: str = ""):
+    requested_id = str(requested_id or "").strip()
+    current_id = str(current_id or "").strip()
+
+    if not requested_id:
+        return
+
+    try:
+        requested = int(requested_id)
+    except ValueError:
+        raise ValueError("ID manual invalido.")
+
+    if requested <= 0:
+        raise ValueError("ID manual deve ser maior que zero.")
+
+    current = int(current_id) if current_id else getattr(obj, pk_name, None)
+    if current and requested == int(current):
+        setattr(obj, pk_name, requested)
+        return
+
+    if db.get(model, requested):
+        raise ValueError(f"ID {requested} ja esta em uso.")
+
+    setattr(obj, pk_name, requested)
+
+
 @router.get("/pilotos")
 def pilotos(request: Request, q: str = "", db: Session = Depends(get_db)):
     query = db.query(DimPiloto)
@@ -59,7 +121,9 @@ def pilotos(request: Request, q: str = "", db: Session = Depends(get_db)):
 
 @router.post("/pilotos")
 def salvar_piloto(
+    request: Request,
     id_piloto: str = Form(""),
+    current_id_piloto: str = "",
     nome_piloto: str = Form(...),
     cpf: str = Form(""),
     telefone: str = Form(""),
@@ -71,12 +135,21 @@ def salvar_piloto(
     foto_upload: UploadFile = File(None),
     db: Session = Depends(get_db),
 ):
-    piloto = db.get(DimPiloto, int(id_piloto)) if id_piloto else DimPiloto()
+    current_id_piloto = (current_id_piloto or request.query_params.get("current_id_piloto", "")).strip()
+    piloto = db.get(DimPiloto, int(current_id_piloto or id_piloto)) if (current_id_piloto or id_piloto) else DimPiloto()
+    try:
+        aplicar_id_manual(db, piloto, DimPiloto, "id_piloto", id_piloto, current_id_piloto)
+    except ValueError as e:
+        return redirect_with_message("/pilotos", error=str(e))
     piloto.nome_piloto = nome_piloto
     piloto.cpf = cpf
     piloto.telefone = telefone
     piloto.email = email
-    piloto.data_inclusao = parse_date(data_inclusao) or piloto.data_inclusao
+    try:
+        data = parse_date_safe(data_inclusao, "Data de inclusao invalida.")
+    except ValueError as e:
+        return redirect_with_message("/pilotos", error=str(e))
+    piloto.data_inclusao = data or piloto.data_inclusao
     piloto.status_piloto = status_piloto
     piloto.observacoes = observacoes
     foto_salva = salvar_upload_foto(foto_upload, "pilotos")
@@ -91,13 +164,16 @@ def salvar_piloto(
 
 
 @router.post("/pilotos/{id_piloto}/desligar")
-def desligar_piloto(id_piloto: int, data_desligamento: str = Form(...), motivo: str = Form(...), db: Session = Depends(get_db)):
+def desligar_piloto(id_piloto: int, data_desligamento: str = Form(...), motivo_desligamento: str = Form(...), db: Session = Depends(get_db)):
     piloto = db.get(DimPiloto, id_piloto)
     if not piloto:
         return redirect_with_message("/pilotos", error="Piloto nao encontrado.")
     piloto.status_piloto = "Desligado"
-    piloto.data_desligamento = parse_date(data_desligamento)
-    piloto.motivo_desligamento = motivo
+    try:
+        piloto.data_desligamento = parse_date(data_desligamento)
+    except ValueError:
+        return redirect_with_message("/pilotos", error="Data de desligamento invalida.")
+    piloto.motivo_desligamento = motivo_desligamento
     db.commit()
     return redirect_with_message("/pilotos", success="Piloto desligado sem exclusao fisica.")
 
@@ -107,20 +183,21 @@ def autonomos(request: Request, q: str = "", db: Session = Depends(get_db)):
     query = db.query(DimAutonomo)
     if q:
         like = f"%{q}%"
-        query = query.filter(or_(DimAutonomo.nome_autonomo.ilike(like), DimAutonomo.tipo_autonomo.ilike(like), DimAutonomo.especialidade.ilike(like), DimAutonomo.status_autonomo.ilike(like)))
+        query = query.filter(or_(DimAutonomo.nome_autonomo.ilike(like), DimAutonomo.tipo_autonomo.ilike(like), DimAutonomo.status_autonomo.ilike(like)))
     return templates.TemplateResponse("cadastros/autonomos.html", {"request": request, "items": query.order_by(DimAutonomo.nome_autonomo).all(), "q": q, **lists(db), **flash_from_request(request)})
 
 
 @router.post("/autonomos")
 def salvar_autonomo(
+    request: Request,
     id_autonomo: str = Form(""),
+    current_id_autonomo: str = "",
     nome_autonomo: str = Form(...),
     cpf: str = Form(""),
     telefone: str = Form(""),
     email: str = Form(""),
     tipo_autonomo: str = Form(""),
     id_cargo_autonomo: str = Form(""),
-    especialidade: str = Form(""),
     data_inclusao: str = Form(""),
     status_autonomo: str = Form("Ativo"),
     observacoes: str = Form(""),
@@ -128,7 +205,12 @@ def salvar_autonomo(
     foto_upload: UploadFile = File(None),
     db: Session = Depends(get_db),
 ):
-    autonomo = db.get(DimAutonomo, int(id_autonomo)) if id_autonomo else DimAutonomo()
+    current_id_autonomo = (current_id_autonomo or request.query_params.get("current_id_autonomo", "")).strip()
+    autonomo = db.get(DimAutonomo, int(current_id_autonomo or id_autonomo)) if (current_id_autonomo or id_autonomo) else DimAutonomo()
+    try:
+        aplicar_id_manual(db, autonomo, DimAutonomo, "id_autonomo", id_autonomo, current_id_autonomo)
+    except ValueError as e:
+        return redirect_with_message("/autonomos", error=str(e))
     autonomo.nome_autonomo = nome_autonomo
     autonomo.cpf = cpf
     autonomo.telefone = telefone
@@ -137,8 +219,11 @@ def salvar_autonomo(
     cargo_obj = db.get(DimCargoAutonomo, int(id_cargo_autonomo)) if id_cargo_autonomo else None
     autonomo.id_cargo_autonomo = int(id_cargo_autonomo) if id_cargo_autonomo else None
     autonomo.tipo_autonomo = cargo_obj.nome_cargo if cargo_obj else tipo_autonomo
-    autonomo.especialidade = especialidade
-    autonomo.data_inclusao = parse_date(data_inclusao) or autonomo.data_inclusao
+    try:
+        data = parse_date_safe(data_inclusao, "Data de inclusao invalida.")
+    except ValueError as e:
+        return redirect_with_message("/autonomos", error=str(e))
+    autonomo.data_inclusao = data or autonomo.data_inclusao
     autonomo.status_autonomo = status_autonomo
     autonomo.observacoes = observacoes
 
@@ -154,13 +239,16 @@ def salvar_autonomo(
 
 
 @router.post("/autonomos/{id_autonomo}/desligar")
-def desligar_autonomo(id_autonomo: int, data_saida: str = Form(...), motivo: str = Form(...), db: Session = Depends(get_db)):
+def desligar_autonomo(id_autonomo: int, data_saida: str = Form(...), motivo_saida: str = Form(...), db: Session = Depends(get_db)):
     autonomo = db.get(DimAutonomo, id_autonomo)
     if not autonomo:
         return redirect_with_message("/autonomos", error="Autonomo nao encontrado.")
     autonomo.status_autonomo = "Desligado"
-    autonomo.data_saida = parse_date(data_saida)
-    autonomo.motivo_saida = motivo
+    try:
+        autonomo.data_saida = parse_date(data_saida)
+    except ValueError:
+        return redirect_with_message("/autonomos", error="Data de saida invalida.")
+    autonomo.motivo_saida = motivo_saida
     db.commit()
     return redirect_with_message("/autonomos", success="Autonomo desligado sem exclusao fisica.")
 
@@ -172,6 +260,9 @@ def etapas(request: Request, db: Session = Depends(get_db)):
 
 @router.post("/etapas")
 def salvar_etapa(
+    request: Request,
+    id_etapa: str = Form(""),
+    current_id_etapa: str = "",
     temporada: str = Form(...),
     nome_etapa: str = Form(...),
     local: str = Form(""),
@@ -183,9 +274,39 @@ def salvar_etapa(
     foto_upload: UploadFile = File(None),
     db: Session = Depends(get_db),
 ):
-    db.add(DimEtapa(temporada=temporada, nome_etapa=nome_etapa, local=local, data_inicio=parse_date(data_inicio), data_fim=parse_date(data_fim), status_etapa=status_etapa, observacoes=observacoes))
+    current_id_etapa = (current_id_etapa or request.query_params.get("current_id_etapa", "")).strip()
+    etapa = db.get(DimEtapa, int(current_id_etapa or id_etapa)) if (current_id_etapa or id_etapa) else DimEtapa()
+    try:
+        aplicar_id_manual(db, etapa, DimEtapa, "id_etapa", id_etapa, current_id_etapa)
+    except ValueError as e:
+        return redirect_with_message("/etapas", error=str(e))
+
+    etapa.temporada = temporada
+    etapa.nome_etapa = nome_etapa
+    etapa.local = local
+    try:
+        data_inicio_parsed = parse_date_safe(data_inicio, "Data de inicio invalida.")
+        data_fim_parsed = parse_date_safe(data_fim, "Data de fim invalida.")
+    except ValueError as e:
+        return redirect_with_message("/etapas", error=str(e))
+    etapa.data_inicio = data_inicio_parsed or etapa.data_inicio
+    etapa.data_fim = data_fim_parsed or etapa.data_fim
+    etapa.status_etapa = status_etapa
+    etapa.observacoes = observacoes
+
+    db.add(etapa)
     db.commit()
-    return redirect_with_message("/etapas", success="Etapa cadastrada.")
+    return redirect_with_message("/etapas", success="Etapa salva.")
+
+
+@router.post("/etapas/{id_etapa}/inativar")
+def inativar_etapa(id_etapa: int, db: Session = Depends(get_db)):
+    etapa = db.get(DimEtapa, id_etapa)
+    if not etapa:
+        return redirect_with_message("/etapas", error="Etapa nao encontrada.")
+    etapa.status_etapa = "Cancelada"
+    db.commit()
+    return redirect_with_message("/etapas", success="Etapa inativada.")
 
 
 @router.get("/categorias")
@@ -196,10 +317,38 @@ def provas(request: Request, db: Session = Depends(get_db)):
 
 @router.post("/categorias")
 @router.post("/provas")
-def salvar_prova(id_etapa: int = Form(...), id_tipo_prova: int = Form(...), nome_prova: str = Form(...), data_prova: str = Form(""), status_prova: str = Form("Planejada"), observacoes: str = Form(""), db: Session = Depends(get_db)):
-    db.add(DimProva(id_etapa=id_etapa, id_tipo_prova=id_tipo_prova, nome_prova=nome_prova, data_prova=parse_date(data_prova), status_prova=status_prova, observacoes=observacoes))
+def salvar_prova(id_prova: str = Form(""), current_id_prova: str = Form(""), id_etapa: int = Form(...), id_tipo_prova: int = Form(...), nome_prova: str = Form(...), data_prova: str = Form(""), status_prova: str = Form("Planejada"), observacoes: str = Form(""), db: Session = Depends(get_db)):
+    prova = db.get(DimProva, int(current_id_prova or id_prova)) if (current_id_prova or id_prova) else DimProva()
+    try:
+        aplicar_id_manual(db, prova, DimProva, "id_prova", id_prova, current_id_prova)
+    except ValueError as e:
+        return redirect_with_message("/categorias", error=str(e))
+
+    prova.id_etapa = id_etapa
+    prova.id_tipo_prova = id_tipo_prova
+    prova.nome_prova = nome_prova
+    try:
+        data_prova_parsed = parse_date_safe(data_prova, "Data da categoria invalida.")
+    except ValueError as e:
+        return redirect_with_message("/categorias", error=str(e))
+    prova.data_prova = data_prova_parsed or prova.data_prova
+    prova.status_prova = status_prova
+    prova.observacoes = observacoes
+
+    db.add(prova)
     db.commit()
-    return redirect_with_message("/categorias", success="Categoria cadastrada.")
+    return redirect_with_message("/categorias", success="Categoria salva.")
+
+
+@router.post("/provas/{id_prova}/inativar")
+@router.post("/categorias/{id_prova}/inativar")
+def inativar_prova(id_prova: int, db: Session = Depends(get_db)):
+    prova = db.get(DimProva, id_prova)
+    if not prova:
+        return redirect_with_message("/categorias", error="Categoria nao encontrada.")
+    prova.status_prova = "Cancelada"
+    db.commit()
+    return redirect_with_message("/categorias", success="Categoria inativada.")
 
 
 @router.get("/tipos-categoria")
@@ -211,13 +360,20 @@ def tipos_prova(request: Request, db: Session = Depends(get_db)):
 @router.post("/tipos-categoria")
 @router.post("/tipos-prova")
 def salvar_tipo(
+    request: Request,
     id_tipo_prova: str = Form(""),
+    current_id_tipo_prova: str = "",
     nome_tipo_prova: str = Form(...),
     descricao: str = Form(""),
     status_tipo_prova: str = Form("Ativo"),
     db: Session = Depends(get_db),
 ):
-    tipo = db.get(DimTipoProva, int(id_tipo_prova)) if id_tipo_prova else DimTipoProva()
+    current_id_tipo_prova = (current_id_tipo_prova or request.query_params.get("current_id_tipo_prova", "")).strip()
+    tipo = db.get(DimTipoProva, int(current_id_tipo_prova or id_tipo_prova)) if (current_id_tipo_prova or id_tipo_prova) else DimTipoProva()
+    try:
+        aplicar_id_manual(db, tipo, DimTipoProva, "id_tipo_prova", id_tipo_prova, current_id_tipo_prova)
+    except ValueError as e:
+        return redirect_with_message("/tipos-prova", error=str(e))
 
     if not tipo:
         return redirect_with_message("/tipos-prova", error="Tipo de prova não encontrado.")
@@ -229,7 +385,7 @@ def salvar_tipo(
     db.add(tipo)
     db.commit()
 
-    msg = "Tipo de prova atualizado." if id_tipo_prova else "Tipo de prova cadastrado."
+    msg = "Tipo de prova atualizado." if (current_id_tipo_prova or id_tipo_prova) else "Tipo de prova cadastrado."
     return redirect_with_message("/tipos-prova", success=msg)
 
 
@@ -240,13 +396,20 @@ def motivos_troca(request: Request, db: Session = Depends(get_db)):
 
 @router.post("/motivos-troca")
 def salvar_motivo(
+    request: Request,
     id_motivo_troca: str = Form(""),
+    current_id_motivo_troca: str = "",
     motivo_troca: str = Form(...),
     descricao: str = Form(""),
     status: str = Form("Ativo"),
     db: Session = Depends(get_db),
 ):
-    motivo = db.get(DimMotivoTroca, int(id_motivo_troca)) if id_motivo_troca else DimMotivoTroca()
+    current_id_motivo_troca = (current_id_motivo_troca or request.query_params.get("current_id_motivo_troca", "")).strip()
+    motivo = db.get(DimMotivoTroca, int(current_id_motivo_troca or id_motivo_troca)) if (current_id_motivo_troca or id_motivo_troca) else DimMotivoTroca()
+    try:
+        aplicar_id_manual(db, motivo, DimMotivoTroca, "id_motivo_troca", id_motivo_troca, current_id_motivo_troca)
+    except ValueError as e:
+        return redirect_with_message("/motivos-troca", error=str(e))
 
     if not motivo:
         return redirect_with_message("/motivos-troca", error="Motivo de troca não encontrado.")
@@ -258,7 +421,7 @@ def salvar_motivo(
     db.add(motivo)
     db.commit()
 
-    msg = "Motivo de troca atualizado." if id_motivo_troca else "Motivo cadastrado."
+    msg = "Motivo de troca atualizado." if (current_id_motivo_troca or id_motivo_troca) else "Motivo cadastrado."
     return redirect_with_message("/motivos-troca", success=msg)
 
 
@@ -278,13 +441,20 @@ def cargos_autonomos(request: Request, db: Session = Depends(get_db)):
 
 @router.post("/cargos-autonomos")
 def salvar_cargo_autonomo(
+    request: Request,
     id_cargo_autonomo: str = Form(""),
+    current_id_cargo_autonomo: str = "",
     nome_cargo: str = Form(...),
     descricao: str = Form(""),
     status: str = Form("Ativo"),
     db: Session = Depends(get_db),
 ):
-    cargo = db.get(DimCargoAutonomo, int(id_cargo_autonomo)) if id_cargo_autonomo else DimCargoAutonomo()
+    current_id_cargo_autonomo = (current_id_cargo_autonomo or request.query_params.get("current_id_cargo_autonomo", "")).strip()
+    cargo = db.get(DimCargoAutonomo, int(current_id_cargo_autonomo or id_cargo_autonomo)) if (current_id_cargo_autonomo or id_cargo_autonomo) else DimCargoAutonomo()
+    try:
+        aplicar_id_manual(db, cargo, DimCargoAutonomo, "id_cargo_autonomo", id_cargo_autonomo, current_id_cargo_autonomo)
+    except ValueError as e:
+        return redirect_with_message("/cargos-autonomos", error=str(e))
 
     if not cargo:
         return redirect_with_message("/cargos-autonomos", error="Cargo não encontrado.")
@@ -296,6 +466,6 @@ def salvar_cargo_autonomo(
     db.add(cargo)
     db.commit()
 
-    msg = "Cargo atualizado." if id_cargo_autonomo else "Cargo cadastrado."
+    msg = "Cargo atualizado." if (current_id_cargo_autonomo or id_cargo_autonomo) else "Cargo cadastrado."
     return redirect_with_message("/cargos-autonomos", success=msg)
 

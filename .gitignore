@@ -50,3 +50,16 @@ app/static/uploads/pilotos/*
 app/static/uploads/autonomos/*
 !app/static/uploads/pilotos/.gitkeep
 !app/static/uploads/autonomos/.gitkeep
+
+# Ambiente local
+.env
+
+token_dw.json
+oauth_client.json
+token_google.json
+app/integrations/google_sheets/credentials/
+bosch_chamados_manutencao.csv
+bosch_chamados_manutencao.xlsx
+patch_*.py
+fix_*.py
+auditoria/

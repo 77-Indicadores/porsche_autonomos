@@ -23,9 +23,14 @@
     <h3>Novo / editar piloto</h3>
   </div>
 
-  <form method="post" class="form-grid" enctype="multipart/form-data">
-    <input type="hidden" name="id_piloto" id="id_piloto">
+  <form method="post" class="form-grid" enctype="multipart/form-data" id="form_piloto" action="/pilotos">
     <input type="hidden" name="foto_url" id="foto_url">
+
+    <div>
+      <label class="label">ID Piloto</label>
+      <input class="input" type="number" name="id_piloto" id="id_piloto" placeholder="Automático">
+      <p class="text-sm text-zinc-500 mt-1">Deixe em branco para gerar automático ou informe o ID do layout.</p>
+    </div>
 
     <div class="span-3">
       <label class="label">Foto do piloto</label>
@@ -73,12 +78,18 @@
     </div>
 
     <div class="span-3">
+      <label class="label">Motivo desligamento</label>
+      <textarea class="input" name="motivo_desligamento" id="motivo_desligamento"></textarea>
+    </div>
+
+    <div class="span-3">
       <label class="label">Observações</label>
       <textarea class="input" name="observacoes" id="observacoes"></textarea>
     </div>
 
     <div class="span-3 ux-actions-row">
-      <button class="btn-primary">Salvar piloto</button>
+      <button class="btn-primary" id="btn_salvar_piloto">Salvar piloto</button>
+      <button type="button" class="btn-secondary" onclick="novoCadastro()">Limpar</button>
     </div>
   </form>
 </section>
@@ -88,6 +99,7 @@
     <thead>
       <tr>
         <th>Foto</th>
+        <th>ID</th>
         <th>Piloto</th>
         <th>CPF</th>
         <th>Telefone</th>
@@ -107,30 +119,42 @@
           {% endif %}
         </td>
 
+        <td><span class="id-pill">{{ p.id_piloto or "-" }}</span></td>
         <td class="font-bold">{{ p.nome_piloto }}</td>
         <td>{{ p.cpf or '-' }}</td>
         <td>{{ p.telefone or '-' }}</td>
         <td><span class="badge badge-{{ p.status_piloto|lower }}">{{ p.status_piloto }}</span></td>
+
         <td class="actions">
           <button
             class="btn-muted"
             type="button"
             onclick="editarPiloto(this)"
-            data-fill='{"id_piloto":"{{p.id_piloto}}","nome_piloto":"{{p.nome_piloto}}","cpf":"{{p.cpf or ''}}","telefone":"{{p.telefone or ''}}","email":"{{p.email or ''}}","data_inclusao":"{{p.data_inclusao}}","status_piloto":"{{p.status_piloto}}","observacoes":"{{p.observacoes or ''}}","foto_url":"{{p.foto_url or ''}}"}'
+            data-id_piloto="{{ p.id_piloto or '' }}"
+            data-nome_piloto="{{ p.nome_piloto or '' }}"
+            data-cpf="{{ p.cpf or '' }}"
+            data-telefone="{{ p.telefone or '' }}"
+            data-email="{{ p.email or '' }}"
+            data-data_inclusao="{{ p.data_inclusao or '' }}"
+            data-data_desligamento="{{ p.data_desligamento or '' }}"
+            data-motivo_desligamento="{{ p.motivo_desligamento or '' }}"
+            data-status_piloto="{{ p.status_piloto or '' }}"
+            data-observacoes="{{ p.observacoes or '' }}"
+            data-foto_url="{{ p.foto_url or '' }}"
           >
             Editar
           </button>
 
           <form method="post" action="/pilotos/{{ p.id_piloto }}/desligar" class="actions">
             <input class="input" type="date" name="data_desligamento" required>
-            <input class="input" name="motivo" placeholder="Motivo" required>
+            <input class="input" name="motivo_desligamento" placeholder="Motivo" required>
             <button class="btn-danger">Desligar</button>
           </form>
         </td>
       </tr>
       {% else %}
       <tr>
-        <td colspan="6" class="empty">Nenhum piloto.</td>
+        <td colspan="7" class="empty">Nenhum piloto.</td>
       </tr>
       {% endfor %}
     </tbody>
@@ -138,36 +162,97 @@
 </section>
 
 <script>
-function editarPiloto(btn) {
-  const data = JSON.parse(btn.dataset.fill || "{}");
+function setValue(id, value) {
+  const el = document.getElementById(id);
+  if (el) el.value = value || "";
+}
 
-  Object.keys(data).forEach(k => {
-    const el = document.getElementById(k);
-    if (el) el.value = data[k] || "";
-  });
+function editarPiloto(btn) {
+  const d = btn.dataset || {};
+
+  setValue("id_piloto", d.id_piloto);
+  setValue("nome_piloto", d.nome_piloto);
+  setValue("cpf", d.cpf);
+  setValue("telefone", d.telefone);
+  setValue("email", d.email);
+  setValue("data_inclusao", d.data_inclusao);
+  setValue("motivo_desligamento", d.motivo_desligamento);
+  setValue("status_piloto", d.status_piloto);
+  setValue("observacoes", d.observacoes);
+  setValue("foto_url", d.foto_url);
 
   const preview = document.getElementById("preview_foto_piloto");
 
-  if (data.foto_url) {
-    preview.src = data.foto_url;
-    preview.style.display = "block";
-  } else {
-    preview.src = "";
-    preview.style.display = "none";
+  if (preview) {
+    if (d.foto_url) {
+      preview.src = d.foto_url;
+      preview.style.display = "block";
+    } else {
+      preview.src = "";
+      preview.style.display = "none";
+    }
+  }
+
+  const form = document.getElementById("form_piloto");
+
+  if (form && d.id_piloto) {
+    form.action = "/pilotos?current_id_piloto=" + encodeURIComponent(d.id_piloto);
+  }
+
+  const titulo = document.querySelector(".panel-head h3");
+  if (titulo) {
+    titulo.innerText = "Editar piloto #" + (d.id_piloto || "");
+  }
+
+  const botao = document.getElementById("btn_salvar_piloto");
+  if (botao) {
+    botao.innerText = "Salvar alterações";
   }
 
   window.scrollTo({ top: 0, behavior: "smooth" });
 }
 
-document.getElementById("foto_upload").addEventListener("change", function() {
-  const file = this.files[0];
+function novoCadastro() {
+  const form = document.getElementById("form_piloto");
+
+  if (form) {
+    form.action = "/pilotos";
+    form.reset();
+  }
+
   const preview = document.getElementById("preview_foto_piloto");
 
-  if (!file) return;
+  if (preview) {
+    preview.src = "";
+    preview.style.display = "none";
+  }
 
-  preview.src = URL.createObjectURL(file);
-  preview.style.display = "block";
-});
+  const titulo = document.querySelector(".panel-head h3");
+  if (titulo) {
+    titulo.innerText = "Novo / editar piloto";
+  }
+
+  const botao = document.getElementById("btn_salvar_piloto");
+  if (botao) {
+    botao.innerText = "Salvar piloto";
+  }
+
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+const fotoUpload = document.getElementById("foto_upload");
+
+if (fotoUpload) {
+  fotoUpload.addEventListener("change", function() {
+    const file = this.files[0];
+    const preview = document.getElementById("preview_foto_piloto");
+
+    if (!file || !preview) return;
+
+    preview.src = URL.createObjectURL(file);
+    preview.style.display = "block";
+  });
+}
 </script>
 
 {% endblock %}

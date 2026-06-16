@@ -299,7 +299,8 @@ body {
 /* Conteúdo */
 .main-content {
   margin-left: 252px;
-  width: calc(100% - 252px);
+  width: auto;
+  flex: 1;
   min-height: 100vh;
   background: #f4f4f5;
 }
@@ -625,7 +626,7 @@ textarea:focus {
 
   .main-content {
     margin-left: 230px;
-    width: calc(100% - 230px);
+    width: auto;
   }
 
   .ux-grid-3,
@@ -1245,3 +1246,354 @@ textarea:focus {
   white-space: nowrap;
 }
 
+/* Login */
+.login-page {
+  min-height: 100vh;
+  margin: 0;
+  background: linear-gradient(140deg, #09090b 0%, #18181b 58%, #7f1d1d 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 22px;
+}
+
+.login-wrap {
+  width: 100%;
+  max-width: 980px;
+  display: grid;
+  grid-template-columns: 1.1fr .9fr;
+  gap: 18px;
+}
+
+.login-hero {
+  background: rgba(255, 255, 255, .06);
+  border: 1px solid rgba(255, 255, 255, .14);
+  border-radius: 18px;
+  padding: 30px;
+  color: #fff;
+}
+
+.login-hero h1 {
+  margin: 8px 0 0 0;
+  font-size: 36px;
+  line-height: 1.02;
+  letter-spacing: -.05em;
+}
+
+.login-hero p {
+  margin: 12px 0 0 0;
+  color: rgba(255, 255, 255, .78);
+  max-width: 520px;
+}
+
+.login-card {
+  padding: 26px;
+}
+
+.login-card h2 {
+  margin: 0;
+  font-size: 26px;
+  letter-spacing: -.03em;
+}
+
+.login-form {
+  display: grid;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.login-submit {
+  width: 100%;
+  margin-top: 8px;
+}
+
+@media (max-width: 900px) {
+  .login-wrap {
+    grid-template-columns: 1fr;
+  }
+}
+
+
+
+/* EQUIPES VISUAL NOVO */
+.equipes-grid{
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(420px,1fr));
+  gap:18px;
+}
+
+.equipe-card{
+  background:#fff;
+  border:1px solid #ececec;
+  border-radius:18px;
+  padding:20px;
+  box-shadow:0 10px 30px rgba(0,0,0,.05);
+}
+
+.equipe-card-top{
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:16px;
+  margin-bottom:18px;
+}
+
+.equipe-piloto{
+  display:flex;
+  align-items:flex-start;
+  gap:14px;
+}
+
+.equipe-avatar{
+  width:58px;
+  height:58px;
+  border-radius:50%;
+  background:#13151a;
+  color:#fff;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  font-size:24px;
+  font-weight:800;
+  flex-shrink:0;
+}
+
+.equipe-piloto h3{
+  margin:0 0 6px 0;
+  font-size:24px;
+  line-height:1.1;
+}
+
+.equipe-meta{
+  display:flex;
+  flex-wrap:wrap;
+  gap:8px 12px;
+  color:#6b7280;
+  font-size:13px;
+}
+
+.equipe-top-right{
+  flex-shrink:0;
+}
+
+.equipe-kpis{
+  display:grid;
+  grid-template-columns:repeat(3,1fr);
+  gap:12px;
+  margin-bottom:18px;
+}
+
+.equipe-kpi{
+  background:#f8fafc;
+  border:1px solid #e5e7eb;
+  border-radius:14px;
+  padding:14px;
+}
+
+.equipe-kpi span{
+  display:block;
+  font-size:12px;
+  color:#6b7280;
+  margin-bottom:6px;
+}
+
+.equipe-kpi strong{
+  font-size:22px;
+  line-height:1.1;
+  color:#111827;
+}
+
+.equipe-section{
+  margin-top:18px;
+}
+
+.equipe-section-title{
+  font-size:15px;
+  font-weight:800;
+  margin-bottom:10px;
+  color:#111827;
+}
+
+.equipe-membros{
+  display:flex;
+  flex-direction:column;
+  gap:10px;
+}
+
+.membro-row{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:16px;
+  background:#fcfcfd;
+  border:1px solid #eceff3;
+  border-radius:14px;
+  padding:14px 16px;
+}
+
+.membro-left{
+  min-width:0;
+}
+
+.membro-funcao{
+  font-size:12px;
+  font-weight:700;
+  color:#6b7280;
+  text-transform:uppercase;
+  letter-spacing:.04em;
+}
+
+.membro-nome{
+  font-size:18px;
+  font-weight:800;
+  color:#111827;
+  line-height:1.2;
+  margin-top:2px;
+}
+
+.membro-sub{
+  font-size:13px;
+  color:#6b7280;
+  margin-top:2px;
+}
+
+.membro-right{
+  display:grid;
+  grid-template-columns:repeat(3,auto);
+  gap:18px;
+  text-align:right;
+}
+
+.membro-right span{
+  display:block;
+  font-size:11px;
+  color:#6b7280;
+  margin-bottom:2px;
+}
+
+.membro-right strong{
+  font-size:15px;
+  color:#111827;
+}
+
+.substituicoes-box{
+  background:#fff8e8;
+  border:1px solid #fde3a7;
+  border-radius:14px;
+  padding:14px;
+}
+
+.sub-row{
+  padding:10px 0;
+  border-bottom:1px dashed #ecd59d;
+}
+
+.sub-row:last-child{
+  border-bottom:0;
+}
+
+.sub-main{
+  font-size:14px;
+  color:#111827;
+  margin-bottom:4px;
+}
+
+.sub-meta{
+  font-size:12px;
+  color:#7c6b46;
+}
+
+.sub-obs{
+  font-size:12px;
+  color:#6b7280;
+  margin-top:4px;
+}
+
+.badge-success{
+  background:#e8f7ed;
+  color:#166534;
+  border:1px solid #b7e2c4;
+}
+
+.badge-warning{
+  background:#fff2cc;
+  color:#92400e;
+  border:1px solid #f6d78b;
+}
+
+.empty-state{
+  padding:24px;
+  text-align:center;
+  color:#6b7280;
+  font-weight:600;
+}
+
+@media (max-width: 900px){
+  .equipes-grid{
+    grid-template-columns:1fr;
+  }
+
+  .equipe-kpis{
+    grid-template-columns:1fr;
+  }
+
+  .membro-row{
+    flex-direction:column;
+    align-items:flex-start;
+  }
+
+  .membro-right{
+    width:100%;
+    grid-template-columns:repeat(3,1fr);
+    text-align:left;
+  }
+
+  .equipe-card-top{
+    flex-direction:column;
+  }
+}
+
+
+/* Tela de IDs para Importação */
+.id-pill{
+  min-width:42px;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  padding:4px 8px;
+  border-radius:999px;
+  background:#f3f4f6;
+  border:1px solid #d1d5db;
+  color:#111827;
+  font-size:12px;
+  font-weight:800;
+  white-space:nowrap;
+}
+
+.ids-importacao-grid{
+  display:grid;
+  grid-template-columns:1fr;
+  gap:18px;
+}
+
+.ids-importacao-grid .table-wrap{
+  overflow:auto;
+  max-height:420px;
+}
+
+
+/* ID exibido junto ao nome nos cadastros */
+.id-inline{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  padding:3px 7px;
+  margin-right:6px;
+  border-radius:999px;
+  background:#f3f4f6;
+  border:1px solid #d1d5db;
+  color:#111827;
+  font-size:11px;
+  font-weight:800;
+  white-space:nowrap;
+}

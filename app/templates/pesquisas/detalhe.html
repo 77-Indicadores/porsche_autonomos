@@ -1,0 +1,159 @@
+{% extends "base.html" %}
+
+{% block header %}Detalhe da Pesquisa{% endblock %}
+{% block subtitle %}Respostas padronizadas, grupos de perguntas e pendências de relacionamento.{% endblock %}
+
+{% block header_action %}
+<a class="quick-action light" href="/pesquisas">Voltar</a>
+<form method="post" action="/pesquisas/{{ upload.id_upload }}/reprocessar-mapeamentos" style="display:inline;">
+  <button class="quick-action primary">Reprocessar mapeamentos</button>
+</form>
+{% endblock %}
+
+{% block content %}
+
+<section class="panel mb-6">
+  <div class="grid gap-3 md:grid-cols-4">
+    <div class="kpi-card">
+      <span>Arquivo</span>
+      <strong>{{ upload.arquivo_nome }}</strong>
+    </div>
+    <div class="kpi-card">
+      <span>Tipo</span>
+      <strong>{{ upload.tipo_pesquisa }}</strong>
+    </div>
+    <div class="kpi-card">
+      <span>Linhas</span>
+      <strong>{{ upload.qtd_linhas }}</strong>
+    </div>
+    <div class="kpi-card">
+      <span>Respostas</span>
+      <strong>{{ upload.qtd_respostas }}</strong>
+    </div>
+  </div>
+</section>
+
+<section class="panel mb-6">
+  <div class="panel-head">
+    <h3>Resumo por grupo de pergunta</h3>
+  </div>
+
+  <table class="table">
+    <thead>
+      <tr>
+        <th>Grupo</th>
+        <th>Qtd respostas</th>
+        <th>Média nota</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for r in resumo %}
+      <tr>
+        <td class="font-bold">{{ r.grupo_pergunta }}</td>
+        <td>{{ r.qtd }}</td>
+        <td>{{ "%.2f"|format(r.media_nota) if r.media_nota is not none else "-" }}</td>
+      </tr>
+      {% else %}
+      <tr><td colspan="3" class="empty">Sem resumo.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+
+<section class="panel mb-6">
+  <div class="panel-head">
+    <h3>Pendências deste upload</h3>
+  </div>
+
+  {% if pendencias %}
+    <table class="table">
+      <thead>
+        <tr>
+          <th>Tipo</th>
+          <th>Nome no Forms</th>
+          <th>Qtd</th>
+          <th>Relacionar</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for p in pendencias %}
+        <tr>
+          <td>{{ p.tipo_alvo }}</td>
+          <td class="font-bold">{{ p.alvo_nome }}</td>
+          <td>{{ p.qtd }}</td>
+          <td>
+            <form method="post" action="/pesquisas/mapear" class="actions">
+              <input type="hidden" name="texto_origem" value="{{ p.alvo_nome }}">
+              <input type="hidden" name="tipo_alvo" value="{{ p.tipo_alvo }}">
+              <input type="hidden" name="redirect_to" value="/pesquisas/{{ upload.id_upload }}">
+
+              {% if p.tipo_alvo == 'autonomo' %}
+                <select class="input" name="id_autonomo" required>
+                  <option value="">Selecione autônomo</option>
+                  {% for a in autonomos %}
+                    <option value="{{ a.id_autonomo }}">#{{ a.id_autonomo }} - {{ a.nome_autonomo }}</option>
+                  {% endfor %}
+                </select>
+              {% else %}
+                <select class="input" name="id_piloto" required>
+                  <option value="">Selecione piloto</option>
+                  {% for pi in pilotos %}
+                    <option value="{{ pi.id_piloto }}">#{{ pi.id_piloto }} - {{ pi.nome_piloto }}</option>
+                  {% endfor %}
+                </select>
+              {% endif %}
+
+              <button class="btn-secondary">Salvar vínculo</button>
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% else %}
+    <div class="empty">Nenhuma pendência neste upload.</div>
+  {% endif %}
+</section>
+
+<section class="panel">
+  <div class="panel-head">
+    <h3>Respostas padronizadas</h3>
+  </div>
+
+  <div class="overflow-x-auto">
+    <table class="table">
+      <thead>
+        <tr>
+          <th>Status</th>
+          <th>Alvo</th>
+          <th>Tipo</th>
+          <th>Grupo</th>
+          <th>Pergunta</th>
+          <th>Resposta</th>
+          <th>Nota</th>
+          <th>Manter/Trocar</th>
+          <th>Aba</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in respostas %}
+        <tr>
+          <td><span class="badge">{{ r.status_mapeamento }}</span></td>
+          <td class="font-bold">{{ r.alvo_nome or "-" }}</td>
+          <td>{{ r.tipo_alvo or "-" }}</td>
+          <td>{{ r.grupo_pergunta or "-" }}</td>
+          <td>{{ r.pergunta_original }}</td>
+          <td>{{ r.resposta_padronizada or r.resposta_original }}</td>
+          <td>{{ r.nota_num if r.nota_num is not none else "-" }}</td>
+          <td>{{ r.manter_trocar or "-" }}</td>
+          <td>{{ r.aba }}</td>
+        </tr>
+        {% else %}
+        <tr><td colspan="9" class="empty">Nenhuma resposta.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+
+{% endblock %}
