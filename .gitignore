@@ -1,0 +1,52 @@
+﻿# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.log
+
+# Ambiente / dependências locais
+.venv/
+venv/
+env/
+.vendor/
+.wheels/
+.tmp/
+
+# Banco local e dados gerados
+data/*.db
+data/*.sqlite
+data/*.sqlite3
+logs/
+*.bak*
+*.bak_*
+server.log
+
+# Arquivos temporários
+*.tmp
+*.temp
+.DS_Store
+Thumbs.db
+
+# Excel gerado/importado
+*.xlsx
+!docs/*.xlsx
+
+# IDE
+.vscode/
+.idea/
+
+# Sistema
+desktop.ini
+
+# Uploads locais
+app/static/uploads/*
+!app/static/uploads/.gitkeep
+!app/static/uploads/pilotos/
+!app/static/uploads/autonomos/
+!app/static/uploads/pilotos/.gitkeep
+!app/static/uploads/autonomos/.gitkeep
+app/static/uploads/pilotos/*
+app/static/uploads/autonomos/*
+!app/static/uploads/pilotos/.gitkeep
+!app/static/uploads/autonomos/.gitkeep

@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Porsche Cup | Controle de Autônomos{% endblock %}</title>
+
+  <link rel="stylesheet" href="/static/css/style.css">
+</head>
+
+<body>
+  <aside class="sidebar">
+    <div class="sidebar-logo-porsche-img">
+      <a href="https://www.porschegt3cup.com.br" target="_blank" rel="noopener">
+        <img src="/static/img/porsche.png" alt="Porsche Carrera Cup Brasil">
+      </a>
+    </div>
+
+    <nav class="sidebar-nav">
+      <div class="nav-section">
+        <div class="nav-section-title">Dashboard</div>
+        <a class="nav-link {% if request.url.path == '/' %}active{% endif %}" href="/">Visão Geral</a>
+      </div>
+
+      <div class="nav-section">
+        <div class="nav-section-title">Cadastros</div>
+        <a class="nav-link {% if request.url.path.startswith('/provas') %}active{% endif %}" href="/provas">🏁 Categorias</a>
+        <a class="nav-link {% if request.url.path.startswith('/tipos-prova') %}active{% endif %}" href="/tipos-prova">🗂️ Tipo Categoria</a>
+        <a class="nav-link {% if request.url.path.startswith('/motivos-troca') %}active{% endif %}" href="/motivos-troca">🔄 Motivo Troca</a>
+        <a class="nav-link {% if request.url.path.startswith('/etapas') %}active{% endif %}" href="/etapas">📍 Etapa</a>
+        <a class="nav-link {% if request.url.path.startswith('/carros') %}active{% endif %}" href="/carros">🏎️ Carros</a>
+
+        <a class="nav-link {% if request.url.path.startswith('/cargos-autonomos') %}active{% endif %}" href="/cargos-autonomos">🪪 Cargos Autônomo</a>
+        <a class="nav-link {% if request.url.path.startswith('/pilotos') %}active{% endif %}" href="/pilotos">👨‍✈️ Piloto</a>
+        <a class="nav-link {% if request.url.path.startswith('/autonomos') %}active{% endif %}" href="/autonomos">🧰 Autônomo</a>
+      </div>
+
+      <div class="nav-section">
+        <div class="nav-section-title">Operação</div>
+        <a class="nav-link {% if request.url.path.startswith('/alocacoes/nova') or request.url.path.startswith('/operacao/nova-guiada') %}active{% endif %}" href="/alocacoes/nova">✨ Nova Alocação</a>
+        <a class="nav-link {% if request.url.path.startswith('/equipes') %}active{% endif %}" href="/equipes">👥 Equipes Alocadas</a>
+        <a class="nav-link {% if request.url.path == '/alocacoes' %}active{% endif %}" href="/alocacoes">📋 Gestão de Alocação</a>
+      </div>
+
+      <div class="nav-section">
+        <div class="nav-section-title">Configurações</div>
+        <a class="nav-link {% if request.url.path.startswith('/excel') %}active{% endif %}" href="/excel/">📥 Importações Excel</a>
+        <a class="nav-link {% if request.url.path.startswith('/setup') %}active{% endif %}" href="/setup">⚙️ Listas de Apoio</a>
+        <a class="nav-link {% if request.url.path.startswith('/logs') %}active{% endif %}" href="/logs/">🧾 Logs</a>
+      </div>
+    </nav>
+  </aside>
+
+  <main class="main-content">
+    <header class="page-header">
+      <div>
+        <div class="breadcrumbs">cadastro -> etapa/categoria -> alocacao -> troca -> equipe</div>
+        <h1>{% block header %}Dashboard Porsche Cup{% endblock %}</h1>
+        <p>{% block subtitle %}{% endblock %}</p>
+      </div>
+
+      <div class="header-actions">
+        {% block header_action %}{% endblock %}
+      </div>
+    </header>
+
+    {% if success %}
+      <div class="alert success">{{ success }}</div>
+    {% endif %}
+
+    {% if error %}
+      <div class="alert error">{{ error }}</div>
+    {% endif %}
+
+    <section class="content-area">
+      {% block content %}{% endblock %}
+    </section>
+  </main>
+
+  <script src="/static/js/app.js"></script>
+
+<script>
+function novoCadastro() {
+  const form = document.querySelector(".content-area form[method='post'], main form[method='post'], form[method='post']");
+
+  if (!form) {
+    window.scrollTo({ top: 0, behavior: "smooth" });
+    return;
+  }
+
+  form.reset();
+
+  form.querySelectorAll("input[type='hidden']").forEach(function(input) {
+    input.value = "";
+  });
+
+  form.querySelectorAll("input[type='text'], input[type='email'], input[type='tel'], input[type='date'], input[type='number'], input:not([type])").forEach(function(input) {
+    input.value = "";
+  });
+
+  form.querySelectorAll("textarea").forEach(function(textarea) {
+    textarea.value = "";
+  });
+
+  form.querySelectorAll("select").forEach(function(select) {
+    select.selectedIndex = 0;
+
+    const ativo = Array.from(select.options).find(function(opt) {
+      return (opt.textContent || "").trim().toLowerCase() === "ativo";
+    });
+
+    if (ativo && select.name && select.name.toLowerCase().includes("status")) {
+      select.value = ativo.value || ativo.textContent;
+    }
+  });
+
+  form.querySelectorAll("input[type='file']").forEach(function(input) {
+    input.value = "";
+  });
+
+  document.querySelectorAll(".upload-photo-preview").forEach(function(img) {
+    img.src = "";
+    img.style.display = "none";
+  });
+
+  const possibleTitles = [
+    "form-title",
+    "titulo-form",
+    "title-form"
+  ];
+
+  possibleTitles.forEach(function(id) {
+    const el = document.getElementById(id);
+    if (el) {
+      el.innerText = "Novo cadastro";
+    }
+  });
+
+  document.querySelectorAll("[id^='preview_']").forEach(function(el) {
+    if (el.tagName === "IMG") {
+      el.src = "";
+      el.style.display = "none";
+    }
+  });
+
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+</script>
+
+</body>
+</html>

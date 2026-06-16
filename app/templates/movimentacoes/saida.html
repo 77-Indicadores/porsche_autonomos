@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block header %}Saida de autonomo{% endblock %}
+{% block content %}
+<form class="panel" method="post">
+  <div class="form-grid">
+    <div><label class="label">Data</label><input class="input" type="date" name="data_movimentacao" required value="{{ today }}"></div>
+    <div><label class="label">Etapa</label><select class="input" name="etapa_id" required>{% for etapa in etapas %}<option value="{{ etapa.id }}">{{ etapa.nome }}</option>{% endfor %}</select></div>
+    <div><label class="label">Piloto</label><select class="input" name="piloto_id" required>{% for piloto in pilotos %}<option value="{{ piloto.id }}">{{ piloto.nome }}</option>{% endfor %}</select></div>
+    <div><label class="label">Autonomo</label><select class="input" name="autonomo_id" required>{% for autonomo in autonomos %}<option value="{{ autonomo.id }}">{{ autonomo.nome }}</option>{% endfor %}</select></div>
+    <div class="span-2"><label class="label">Motivo</label><input class="input" name="motivo" required></div>
+    <div class="span-2"><label class="label">Observacao</label><textarea class="input" name="observacao" rows="4"></textarea></div>
+  </div>
+  <div class="mt-5 flex gap-2"><button class="btn-danger">Registrar saida</button><a class="btn-muted" href="/movimentacoes">Cancelar</a></div>
+</form>
+{% endblock %}
+

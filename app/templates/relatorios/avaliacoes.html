@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+
+{% block header %}Avaliações Externas{% endblock %}
+{% block subtitle %}As avaliações dos autônomos são realizadas fora deste sistema{% endblock %}
+
+{% block content %}
+<section class="ux-card">
+  <h3 class="ux-card-title">Avaliação externa</h3>
+  <p class="ux-muted">
+    Este sistema não registra notas de avaliação dos autônomos. As avaliações são feitas por link externo.
+  </p>
+
+  <div class="ux-actions-row mt-5">
+    <a class="btn-primary" href="/alocacoes">Ir para Gestão de Alocação</a>
+    <a class="btn-muted" href="/setup">Setup Inicial</a>
+  </div>
+</section>
+{% endblock %}

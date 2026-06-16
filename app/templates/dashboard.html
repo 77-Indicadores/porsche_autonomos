@@ -1,0 +1,177 @@
+{% extends "base.html" %}
+
+{% block header %}Visão Geral{% endblock %}
+{% block subtitle %}Dashboard executivo de alocações, equipes e custos{% endblock %}
+
+{% block header_action %}
+<a class="quick-action primary" href="/alocacoes/nova">Nova Alocação</a>
+<a class="quick-action light" href="/equipes">Equipes Alocadas</a>
+{% endblock %}
+
+{% block content %}
+
+{% set pilotos = 0 %}
+{% set autonomos = 0 %}
+{% set alocacoes = 0 %}
+{% set trocas = 0 %}
+{% set custo_temporada = 'R$ 0,00' %}
+{% set custo_pendente = 'R$ 0,00' %}
+{% set custo_pago = 'R$ 0,00' %}
+
+{% for card in cards %}
+  {% set titulo = card.titulo or card.title or card.label or card.nome or card.name %}
+  {% set valor = card.valor or card.value or card.total or card.qtd or card.quantidade %}
+  {% set t = (titulo|string)|lower %}
+
+  {% if 'piloto' in t %}
+    {% set pilotos = valor %}
+  {% elif 'autonomo' in t or 'autônomo' in t %}
+    {% set autonomos = valor %}
+  {% elif 'aloc' in t %}
+    {% set alocacoes = valor %}
+  {% elif 'troca' in t %}
+    {% set trocas = valor %}
+  {% elif 'temporada' in t %}
+    {% set custo_temporada = valor %}
+  {% elif 'pendente' in t %}
+    {% set custo_pendente = valor %}
+  {% elif 'pago' in t %}
+    {% set custo_pago = valor %}
+  {% endif %}
+{% endfor %}
+
+<section class="exec-hero">
+  <div>
+    <span class="exec-label">Porsche Cup</span>
+    <h2>Controle de Autônomos</h2>
+    <p>
+      Acompanhe a formação das equipes por etapa e categoria, controle substituições
+      e visualize os custos dos profissionais alocados.
+    </p>
+  </div>
+
+  <div class="exec-hero-card">
+    <span>Status operacional</span>
+    <strong>Ativo</strong>
+    <small>Sistema pronto para cadastro e alocação</small>
+  </div>
+</section>
+
+<section class="exec-kpis">
+  <article class="exec-kpi">
+    <div class="exec-kpi-icon">👨‍✈️</div>
+    <span>Pilotos ativos</span>
+    <strong>{{ pilotos }}</strong>
+  </article>
+
+  <article class="exec-kpi">
+    <div class="exec-kpi-icon">🧰</div>
+    <span>Autônomos ativos</span>
+    <strong>{{ autonomos }}</strong>
+  </article>
+
+  <article class="exec-kpi">
+    <div class="exec-kpi-icon">📋</div>
+    <span>Alocações ativas</span>
+    <strong>{{ alocacoes }}</strong>
+  </article>
+
+  <article class="exec-kpi">
+    <div class="exec-kpi-icon">🔄</div>
+    <span>Trocas no mês</span>
+    <strong>{{ trocas }}</strong>
+  </article>
+</section>
+
+<section class="exec-grid">
+  <article class="exec-panel exec-cost-panel">
+    <div class="exec-panel-head">
+      <div>
+        <span>Financeiro</span>
+        <h3>Custos da temporada</h3>
+      </div>
+    </div>
+
+    <div class="exec-cost-main">
+      <span>Custo total</span>
+      <strong>{{ custo_temporada }}</strong>
+    </div>
+
+    <div class="exec-cost-row">
+      <div>
+        <span>Custo pendente</span>
+        <strong>{{ custo_pendente }}</strong>
+      </div>
+
+      <div>
+        <span>Custo pago</span>
+        <strong>{{ custo_pago }}</strong>
+      </div>
+    </div>
+  </article>
+
+  <article class="exec-panel">
+    <div class="exec-panel-head">
+      <div>
+        <span>Operação</span>
+        <h3>Fluxo principal</h3>
+      </div>
+    </div>
+
+    <div class="exec-flow">
+      <a href="/provas">
+        <b>1</b>
+        <div>
+          <strong>Categoria</strong>
+          <small>Definir categoria por etapa</small>
+        </div>
+      </a>
+
+      <a href="/autonomos">
+        <b>2</b>
+        <div>
+          <strong>Autônomos</strong>
+          <small>Cadastrar cargo e foto</small>
+        </div>
+      </a>
+
+      <a href="/alocacoes/nova">
+        <b>3</b>
+        <div>
+          <strong>Alocação</strong>
+          <small>Montar equipe ou substituir</small>
+        </div>
+      </a>
+
+      <a href="/equipes">
+        <b>4</b>
+        <div>
+          <strong>Equipes</strong>
+          <small>Consultar equipe por piloto</small>
+        </div>
+      </a>
+    </div>
+  </article>
+</section>
+
+<section class="exec-grid-3">
+  <a class="exec-shortcut" href="/alocacoes/nova">
+    <span>✨</span>
+    <strong>Nova Alocação</strong>
+    <small>Montar equipe ou registrar substituição</small>
+  </a>
+
+  <a class="exec-shortcut" href="/equipes">
+    <span>👥</span>
+    <strong>Equipes Alocadas</strong>
+    <small>Visualizar equipe por etapa e categoria</small>
+  </a>
+
+  <a class="exec-shortcut" href="/excel/">
+    <span>📥</span>
+    <strong>Importações Excel</strong>
+    <small>Baixar modelo ou importar dados</small>
+  </a>
+</section>
+
+{% endblock %}

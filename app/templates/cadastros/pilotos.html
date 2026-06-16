@@ -1,0 +1,173 @@
+{% extends "base.html" %}
+
+{% block header %}Pilotos{% endblock %}
+{% block subtitle %}Cadastro único do piloto. Ele será vinculado às categorias nas alocações.{% endblock %}
+
+{% block header_action %}
+<button type="button" class="quick-action primary btn-novo-cadastro" onclick="novoCadastro()">+ Novo</button>
+<a class="quick-action light" href="/excel/modelo/pilotos">Modelo Excel</a>
+<a class="quick-action light" href="/excel/">Importar Excel</a>
+{% endblock %}
+
+{% block content %}
+
+<section class="panel mb-6">
+  <form method="get" class="flex gap-3">
+    <input class="input" name="q" placeholder="Pesquisar por nome ou status" value="{{ q }}">
+    <button class="btn-secondary">Pesquisar</button>
+  </form>
+</section>
+
+<section class="panel mb-6">
+  <div class="panel-head">
+    <h3>Novo / editar piloto</h3>
+  </div>
+
+  <form method="post" class="form-grid" enctype="multipart/form-data">
+    <input type="hidden" name="id_piloto" id="id_piloto">
+    <input type="hidden" name="foto_url" id="foto_url">
+
+    <div class="span-3">
+      <label class="label">Foto do piloto</label>
+      <div class="upload-photo-box">
+        <img id="preview_foto_piloto" class="upload-photo-preview" src="" style="display:none;">
+        <div>
+          <input class="input" type="file" name="foto_upload" id="foto_upload" accept="image/*">
+          <p class="text-sm text-zinc-500 mt-2">Formatos aceitos: JPG, PNG ou WEBP.</p>
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <label class="label">Nome</label>
+      <input class="input" name="nome_piloto" id="nome_piloto" required>
+    </div>
+
+    <div>
+      <label class="label">CPF</label>
+      <input class="input" name="cpf" id="cpf">
+    </div>
+
+    <div>
+      <label class="label">Telefone</label>
+      <input class="input" name="telefone" id="telefone">
+    </div>
+
+    <div>
+      <label class="label">Email</label>
+      <input class="input" name="email" id="email">
+    </div>
+
+    <div>
+      <label class="label">Data inclusão</label>
+      <input class="input" type="date" name="data_inclusao" id="data_inclusao">
+    </div>
+
+    <div>
+      <label class="label">Status</label>
+      <select class="input" name="status_piloto" id="status_piloto">
+        {% for s in ['Ativo','Inativo','Desligado','Suspenso'] %}
+          <option>{{ s }}</option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div class="span-3">
+      <label class="label">Observações</label>
+      <textarea class="input" name="observacoes" id="observacoes"></textarea>
+    </div>
+
+    <div class="span-3 ux-actions-row">
+      <button class="btn-primary">Salvar piloto</button>
+    </div>
+  </form>
+</section>
+
+<section class="panel">
+  <table class="table">
+    <thead>
+      <tr>
+        <th>Foto</th>
+        <th>Piloto</th>
+        <th>CPF</th>
+        <th>Telefone</th>
+        <th>Status</th>
+        <th>Ações</th>
+      </tr>
+    </thead>
+
+    <tbody>
+      {% for p in items %}
+      <tr>
+        <td>
+          {% if p.foto_url %}
+            <img src="{{ p.foto_url }}" class="table-avatar">
+          {% else %}
+            <div class="table-avatar avatar-placeholder">{{ p.nome_piloto[:1] }}</div>
+          {% endif %}
+        </td>
+
+        <td class="font-bold">{{ p.nome_piloto }}</td>
+        <td>{{ p.cpf or '-' }}</td>
+        <td>{{ p.telefone or '-' }}</td>
+        <td><span class="badge badge-{{ p.status_piloto|lower }}">{{ p.status_piloto }}</span></td>
+        <td class="actions">
+          <button
+            class="btn-muted"
+            type="button"
+            onclick="editarPiloto(this)"
+            data-fill='{"id_piloto":"{{p.id_piloto}}","nome_piloto":"{{p.nome_piloto}}","cpf":"{{p.cpf or ''}}","telefone":"{{p.telefone or ''}}","email":"{{p.email or ''}}","data_inclusao":"{{p.data_inclusao}}","status_piloto":"{{p.status_piloto}}","observacoes":"{{p.observacoes or ''}}","foto_url":"{{p.foto_url or ''}}"}'
+          >
+            Editar
+          </button>
+
+          <form method="post" action="/pilotos/{{ p.id_piloto }}/desligar" class="actions">
+            <input class="input" type="date" name="data_desligamento" required>
+            <input class="input" name="motivo" placeholder="Motivo" required>
+            <button class="btn-danger">Desligar</button>
+          </form>
+        </td>
+      </tr>
+      {% else %}
+      <tr>
+        <td colspan="6" class="empty">Nenhum piloto.</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+
+<script>
+function editarPiloto(btn) {
+  const data = JSON.parse(btn.dataset.fill || "{}");
+
+  Object.keys(data).forEach(k => {
+    const el = document.getElementById(k);
+    if (el) el.value = data[k] || "";
+  });
+
+  const preview = document.getElementById("preview_foto_piloto");
+
+  if (data.foto_url) {
+    preview.src = data.foto_url;
+    preview.style.display = "block";
+  } else {
+    preview.src = "";
+    preview.style.display = "none";
+  }
+
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+document.getElementById("foto_upload").addEventListener("change", function() {
+  const file = this.files[0];
+  const preview = document.getElementById("preview_foto_piloto");
+
+  if (!file) return;
+
+  preview.src = URL.createObjectURL(file);
+  preview.style.display = "block";
+});
+</script>
+
+{% endblock %}

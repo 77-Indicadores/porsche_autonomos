@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block header %}{{ 'Editar autonomo' if autonomo else 'Novo autonomo' }}{% endblock %}
+{% block content %}
+<form class="panel" method="post">
+  <div class="form-grid">
+    <div><label class="label">Nome</label><input class="input" name="nome" required value="{{ autonomo.nome if autonomo else '' }}"></div>
+    <div><label class="label">Cargo</label><select class="input" name="cargo_id"><option value="">Selecione</option>{% for cargo in cargos %}<option value="{{ cargo.id }}" {% if autonomo and autonomo.cargo_id == cargo.id %}selected{% endif %}>{{ cargo.nome }}</option>{% endfor %}</select></div>
+    <div><label class="label">Telefone</label><input class="input" name="telefone" value="{{ autonomo.telefone if autonomo else '' }}"></div>
+    <div><label class="label">Email</label><input class="input" type="email" name="email" value="{{ autonomo.email if autonomo else '' }}"></div>
+    <div><label class="label">Documento</label><input class="input" name="documento" value="{{ autonomo.documento if autonomo else '' }}"></div>
+    <div><label class="label">Valor padrao</label><input class="input" name="valor_padrao" value="{{ autonomo.valor_padrao if autonomo and autonomo.valor_padrao else '' }}" placeholder="750,00"></div>
+    <label class="flex items-center gap-2 font-semibold text-slate-700"><input type="checkbox" name="ativo" value="1" {% if not autonomo or autonomo.ativo %}checked{% endif %}> Ativo</label>
+    <div class="span-2"><label class="label">Observacao</label><textarea class="input" name="observacao" rows="4">{{ autonomo.observacao if autonomo else '' }}</textarea></div>
+  </div>
+  <div class="mt-5 flex gap-2"><button class="btn-primary">Salvar</button><a class="btn-muted" href="/autonomos">Cancelar</a></div>
+</form>
+{% endblock %}
+

@@ -1,0 +1,198 @@
+{% extends "base.html" %}
+
+{% block header %}Autônomos{% endblock %}
+{% block subtitle %}Cadastre os autônomos e associe o cargo para filtrar na alocação{% endblock %}
+
+{% block header_action %}
+<button type="button" class="quick-action primary btn-novo-cadastro" onclick="novoCadastro()">+ Novo</button>
+<a class="quick-action light" href="/cargos-autonomos">Cargos</a>
+<a class="quick-action light" href="/excel/modelo/autonomos">Modelo Excel</a>
+<a class="quick-action light" href="/excel/">Importar Excel</a>
+{% endblock %}
+
+{% block content %}
+
+<section class="panel mb-6">
+  <form method="get" class="flex gap-3">
+    <input class="input" name="q" placeholder="Pesquisar por nome, cargo, especialidade ou status" value="{{ q }}">
+    <button class="btn-secondary">Pesquisar</button>
+  </form>
+</section>
+
+<section class="panel mb-6">
+  <div class="panel-head">
+    <h3>Novo / editar autônomo</h3>
+  </div>
+
+  <form method="post" class="form-grid" enctype="multipart/form-data">
+    <input type="hidden" name="id_autonomo" id="id_autonomo">
+    <input type="hidden" name="foto_url" id="foto_url">
+
+    <div class="span-3">
+      <label class="label">Foto do autônomo</label>
+      <div class="upload-photo-box">
+        <img id="preview_foto_autonomo" class="upload-photo-preview" src="" style="display:none;">
+        <div>
+          <input class="input" type="file" name="foto_upload" id="foto_upload" accept="image/*">
+          <p class="text-sm text-zinc-500 mt-2">Formatos aceitos: JPG, PNG ou WEBP.</p>
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <label class="label">Nome</label>
+      <input class="input" name="nome_autonomo" id="nome_autonomo" required>
+    </div>
+
+    <div>
+      <label class="label">Cargo</label>
+      <select class="input" name="id_cargo_autonomo" id="id_cargo_autonomo">
+        <option value="">Selecione</option>
+        {% for c in cargos_autonomos %}
+          <option value="{{ c.id_cargo_autonomo }}">{{ c.nome_cargo }}</option>
+        {% endfor %}
+      </select>
+      <input type="hidden" name="tipo_autonomo" id="tipo_autonomo">
+    </div>
+
+    <div>
+      <label class="label">CPF</label>
+      <input class="input" name="cpf" id="cpf">
+    </div>
+
+    <div>
+      <label class="label">Telefone</label>
+      <input class="input" name="telefone" id="telefone">
+    </div>
+
+    <div>
+      <label class="label">Email</label>
+      <input class="input" name="email" id="email">
+    </div>
+
+    <div>
+      <label class="label">Especialidade</label>
+      <input class="input" name="especialidade" id="especialidade" placeholder="Ex.: motor, suspensão, dados">
+    </div>
+
+    <div>
+      <label class="label">Data inclusão</label>
+      <input class="input" type="date" name="data_inclusao" id="data_inclusao">
+    </div>
+
+    <div>
+      <label class="label">Status</label>
+      <select class="input" name="status_autonomo" id="status_autonomo">
+        {% for s in ['Ativo','Inativo','Desligado','Suspenso'] %}
+          <option>{{ s }}</option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div class="span-3">
+      <label class="label">Observações</label>
+      <textarea class="input" name="observacoes" id="observacoes"></textarea>
+    </div>
+
+    <div class="span-3 ux-actions-row">
+      <button class="btn-primary">Salvar autônomo</button>
+      <a class="btn-muted" href="/cargos-autonomos">Cadastrar cargos</a>
+    </div>
+  </form>
+</section>
+
+<section class="panel">
+  <table class="table">
+    <thead>
+      <tr>
+        <th>Foto</th>
+        <th>Autônomo</th>
+        <th>Cargo</th>
+        <th>Especialidade</th>
+        <th>Status</th>
+        <th>Ações</th>
+      </tr>
+    </thead>
+
+    <tbody>
+      {% for a in items %}
+      <tr>
+        <td>
+          {% if a.foto_url %}
+            <img src="{{ a.foto_url }}" class="table-avatar">
+          {% else %}
+            <div class="table-avatar avatar-placeholder">{{ a.nome_autonomo[:1] }}</div>
+          {% endif %}
+        </td>
+
+        <td class="font-bold">{{ a.nome_autonomo }}</td>
+        <td>{{ a.tipo_autonomo or '-' }}</td>
+        <td>{{ a.especialidade or '-' }}</td>
+        <td><span class="badge badge-{{ a.status_autonomo|lower }}">{{ a.status_autonomo }}</span></td>
+        <td class="actions">
+          <button
+            class="btn-muted"
+            type="button"
+            onclick="editarAutonomo(this)"
+            data-fill='{"id_autonomo":"{{a.id_autonomo}}","nome_autonomo":"{{a.nome_autonomo}}","cpf":"{{a.cpf or ''}}","telefone":"{{a.telefone or ''}}","email":"{{a.email or ''}}","id_cargo_autonomo":"{{a.id_cargo_autonomo or ''}}","tipo_autonomo":"{{a.tipo_autonomo or ''}}","especialidade":"{{a.especialidade or ''}}","data_inclusao":"{{a.data_inclusao}}","status_autonomo":"{{a.status_autonomo}}","observacoes":"{{a.observacoes or ''}}","foto_url":"{{a.foto_url or ''}}"}'
+          >
+            Editar
+          </button>
+
+          <form method="post" action="/autonomos/{{ a.id_autonomo }}/desligar" class="actions">
+            <input class="input" type="date" name="data_saida" required>
+            <input class="input" name="motivo" placeholder="Motivo" required>
+            <button class="btn-danger">Desligar</button>
+          </form>
+        </td>
+      </tr>
+      {% else %}
+      <tr>
+        <td colspan="6" class="empty">Nenhum autônomo cadastrado.</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+
+<script>
+function editarAutonomo(btn) {
+  const data = JSON.parse(btn.dataset.fill || "{}");
+
+  Object.keys(data).forEach(k => {
+    const el = document.getElementById(k);
+    if (el) el.value = data[k] || "";
+  });
+
+  const preview = document.getElementById("preview_foto_autonomo");
+
+  if (data.foto_url) {
+    preview.src = data.foto_url;
+    preview.style.display = "block";
+  } else {
+    preview.src = "";
+    preview.style.display = "none";
+  }
+
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+document.getElementById("foto_upload").addEventListener("change", function() {
+  const file = this.files[0];
+  const preview = document.getElementById("preview_foto_autonomo");
+
+  if (!file) return;
+
+  preview.src = URL.createObjectURL(file);
+  preview.style.display = "block";
+});
+
+document.addEventListener("change", function(e) {
+  if (e.target && e.target.id === "id_cargo_autonomo") {
+    const opt = e.target.selectedOptions[0];
+    document.getElementById("tipo_autonomo").value = opt ? opt.textContent.trim() : "";
+  }
+});
+</script>
+
+{% endblock %}

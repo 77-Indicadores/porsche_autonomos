@@ -1,0 +1,37 @@
+
+<div class="excel-import-box">
+    <span class="excel-title">Excel - Etapas</span>
+
+    <a href="/excel/modelo/etapas">
+        Baixar modelo
+    </a>
+
+    <form action="/excel/importar/etapas" method="post" enctype="multipart/form-data" style="display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin:0;">
+        <input type="file" name="arquivo" accept=".xlsx" required>
+        <button type="submit">Importar Excel</button>
+    </form>
+</div>
+
+{% extends "base.html" %}
+{% block header %}Etapas{% endblock %}
+{% block header_action %}<a href="/etapas/novo" class="btn-primary">Nova etapa</a>{% endblock %}
+{% block content %}
+<section class="panel">
+  <div class="overflow-x-auto">
+    <table class="table">
+      <thead><tr><th>Nome</th><th>Local</th><th>Periodo</th><th>Temporada</th><th>Status</th><th>Acoes</th></tr></thead>
+      <tbody>
+        {% for etapa in etapas %}
+        <tr>
+          <td class="font-semibold">{{ etapa.nome }}</td><td>{{ etapa.local or '-' }}</td>
+          <td>{{ etapa.data_inicio|date_br }} a {{ etapa.data_fim|date_br }}</td><td>{{ etapa.temporada or '-' }}</td>
+          <td><span class="badge badge-{{ 'ativo' if etapa.ativo else 'inativo' }}">{{ 'Ativa' if etapa.ativo else 'Inativa' }}</span></td>
+          <td class="actions"><a class="btn-muted" href="/etapas/{{ etapa.id }}/editar">Editar</a><form method="post" action="/etapas/{{ etapa.id }}/toggle"><button class="btn-secondary">{{ 'Inativar' if etapa.ativo else 'Ativar' }}</button></form></td>
+        </tr>
+        {% else %}<tr><td colspan="6" class="empty">Nenhuma etapa cadastrada.</td></tr>{% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endblock %}
+

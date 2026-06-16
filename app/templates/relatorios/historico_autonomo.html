@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block header %}Consulta desativada{% endblock %}
+{% block subtitle %}Esta consulta não faz parte do escopo atual do sistema{% endblock %}
+{% block content %}
+<section class="ux-card">
+  <h3 class="ux-card-title">Tela removida do fluxo operacional</h3>
+  <p class="ux-muted">O sistema não terá histórico separado de piloto ou autônomo. Use a Gestão de Alocação para consultar os vínculos por etapa e categoria.</p>
+  <div class="ux-actions-row mt-5">
+    <a class="btn-primary" href="/alocacoes">Ir para Gestão de Alocação</a>
+  </div>
+</section>
+{% endblock %}

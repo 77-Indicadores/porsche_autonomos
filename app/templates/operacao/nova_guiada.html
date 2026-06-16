@@ -1,0 +1,212 @@
+{% extends "base.html" %}
+
+{% block header %}Nova Alocação Guiada{% endblock %}
+{% block subtitle %}Monte equipe ou registre substituição de autônomo{% endblock %}
+
+{% block content %}
+
+<div class="ux-help mb-6">
+  Escolha se esta alocação é para montar a equipe inicial ou para substituir alguém já alocado.
+</div>
+
+<form method="post" class="panel form-grid">
+
+  <div>
+    <label class="label">Tipo de alocação</label>
+    <select class="input" name="tipo_alocacao" id="tipo_alocacao" required>
+      <option>Formar equipe</option>
+      <option>Substituição</option>
+    </select>
+  </div>
+
+  <div>
+    <label class="label">Etapa</label>
+    <select class="input" name="id_etapa" id="id_etapa" required>
+      <option value="">Selecione</option>
+      {% for e in etapas %}
+        <option value="{{ e.id_etapa }}">{{ e.temporada }} - {{ e.nome_etapa }}</option>
+      {% endfor %}
+    </select>
+  </div>
+
+  <div>
+    <label class="label">Categoria</label>
+    <select class="input" name="id_prova" id="id_prova" required>
+      <option value="">Selecione</option>
+      {% for p in provas %}
+        <option value="{{ p.id_prova }}" data-etapa="{{ p.id_etapa }}">{{ p.nome_prova }}</option>
+      {% endfor %}
+    </select>
+  </div>
+
+  <div>
+    <label class="label">Piloto</label>
+    <select class="input" name="id_piloto" id="id_piloto" required>
+      <option value="">Selecione</option>
+      {% for p in pilotos %}
+        <option value="{{ p.id_piloto }}">{{ p.nome_piloto }}</option>
+      {% endfor %}
+    </select>
+  </div>
+
+  <div>
+    <label class="label">Carro</label>
+    <select class="input" name="id_carro" id="id_carro" required>
+      <option value="">Selecione</option>
+      {% for c in carros %}
+        <option value="{{ c.id_carro }}">
+          {{ c.numero_carro }}{% if c.modelo %} - {{ c.modelo }}{% endif %}{% if c.categoria_padrao %} - {{ c.categoria_padrao }}{% endif %}
+        </option>
+      {% endfor %}
+    </select>
+  </div>
+
+
+  <div>
+    <label class="label">Cargo</label>
+    <select class="input" name="id_cargo_autonomo" id="id_cargo_autonomo" required>
+      <option value="">Selecione</option>
+      {% for c in cargos_autonomos %}
+        <option value="{{ c.id_cargo_autonomo }}">{{ c.nome_cargo }}</option>
+      {% endfor %}
+    </select>
+  </div>
+
+  <div>
+    <label class="label">Autônomo</label>
+    <select class="input" name="id_autonomo" id="id_autonomo" required disabled>
+      <option value="">Selecione primeiro o cargo</option>
+      {% for a in autonomos %}
+        <option value="{{ a.id_autonomo }}" data-cargo="{{ a.id_cargo_autonomo or '' }}" data-nome="{{ a.nome_autonomo }}">
+          {{ a.nome_autonomo }}
+        </option>
+      {% endfor %}
+    </select>
+  </div>
+
+  <div class="span-3" id="box_substituicao" style="display:none;">
+    <div class="ux-form-section">
+      <h3>Dados da substituição</h3>
+
+      <div class="form-grid">
+        <div>
+          <label class="label">Quem será substituído</label>
+          <select class="input" name="id_fato_substituido" id="id_fato_substituido">
+            <option value="">Selecione</option>
+            {% for f in ativos %}
+              <option
+                value="{{ f.id_fato }}"
+                data-piloto="{{ f.id_piloto }}"
+                data-prova="{{ f.id_prova }}"
+                data-funcao="{{ f.funcao_autonomo }}"
+              >
+                {{ f.piloto.nome_piloto }} - {{ f.prova.nome_prova }} - {{ f.funcao_autonomo }} - {{ f.autonomo.nome_autonomo }}
+              </option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div>
+          <label class="label">Motivo da troca</label>
+          <select class="input" name="id_motivo_troca" id="id_motivo_troca">
+            <option value="">Selecione</option>
+            {% for m in motivos %}
+              <option value="{{ m.id_motivo_troca }}">{{ m.motivo_troca }}</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div class="span-3">
+          <label class="label">Justificativa</label>
+          <textarea class="input" name="justificativa_troca" placeholder="Explique o motivo da substituição"></textarea>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div>
+    <label class="label">Valor do pacote</label>
+    <input class="input" name="valor_fechado_etapa" placeholder="3300,00">
+  </div>
+
+  <div>
+    <label class="label">Dias trabalhados</label>
+    <input class="input" type="number" min="1" name="dias_trabalhados" placeholder="Ex.: 3">
+  </div>
+
+  <div class="span-3">
+    <label class="label">Observações</label>
+    <textarea class="input" name="observacoes"></textarea>
+  </div>
+
+  <div class="span-3 ux-actions-row">
+    <a class="btn-muted" href="/alocacoes">Cancelar</a>
+    <button class="btn-primary">Salvar Alocação</button>
+  </div>
+
+</form>
+
+<script>
+(function() {
+  const tipo = document.getElementById("tipo_alocacao");
+  const boxSub = document.getElementById("box_substituicao");
+  const cargo = document.getElementById("id_cargo_autonomo");
+  const autonomo = document.getElementById("id_autonomo");
+  const etapa = document.getElementById("id_etapa");
+  const categoria = document.getElementById("id_prova");
+
+  function toggleSubstituicao() {
+    boxSub.style.display = tipo.value === "Substituição" ? "block" : "none";
+  }
+
+  function ordenarAutonomos() {
+    const options = Array.from(autonomo.options).filter(o => o.value);
+    options.sort((a,b) => (a.dataset.nome || a.textContent).localeCompare((b.dataset.nome || b.textContent), "pt-BR"));
+    options.forEach(o => autonomo.appendChild(o));
+  }
+
+  function filtrarAutonomos() {
+    const cargoId = cargo.value;
+    autonomo.value = "";
+
+    if (!cargoId) {
+      autonomo.disabled = true;
+      autonomo.options[0].textContent = "Selecione primeiro o cargo";
+      Array.from(autonomo.options).forEach(o => { if (o.value) o.hidden = true; });
+      return;
+    }
+
+    autonomo.disabled = false;
+    autonomo.options[0].textContent = "Selecione o autônomo";
+
+    Array.from(autonomo.options).forEach(o => {
+      if (!o.value) return;
+      o.hidden = o.dataset.cargo !== cargoId;
+    });
+  }
+
+  function filtrarCategorias() {
+    const etapaId = etapa.value;
+
+    Array.from(categoria.options).forEach(o => {
+      if (!o.value) return;
+      o.hidden = etapaId && o.dataset.etapa !== etapaId;
+    });
+
+    if (categoria.selectedOptions.length && categoria.selectedOptions[0].hidden) {
+      categoria.value = "";
+    }
+  }
+
+  tipo.addEventListener("change", toggleSubstituicao);
+  cargo.addEventListener("change", filtrarAutonomos);
+  etapa.addEventListener("change", filtrarCategorias);
+
+  ordenarAutonomos();
+  filtrarAutonomos();
+  filtrarCategorias();
+  toggleSubstituicao();
+})();
+</script>
+
+{% endblock %}

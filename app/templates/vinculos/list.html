@@ -1,0 +1,53 @@
+
+<div class="excel-import-box">
+    <span class="excel-title">Excel - Alocações / Fato Principal</span>
+
+    <a href="/excel/modelo/alocacoes">
+        Baixar modelo
+    </a>
+
+    <form action="/excel/importar/alocacoes" method="post" enctype="multipart/form-data" style="display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin:0;">
+        <input type="file" name="arquivo" accept=".xlsx" required>
+        <button type="submit">Importar Excel</button>
+    </form>
+</div>
+
+{% extends "base.html" %}
+{% block header %}Equipe por Piloto{% endblock %}
+{% block header_action %}<a href="/vinculos/novo" class="btn-primary">Novo vinculo</a>{% endblock %}
+{% block content %}
+<section class="panel mb-6">
+  <form method="get" class="grid gap-3 md:grid-cols-5">
+    <select class="input" name="etapa_id"><option value="">Todas as etapas</option>{% for etapa in etapas %}<option value="{{ etapa.id }}" {% if filtros.etapa_id|string == etapa.id|string %}selected{% endif %}>{{ etapa.nome }}</option>{% endfor %}</select>
+    <select class="input" name="piloto_id"><option value="">Todos os pilotos</option>{% for piloto in pilotos %}<option value="{{ piloto.id }}" {% if filtros.piloto_id|string == piloto.id|string %}selected{% endif %}>{{ piloto.nome }}</option>{% endfor %}</select>
+    <input class="input" name="autonomo" placeholder="Autonomo" value="{{ filtros.autonomo }}">
+    <select class="input" name="status"><option value="">Todos status</option>{% for st in ['ATIVO','ENCERRADO','SUBSTITUIDO'] %}<option value="{{ st }}" {% if filtros.status == st %}selected{% endif %}>{{ st }}</option>{% endfor %}</select>
+    <button class="btn-secondary">Filtrar</button>
+  </form>
+</section>
+<section class="panel">
+  <div class="overflow-x-auto">
+    <table class="table">
+      <thead><tr><th>Etapa</th><th>Piloto</th><th>Autonomo</th><th>Cargo</th><th>Status</th><th>Inicio</th><th>Fim</th><th>Valor</th><th>Acoes</th></tr></thead>
+      <tbody>
+      {% for vinculo in vinculos %}
+        <tr>
+          <td>{{ vinculo.etapa.nome }}</td><td>{{ vinculo.piloto.nome }}</td><td class="font-semibold">{{ vinculo.autonomo.nome }}</td><td>{{ vinculo.cargo.nome if vinculo.cargo else '-' }}</td>
+          <td><span class="badge badge-{{ vinculo.status|lower }}">{{ vinculo.status }}</span></td><td>{{ vinculo.data_inicio|date_br }}</td><td>{{ vinculo.data_fim|date_br }}</td><td>{{ vinculo.valor_acordado|money_br }}</td>
+          <td>
+            <div class="actions mb-2"><a class="btn-muted" href="/vinculos/{{ vinculo.id }}/editar">Editar</a><a class="btn-muted" href="/autonomos/{{ vinculo.autonomo_id }}/historico">Historico</a><a class="btn-secondary" href="/movimentacoes/substituicao?etapa_id={{ vinculo.etapa_id }}&piloto_id={{ vinculo.piloto_id }}&autonomo_anterior_id={{ vinculo.autonomo_id }}">Substituir</a></div>
+            {% if vinculo.status == 'ATIVO' %}
+            <form class="mini-form" method="post" action="/vinculos/{{ vinculo.id }}/encerrar">
+              <input class="input" type="date" name="data_fim" required><input class="input" name="motivo" placeholder="Motivo" required><input class="input" name="observacao" placeholder="Observacao">
+              <button class="btn-danger" data-confirm="Encerrar este vinculo?">Encerrar</button>
+            </form>
+            {% endif %}
+          </td>
+        </tr>
+      {% else %}<tr><td colspan="9" class="empty">Nenhum vinculo encontrado.</td></tr>{% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endblock %}
+

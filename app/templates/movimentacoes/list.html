@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block header %}Historico de movimentacoes{% endblock %}
+{% block content %}
+<section class="panel mb-6">
+  <form method="get" class="grid gap-3 md:grid-cols-3 xl:grid-cols-6">
+    <input class="input" type="date" name="data_inicial" value="{{ filtros.data_inicial }}">
+    <input class="input" type="date" name="data_final" value="{{ filtros.data_final }}">
+    <select class="input" name="tipo"><option value="">Todos os tipos</option>{% for tp in ['ENTRADA','SAIDA','SUBSTITUICAO','ALTERACAO'] %}<option value="{{ tp }}" {% if filtros.tipo == tp %}selected{% endif %}>{{ tp }}</option>{% endfor %}</select>
+    <select class="input" name="etapa_id"><option value="">Todas etapas</option>{% for etapa in etapas %}<option value="{{ etapa.id }}" {% if filtros.etapa_id|string == etapa.id|string %}selected{% endif %}>{{ etapa.nome }}</option>{% endfor %}</select>
+    <select class="input" name="piloto_id"><option value="">Todos pilotos</option>{% for piloto in pilotos %}<option value="{{ piloto.id }}" {% if filtros.piloto_id|string == piloto.id|string %}selected{% endif %}>{{ piloto.nome }}</option>{% endfor %}</select>
+    <input class="input" name="autonomo" placeholder="Autonomo" value="{{ filtros.autonomo }}">
+    <button class="btn-secondary">Filtrar</button>
+  </form>
+</section>
+<section class="panel">
+  <div class="overflow-x-auto">
+    <table class="table">
+      <thead><tr><th>Data</th><th>Tipo</th><th>Etapa</th><th>Piloto</th><th>Autonomo anterior</th><th>Autonomo novo</th><th>Motivo</th><th>Observacao</th></tr></thead>
+      <tbody>
+      {% for mov in movimentacoes %}
+        <tr>
+          <td>{{ mov.data_movimentacao|date_br }}</td><td><span class="badge badge-{{ mov.tipo|lower }}">{{ mov.tipo }}</span></td><td>{{ mov.etapa.nome if mov.etapa else '-' }}</td><td>{{ mov.piloto.nome if mov.piloto else '-' }}</td>
+          <td>{{ mov.autonomo_anterior.nome if mov.autonomo_anterior else '-' }}</td><td>{{ mov.autonomo_novo.nome if mov.autonomo_novo else '-' }}</td><td>{{ mov.motivo or '-' }}</td><td>{{ mov.observacao or '-' }}</td>
+        </tr>
+      {% else %}<tr><td colspan="8" class="empty">Nenhuma movimentacao encontrada.</td></tr>{% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endblock %}

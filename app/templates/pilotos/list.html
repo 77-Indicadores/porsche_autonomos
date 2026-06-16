@@ -1,0 +1,40 @@
+
+<div class="excel-import-box">
+    <span class="excel-title">Excel - Pilotos</span>
+
+    <a href="/excel/modelo/pilotos">
+        Baixar modelo
+    </a>
+
+    <form action="/excel/importar/pilotos" method="post" enctype="multipart/form-data" style="display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin:0;">
+        <input type="file" name="arquivo" accept=".xlsx" required>
+        <button type="submit">Importar Excel</button>
+    </form>
+</div>
+
+{% extends "base.html" %}
+{% block header %}Pilotos{% endblock %}
+{% block header_action %}<a href="/pilotos/novo" class="btn-primary">Novo piloto</a>{% endblock %}
+{% block content %}
+<section class="panel">
+  <div class="overflow-x-auto">
+    <table class="table">
+      <thead><tr><th>Nome</th><th>Categoria</th><th>Status</th><th>Acoes</th></tr></thead>
+      <tbody>
+        {% for piloto in pilotos %}
+        <tr>
+          <td class="font-semibold">{{ piloto.nome }}</td>
+          <td>{{ piloto.categoria or '-' }}</td>
+          <td><span class="badge badge-{{ 'ativo' if piloto.ativo else 'inativo' }}">{{ 'Ativo' if piloto.ativo else 'Inativo' }}</span></td>
+          <td class="actions">
+            <a class="btn-muted" href="/pilotos/{{ piloto.id }}/editar">Editar</a>
+            <form method="post" action="/pilotos/{{ piloto.id }}/toggle"><button class="btn-secondary">{{ 'Inativar' if piloto.ativo else 'Ativar' }}</button></form>
+          </td>
+        </tr>
+        {% else %}<tr><td colspan="4" class="empty">Nenhum piloto cadastrado.</td></tr>{% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endblock %}
+

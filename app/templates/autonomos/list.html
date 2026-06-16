@@ -1,0 +1,54 @@
+
+<div class="excel-import-box">
+    <span class="excel-title">Excel - Autônomos</span>
+
+    <a href="/excel/modelo/autonomos">
+        Baixar modelo
+    </a>
+
+    <form action="/excel/importar/autonomos" method="post" enctype="multipart/form-data" style="display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin:0;">
+        <input type="file" name="arquivo" accept=".xlsx" required>
+        <button type="submit">Importar Excel</button>
+    </form>
+</div>
+
+{% extends "base.html" %}
+{% block header %}Autonomos{% endblock %}
+{% block header_action %}<a href="/autonomos/novo" class="btn-primary">Novo autonomo</a>{% endblock %}
+{% block content %}
+<section class="panel mb-6">
+  <form method="get" class="grid gap-3 md:grid-cols-4">
+    <input class="input" name="nome" placeholder="Nome" value="{{ filtros.nome }}">
+    <select class="input" name="cargo_id"><option value="">Todos os cargos</option>{% for cargo in cargos %}<option value="{{ cargo.id }}" {% if filtros.cargo_id|string == cargo.id|string %}selected{% endif %}>{{ cargo.nome }}</option>{% endfor %}</select>
+    <select class="input" name="status"><option value="">Todos os status</option><option value="ativo" {% if filtros.status == 'ativo' %}selected{% endif %}>Ativo</option><option value="inativo" {% if filtros.status == 'inativo' %}selected{% endif %}>Inativo</option></select>
+    <button class="btn-secondary">Filtrar</button>
+  </form>
+</section>
+<section class="panel">
+  <div class="overflow-x-auto">
+    <table class="table">
+      <thead><tr><th>Nome</th><th>Cargo</th><th>Telefone</th><th>Valor padrao</th><th>Status</th><th>Acoes</th></tr></thead>
+      <tbody>
+        {% for autonomo in autonomos %}
+        <tr>
+          <td class="font-semibold">{{ autonomo.nome }}</td><td>{{ autonomo.cargo.nome if autonomo.cargo else '-' }}</td><td>{{ autonomo.telefone or '-' }}</td><td>{{ autonomo.valor_padrao|money_br }}</td>
+          <td><span class="badge badge-{{ 'ativo' if autonomo.ativo else 'inativo' }}">{{ 'Ativo' if autonomo.ativo else 'Inativo' }}</span></td>
+          <td>
+            <div class="actions mb-2"><a class="btn-muted" href="/autonomos/{{ autonomo.id }}/editar">Editar</a><a class="btn-muted" href="/autonomos/{{ autonomo.id }}/historico">Historico</a></div>
+            {% if autonomo.ativo %}
+            <form class="mini-form" method="post" action="/autonomos/{{ autonomo.id }}/inativar">
+              <input class="input" type="date" name="data_saida" required>
+              <input class="input" name="motivo_saida" placeholder="Motivo" required>
+              <input class="input" name="observacao" placeholder="Observacao">
+              <button class="btn-danger" data-confirm="Inativar autonomo e encerrar vinculos ativos?">Inativar</button>
+            </form>
+            {% endif %}
+          </td>
+        </tr>
+        {% else %}<tr><td colspan="6" class="empty">Nenhum autonomo encontrado.</td></tr>{% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endblock %}
+
