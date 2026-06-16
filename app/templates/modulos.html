@@ -337,7 +337,7 @@
 
       <div class="modulos-mini-kpis">
         <div>
-          <b>3</b>
+          <b>{% if request.state.current_user and request.state.current_user.perfil == 'admin' %}4{% else %}3{% endif %}</b>
           <span>Módulos ativos</span>
         </div>
         <div>
@@ -405,6 +405,26 @@
           <span>Planilha</span><span>Campos</span><span>Registros</span><span>Importação CSV</span>
         </div>
       </a>
+
+      {% if request.state.current_user and request.state.current_user.perfil == 'admin' %}
+      <a class="modulo-card-full" href="/usuarios" style="background: linear-gradient(135deg, rgba(15,23,42,.96) 0%, rgba(30,41,59,.92) 100%); color: #fff; border-color: rgba(255,255,255,.12);">
+        <div class="modulo-card-top">
+          <div class="modulo-icon-full" style="background: rgba(255,255,255,.1); box-shadow: inset 0 0 0 1px rgba(255,255,255,.15);">⚙️</div>
+          <h2 style="color:#fff;">Administração</h2>
+          <p style="color:#94a3b8;">
+            Gestão de usuários e controle de acesso por módulo. Crie, edite e bloqueie
+            usuários definindo quais módulos cada operador pode acessar.
+          </p>
+          <div class="modulo-enter" style="background: rgba(255,255,255,.15); border: 1px solid rgba(255,255,255,.25);">Gerenciar usuários</div>
+        </div>
+        <div class="modulo-tags-full">
+          <span style="background:rgba(255,255,255,.1);border-color:rgba(255,255,255,.2);color:#e2e8f0;">Usuários</span>
+          <span style="background:rgba(255,255,255,.1);border-color:rgba(255,255,255,.2);color:#e2e8f0;">Permissões</span>
+          <span style="background:rgba(255,255,255,.1);border-color:rgba(255,255,255,.2);color:#e2e8f0;">Módulos</span>
+          <span style="background:rgba(255,255,255,.1);border-color:rgba(255,255,255,.2);color:#e2e8f0;">Perfis</span>
+        </div>
+      </a>
+      {% endif %}
 
     </div>
   </div>

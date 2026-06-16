@@ -74,7 +74,6 @@
       {% if request.url.path != '/' %}
       <div class="nav-section">
         <div class="nav-section-title">Configurações</div>
-        <a class="nav-link {% if request.url.path.startswith('/usuarios') %}active{% endif %}" href="/usuarios">Usuários</a>
 
         {% if request.url.path.startswith('/dho') %}
           <a class="nav-link {% if request.url.path.startswith('/dho/importacoes') %}active{% endif %}" href="/dho/importacoes">📥 Importações</a>
