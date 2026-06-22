@@ -207,7 +207,13 @@
       <tbody>
         {% for item in items %}
         <tr>
-          <td><span class="id-pill">{{ item.id_composicao }}</span></td>
+          <td>
+            {% if item.id_composicao %}
+              <span class="id-pill">{{ item.id_composicao }}</span>
+            {% else %}
+              <span class="id-pill">Auto</span>
+            {% endif %}
+          </td>
           <td>{{ item.nome_etapa }}</td>
           <td>{{ item.nome_prova }}</td>
           <td>{{ item.nome_carro }}</td>
@@ -223,28 +229,38 @@
           <td class="font-bold">
             R$ {{ "{:,.2f}".format(item.custo_total_esperado|default(0, true)).replace(",", "X").replace(".", ",").replace("X", ".") }}
           </td>
-          <td><span class="badge">{{ item.status }}</span></td>
+          <td>
+            {% if item.origem == "alocacoes" %}
+              <span class="badge">Gerado do alocado</span>
+            {% else %}
+              <span class="badge">{{ item.status }}</span>
+            {% endif %}
+          </td>
           <td class="actions">
-            <button
-              class="btn-muted"
-              type="button"
-              onclick="editarComposicao(this)"
-              data-id_composicao="{{ item.id_composicao }}"
-              data-id_etapa="{{ item.id_etapa or '' }}"
-              data-id_prova="{{ item.id_prova or '' }}"
-              data-id_carro="{{ item.id_carro or '' }}"
-              data-id_cargo_autonomo="{{ item.id_cargo_autonomo }}"
-              data-qtd_esperada="{{ item.qtd_esperada }}"
-              data-custo_medio_esperado="{{ item.custo_medio_esperado or '' }}"
-              data-status="{{ item.status }}"
-              data-observacoes="{{ item.observacoes or '' }}"
-            >
-              Editar
-            </button>
+            {% if item.id_composicao %}
+              <button
+                class="btn-muted"
+                type="button"
+                onclick="editarComposicao(this)"
+                data-id_composicao="{{ item.id_composicao }}"
+                data-id_etapa="{{ item.id_etapa or '' }}"
+                data-id_prova="{{ item.id_prova or '' }}"
+                data-id_carro="{{ item.id_carro or '' }}"
+                data-id_cargo_autonomo="{{ item.id_cargo_autonomo }}"
+                data-qtd_esperada="{{ item.qtd_esperada }}"
+                data-custo_medio_esperado="{{ item.custo_medio_esperado or '' }}"
+                data-status="{{ item.status }}"
+                data-observacoes="{{ item.observacoes or '' }}"
+              >
+                Editar
+              </button>
 
-            <form method="post" action="/composicao-padrao/{{ item.id_composicao }}/excluir" onsubmit="return confirm('Excluir esta regra?');">
-              <button class="btn-danger">Excluir</button>
-            </form>
+              <form method="post" action="/composicao-padrao/{{ item.id_composicao }}/excluir" onsubmit="return confirm('Excluir esta regra?');">
+                <button class="btn-danger">Excluir</button>
+              </form>
+            {% else %}
+              <span class="ux-muted">Lançado em Equipes Alocadas</span>
+            {% endif %}
           </td>
         </tr>
         {% else %}
