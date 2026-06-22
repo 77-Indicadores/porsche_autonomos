@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 
-{% block header %}Composição Meta Equipe{% endblock %}
-{% block subtitle %}Controle da meta de equipe por etapa, categoria, quantidade de pessoas e valor.{% endblock %}
+{% block header %}Composição Padrão{% endblock %}
+{% block subtitle %}Defina a quantidade esperada de autônomos por carro, categoria, etapa e cargo.{% endblock %}
 
 {% block header_action %}
 <button type="button" class="quick-action primary" onclick="novoCadastro()">+ Nova regra</button>
@@ -11,7 +11,7 @@
 
 <section class="panel mb-6">
   <div class="panel-head">
-    <h3>Nova / editar composição meta equipe</h3>
+    <h3>Nova / editar composição padrão</h3>
   </div>
 
   <form method="post" action="/composicao-padrao" class="form-grid" id="form_composicao">
@@ -19,18 +19,19 @@
 
     <div>
       <label class="label">Etapa</label>
-      <select class="input" name="id_etapa" id="id_etapa" required>
-        <option value="">Selecione</option>
+      <select class="input" name="id_etapa" id="id_etapa">
+        <option value="">Todas as etapas</option>
         {% for e in etapas %}
           <option value="{{ e.id_etapa }}">{{ e.temporada }} - {{ e.nome_etapa }}</option>
         {% endfor %}
       </select>
+      <p class="text-sm text-zinc-500 mt-1">Deixe vazio para regra geral.</p>
     </div>
 
     <div>
       <label class="label">Categoria</label>
-      <select class="input" name="id_prova" id="id_prova" required disabled>
-        <option value="">Selecione uma etapa primeiro</option>
+      <select class="input" name="id_prova" id="id_prova">
+        <option value="">Todas as categorias</option>
         {% for p in provas %}
           <option value="{{ p.id_prova }}" data-etapa="{{ p.id_etapa }}">{{ p.nome_prova }}</option>
         {% endfor %}
@@ -38,21 +39,54 @@
     </div>
 
     <div>
-      <label class="label">Quantidade de pessoas</label>
-      <select class="input" name="qtd_esperada" id="qtd_esperada" required>
-        {% for q in qtd_options %}
-          <option value="{{ q }}">{{ q|string|replace(".", ",") }}</option>
+      <label class="label">Carro</label>
+      <select class="input" name="id_carro" id="id_carro">
+        <option value="">Todos os carros</option>
+        {% for c in carros %}
+          <option value="{{ c.id_carro }}">
+            {{ c.numero_carro }}{% if c.modelo %} - {{ c.modelo }}{% endif %}{% if c.categoria_padrao %} - {{ c.categoria_padrao }}{% endif %}
+          </option>
+        {% endfor %}
+      </select>
+      <p class="text-sm text-zinc-500 mt-1">Deixe vazio para regra por categoria.</p>
+    </div>
+
+    <div>
+      <label class="label">Cargo do autônomo</label>
+      <select class="input" name="id_cargo_autonomo" id="id_cargo_autonomo" required>
+        <option value="">Selecione</option>
+        {% for c in cargos %}
+          <option value="{{ c.id_cargo_autonomo }}">{{ c.nome_cargo }}</option>
         {% endfor %}
       </select>
     </div>
 
     <div>
-      <label class="label">Valor</label>
-      <input class="input" name="custo_medio_esperado" id="custo_medio_esperado" placeholder="12000,00">
+      <label class="label">Quantidade esperada</label>
+      <input class="input" type="number" min="1" name="qtd_esperada" id="qtd_esperada" value="1" required>
+    </div>
+
+    <div>
+      <label class="label">Custo médio esperado</label>
+      <input class="input" name="custo_medio_esperado" id="custo_medio_esperado" placeholder="3500,00">
+    </div>
+
+    <div>
+      <label class="label">Status</label>
+      <select class="input" name="status" id="status">
+        {% for s in ['Ativo','Inativo'] %}
+          <option value="{{ s }}">{{ s }}</option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div class="span-3">
+      <label class="label">Observações</label>
+      <textarea class="input" name="observacoes" id="observacoes" placeholder="Ex.: padrão utilizado para etapa cheia, regra por carro, regra por categoria..."></textarea>
     </div>
 
     <div class="span-3 ux-actions-row">
-      <button class="btn-primary" id="btn_salvar_composicao">Salvar composição meta equipe</button>
+      <button class="btn-primary" id="btn_salvar_composicao">Salvar composição</button>
       <button type="button" class="btn-secondary" onclick="novoCadastro()">Limpar</button>
     </div>
   </form>
@@ -66,7 +100,7 @@
   <form method="get" class="form-grid">
     <div>
       <label class="label">Etapa</label>
-      <select class="input" name="id_etapa" id="filtro_id_etapa">
+      <select class="input" name="id_etapa">
         <option value="">Todas</option>
         {% for e in etapas %}
           <option value="{{ e.id_etapa }}" {% if filtros.id_etapa|string == e.id_etapa|string %}selected{% endif %}>
@@ -78,12 +112,46 @@
 
     <div>
       <label class="label">Categoria</label>
-      <select class="input" name="id_prova" id="filtro_id_prova" {% if not filtros.id_etapa %}disabled{% endif %}>
-        <option value="">{% if filtros.id_etapa %}Todas{% else %}Selecione uma etapa primeiro{% endif %}</option>
+      <select class="input" name="id_prova">
+        <option value="">Todas</option>
         {% for p in provas %}
-          <option value="{{ p.id_prova }}" data-etapa="{{ p.id_etapa }}" {% if filtros.id_prova|string == p.id_prova|string %}selected{% endif %}>
+          <option value="{{ p.id_prova }}" {% if filtros.id_prova|string == p.id_prova|string %}selected{% endif %}>
             {{ p.nome_prova }}
           </option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div>
+      <label class="label">Carro</label>
+      <select class="input" name="id_carro">
+        <option value="">Todos</option>
+        {% for c in carros %}
+          <option value="{{ c.id_carro }}" {% if filtros.id_carro|string == c.id_carro|string %}selected{% endif %}>
+            {{ c.numero_carro }}{% if c.modelo %} - {{ c.modelo }}{% endif %}
+          </option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div>
+      <label class="label">Cargo</label>
+      <select class="input" name="id_cargo_autonomo">
+        <option value="">Todos</option>
+        {% for c in cargos %}
+          <option value="{{ c.id_cargo_autonomo }}" {% if filtros.id_cargo_autonomo|string == c.id_cargo_autonomo|string %}selected{% endif %}>
+            {{ c.nome_cargo }}
+          </option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div>
+      <label class="label">Status</label>
+      <select class="input" name="status">
+        <option value="">Todos</option>
+        {% for s in ['Ativo','Inativo'] %}
+          <option value="{{ s }}" {% if filtros.status == s %}selected{% endif %}>{{ s }}</option>
         {% endfor %}
       </select>
     </div>
@@ -103,13 +171,13 @@
     </div>
 
     <div class="kpi-card">
-      <span>Quantidade de pessoas</span>
+      <span>Autônomos esperados</span>
       <strong>{{ total_qtd }}</strong>
     </div>
 
     <div class="kpi-card">
-      <span>Valor</span>
-      <strong>{{ total_valor }}</strong>
+      <span>Custo esperado</span>
+      <strong>R$ {{ "{:,.2f}".format(total_custo|default(0, true)).replace(",", "X").replace(".", ",").replace("X", ".") }}</strong>
     </div>
   </div>
 </section>
@@ -126,8 +194,12 @@
           <th>ID</th>
           <th>Etapa</th>
           <th>Categoria</th>
-          <th>Quantidade de pessoas</th>
-          <th>Valor</th>
+          <th>Carro</th>
+          <th>Cargo</th>
+          <th>Qtd esperada</th>
+          <th>Custo médio</th>
+          <th>Custo total</th>
+          <th>Status</th>
           <th>Ações</th>
         </tr>
       </thead>
@@ -138,8 +210,20 @@
           <td><span class="id-pill">{{ item.id_composicao }}</span></td>
           <td>{{ item.nome_etapa }}</td>
           <td>{{ item.nome_prova }}</td>
-          <td class="font-bold">{{ item.qtd_formatada }}</td>
-          <td class="font-bold">{{ item.valor_formatado }}</td>
+          <td>{{ item.nome_carro }}</td>
+          <td class="font-bold">{{ item.nome_cargo }}</td>
+          <td>{{ item.qtd_esperada }}</td>
+          <td>
+            {% if item.custo_medio_esperado|default(none) is not none %}
+              R$ {{ "{:,.2f}".format(item.custo_medio_esperado|default(0, true)).replace(",", "X").replace(".", ",").replace("X", ".") }}
+            {% else %}
+              -
+            {% endif %}
+          </td>
+          <td class="font-bold">
+            R$ {{ "{:,.2f}".format(item.custo_total_esperado|default(0, true)).replace(",", "X").replace(".", ",").replace("X", ".") }}
+          </td>
+          <td><span class="badge">{{ item.status }}</span></td>
           <td class="actions">
             <button
               class="btn-muted"
@@ -148,8 +232,12 @@
               data-id_composicao="{{ item.id_composicao }}"
               data-id_etapa="{{ item.id_etapa or '' }}"
               data-id_prova="{{ item.id_prova or '' }}"
+              data-id_carro="{{ item.id_carro or '' }}"
+              data-id_cargo_autonomo="{{ item.id_cargo_autonomo }}"
               data-qtd_esperada="{{ item.qtd_esperada }}"
               data-custo_medio_esperado="{{ item.custo_medio_esperado or '' }}"
+              data-status="{{ item.status }}"
+              data-observacoes="{{ item.observacoes or '' }}"
             >
               Editar
             </button>
@@ -161,7 +249,7 @@
         </tr>
         {% else %}
         <tr>
-          <td colspan="6" class="empty">Nenhuma composição meta equipe cadastrada.</td>
+          <td colspan="10" class="empty">Nenhuma composição padrão cadastrada.</td>
         </tr>
         {% endfor %}
       </tbody>
@@ -180,15 +268,16 @@ function editarComposicao(btn) {
 
   setValue("id_composicao", d.id_composicao);
   setValue("id_etapa", d.id_etapa);
-  if (window.filtrarCategoriasComposicao) {
-    window.filtrarCategoriasComposicao();
-  }
   setValue("id_prova", d.id_prova);
+  setValue("id_carro", d.id_carro);
+  setValue("id_cargo_autonomo", d.id_cargo_autonomo);
   setValue("qtd_esperada", d.qtd_esperada);
   setValue("custo_medio_esperado", d.custo_medio_esperado);
+  setValue("status", d.status);
+  setValue("observacoes", d.observacoes);
 
   const titulo = document.querySelector(".panel-head h3");
-  if (titulo) titulo.innerText = "Editar composição meta equipe #" + d.id_composicao;
+  if (titulo) titulo.innerText = "Editar composição padrão #" + d.id_composicao;
 
   const botao = document.getElementById("btn_salvar_composicao");
   if (botao) botao.innerText = "Salvar alterações";
@@ -201,60 +290,37 @@ function novoCadastro() {
   if (form) form.reset();
 
   setValue("id_composicao", "");
-  if (window.filtrarCategoriasComposicao) {
-    window.filtrarCategoriasComposicao();
-  }
 
   const titulo = document.querySelector(".panel-head h3");
-  if (titulo) titulo.innerText = "Nova / editar composição meta equipe";
+  if (titulo) titulo.innerText = "Nova / editar composição padrão";
 
   const botao = document.getElementById("btn_salvar_composicao");
-  if (botao) botao.innerText = "Salvar composição meta equipe";
+  if (botao) botao.innerText = "Salvar composição";
 
   window.scrollTo({ top: 0, behavior: "smooth" });
 }
 
 (function() {
-  function prepararFiltro(etapa, categoria, textoVazio) {
+  const etapa = document.getElementById("id_etapa");
+  const categoria = document.getElementById("id_prova");
+
+  function filtrarCategorias() {
     if (!etapa || !categoria) return;
 
     const etapaId = etapa.value;
-    const placeholder = categoria.options[0];
-
-    categoria.disabled = !etapaId;
-    if (placeholder) {
-      placeholder.textContent = etapaId ? textoVazio : "Selecione uma etapa primeiro";
-    }
 
     Array.from(categoria.options).forEach(o => {
       if (!o.value) return;
-      o.hidden = !etapaId || o.dataset.etapa !== etapaId;
+      o.hidden = etapaId && o.dataset.etapa !== etapaId;
     });
 
-    if (!etapaId || (categoria.selectedOptions.length && categoria.selectedOptions[0].hidden)) {
+    if (categoria.selectedOptions.length && categoria.selectedOptions[0].hidden) {
       categoria.value = "";
     }
   }
 
-  const etapa = document.getElementById("id_etapa");
-  const categoria = document.getElementById("id_prova");
-  const filtroEtapa = document.getElementById("filtro_id_etapa");
-  const filtroCategoria = document.getElementById("filtro_id_prova");
-
-  function filtrarCategorias() {
-    prepararFiltro(etapa, categoria, "Selecione");
-  }
-
-  function filtrarCategoriasFiltro() {
-    prepararFiltro(filtroEtapa, filtroCategoria, "Todas");
-  }
-
-  window.filtrarCategoriasComposicao = filtrarCategorias;
-
   if (etapa) etapa.addEventListener("change", filtrarCategorias);
-  if (filtroEtapa) filtroEtapa.addEventListener("change", filtrarCategoriasFiltro);
   filtrarCategorias();
-  filtrarCategoriasFiltro();
 })();
 </script>
 
