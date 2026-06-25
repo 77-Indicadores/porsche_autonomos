@@ -36,7 +36,11 @@
 
     <div class="kpi-card">
       <span>Credenciais</span>
-      <strong>{{ "OK" if config.has_oauth_client and config.has_token else "Pendente" }}</strong>
+      {% if config.has_token %}
+        <strong style="color: var(--success, green)">OK</strong>
+      {% else %}
+        <a href="/facilities/oauth/start" class="btn btn-primary btn-sm mt-1">Conectar Google</a>
+      {% endif %}
     </div>
   </div>
 

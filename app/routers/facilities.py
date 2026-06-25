@@ -7,6 +7,8 @@ from decimal import Decimal
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, Form, Request
+from fastapi.responses import RedirectResponse
+from google_auth_oauthlib.flow import Flow
 from sqlalchemy import func, select
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
@@ -53,6 +55,23 @@ DEFAULT_COMPLEMENTOS_PATH = os.getenv(
     os.path.join(tempfile.gettempdir(), "facilities_complementos.json"),
 )
 COMPLEMENTAR_XLSX_PATH = BASE_DIR.parent / "porsche_facilities" / "Porsche facilities complementar.xlsx"
+
+# Cliente OAuth tipo "web" para o fluxo via browser em produção
+GOOGLE_WEB_CLIENT_JSON = os.getenv("GOOGLE_WEB_CLIENT_JSON")
+OAUTH_REDIRECT_URI = os.getenv(
+    "GOOGLE_OAUTH_REDIRECT_URI",
+    "https://porshecadastros.77indicadores.com.br/facilities/oauth/callback",
+)
+SCOPES = [
+    "openid",
+    "https://www.googleapis.com/auth/userinfo.email",
+    "https://www.googleapis.com/auth/userinfo.profile",
+    "https://www.googleapis.com/auth/spreadsheets",
+    "https://www.googleapis.com/auth/drive",
+]
+
+# Estado temporário da sessão OAuth (em memória; suficiente para um usuário admin)
+_oauth_state_store: dict = {}
 
 
 def fmt_date(value):
@@ -450,6 +469,55 @@ def sincronizar(
             f"{result['updated']} atualizadas."
         ),
     )
+
+
+def _build_web_flow() -> Flow | None:
+    if not GOOGLE_WEB_CLIENT_JSON:
+        return None
+    client_config = json.loads(GOOGLE_WEB_CLIENT_JSON)
+    return Flow.from_client_config(client_config, scopes=SCOPES, redirect_uri=OAUTH_REDIRECT_URI)
+
+
+@router.get("/facilities/oauth/start")
+def oauth_start(request: Request):
+    flow = _build_web_flow()
+    if flow is None:
+        return redirect_with_message("/facilities", error="GOOGLE_WEB_CLIENT_JSON não configurado no servidor.")
+    authorization_url, state = flow.authorization_url(
+        access_type="offline",
+        prompt="select_account consent",
+        include_granted_scopes="true",
+    )
+    _oauth_state_store["state"] = state
+    return RedirectResponse(authorization_url)
+
+
+@router.get("/facilities/oauth/callback")
+def oauth_callback(request: Request, code: str = None, state: str = None, error: str = None):
+    if error:
+        return redirect_with_message("/facilities", error=f"Autenticação Google cancelada: {error}")
+
+    flow = _build_web_flow()
+    if flow is None:
+        return redirect_with_message("/facilities", error="GOOGLE_WEB_CLIENT_JSON não configurado no servidor.")
+
+    expected_state = _oauth_state_store.get("state")
+    if not expected_state or state != expected_state:
+        return redirect_with_message("/facilities", error="Estado OAuth inválido. Tente novamente.")
+
+    try:
+        import os as _os
+        _os.environ["OAUTHLIB_INSECURE_TRANSPORT"] = "0"
+        flow.fetch_token(code=code)
+        credentials = flow.credentials
+        os.makedirs(os.path.dirname(DEFAULT_TOKEN_PATH), exist_ok=True)
+        with open(DEFAULT_TOKEN_PATH, "w", encoding="utf-8") as f:
+            f.write(credentials.to_json())
+        _oauth_state_store.clear()
+    except Exception as exc:
+        return redirect_with_message("/facilities", error=f"Erro ao obter token Google: {exc}")
+
+    return redirect_with_message("/facilities", success="Google autenticado com sucesso! Agora você pode sincronizar a planilha.")
 
 
 @router.get("/facilities/diagnostico")
