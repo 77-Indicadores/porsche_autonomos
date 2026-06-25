@@ -171,7 +171,7 @@ def fetch_maintenance_tickets(
     return tickets, {
         "authenticated_email": email,
         "spreadsheet_title": spreadsheet.title,
-        "worksheets": [{"title": w.title, "gid": w.id} for w in worksheets],
+        "worksheets": [{"title": w.title, "gid": w.id} for w in spreadsheet.worksheets()],
         "rows_read": len(rows),
         "first_rows": rows[:3],
     }
