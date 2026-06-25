@@ -478,6 +478,14 @@ def _build_web_flow() -> Flow | None:
     return Flow.from_client_config(client_config, scopes=SCOPES, redirect_uri=OAUTH_REDIRECT_URI)
 
 
+@router.post("/facilities/oauth/desconectar")
+def oauth_desconectar():
+    if os.path.exists(DEFAULT_TOKEN_PATH):
+        os.remove(DEFAULT_TOKEN_PATH)
+    _oauth_state_store.clear()
+    return redirect_with_message("/facilities", success="Conta Google desconectada.")
+
+
 @router.get("/facilities/oauth/start")
 def oauth_start(request: Request):
     import hashlib, secrets, base64

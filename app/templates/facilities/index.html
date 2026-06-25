@@ -38,6 +38,9 @@
       <span>Credenciais</span>
       {% if config.has_token %}
         <strong style="color: var(--success, green)">OK</strong>
+        <form method="post" action="/facilities/oauth/desconectar" style="display:inline;">
+          <button type="submit" class="btn btn-sm mt-1" style="background:transparent;border:1px solid #999;color:#999;cursor:pointer;">Desconectar</button>
+        </form>
       {% else %}
         <a href="/facilities/oauth/start" class="btn btn-primary btn-sm mt-1">Conectar Google</a>
       {% endif %}
