@@ -35,7 +35,7 @@ COMPLEMENTOS_MEMORIA = {}
 
 DEFAULT_CREDENTIALS_DIR = os.getenv(
     "GOOGLE_SHEETS_CREDENTIALS_DIR",
-    "C:/planilha_google",
+    os.path.join(tempfile.gettempdir(), "porsche_google"),
 )
 DEFAULT_OAUTH_CLIENT_PATH = os.getenv(
     "GOOGLE_SHEETS_OAUTH_CLIENT_PATH",

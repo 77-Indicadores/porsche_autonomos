@@ -1,5 +1,6 @@
 import json
 import os
+import tempfile
 from datetime import datetime
 from decimal import Decimal
 
@@ -265,7 +266,7 @@ if __name__ == "__main__":
             db=db,
             oauth_client_path=os.path.join(default_credentials_dir, "oauth_client.json"),
             token_path=os.path.join(default_credentials_dir, "token_google.json"),
-            output_dir=os.getenv("FACILITIES_AUDIT_DIR", "C:/planilha_google"),
+            output_dir=os.getenv("FACILITIES_AUDIT_DIR", os.path.join(tempfile.gettempdir(), "porsche_google")),
         )
         print(f"Sincronização concluída: {result}")
     finally:
