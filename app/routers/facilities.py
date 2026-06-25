@@ -269,6 +269,8 @@ def tentar_atualizar_espelho(db: Session):
     except GoogleSheetsPermissionError as exc:
         return None, str(exc)
     except Exception as exc:
+        import traceback
+        tb = traceback.format_exc()
         message = str(exc)
         if "oauth2.googleapis.com" in message or "sheets.googleapis.com" in message:
             return None, (
@@ -276,7 +278,7 @@ def tentar_atualizar_espelho(db: Session):
                 "O Windows/ambiente bloqueou a saída para os serviços do Google "
                 "(oauth2.googleapis.com / sheets.googleapis.com)."
             )
-        return None, f"Não consegui atualizar o espelho do Google Sheets agora: {exc}"
+        return None, f"Erro: {exc or '(sem mensagem)'} | Traceback: {tb}"
 
 
 def carregar_csv_espelho():
