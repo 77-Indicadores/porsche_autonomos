@@ -18,6 +18,20 @@
     <h3>Planilha espelhada</h3>
   </div>
 
+  {% if is_admin %}
+  <form method="post" action="/facilities/configurar-planilha" class="mb-4" style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap;">
+    <div style="flex:2;min-width:240px;">
+      <label style="font-size:0.8rem;color:var(--text-muted,#888);display:block;margin-bottom:4px;">URL ou ID da planilha</label>
+      <input type="text" name="spreadsheet_url" class="input" placeholder="https://docs.google.com/spreadsheets/d/..." value="{{ config.spreadsheet_id }}" required style="width:100%;">
+    </div>
+    <div style="flex:1;min-width:160px;">
+      <label style="font-size:0.8rem;color:var(--text-muted,#888);display:block;margin-bottom:4px;">Nome da aba</label>
+      <input type="text" name="worksheet_name" class="input" placeholder="{{ config.worksheet_name }}" value="{{ config.worksheet_name }}" style="width:100%;">
+    </div>
+    <button type="submit" class="btn btn-primary">Salvar planilha</button>
+  </form>
+  {% endif %}
+
   <div class="grid gap-3 md:grid-cols-4">
     <div class="kpi-card">
       <span>Planilha</span>

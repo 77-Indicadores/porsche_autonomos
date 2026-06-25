@@ -55,6 +55,30 @@ DEFAULT_COMPLEMENTOS_PATH = os.getenv(
     os.path.join(tempfile.gettempdir(), "facilities_complementos.json"),
 )
 COMPLEMENTAR_XLSX_PATH = BASE_DIR.parent / "porsche_facilities" / "Porsche facilities complementar.xlsx"
+DEFAULT_SHEET_CONFIG_PATH = os.getenv(
+    "FACILITIES_SHEET_CONFIG_PATH",
+    os.path.join(DEFAULT_CREDENTIALS_DIR, "sheet_config.json"),
+)
+
+
+def _load_sheet_config() -> dict:
+    if os.path.exists(DEFAULT_SHEET_CONFIG_PATH):
+        with open(DEFAULT_SHEET_CONFIG_PATH, encoding="utf-8") as f:
+            return json.load(f)
+    return {}
+
+
+def _save_sheet_config(data: dict):
+    os.makedirs(os.path.dirname(DEFAULT_SHEET_CONFIG_PATH), exist_ok=True)
+    with open(DEFAULT_SHEET_CONFIG_PATH, "w", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
+
+
+def _extract_spreadsheet_id(url_or_id: str) -> str:
+    """Extrai o ID da planilha de uma URL do Google Sheets ou retorna o valor direto."""
+    import re
+    match = re.search(r"/spreadsheets/d/([a-zA-Z0-9_-]+)", url_or_id)
+    return match.group(1) if match else url_or_id.strip()
 
 # Cliente OAuth tipo "web" para o fluxo via browser em produção
 GOOGLE_WEB_CLIENT_JSON = os.getenv("GOOGLE_WEB_CLIENT_JSON")
@@ -232,11 +256,14 @@ def tentar_atualizar_espelho(db: Session):
         return None, "Conta Google não conectada. Clique em 'Conectar Google' para autorizar."
 
     try:
+        sheet_cfg = _load_sheet_config()
         result = sync_maintenance_tickets(
             db=db,
             oauth_client_path=DEFAULT_OAUTH_CLIENT_PATH,
             token_path=DEFAULT_TOKEN_PATH,
             output_dir=DEFAULT_AUDIT_DIR,
+            spreadsheet_id=sheet_cfg.get("spreadsheet_id"),
+            worksheet_name=sheet_cfg.get("worksheet_name"),
         )
         return result, ""
     except GoogleSheetsPermissionError as exc:
@@ -366,9 +393,9 @@ def index(request: Request, db: Session = Depends(get_db)):
                 "valor_total": fmt_money(valor_total),
             },
             "config": {
-                "spreadsheet_id": SPREADSHEET_ID,
-                "sheet_name": SHEET_NAME,
-                "worksheet_name": WORKSHEET_NAME,
+                "spreadsheet_id": _load_sheet_config().get("spreadsheet_id", SPREADSHEET_ID),
+                "sheet_name": _load_sheet_config().get("sheet_name", SHEET_NAME),
+                "worksheet_name": _load_sheet_config().get("worksheet_name", WORKSHEET_NAME),
                 "gid": GID_ABA_RESPOSTAS,
                 "oauth_client_path": DEFAULT_OAUTH_CLIENT_PATH,
                 "token_path": DEFAULT_TOKEN_PATH,
@@ -467,6 +494,25 @@ def sincronizar(
             f"{result['updated']} atualizadas."
         ),
     )
+
+
+@router.post("/facilities/configurar-planilha")
+def configurar_planilha(
+    spreadsheet_url: str = Form(...),
+    worksheet_name: str = Form(""),
+):
+    spreadsheet_id = _extract_spreadsheet_id(spreadsheet_url)
+    if not spreadsheet_id:
+        return redirect_with_message("/facilities", error="URL ou ID da planilha inválido.")
+    cfg = _load_sheet_config()
+    cfg["spreadsheet_id"] = spreadsheet_id
+    if worksheet_name.strip():
+        cfg["worksheet_name"] = worksheet_name.strip()
+    try:
+        _save_sheet_config(cfg)
+    except Exception as exc:
+        return redirect_with_message("/facilities", error=f"Erro ao salvar configuração: {exc}")
+    return redirect_with_message("/facilities", success=f"Planilha configurada: {spreadsheet_id}")
 
 
 def _build_web_flow() -> Flow | None:
