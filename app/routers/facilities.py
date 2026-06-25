@@ -204,8 +204,12 @@ def lista_opcoes_complementares():
     return opcoes
 
 
+def _oauth_client_disponivel() -> bool:
+    return bool(os.getenv("GOOGLE_SHEETS_OAUTH_CLIENT_JSON")) or os.path.exists(DEFAULT_OAUTH_CLIENT_PATH)
+
+
 def tentar_atualizar_espelho(db: Session):
-    if not os.path.exists(DEFAULT_OAUTH_CLIENT_PATH):
+    if not _oauth_client_disponivel():
         return None, f"Arquivo OAuth não encontrado: {DEFAULT_OAUTH_CLIENT_PATH}"
     if not os.path.exists(DEFAULT_TOKEN_PATH):
         return None, f"Token Google não encontrado: {DEFAULT_TOKEN_PATH}"
@@ -352,7 +356,7 @@ def index(request: Request, db: Session = Depends(get_db)):
                 "oauth_client_path": DEFAULT_OAUTH_CLIENT_PATH,
                 "token_path": DEFAULT_TOKEN_PATH,
                 "audit_dir": DEFAULT_AUDIT_DIR,
-                "has_oauth_client": os.path.exists(DEFAULT_OAUTH_CLIENT_PATH),
+                "has_oauth_client": _oauth_client_disponivel(),
                 "has_token": os.path.exists(DEFAULT_TOKEN_PATH),
                 "cache_csv_path": DEFAULT_CACHE_CSV_PATH,
                 "has_cache_csv": os.path.exists(DEFAULT_CACHE_CSV_PATH),

@@ -1,5 +1,6 @@
 import json
 import os
+import tempfile
 from urllib.request import Request as UrlRequest
 from urllib.request import urlopen
 
@@ -30,6 +31,16 @@ class GoogleSheetsClient:
 
         self.client = gspread.authorize(self.credentials)
 
+    def _build_flow(self):
+        """Cria o InstalledAppFlow a partir de env var JSON ou arquivo em disco."""
+        env_json = os.getenv("GOOGLE_SHEETS_OAUTH_CLIENT_JSON")
+        if env_json:
+            client_config = json.loads(env_json)
+            return InstalledAppFlow.from_client_config(client_config, SCOPES)
+        if os.path.exists(self.oauth_client_path):
+            return InstalledAppFlow.from_client_secrets_file(self.oauth_client_path, SCOPES)
+        return None
+
     def _authenticate(self):
         credentials = None
 
@@ -40,15 +51,12 @@ class GoogleSheetsClient:
             if credentials and credentials.expired and credentials.refresh_token:
                 credentials.refresh(Request())
             else:
-                if not os.path.exists(self.oauth_client_path):
+                flow = self._build_flow()
+                if flow is None:
                     raise FileNotFoundError(
-                        f"Arquivo OAuth não encontrado: {self.oauth_client_path}"
+                        f"Arquivo OAuth não encontrado: {self.oauth_client_path}. "
+                        "Configure GOOGLE_SHEETS_OAUTH_CLIENT_JSON no ambiente."
                     )
-
-                flow = InstalledAppFlow.from_client_secrets_file(
-                    self.oauth_client_path,
-                    SCOPES,
-                )
                 credentials = flow.run_local_server(
                     port=0,
                     prompt="select_account consent",
