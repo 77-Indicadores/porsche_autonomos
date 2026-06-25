@@ -33,10 +33,11 @@ class GoogleSheetsClient:
 
     def _build_flow(self):
         """Cria o InstalledAppFlow a partir de env var JSON ou arquivo em disco."""
-        env_json = os.getenv("GOOGLE_SHEETS_OAUTH_CLIENT_JSON")
-        if env_json:
-            client_config = json.loads(env_json)
-            return InstalledAppFlow.from_client_config(client_config, SCOPES)
+        for env_var in ("GOOGLE_SHEETS_OAUTH_CLIENT_JSON", "GOOGLE_WEB_CLIENT_JSON"):
+            env_json = os.getenv(env_var)
+            if env_json:
+                client_config = json.loads(env_json)
+                return InstalledAppFlow.from_client_config(client_config, SCOPES)
         if os.path.exists(self.oauth_client_path):
             return InstalledAppFlow.from_client_secrets_file(self.oauth_client_path, SCOPES)
         return None

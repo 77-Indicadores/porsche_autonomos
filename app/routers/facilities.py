@@ -228,10 +228,8 @@ def _oauth_client_disponivel() -> bool:
 
 
 def tentar_atualizar_espelho(db: Session):
-    if not _oauth_client_disponivel():
-        return None, f"Arquivo OAuth não encontrado: {DEFAULT_OAUTH_CLIENT_PATH}"
     if not os.path.exists(DEFAULT_TOKEN_PATH):
-        return None, f"Token Google não encontrado: {DEFAULT_TOKEN_PATH}"
+        return None, "Conta Google não conectada. Clique em 'Conectar Google' para autorizar."
 
     try:
         result = sync_maintenance_tickets(
