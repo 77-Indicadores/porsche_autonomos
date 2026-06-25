@@ -480,15 +480,22 @@ def _build_web_flow() -> Flow | None:
 
 @router.get("/facilities/oauth/start")
 def oauth_start(request: Request):
+    import hashlib, secrets, base64
     flow = _build_web_flow()
     if flow is None:
         return redirect_with_message("/facilities", error="GOOGLE_WEB_CLIENT_JSON não configurado no servidor.")
+    code_verifier = secrets.token_urlsafe(64)
+    code_challenge = base64.urlsafe_b64encode(
+        hashlib.sha256(code_verifier.encode()).digest()
+    ).rstrip(b"=").decode()
     authorization_url, state = flow.authorization_url(
         access_type="offline",
         prompt="select_account consent",
-        include_granted_scopes="true",
+        code_challenge=code_challenge,
+        code_challenge_method="S256",
     )
     _oauth_state_store["state"] = state
+    _oauth_state_store["code_verifier"] = code_verifier
     return RedirectResponse(authorization_url)
 
 
@@ -506,9 +513,7 @@ def oauth_callback(request: Request, code: str = None, state: str = None, error:
         return redirect_with_message("/facilities", error="Estado OAuth inválido. Tente novamente.")
 
     try:
-        import os as _os
-        _os.environ["OAUTHLIB_INSECURE_TRANSPORT"] = "0"
-        flow.fetch_token(code=code)
+        flow.fetch_token(code=code, code_verifier=_oauth_state_store.get("code_verifier"))
         credentials = flow.credentials
         os.makedirs(os.path.dirname(DEFAULT_TOKEN_PATH), exist_ok=True)
         with open(DEFAULT_TOKEN_PATH, "w", encoding="utf-8") as f:
