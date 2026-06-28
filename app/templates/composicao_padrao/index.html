@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 
-{% block header %}Composição Meta Equipe{% endblock %}
-{% block subtitle %}Controle da meta de equipe por etapa, categoria e carro.{% endblock %}
+{% block header %}Composição Padrão{% endblock %}
+{% block subtitle %}Defina a quantidade esperada de autônomos por carro, categoria, etapa e cargo.{% endblock %}
 
 {% block header_action %}
 <button type="button" class="quick-action primary" onclick="novoCadastro()">+ Nova regra</button>
@@ -11,7 +11,7 @@
 
 <section class="panel mb-6">
   <div class="panel-head">
-    <h3>Nova / editar composição meta equipe</h3>
+    <h3>Nova / editar composição padrão</h3>
   </div>
 
   <form method="post" action="/composicao-padrao" class="form-grid" id="form_composicao">
@@ -25,6 +25,7 @@
           <option value="{{ e.id_etapa }}">{{ e.temporada }} - {{ e.nome_etapa }}</option>
         {% endfor %}
       </select>
+      <p class="text-sm text-zinc-500 mt-1">Deixe vazio para regra geral.</p>
     </div>
 
     <div>
@@ -47,19 +48,45 @@
           </option>
         {% endfor %}
       </select>
+      <p class="text-sm text-zinc-500 mt-1">Deixe vazio para regra por categoria.</p>
     </div>
 
     <div>
-      <label class="label">Quantidade</label>
-      <select class="input" name="qtd_esperada" id="qtd_esperada" required>
-        {% for q in qtd_options %}
-          <option value="{{ q }}">{{ q|string|replace(".", ",") }}</option>
+      <label class="label">Cargo do autônomo</label>
+      <select class="input" name="id_cargo_autonomo" id="id_cargo_autonomo" required>
+        <option value="">Selecione</option>
+        {% for c in cargos %}
+          <option value="{{ c.id_cargo_autonomo }}">{{ c.nome_cargo }}</option>
         {% endfor %}
       </select>
     </div>
 
+    <div>
+      <label class="label">Quantidade esperada</label>
+      <input class="input" type="number" min="1" name="qtd_esperada" id="qtd_esperada" value="1" required>
+    </div>
+
+    <div>
+      <label class="label">Custo médio esperado</label>
+      <input class="input" name="custo_medio_esperado" id="custo_medio_esperado" placeholder="3500,00">
+    </div>
+
+    <div>
+      <label class="label">Status</label>
+      <select class="input" name="status" id="status">
+        {% for s in ['Ativo','Inativo'] %}
+          <option value="{{ s }}">{{ s }}</option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div class="span-3">
+      <label class="label">Observações</label>
+      <textarea class="input" name="observacoes" id="observacoes" placeholder="Ex.: padrão utilizado para etapa cheia, regra por carro, regra por categoria..."></textarea>
+    </div>
+
     <div class="span-3 ux-actions-row">
-      <button class="btn-primary" id="btn_salvar_composicao">Salvar composição meta equipe</button>
+      <button class="btn-primary" id="btn_salvar_composicao">Salvar composição</button>
       <button type="button" class="btn-secondary" onclick="novoCadastro()">Limpar</button>
     </div>
   </form>
@@ -107,6 +134,28 @@
       </select>
     </div>
 
+    <div>
+      <label class="label">Cargo</label>
+      <select class="input" name="id_cargo_autonomo">
+        <option value="">Todos</option>
+        {% for c in cargos %}
+          <option value="{{ c.id_cargo_autonomo }}" {% if filtros.id_cargo_autonomo|string == c.id_cargo_autonomo|string %}selected{% endif %}>
+            {{ c.nome_cargo }}
+          </option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div>
+      <label class="label">Status</label>
+      <select class="input" name="status">
+        <option value="">Todos</option>
+        {% for s in ['Ativo','Inativo'] %}
+          <option value="{{ s }}" {% if filtros.status == s %}selected{% endif %}>{{ s }}</option>
+        {% endfor %}
+      </select>
+    </div>
+
     <div class="ux-actions-row">
       <button class="btn-secondary">Filtrar</button>
       <a class="btn-muted" href="/composicao-padrao">Limpar</a>
@@ -115,15 +164,20 @@
 </section>
 
 <section class="panel mb-6">
-  <div class="grid gap-3 md:grid-cols-2">
+  <div class="grid gap-3 md:grid-cols-3">
     <div class="kpi-card">
       <span>Total de regras</span>
       <strong>{{ items|length }}</strong>
     </div>
 
     <div class="kpi-card">
-      <span>Quantidade esperada</span>
+      <span>Autônomos esperados</span>
       <strong>{{ total_qtd }}</strong>
+    </div>
+
+    <div class="kpi-card">
+      <span>Custo esperado</span>
+      <strong>R$ {{ "{:,.2f}".format(total_custo|default(0, true)).replace(",", "X").replace(".", ",").replace("X", ".") }}</strong>
     </div>
   </div>
 </section>
@@ -141,7 +195,11 @@
           <th>Etapa</th>
           <th>Categoria</th>
           <th>Carro</th>
-          <th>Quantidade</th>
+          <th>Cargo</th>
+          <th>Qtd esperada</th>
+          <th>Custo médio</th>
+          <th>Custo total</th>
+          <th>Status</th>
           <th>Ações</th>
         </tr>
       </thead>
@@ -149,33 +207,65 @@
       <tbody>
         {% for item in items %}
         <tr>
-          <td><span class="id-pill">{{ item.id_composicao }}</span></td>
+          <td>
+            {% if item.id_composicao %}
+              <span class="id-pill">{{ item.id_composicao }}</span>
+            {% else %}
+              <span class="id-pill">Auto</span>
+            {% endif %}
+          </td>
           <td>{{ item.nome_etapa }}</td>
           <td>{{ item.nome_prova }}</td>
           <td>{{ item.nome_carro }}</td>
-          <td class="font-bold">{{ item.qtd_formatada }}</td>
+          <td class="font-bold">{{ item.nome_cargo }}</td>
+          <td>{{ item.qtd_esperada }}</td>
+          <td>
+            {% if item.custo_medio_esperado|default(none) is not none %}
+              R$ {{ "{:,.2f}".format(item.custo_medio_esperado|default(0, true)).replace(",", "X").replace(".", ",").replace("X", ".") }}
+            {% else %}
+              -
+            {% endif %}
+          </td>
+          <td class="font-bold">
+            R$ {{ "{:,.2f}".format(item.custo_total_esperado|default(0, true)).replace(",", "X").replace(".", ",").replace("X", ".") }}
+          </td>
+          <td>
+            {% if item.origem == "alocacoes" %}
+              <span class="badge">Gerado do alocado</span>
+            {% else %}
+              <span class="badge">{{ item.status }}</span>
+            {% endif %}
+          </td>
           <td class="actions">
-            <button
-              class="btn-muted"
-              type="button"
-              onclick="editarComposicao(this)"
-              data-id_composicao="{{ item.id_composicao }}"
-              data-id_etapa="{{ item.id_etapa or '' }}"
-              data-id_prova="{{ item.id_prova or '' }}"
-              data-id_carro="{{ item.id_carro or '' }}"
-              data-qtd_esperada="{{ item.qtd_esperada }}"
-            >
-              Editar
-            </button>
+            {% if item.id_composicao %}
+              <button
+                class="btn-muted"
+                type="button"
+                onclick="editarComposicao(this)"
+                data-id_composicao="{{ item.id_composicao }}"
+                data-id_etapa="{{ item.id_etapa or '' }}"
+                data-id_prova="{{ item.id_prova or '' }}"
+                data-id_carro="{{ item.id_carro or '' }}"
+                data-id_cargo_autonomo="{{ item.id_cargo_autonomo }}"
+                data-qtd_esperada="{{ item.qtd_esperada }}"
+                data-custo_medio_esperado="{{ item.custo_medio_esperado or '' }}"
+                data-status="{{ item.status }}"
+                data-observacoes="{{ item.observacoes or '' }}"
+              >
+                Editar
+              </button>
 
-            <form method="post" action="/composicao-padrao/{{ item.id_composicao }}/excluir" onsubmit="return confirm('Excluir esta regra?');">
-              <button class="btn-danger">Excluir</button>
-            </form>
+              <form method="post" action="/composicao-padrao/{{ item.id_composicao }}/excluir" onsubmit="return confirm('Excluir esta regra?');">
+                <button class="btn-danger">Excluir</button>
+              </form>
+            {% else %}
+              <span class="ux-muted">Lançado em Equipes Alocadas</span>
+            {% endif %}
           </td>
         </tr>
         {% else %}
         <tr>
-          <td colspan="6" class="empty">Nenhuma composição meta equipe cadastrada.</td>
+          <td colspan="10" class="empty">Nenhuma composição padrão cadastrada.</td>
         </tr>
         {% endfor %}
       </tbody>
@@ -196,10 +286,14 @@ function editarComposicao(btn) {
   setValue("id_etapa", d.id_etapa);
   setValue("id_prova", d.id_prova);
   setValue("id_carro", d.id_carro);
+  setValue("id_cargo_autonomo", d.id_cargo_autonomo);
   setValue("qtd_esperada", d.qtd_esperada);
+  setValue("custo_medio_esperado", d.custo_medio_esperado);
+  setValue("status", d.status);
+  setValue("observacoes", d.observacoes);
 
   const titulo = document.querySelector(".panel-head h3");
-  if (titulo) titulo.innerText = "Editar composição meta equipe #" + d.id_composicao;
+  if (titulo) titulo.innerText = "Editar composição padrão #" + d.id_composicao;
 
   const botao = document.getElementById("btn_salvar_composicao");
   if (botao) botao.innerText = "Salvar alterações";
@@ -214,10 +308,10 @@ function novoCadastro() {
   setValue("id_composicao", "");
 
   const titulo = document.querySelector(".panel-head h3");
-  if (titulo) titulo.innerText = "Nova / editar composição meta equipe";
+  if (titulo) titulo.innerText = "Nova / editar composição padrão";
 
   const botao = document.getElementById("btn_salvar_composicao");
-  if (botao) botao.innerText = "Salvar composição meta equipe";
+  if (botao) botao.innerText = "Salvar composição";
 
   window.scrollTo({ top: 0, behavior: "smooth" });
 }

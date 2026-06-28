@@ -24,12 +24,15 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import Session
 
+from app.auth import tem_acesso_modulo, is_admin as _is_admin
 from app.database import engine, get_db
 from app.models import DimAutonomo
 from app.template_config import templates
 from app.utils import flash_from_request, redirect_with_message
 
 router = APIRouter(tags=["dho"])
+
+BASE = Path(__file__).resolve().parents[2]
 
 metadata_dho = MetaData()
 
@@ -67,6 +70,8 @@ dho_vagas = Table(
     Column("status", String(60), default="Aberta"),
     Column("responsavel", String(160)),
     Column("data_abertura", String(20)),
+    Column("data_conclusao", String(20)),
+    Column("tipo_recrutamento", String(40), default="Externo"),
     Column("observacoes", Text),
     Column("criado_em", DateTime, default=datetime.utcnow),
     Column("atualizado_em", DateTime, default=datetime.utcnow),
@@ -79,6 +84,7 @@ dho_treinamentos = Table(
     Column("nome_treinamento", String(180), nullable=False),
     Column("tipo_treinamento", String(120), nullable=False),
     Column("carga_horaria_padrao", Float),
+    Column("valor_treinamento", Float),
     Column("status", String(60), default="Ativo"),
     Column("observacoes", Text),
     Column("criado_em", DateTime, default=datetime.utcnow),
@@ -140,6 +146,7 @@ def garantir_schema_dho_treinamentos():
                     add_cols = {
                         "tipo_treinamento": "TEXT DEFAULT 'Autônomo'",
                         "carga_horaria_padrao": "REAL",
+                        "valor_treinamento": "REAL",
                         "status": "TEXT DEFAULT 'Ativo'",
                         "observacoes": "TEXT",
                         "criado_em": "DATETIME",
@@ -194,6 +201,7 @@ def garantir_schema_dho_treinamentos():
                     ALTER TABLE IF EXISTS dho_treinamentos
                     ADD COLUMN IF NOT EXISTS tipo_treinamento VARCHAR(120) DEFAULT 'Autônomo',
                     ADD COLUMN IF NOT EXISTS carga_horaria_padrao DOUBLE PRECISION,
+                    ADD COLUMN IF NOT EXISTS valor_treinamento DOUBLE PRECISION,
                     ADD COLUMN IF NOT EXISTS status VARCHAR(60) DEFAULT 'Ativo',
                     ADD COLUMN IF NOT EXISTS observacoes TEXT,
                     ADD COLUMN IF NOT EXISTS criado_em TIMESTAMP,
@@ -263,6 +271,7 @@ TIPOS_VAGA = ["Nova vaga", "Substituição"]
 MOTIVOS_SUBSTITUICAO = ["", "Voluntário", "Involuntário"]
 SEXOS = ["Indiferente", "Masculino", "Feminino"]
 STATUS_VAGA = ["Aberta", "Em andamento", "Concluída", "Cancelada"]
+TIPOS_RECRUTAMENTO = ["Interno", "Externo"]
 STATUS_TREINAMENTO = ["Ativo", "Inativo"]
 STATUS_APLICACAO = ["Realizado", "Pendente", "Cancelado"]
 
@@ -287,6 +296,8 @@ def garantir_schema():
                     ADD COLUMN IF NOT EXISTS qtd_vagas INTEGER DEFAULT 1,
                     ADD COLUMN IF NOT EXISTS responsavel VARCHAR(160),
                     ADD COLUMN IF NOT EXISTS data_abertura VARCHAR(20),
+                    ADD COLUMN IF NOT EXISTS data_conclusao VARCHAR(20),
+                    ADD COLUMN IF NOT EXISTS tipo_recrutamento VARCHAR(40) DEFAULT 'Externo',
                     ADD COLUMN IF NOT EXISTS observacoes TEXT
                 """))
 
@@ -294,6 +305,7 @@ def garantir_schema():
                     ALTER TABLE IF EXISTS dho_treinamentos
                     ADD COLUMN IF NOT EXISTS tipo_treinamento VARCHAR(120),
                     ADD COLUMN IF NOT EXISTS carga_horaria_padrao DOUBLE PRECISION,
+                    ADD COLUMN IF NOT EXISTS valor_treinamento DOUBLE PRECISION,
                     ADD COLUMN IF NOT EXISTS status VARCHAR(60) DEFAULT 'Ativo',
                     ADD COLUMN IF NOT EXISTS observacoes TEXT
                 """))
@@ -313,6 +325,8 @@ def garantir_schema():
                         "qtd_vagas": "INTEGER DEFAULT 1",
                         "responsavel": "TEXT",
                         "data_abertura": "TEXT",
+                        "data_conclusao": "TEXT",
+                        "tipo_recrutamento": "TEXT DEFAULT 'Externo'",
                         "observacoes": "TEXT",
                     }
                     for col, sql_type in add_cols.items():
@@ -361,12 +375,22 @@ def count_table(db: Session, table):
 
 
 def get_departamentos(db: Session):
+    try:
+        sincronizar_estrutura_dataworld(db)
+    except Exception as exc:
+        print(f"AVISO - não consegui sincronizar departamentos Data.World: {exc}")
+
     return db.execute(
         select(dho_departamentos).order_by(dho_departamentos.c.nome_departamento)
     ).mappings().all()
 
 
 def get_cargos(db: Session):
+    try:
+        sincronizar_estrutura_dataworld(db)
+    except Exception as exc:
+        print(f"AVISO - não consegui sincronizar cargos Data.World: {exc}")
+
     rows = db.execute(
         select(
             dho_cargos,
@@ -380,9 +404,13 @@ def get_cargos(db: Session):
 
 
 def get_treinamentos(db: Session):
-    return db.execute(
-        select(dho_treinamentos).where(dho_treinamentos.c.status == "Ativo").order_by(dho_treinamentos.c.nome_treinamento)
-    ).mappings().all()
+    try:
+        return db.execute(
+            select(dho_treinamentos).where(dho_treinamentos.c.status == "Ativo").order_by(dho_treinamentos.c.nome_treinamento)
+        ).mappings().all()
+    except Exception as exc:
+        print(f"AVISO - não consegui listar treinamentos ativos DHO: {exc}")
+        return []
 
 
 def get_autonomos(db: Session):
@@ -394,6 +422,13 @@ def get_autonomos(db: Session):
 
 @router.get("/dho")
 def dho_home(request: Request, db: Session = Depends(get_db)):
+    if not tem_acesso_modulo(request, "dho"):
+        return RedirectResponse("/?sem_acesso=dho", status_code=303)
+    try:
+        sincronizar_estrutura_dataworld(db)
+    except Exception as exc:
+        print(f"AVISO - não consegui sincronizar estrutura DHO Data.World: {exc}")
+
     qtd_vagas = count_table(db, dho_vagas)
     qtd_treinamentos = count_table(db, dho_treinamentos)
     qtd_aplicacoes = count_table(db, dho_treinamento_aplicacoes)
@@ -412,35 +447,43 @@ def dho_home(request: Request, db: Session = Depends(get_db)):
         select(text("COALESCE(SUM(carga_horaria), 0)")).select_from(dho_treinamento_aplicacoes)
     ).scalar() or 0
 
-    ultimas_vagas = db.execute(
-        select(
-            dho_vagas,
-            dho_departamentos.c.nome_departamento,
-            dho_cargos.c.nome_cargo,
-        )
-        .select_from(
-            dho_vagas
-            .outerjoin(dho_departamentos, dho_departamentos.c.id_departamento == dho_vagas.c.id_departamento)
-            .outerjoin(dho_cargos, dho_cargos.c.id_cargo == dho_vagas.c.id_cargo)
-        )
-        .order_by(dho_vagas.c.id_vaga.desc())
-        .limit(6)
-    ).mappings().all()
-
-    ultimas_aplicacoes = db.execute(
-        select(
-            dho_treinamento_aplicacoes,
-            dho_treinamentos.c.nome_treinamento,
-        )
-        .select_from(
-            dho_treinamento_aplicacoes.join(
-                dho_treinamentos,
-                dho_treinamentos.c.id_treinamento == dho_treinamento_aplicacoes.c.id_treinamento,
+    try:
+        ultimas_vagas = db.execute(
+            select(
+                dho_vagas,
+                dho_departamentos.c.nome_departamento,
+                dho_cargos.c.nome_cargo,
             )
-        )
-        .order_by(dho_treinamento_aplicacoes.c.id_aplicacao.desc())
-        .limit(6)
-    ).mappings().all()
+            .select_from(
+                dho_vagas
+                .outerjoin(dho_departamentos, dho_departamentos.c.id_departamento == dho_vagas.c.id_departamento)
+                .outerjoin(dho_cargos, dho_cargos.c.id_cargo == dho_vagas.c.id_cargo)
+            )
+            .order_by(dho_vagas.c.id_vaga.desc())
+            .limit(6)
+        ).mappings().all()
+    except Exception as exc:
+        print(f"AVISO - não consegui listar últimas vagas DHO: {exc}")
+        ultimas_vagas = []
+
+    try:
+        ultimas_aplicacoes = db.execute(
+            select(
+                dho_treinamento_aplicacoes,
+                dho_treinamentos.c.nome_treinamento,
+            )
+            .select_from(
+                dho_treinamento_aplicacoes.join(
+                    dho_treinamentos,
+                    dho_treinamentos.c.id_treinamento == dho_treinamento_aplicacoes.c.id_treinamento,
+                )
+            )
+            .order_by(dho_treinamento_aplicacoes.c.id_aplicacao.desc())
+            .limit(6)
+        ).mappings().all()
+    except Exception as exc:
+        print(f"AVISO - não consegui listar últimas aplicações DHO: {exc}")
+        ultimas_aplicacoes = []
 
     return templates.TemplateResponse(
         "dho/index.html",
@@ -466,6 +509,13 @@ def dho_home(request: Request, db: Session = Depends(get_db)):
 
 @router.get("/dho/estrutura")
 def estrutura(request: Request, db: Session = Depends(get_db)):
+    erro_dataworld = ""
+
+    try:
+        sincronizar_estrutura_dataworld(db)
+    except Exception as exc:
+        erro_dataworld = str(exc)
+
     departamentos = get_departamentos(db)
     cargos = get_cargos(db)
 
@@ -475,8 +525,28 @@ def estrutura(request: Request, db: Session = Depends(get_db)):
             "request": request,
             "departamentos": departamentos,
             "cargos": cargos,
+            "erro_dataworld": erro_dataworld,
             **flash_from_request(request),
         },
+    )
+
+
+@router.post("/dho/estrutura/sincronizar")
+def sincronizar_estrutura(request: Request, db: Session = Depends(get_db)):
+    _CACHE_PESSOAS_DW["dados"] = None
+    _CACHE_ESTRUTURA_DW["sincronizada"] = False
+
+    try:
+        sincronizar_estrutura_dataworld(db, force=True)
+    except Exception as exc:
+        return redirect_with_message(
+            "/dho/estrutura",
+            error=f"Não consegui sincronizar Data.World rel_colab_77: {exc}",
+        )
+
+    return redirect_with_message(
+        "/dho/estrutura",
+        success="Departamentos e cargos sincronizados pela tabela rel_colab_77.",
     )
 
 
@@ -560,7 +630,11 @@ def vagas(request: Request, q: str = "", db: Session = Depends(get_db)):
             | dho_vagas.c.tipo_vaga.like(like)
         )
 
-    items = db.execute(query.order_by(dho_vagas.c.id_vaga.desc())).mappings().all()
+    try:
+        items = db.execute(query.order_by(dho_vagas.c.id_vaga.desc())).mappings().all()
+    except Exception as exc:
+        print(f"AVISO - não consegui listar vagas DHO: {exc}")
+        items = []
 
     return templates.TemplateResponse(
         "dho/vagas.html",
@@ -574,6 +648,7 @@ def vagas(request: Request, q: str = "", db: Session = Depends(get_db)):
             "motivos_substituicao": MOTIVOS_SUBSTITUICAO,
             "sexos": SEXOS,
             "status_vaga": STATUS_VAGA,
+            "tipos_recrutamento": TIPOS_RECRUTAMENTO,
             **flash_from_request(request),
         },
     )
@@ -591,6 +666,8 @@ def salvar_vaga(
     status: str = Form("Aberta"),
     responsavel: str = Form(""),
     data_abertura: str = Form(""),
+    data_conclusao: str = Form(""),
+    tipo_recrutamento: str = Form("Externo"),
     observacoes: str = Form(""),
     db: Session = Depends(get_db),
 ):
@@ -604,6 +681,8 @@ def salvar_vaga(
         "status": status,
         "responsavel": responsavel,
         "data_abertura": data_abertura,
+        "data_conclusao": data_conclusao,
+        "tipo_recrutamento": tipo_recrutamento if tipo_recrutamento in TIPOS_RECRUTAMENTO else "Externo",
         "observacoes": observacoes,
         "atualizado_em": datetime.utcnow(),
     }
@@ -641,7 +720,11 @@ def treinamentos(request: Request, q: str = "", db: Session = Depends(get_db)):
             | dho_treinamentos.c.status.like(like)
         )
 
-    items = db.execute(query.order_by(dho_treinamentos.c.nome_treinamento)).mappings().all()
+    try:
+        items = db.execute(query.order_by(dho_treinamentos.c.nome_treinamento)).mappings().all()
+    except Exception as exc:
+        print(f"AVISO - não consegui listar treinamentos DHO: {exc}")
+        items = []
 
     return templates.TemplateResponse(
         "dho/treinamentos.html",
@@ -663,6 +746,7 @@ def salvar_treinamento(
     nome_treinamento: str = Form(...),
     tipo_treinamento: str = Form(...),
     carga_horaria_padrao: str = Form(""),
+    valor_treinamento: str = Form(""),
     status: str = Form("Ativo"),
     observacoes: str = Form(""),
     db: Session = Depends(get_db),
@@ -674,6 +758,7 @@ def salvar_treinamento(
         "nome_treinamento": nome_treinamento,
         "tipo_treinamento": tipo_treinamento,
         "carga_horaria_padrao": to_float(carga_horaria_padrao),
+        "valor_treinamento": to_float(valor_treinamento),
         "status": status,
         "observacoes": observacoes,
         "atualizado_em": datetime.utcnow(),
@@ -757,10 +842,14 @@ _CACHE_PESSOAS_DW = {
     "dados": None,
 }
 
+_CACHE_ESTRUTURA_DW = {
+    "sincronizada": False,
+}
+
 
 def carregar_pessoas_dataworld():
     """
-    Busca pessoas na tabela worksheet do dataset 77indicadores/porsche.
+    Busca pessoas na tabela rel_colab_77 do dataset 77indicadores/porsche.
 
     Campos usados:
     - nome
@@ -776,16 +865,8 @@ def carregar_pessoas_dataworld():
         return _CACHE_PESSOAS_DW["dados"]
 
     sql = """
-        SELECT
-            nome,
-            nome_completo,
-            matricula,
-            email,
-            cargo,
-            cargo_visivel,
-            departamento
-        FROM worksheet
-        WHERE nome IS NOT NULL
+        SELECT *
+        FROM rel_colab_77
     """
 
     pessoas = []
@@ -799,11 +880,11 @@ def carregar_pessoas_dataworld():
 
         for _, row in df.iterrows():
             nome = str(row.get("nome") or "").strip()
-            nome_completo = str(row.get("nome_completo") or "").strip()
-            matricula = str(row.get("matricula") or "").strip()
-            email = str(row.get("email") or "").strip()
-            cargo = str(row.get("cargo_visivel") or row.get("cargo") or "").strip()
-            departamento = str(row.get("departamento") or "").strip()
+            nome_completo = str(row.get("nome_completo") or row.get("colaborador") or row.get("funcionario") or "").strip()
+            matricula = str(row.get("matricula") or row.get("chapa") or "").strip()
+            email = str(row.get("email") or row.get("email_corporativo") or "").strip()
+            cargo = str(row.get("cargo_visivel") or row.get("cargo") or row.get("funcao") or "").strip()
+            departamento = str(row.get("departamento") or row.get("centro_custo") or row.get("setor") or "").strip()
 
             nome_exibicao = nome_completo or nome
 
@@ -862,11 +943,11 @@ def carregar_pessoas_dataworld():
 
                     for row in rows:
                         nome = str(row.get("nome") or "").strip()
-                        nome_completo = str(row.get("nome_completo") or "").strip()
-                        matricula = str(row.get("matricula") or "").strip()
-                        email = str(row.get("email") or "").strip()
-                        cargo = str(row.get("cargo") or "").strip()
-                        departamento = str(row.get("departamento") or "").strip()
+                        nome_completo = str(row.get("nome_completo") or row.get("colaborador") or row.get("funcionario") or "").strip()
+                        matricula = str(row.get("matricula") or row.get("chapa") or "").strip()
+                        email = str(row.get("email") or row.get("email_corporativo") or "").strip()
+                        cargo = str(row.get("cargo_visivel") or row.get("cargo") or row.get("funcao") or "").strip()
+                        departamento = str(row.get("departamento") or row.get("centro_custo") or row.get("setor") or "").strip()
 
                         nome_exibicao = nome_completo or nome
 
@@ -920,6 +1001,82 @@ def carregar_pessoas_dataworld():
     return pessoas
 
 
+def carregar_estrutura_dataworld():
+    pessoas = carregar_pessoas_dataworld()
+    departamentos = sorted({
+        str(p.get("departamento") or "").strip()
+        for p in pessoas
+        if str(p.get("departamento") or "").strip()
+    }, key=lambda x: x.lower())
+
+    cargos = sorted({
+        (
+            str(p.get("cargo") or "").strip(),
+            str(p.get("departamento") or "").strip(),
+        )
+        for p in pessoas
+        if str(p.get("cargo") or "").strip()
+    }, key=lambda x: (x[0].lower(), x[1].lower()))
+
+    return departamentos, cargos
+
+
+def sincronizar_estrutura_dataworld(db: Session, force: bool = False):
+    if _CACHE_ESTRUTURA_DW.get("sincronizada") and not force:
+        return
+
+    departamentos_dw, cargos_dw = carregar_estrutura_dataworld()
+
+    departamentos_por_nome = {}
+    for row in db.execute(select(dho_departamentos)).mappings().all():
+        nome = str(row.get("nome_departamento") or "").strip().lower()
+        if nome:
+            departamentos_por_nome[nome] = row.get("id_departamento")
+
+    for nome_departamento in departamentos_dw:
+        chave = nome_departamento.strip().lower()
+        if not chave:
+            continue
+
+        if chave not in departamentos_por_nome:
+            result = db.execute(
+                insert(dho_departamentos).values(
+                    nome_departamento=nome_departamento,
+                    status="Ativo",
+                    criado_em=datetime.utcnow(),
+                    atualizado_em=datetime.utcnow(),
+                )
+            )
+            departamentos_por_nome[chave] = result.inserted_primary_key[0] if result.inserted_primary_key else None
+
+    cargos_existentes = set()
+    for row in db.execute(select(dho_cargos)).mappings().all():
+        cargos_existentes.add((
+            str(row.get("nome_cargo") or "").strip().lower(),
+            row.get("id_departamento"),
+        ))
+
+    for nome_cargo, nome_departamento in cargos_dw:
+        id_departamento = departamentos_por_nome.get(nome_departamento.strip().lower())
+        chave = (nome_cargo.strip().lower(), id_departamento)
+        if not nome_cargo.strip() or chave in cargos_existentes:
+            continue
+
+        db.execute(
+            insert(dho_cargos).values(
+                id_departamento=id_departamento,
+                nome_cargo=nome_cargo,
+                status="Ativo",
+                criado_em=datetime.utcnow(),
+                atualizado_em=datetime.utcnow(),
+            )
+        )
+        cargos_existentes.add(chave)
+
+    db.commit()
+    _CACHE_ESTRUTURA_DW["sincronizada"] = True
+
+
 
 @router.get("/dho/aplicacoes-treinamento")
 def aplicacoes_treinamento(request: Request, q: str = "", db: Session = Depends(get_db)):
@@ -945,7 +1102,11 @@ def aplicacoes_treinamento(request: Request, q: str = "", db: Session = Depends(
             | dho_treinamentos.c.tipo_treinamento.like(like)
         )
 
-    items = db.execute(query.order_by(dho_treinamento_aplicacoes.c.id_aplicacao.desc())).mappings().all()
+    try:
+        items = db.execute(query.order_by(dho_treinamento_aplicacoes.c.id_aplicacao.desc())).mappings().all()
+    except Exception as exc:
+        print(f"AVISO - não consegui listar aplicações DHO: {exc}")
+        items = []
 
     return templates.TemplateResponse(
         "dho/aplicacoes_treinamento.html",
@@ -1186,6 +1347,7 @@ async def importar_dho(
                 nome = _valor_linha(row, "nome_treinamento", "nome_curso", "curso", "treinamento")
                 tipo = _valor_linha(row, "tipo_treinamento", "tipo_curso", "tipo") or "Autônomo"
                 carga = _valor_linha(row, "carga_horaria_padrao", "carga_horaria", "horas")
+                valor = _valor_linha(row, "valor_treinamento", "valor", "custo")
                 status = _valor_linha(row, "status") or "Ativo"
                 observacoes = _valor_linha(row, "observacoes", "observação", "obs")
 
@@ -1209,6 +1371,7 @@ async def importar_dho(
                     "nome_treinamento": nome,
                     "tipo_treinamento": tipo,
                     "carga_horaria_padrao": carga_float,
+                    "valor_treinamento": to_float(valor),
                     "status": status,
                     "observacoes": observacoes,
                     "atualizado_em": datetime.utcnow(),
@@ -1223,6 +1386,61 @@ async def importar_dho(
                 else:
                     dados_curso["criado_em"] = datetime.utcnow()
                     db.execute(insert(dho_treinamentos).values(**dados_curso))
+
+                total += 1
+
+            elif tipo_importacao == "vagas":
+                departamento_nome = _valor_linha(row, "nome_departamento", "departamento", "area", "área")
+                nome_cargo = _valor_linha(row, "nome_cargo", "cargo", "funcao", "função")
+                tipo_vaga = _valor_linha(row, "tipo_vaga", "tipo") or "Nova vaga"
+                motivo = _valor_linha(row, "motivo_substituicao", "motivo")
+                sexo = _valor_linha(row, "sexo") or "Indiferente"
+                qtd = _valor_linha(row, "qtd_vagas", "quantidade", "qtd") or 1
+                status = _valor_linha(row, "status") or "Aberta"
+                tipo_recrutamento = _valor_linha(row, "tipo_recrutamento", "recrutamento") or "Externo"
+                responsavel = _valor_linha(row, "responsavel", "responsável")
+                data_abertura = _valor_linha(row, "data_abertura", "abertura")
+                data_conclusao = _valor_linha(row, "data_conclusao", "conclusao", "conclusão")
+                observacoes = _valor_linha(row, "observacoes", "observação", "obs")
+
+                if not departamento_nome and not nome_cargo:
+                    continue
+
+                id_dep = _get_or_create_departamento(db, departamento_nome) if departamento_nome else None
+                id_cargo = None
+                if nome_cargo:
+                    existente_cargo = db.execute(
+                        select(dho_cargos.c.id_cargo)
+                        .where(dho_cargos.c.nome_cargo == nome_cargo)
+                    ).scalar()
+                    if existente_cargo:
+                        id_cargo = existente_cargo
+                    else:
+                        result = db.execute(insert(dho_cargos).values(
+                            id_departamento=id_dep,
+                            nome_cargo=nome_cargo,
+                            status="Ativo",
+                            criado_em=datetime.utcnow(),
+                            atualizado_em=datetime.utcnow(),
+                        ))
+                        id_cargo = result.inserted_primary_key[0] if result.inserted_primary_key else None
+
+                db.execute(insert(dho_vagas).values(
+                    id_departamento=id_dep,
+                    id_cargo=id_cargo,
+                    tipo_vaga=tipo_vaga if tipo_vaga in TIPOS_VAGA else "Nova vaga",
+                    motivo_substituicao=motivo if tipo_vaga == "Substituição" else "",
+                    sexo=sexo if sexo in SEXOS else "Indiferente",
+                    qtd_vagas=int(float(qtd or 1)),
+                    status=status if status in STATUS_VAGA else "Aberta",
+                    tipo_recrutamento=tipo_recrutamento if tipo_recrutamento in TIPOS_RECRUTAMENTO else "Externo",
+                    responsavel=responsavel,
+                    data_abertura=data_abertura,
+                    data_conclusao=data_conclusao,
+                    observacoes=observacoes,
+                    criado_em=datetime.utcnow(),
+                    atualizado_em=datetime.utcnow(),
+                ))
 
                 total += 1
 
@@ -1285,18 +1503,40 @@ def baixar_modelo_importacao_dho(tipo_modelo: str):
 
     elif tipo_modelo in ("cursos", "treinamentos", "cadastro_curso", "cadastro_treinamento"):
         ws.title = "Treinamentos"
-        headers = ["nome_treinamento", "tipo_treinamento", "carga_horaria_padrao", "status", "observacoes"]
+        headers = ["nome_treinamento", "tipo_treinamento", "carga_horaria_padrao", "valor_treinamento", "status", "observacoes"]
         exemplos = [
-            ["Integração de novos profissionais", "Onboarding obrigatório", 2, "Ativo", ""],
-            ["Ação de RH - comunicação e conduta", "Ação de RH", 1.5, "Ativo", ""],
-            ["Reciclagem operacional de autônomos", "Reciclagem de autônomos", 3, "Ativo", ""],
+            ["Integração de novos profissionais", "Onboarding obrigatório", 2, 0, "Ativo", ""],
+            ["Ação de RH - comunicação e conduta", "Ação de RH", 1.5, 250, "Ativo", ""],
+            ["Reciclagem operacional de autônomos", "Reciclagem de autônomos", 3, 500, "Ativo", ""],
         ]
         filename = "modelo_importacao_dho_treinamentos.xlsx"
+
+    elif tipo_modelo == "vagas":
+        ws.title = "Vagas"
+        headers = [
+            "nome_departamento",
+            "nome_cargo",
+            "tipo_vaga",
+            "motivo_substituicao",
+            "sexo",
+            "qtd_vagas",
+            "tipo_recrutamento",
+            "status",
+            "responsavel",
+            "data_abertura",
+            "data_conclusao",
+            "observacoes",
+        ]
+        exemplos = [
+            ["Operações", "Mecânico", "Nova vaga", "", "Indiferente", 1, "Externo", "Aberta", "DHO", "01/06/2026", "", ""],
+            ["DHO", "Analista DHO", "Substituição", "Voluntário", "Indiferente", 1, "Interno", "Em andamento", "DHO", "01/06/2026", "", ""],
+        ]
+        filename = "modelo_importacao_dho_vagas.xlsx"
 
     else:
         ws.title = "Modelo"
         headers = ["erro"]
-        exemplos = [["Tipo de modelo inválido. Use departamentos ou cargos."]]
+        exemplos = [["Tipo de modelo inválido. Use vagas, treinamentos ou aplicações."]]
         filename = "modelo_importacao_dho.xlsx"
 
     ws.append(headers)

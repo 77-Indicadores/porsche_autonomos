@@ -4,7 +4,6 @@
 {% block subtitle %}Controle de vagas por departamento e cargo{% endblock %}
 
 {% block header_action %}
-<a class="quick-action light" href="/dho/estrutura">Cadastros DHO</a>
 <button type="button" class="quick-action primary" onclick="novoDho()">+ Nova vaga</button>
 {% endblock %}
 
@@ -87,6 +86,15 @@
     </div>
 
     <div>
+      <label class="label">Tipo de recrutamento</label>
+      <select class="input" name="tipo_recrutamento" id="tipo_recrutamento">
+        {% for t in tipos_recrutamento %}
+          <option>{{ t }}</option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div>
       <label class="label">Responsável</label>
       <input class="input" name="responsavel" id="responsavel">
     </div>
@@ -94,6 +102,11 @@
     <div>
       <label class="label">Data abertura</label>
       <input class="input" name="data_abertura" id="data_abertura" placeholder="dd/mm/aaaa">
+    </div>
+
+    <div>
+      <label class="label">Data conclusão</label>
+      <input class="input" name="data_conclusao" id="data_conclusao" placeholder="dd/mm/aaaa">
     </div>
 
     <div class="span-3">
@@ -119,7 +132,9 @@
         <th>Motivo</th>
         <th>Sexo</th>
         <th>Qtd</th>
+        <th>Recrutamento</th>
         <th>Status</th>
+        <th>Conclusão</th>
         <th>Ações</th>
       </tr>
     </thead>
@@ -133,7 +148,9 @@
         <td>{{ item.motivo_substituicao or "-" }}</td>
         <td>{{ item.sexo or "-" }}</td>
         <td>{{ item.qtd_vagas or 1 }}</td>
+        <td>{{ item.tipo_recrutamento or "-" }}</td>
         <td><span class="badge">{{ item.status }}</span></td>
+        <td>{{ item.data_conclusao or "-" }}</td>
         <td class="actions">
           <button
             class="btn-muted"
@@ -147,8 +164,10 @@
             data-sexo="{{ item.sexo or '' }}"
             data-qtd-vagas="{{ item.qtd_vagas or 1 }}"
             data-status="{{ item.status or '' }}"
+            data-tipo-recrutamento="{{ item.tipo_recrutamento or '' }}"
             data-responsavel="{{ item.responsavel or '' }}"
             data-data-abertura="{{ item.data_abertura or '' }}"
+            data-data-conclusao="{{ item.data_conclusao or '' }}"
             data-observacoes="{{ item.observacoes or '' }}"
           >Editar</button>
 
@@ -158,7 +177,7 @@
         </td>
       </tr>
       {% else %}
-      <tr><td colspan="9" class="empty">Nenhuma vaga cadastrada.</td></tr>
+      <tr><td colspan="11" class="empty">Nenhuma vaga cadastrada.</td></tr>
       {% endfor %}
     </tbody>
   </table>
@@ -181,8 +200,10 @@ function editarVaga(btn) {
   setValue("sexo", d.sexo);
   setValue("qtd_vagas", d.qtdVagas);
   setValue("status", d.status);
+  setValue("tipo_recrutamento", d.tipoRecrutamento);
   setValue("responsavel", d.responsavel);
   setValue("data_abertura", d.dataAbertura);
+  setValue("data_conclusao", d.dataConclusao);
   setValue("observacoes", d.observacoes);
 
   document.getElementById("titulo-form-dho").innerText = "Editar vaga #" + d.idVaga;
@@ -197,6 +218,7 @@ function novoDho() {
 
   setValue("id_vaga", "");
   setValue("qtd_vagas", "1");
+  setValue("tipo_recrutamento", "Externo");
 
   document.getElementById("titulo-form-dho").innerText = "Nova / editar vaga";
   document.getElementById("btn_salvar_dho").innerText = "Salvar vaga";

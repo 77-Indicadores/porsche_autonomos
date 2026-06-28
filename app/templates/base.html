@@ -29,11 +29,18 @@
       {% if request.url.path.startswith('/dho') %}
       <div class="nav-section">
         <div class="nav-section-title">DHO</div>
+        <div class="nav-subsection-title">Recrutamento e Seleção</div>
         <a class="nav-link {% if request.url.path == '/dho' %}active{% endif %}" href="/dho">📊 Visão Geral DHO</a>
-        <a class="nav-link {% if request.url.path.startswith('/dho/estrutura') %}active{% endif %}" href="/dho/estrutura">🏢 Cadastros DHO</a>
         <a class="nav-link {% if request.url.path.startswith('/dho/vagas') %}active{% endif %}" href="/dho/vagas">💼 Vagas Abertas</a>
+        <div class="nav-subsection-title">Treinamento</div>
         <a class="nav-link {% if request.url.path.startswith('/dho/treinamentos') %}active{% endif %}" href="/dho/treinamentos">🎓 Treinamentos</a>
         <a class="nav-link {% if request.url.path.startswith('/dho/aplicacoes-treinamento') %}active{% endif %}" href="/dho/aplicacoes-treinamento">✅ Aplicar Treinamento</a>
+      </div>
+
+      {% elif request.url.path.startswith('/facilities') %}
+      <div class="nav-section">
+        <div class="nav-section-title">Facilities</div>
+        <a class="nav-link {% if request.url.path.startswith('/facilities') %}active{% endif %}" href="/facilities">🏢 Gestão Facilities</a>
       </div>
 
       {% elif request.url.path != '/' %}
@@ -52,13 +59,14 @@
         <a class="nav-link {% if request.url.path.startswith('/cargos-autonomos') %}active{% endif %}" href="/cargos-autonomos">🪪 Cargos Autônomo</a>
         <a class="nav-link {% if request.url.path.startswith('/pilotos') %}active{% endif %}" href="/pilotos">👨‍✈️ Piloto</a>
         <a class="nav-link {% if request.url.path == '/autonomos' %}active{% endif %}" href="/autonomos">🧰 Autônomo</a>
-        <a class="nav-link {% if request.url.path.startswith('/equipe-geral') %}active{% endif %}" href="/equipe-geral">👥 Gestão da Equipe Geral</a>
+        <a class="nav-link {% if request.url.path.startswith('/equipe-geral') %}active{% endif %}" href="/equipe-geral">👥 Cadastrar Equipe</a>
       </div>
 
       <div class="nav-section">
         <div class="nav-section-title">Operação</div>
         <a class="nav-link {% if request.url.path.startswith('/alocacoes') %}active{% endif %}" href="/alocacoes">📋 Gestão de Alocação</a>
-        <a class="nav-link {% if request.url.path.startswith('/composicao-padrao') %}active{% endif %}" href="/composicao-padrao">🧩 Composição Meta Equipe</a>
+        <a class="nav-link {% if request.url.path.startswith('/composicao-padrao') %}active{% endif %}" href="/composicao-padrao">🧩 Composição Padrão</a>
+        <a class="nav-link {% if request.url.path.startswith('/composicao-meta-equipe') %}active{% endif %}" href="/composicao-meta-equipe">🧩 Composição Meta Equipe</a>
         <a class="nav-link {% if request.url.path.startswith('/equipes') %}active{% endif %}" href="/equipes">👥 Equipes Alocadas</a>
         <a class="nav-link {% if request.url.path.startswith('/pesquisas') %}active{% endif %}" href="/pesquisas">📝 Pesquisas</a>
       </div>
@@ -67,10 +75,11 @@
       {% if request.url.path != '/' %}
       <div class="nav-section">
         <div class="nav-section-title">Configurações</div>
-        <a class="nav-link {% if request.url.path.startswith('/usuarios') %}active{% endif %}" href="/usuarios">Usuários</a>
 
         {% if request.url.path.startswith('/dho') %}
           <a class="nav-link {% if request.url.path.startswith('/dho/importacoes') %}active{% endif %}" href="/dho/importacoes">📥 Importações</a>
+        {% elif request.url.path.startswith('/facilities') %}
+          {# Facilities usa espelho da planilha e complemento na própria tela. #}
         {% else %}
           <a class="nav-link {% if request.url.path.startswith('/excel') %}active{% endif %}" href="/excel/">📥 Importações Autônomos</a>
           <a class="nav-link {% if request.url.path.startswith('/ids-importacao') %}active{% endif %}" href="/ids-importacao">IDs para Importação</a>

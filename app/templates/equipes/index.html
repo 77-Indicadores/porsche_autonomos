@@ -17,7 +17,7 @@
   <form method="get" class="form-grid">
     <div>
       <label class="label">Etapa</label>
-      <select class="input" name="id_etapa">
+      <select class="input" name="id_etapa" id="filtro_id_etapa">
         <option value="">Todas as etapas</option>
         {% for etapa in etapas %}
           <option value="{{ etapa.id_etapa }}" {% if id_etapa == etapa.id_etapa %}selected{% endif %}>
@@ -29,10 +29,10 @@
 
     <div>
       <label class="label">Categoria</label>
-      <select class="input" name="id_prova">
+      <select class="input" name="id_prova" id="filtro_id_prova">
         <option value="">Todas as categorias</option>
         {% for cat in categorias %}
-          <option value="{{ cat.id_prova }}" {% if id_prova == cat.id_prova %}selected{% endif %}>
+          <option value="{{ cat.id_prova }}" data-etapa="{{ cat.id_etapa }}" {% if id_prova == cat.id_prova %}selected{% endif %}>
             {{ cat.nome_prova }}
           </option>
         {% endfor %}
@@ -163,5 +163,33 @@
     </section>
   {% endfor %}
 </section>
+
+<script>
+(function() {
+  const etapa = document.getElementById("filtro_id_etapa");
+  const categoria = document.getElementById("filtro_id_prova");
+
+  if (!etapa || !categoria) return;
+
+  function filtrarCategoriasPorEtapa() {
+    const etapaId = etapa.value;
+
+    Array.from(categoria.options).forEach(function(option) {
+      if (!option.value) return;
+      option.hidden = Boolean(etapaId) && option.dataset.etapa !== etapaId;
+    });
+
+    if (
+      categoria.selectedOptions.length &&
+      categoria.selectedOptions[0].hidden
+    ) {
+      categoria.value = "";
+    }
+  }
+
+  etapa.addEventListener("change", filtrarCategoriasPorEtapa);
+  filtrarCategoriasPorEtapa();
+})();
+</script>
 
 {% endblock %}

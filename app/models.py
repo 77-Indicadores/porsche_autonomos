@@ -202,6 +202,7 @@ class Usuario(Base):
     senha_hash = Column(String(255), nullable=False)
     perfil = Column(String(30), nullable=False, default="operador")
     ativo = Column(String(3), nullable=False, default="Sim")
+    modulos_acesso = Column(Text, nullable=True)
 
 
 # Compatibilidade legada para routers antigos.

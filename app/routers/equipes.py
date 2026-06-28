@@ -102,10 +102,13 @@ def carregar_equipes_gerais(db: Session):
 @router.get("/equipes")
 def equipes(
     request: Request,
-    id_etapa: int | None = None,
-    id_prova: int | None = None,
+    id_etapa: str = "",
+    id_prova: str = "",
     db: Session = Depends(get_db),
 ):
+    id_etapa_int = int(id_etapa) if str(id_etapa or "").strip() else None
+    id_prova_int = int(id_prova) if str(id_prova or "").strip() else None
+
     etapas = db.query(DimEtapa).order_by(DimEtapa.nome_etapa).all()
     categorias = db.query(DimProva).order_by(DimProva.nome_prova).all()
 
@@ -124,11 +127,11 @@ def equipes(
         )
     )
 
-    if id_etapa:
-        query = query.filter(FatoPilotoAutonomoProva.id_etapa == id_etapa)
+    if id_etapa_int:
+        query = query.filter(FatoPilotoAutonomoProva.id_etapa == id_etapa_int)
 
-    if id_prova:
-        query = query.filter(FatoPilotoAutonomoProva.id_prova == id_prova)
+    if id_prova_int:
+        query = query.filter(FatoPilotoAutonomoProva.id_prova == id_prova_int)
 
     fatos = query.order_by(
         FatoPilotoAutonomoProva.id_etapa,
@@ -245,7 +248,7 @@ def equipes(
             "equipes": equipes,
             "etapas": etapas,
             "categorias": categorias,
-            "id_etapa": id_etapa,
-            "id_prova": id_prova,
+            "id_etapa": id_etapa_int,
+            "id_prova": id_prova_int,
         },
     )

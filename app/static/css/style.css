@@ -270,6 +270,24 @@ body {
   text-transform: uppercase;
 }
 
+.nav-subsection-title {
+  margin: 8px 8px 4px 8px;
+  padding-top: 10px;
+  border-top: 1px solid rgba(255,255,255,.09);
+  color: #71717a;
+  font-size: 10px;
+  font-weight: 850;
+  letter-spacing: .08em;
+  line-height: 1.2;
+  text-transform: uppercase;
+}
+
+.nav-section-title + .nav-subsection-title {
+  margin-top: 2px;
+  padding-top: 2px;
+  border-top: 0;
+}
+
 .nav-link {
   display: flex;
   align-items: center;
