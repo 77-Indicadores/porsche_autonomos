@@ -468,30 +468,55 @@ async def upload_complementar(request: Request, arquivo: UploadFile = File(...))
             )
 
         # Importa dados da aba FACILITIES para o JSON de complementos
+        # Match: DATA ABERTURA do Excel (col 5) == data da solicitação no CSV
         linhas_importadas = 0
         if tem_facilities:
             ws_fac = wb["FACILITIES"]
-            complementos_novos = dict(ler_complementos())
+
+            # Monta lookup: data_str -> lista de complementos (na ordem do Excel)
+            from collections import defaultdict
+            excel_por_data = defaultdict(list)
             for row in ws_fac.iter_rows(min_row=3, values_only=True):
-                num = row[0]
-                if num is None:
+                if row[0] is None:
                     continue
-                chave = str(int(num) + 1)  # source_row = # + 1 (CSV começa em linha 2)
+                data_abertura = row[4]
+                if not data_abertura:
+                    continue
+                data_str = data_abertura.strftime("%Y-%m-%d") if hasattr(data_abertura, "strftime") else str(data_abertura)[:10]
                 data_inicio = row[11]
                 data_fin = row[12]
-                prazo = row[15]
-                retrabalho = row[16]
-                custo = row[17]
-                observacao = row[18]
-                complementos_novos[chave] = {
+                excel_por_data[data_str].append({
                     "data_inicio": data_inicio.strftime("%Y-%m-%d") if hasattr(data_inicio, "strftime") else (str(data_inicio) if data_inicio else ""),
                     "data_finalizacao": data_fin.strftime("%Y-%m-%d") if hasattr(data_fin, "strftime") else (str(data_fin) if data_fin else ""),
-                    "prazo": str(prazo) if prazo else "",
-                    "retrabalho": str(retrabalho) if retrabalho else "",
-                    "custo": str(custo) if custo else "",
-                    "observacao": str(observacao) if observacao else "",
-                }
-                linhas_importadas += 1
+                    "prazo": str(row[15]) if row[15] else "",
+                    "retrabalho": str(row[16]) if row[16] else "",
+                    "custo": str(row[17]) if row[17] else "",
+                    "observacao": str(row[18]) if row[18] else "",
+                })
+
+            # Lê CSV e faz o match por data
+            contadores_data = defaultdict(int)
+            complementos_novos = {}
+            csv_path = DEFAULT_CACHE_CSV_PATH
+            if os.path.exists(csv_path):
+                with open(csv_path, "r", encoding="utf-8-sig", newline="") as arq:
+                    reader = csv.DictReader(arq)
+                    for idx, row_csv in enumerate(reader, start=2):
+                        raw_date = list(row_csv.values())[0] if row_csv else ""
+                        try:
+                            data_csv = datetime.strptime(raw_date[:10], "%d/%m/%Y").strftime("%Y-%m-%d")
+                        except Exception:
+                            try:
+                                data_csv = datetime.strptime(raw_date[:10], "%Y-%m-%d").strftime("%Y-%m-%d")
+                            except Exception:
+                                continue
+                        entradas = excel_por_data.get(data_csv, [])
+                        pos = contadores_data[data_csv]
+                        if pos < len(entradas):
+                            complementos_novos[str(idx)] = entradas[pos]
+                            linhas_importadas += 1
+                        contadores_data[data_csv] += 1
+
             salvar_complementos(complementos_novos)
 
         wb.close()
