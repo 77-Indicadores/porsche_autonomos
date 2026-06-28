@@ -56,7 +56,9 @@ def limpar_datas_vazias_sqlite():
     with engine.begin() as conn:
         for table_name in inspector.get_table_names():
             for column in inspector.get_columns(table_name):
-                if not isinstance(column.get("type"), Date):
+                col_type = column.get("type")
+                is_date = isinstance(col_type, Date) or str(col_type).upper().startswith("DATE")
+                if not is_date:
                     continue
 
                 quoted_table = table_name.replace('"', '""')
