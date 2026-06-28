@@ -468,12 +468,44 @@ async def upload_complementar(request: Request, arquivo: UploadFile = File(...))
             )
 
         # Importa dados da aba FACILITIES para o JSON de complementos
-        # Match: DATA ABERTURA do Excel (col 5) == data da solicitação no CSV
+        # Match por: data + nome (primeiro nome) + setor (abreviação)
         linhas_importadas = 0
         if tem_facilities:
             ws_fac = wb["FACILITIES"]
 
-            # Monta lookup: data_str -> lista de complementos (na ordem do Excel)
+            # Mapa de setor completo (CSV) → abreviação (Excel)
+            SETOR_MAP = {
+                "RECURSOS HUMANOS": "RHU", "ADMINISTRATIVO": "ADM", "FINANCEIRO": "ADM",
+                "DIRETORIA DE OPERAÇOES": "DOP", "DIRETORIA DE OPERAÇÕES": "DOP",
+                "PLANEJAMENTO E RELACIONAMENTO": "PER", "LOGÍSTICA": "LOG", "LOGISTICA": "LOG",
+                "RECUPERAÇÃO E DESENVOLVIMENTO": "RED", "RECUPERACAO E DESENVOLVIMENTO": "RED",
+                "ENGENHARIA DE QUALIDADE": "ENQ", "ENGENHARIA DE OFICINA": "ENG",
+                "PEÇAS": "PEC", "PECAS": "PEC", "PNEUS E RODAS": "PNR",
+                "CHALLENGE": "CT1", "CARREIRA": "CT2", "FUNILARIA": "FUN",
+                "PRESIDÊNCIA": "PRE", "PRESIDENCIA": "PRE", "OFICINA": "CT2",
+            }
+
+            def normalizar_nome(nome: str) -> str:
+                """Extrai e normaliza o primeiro nome."""
+                if not nome:
+                    return ""
+                # Se for email, pega a parte antes do @
+                if "@" in nome:
+                    nome = nome.split("@")[0].replace(".", " ")
+                return nome.strip().upper().split()[0] if nome.strip() else ""
+
+            def score_match(excel_sol: str, excel_setor: str, csv_nome: str, csv_email: str, csv_setor: str) -> int:
+                score = 0
+                primeiro_excel = normalizar_nome(str(excel_sol) if excel_sol else "")
+                primeiro_csv_nome = normalizar_nome(csv_nome)
+                primeiro_csv_email = normalizar_nome(csv_email)
+                if primeiro_excel and (primeiro_excel == primeiro_csv_nome or primeiro_excel == primeiro_csv_email):
+                    score += 2
+                setor_abrev = SETOR_MAP.get(csv_setor.strip().upper(), "")
+                if setor_abrev and excel_setor and setor_abrev == str(excel_setor).strip().upper():
+                    score += 1
+                return score
+
             from collections import defaultdict
             excel_por_data = defaultdict(list)
             for row in ws_fac.iter_rows(min_row=3, values_only=True):
@@ -486,23 +518,30 @@ async def upload_complementar(request: Request, arquivo: UploadFile = File(...))
                 data_inicio = row[11]
                 data_fin = row[12]
                 excel_por_data[data_str].append({
-                    "data_inicio": data_inicio.strftime("%Y-%m-%d") if hasattr(data_inicio, "strftime") else (str(data_inicio) if data_inicio else ""),
-                    "data_finalizacao": data_fin.strftime("%Y-%m-%d") if hasattr(data_fin, "strftime") else (str(data_fin) if data_fin else ""),
-                    "prazo": str(row[15]) if row[15] else "",
-                    "retrabalho": str(row[16]) if row[16] else "",
-                    "custo": str(row[17]) if row[17] else "",
-                    "observacao": str(row[18]) if row[18] else "",
+                    "solicitante": str(row[2]) if row[2] else "",
+                    "setor": str(row[3]) if row[3] else "",
+                    "usado": False,
+                    "dados": {
+                        "data_inicio": data_inicio.strftime("%Y-%m-%d") if hasattr(data_inicio, "strftime") else (str(data_inicio) if data_inicio else ""),
+                        "data_finalizacao": data_fin.strftime("%Y-%m-%d") if hasattr(data_fin, "strftime") else (str(data_fin) if data_fin else ""),
+                        "prazo": str(row[15]) if row[15] else "",
+                        "retrabalho": str(row[16]) if row[16] else "",
+                        "custo": str(row[17]) if row[17] else "",
+                        "observacao": str(row[18]) if row[18] else "",
+                    },
                 })
 
-            # Lê CSV e faz o match por data
-            contadores_data = defaultdict(int)
             complementos_novos = {}
             csv_path = DEFAULT_CACHE_CSV_PATH
             if os.path.exists(csv_path):
                 with open(csv_path, "r", encoding="utf-8-sig", newline="") as arq:
                     reader = csv.DictReader(arq)
+                    vals_list = list(reader.fieldnames) if reader.fieldnames else []
                     for idx, row_csv in enumerate(reader, start=2):
-                        raw_date = list(row_csv.values())[0] if row_csv else ""
+                        vals = list(row_csv.values())
+                        if not vals or not vals[0]:
+                            continue
+                        raw_date = vals[0]
                         try:
                             data_csv = datetime.strptime(raw_date[:10], "%d/%m/%Y").strftime("%Y-%m-%d")
                         except Exception:
@@ -510,12 +549,25 @@ async def upload_complementar(request: Request, arquivo: UploadFile = File(...))
                                 data_csv = datetime.strptime(raw_date[:10], "%Y-%m-%d").strftime("%Y-%m-%d")
                             except Exception:
                                 continue
-                        entradas = excel_por_data.get(data_csv, [])
-                        pos = contadores_data[data_csv]
-                        if pos < len(entradas):
-                            complementos_novos[str(idx)] = entradas[pos]
+                        csv_nome = vals[1] if len(vals) > 1 else ""
+                        csv_email = vals[2] if len(vals) > 2 else ""
+                        csv_setor = vals[3] if len(vals) > 3 else ""
+
+                        candidatos = excel_por_data.get(data_csv, [])
+                        melhor_idx = -1
+                        melhor_score = -1
+                        for ci, cand in enumerate(candidatos):
+                            if cand["usado"]:
+                                continue
+                            s = score_match(cand["solicitante"], cand["setor"], csv_nome, csv_email, csv_setor)
+                            if s > melhor_score:
+                                melhor_score = s
+                                melhor_idx = ci
+
+                        if melhor_idx >= 0:
+                            candidatos[melhor_idx]["usado"] = True
+                            complementos_novos[str(idx)] = candidatos[melhor_idx]["dados"]
                             linhas_importadas += 1
-                        contadores_data[data_csv] += 1
 
             salvar_complementos(complementos_novos)
 
