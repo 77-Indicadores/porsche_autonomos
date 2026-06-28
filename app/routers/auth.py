@@ -23,7 +23,12 @@ def login(email: str = Form(...), senha: str = Form(...), db: Session = Depends(
         return RedirectResponse("/auth/login?erro=1", status_code=303)
 
     response = RedirectResponse("/", status_code=303)
-    token = create_session_token({"id_usuario": str(user.id_usuario), "perfil": user.perfil, "nome": user.nome})
+    token = create_session_token({
+        "id_usuario": str(user.id_usuario),
+        "perfil": user.perfil,
+        "nome": user.nome,
+        "modulos_acesso": user.modulos_acesso or "[]",
+    })
     response.set_cookie(SESSION_COOKIE, token, httponly=True, samesite="lax", path="/")
     return response
 

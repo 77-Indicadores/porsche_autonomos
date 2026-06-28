@@ -1,133 +1,576 @@
 {% extends "base.html" %}
 
 {% block header %}Facilities{% endblock %}
-{% block subtitle %}Espelho dos chamados de manutenção predial vindos do Google Sheets.{% endblock %}
+{% block subtitle %}Espelho da planilha online Controle de Reformas Prediais V1.{% endblock %}
 
 {% block header_action %}
-<form method="post" action="/facilities/sincronizar" style="display:inline;">
-  <input type="hidden" name="oauth_client_path" value="{{ config.oauth_client_path }}">
-  <input type="hidden" name="token_path" value="{{ config.token_path }}">
-  <input type="hidden" name="audit_dir" value="{{ config.audit_dir }}">
-  <button class="quick-action primary">Sincronizar</button>
+{% if is_admin %}
+<form method="post" action="/facilities/sincronizar">
+  <button class="quick-action primary" type="submit">Atualizar espelho</button>
 </form>
+{% endif %}
 {% endblock %}
 
 {% block content %}
 
 <section class="panel mb-6">
   <div class="panel-head">
-    <h3>Conexão Google Sheets</h3>
+    <h3>Planilha espelhada</h3>
   </div>
 
-  <form method="post" action="/facilities/sincronizar" class="form-grid">
-    <div class="span-3">
-      <label class="label">Planilha</label>
-      <input class="input" value="{{ config.sheet_name }} · {{ config.worksheet_name }} · GID {{ config.gid }}" disabled>
+  {% if is_admin %}
+  <form method="post" action="/facilities/configurar-planilha" class="mb-4" style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap;">
+    <div style="flex:2;min-width:240px;">
+      <label style="font-size:0.8rem;color:var(--text-muted,#888);display:block;margin-bottom:4px;">URL ou ID da planilha</label>
+      <input type="text" name="spreadsheet_url" class="input" placeholder="https://docs.google.com/spreadsheets/d/..." value="{{ config.spreadsheet_id }}" required style="width:100%;">
     </div>
-
-    <div>
-      <label class="label">OAuth Client</label>
-      <input class="input" name="oauth_client_path" value="{{ config.oauth_client_path }}">
+    <div style="flex:1;min-width:160px;">
+      <label style="font-size:0.8rem;color:var(--text-muted,#888);display:block;margin-bottom:4px;">Nome da aba</label>
+      <input type="text" name="worksheet_name" class="input" placeholder="{{ config.worksheet_name }}" value="{{ config.worksheet_name }}" style="width:100%;">
     </div>
-
-    <div>
-      <label class="label">Token Google</label>
-      <input class="input" name="token_path" value="{{ config.token_path }}">
-    </div>
-
-    <div>
-      <label class="label">Auditoria CSV/Excel</label>
-      <input class="input" name="audit_dir" value="{{ config.audit_dir }}">
-    </div>
-
-    <div class="span-3 ux-actions-row">
-      <button class="btn-primary">Sincronizar Google Sheets</button>
-      <a class="btn-muted" href="/facilities/diagnostico" target="_blank">Diagnóstico</a>
-    </div>
+    <button type="submit" class="btn btn-primary">Salvar planilha</button>
   </form>
-</section>
+  {% endif %}
 
-<section class="panel mb-6">
   <div class="grid gap-3 md:grid-cols-4">
     <div class="kpi-card">
-      <span>Chamados</span>
-      <strong>{{ cards.total }}</strong>
+      <span>Planilha</span>
+      <strong>{{ config.sheet_name }}</strong>
     </div>
 
     <div class="kpi-card">
-      <span>Em aberto</span>
-      <strong>{{ cards.abertos }}</strong>
+      <span>Aba</span>
+      <strong>{{ config.worksheet_name }}</strong>
     </div>
 
     <div class="kpi-card">
-      <span>Concluídos</span>
-      <strong>{{ cards.concluidos }}</strong>
+      <span>Linhas lidas</span>
+      <strong>{{ sync_result.total if sync_result else cards.total }}</strong>
     </div>
 
     <div class="kpi-card">
-      <span>Valor total</span>
-      <strong>{{ cards.valor_total }}</strong>
+      <span>Credenciais</span>
+      {% if config.has_token %}
+        <strong style="color: var(--success, green)">OK</strong>
+        <form method="post" action="/facilities/oauth/desconectar" style="display:inline;">
+          <button type="submit" class="btn btn-sm mt-1" style="background:transparent;border:1px solid #999;color:#999;cursor:pointer;">Desconectar</button>
+        </form>
+      {% else %}
+        <a href="/facilities/oauth/start" class="btn btn-primary btn-sm mt-1">Conectar Google</a>
+      {% endif %}
     </div>
   </div>
+
+  {% if sync_result %}
+    <div class="alert success mt-4">
+      Espelho atualizado: {{ sync_result.total }} solicitações lidas da planilha online.
+    </div>
+  {% endif %}
+
+  {% if cache_notice %}
+    <div class="alert success mt-4">
+      {{ cache_notice }}
+    </div>
+  {% endif %}
+
+  {% if sync_error %}
+    <div class="alert error mt-4">
+      {{ sync_error }}
+    </div>
+  {% endif %}
+
+  {% if not sync_error and not sync_result and cards.total == 0 %}
+    <div class="alert error mt-4">
+      O espelho ainda não recebeu dados da planilha online nesta execução.
+    </div>
+  {% endif %}
+
+  {% if sync_result and sync_result.total == 0 %}
+    <div class="alert error mt-4">
+      A conexão com o Google funcionou, mas a aba configurada voltou sem linhas. Verifique se os chamados estão na aba {{ config.worksheet_name }}.
+    </div>
+  {% endif %}
 </section>
+
+<div class="fac-cards mb-6">
+  <div class="fac-card">
+    <span class="fac-card-label">Solicitações</span>
+    <strong class="fac-card-value">{{ cards.total }}</strong>
+  </div>
+  <div class="fac-card fac-card-warning">
+    <span class="fac-card-label">Em aberto</span>
+    <strong class="fac-card-value">{{ cards.abertos }}</strong>
+  </div>
+  <div class="fac-card fac-card-success">
+    <span class="fac-card-label">Concluídas</span>
+    <strong class="fac-card-value">{{ cards.concluidos }}</strong>
+  </div>
+  <div class="fac-card fac-card-blue">
+    <span class="fac-card-label">Valor total</span>
+    <strong class="fac-card-value">{{ cards.valor_total }}</strong>
+  </div>
+</div>
 
 <section class="panel">
   <div class="panel-head">
-    <h3>Chamados de manutenção</h3>
+    <h3>Solicitações da planilha</h3>
+  </div>
+
+  <!-- Filtros -->
+  <div class="fac-filters">
+    <input class="input fac-filter-input" type="text" id="flt_solicitante" placeholder="Solicitante…" oninput="filtrarTabela()">
+    <input class="input fac-filter-input" type="text" id="flt_setor"      placeholder="Setor…"       oninput="filtrarTabela()">
+    <input class="input fac-filter-input" type="text" id="flt_local"      placeholder="Local…"       oninput="filtrarTabela()">
+    <input class="input fac-filter-input" type="text" id="flt_categoria"  placeholder="Categoria…"   oninput="filtrarTabela()">
+    <select class="input fac-filter-input" id="flt_status" onchange="filtrarTabela()">
+      <option value="">Todos os status</option>
+      <option>CONCLUÍDO</option>
+      <option>FECHADO</option>
+      <option>PENDENTE</option>
+      <option>EM ANDAMENTO</option>
+    </select>
   </div>
 
   <div class="overflow-x-auto">
-    <table class="table">
+    <table class="table" id="tbl_facilities">
       <thead>
         <tr>
-          <th>Origem</th>
-          <th>Data</th>
-          <th>Solicitante</th>
-          <th>Setor</th>
-          <th>Local</th>
-          <th>Categoria</th>
-          <th>Status</th>
-          <th>Urgência</th>
-          <th>Valor</th>
-          <th>Fornecedor</th>
-          <th>OS</th>
-          <th>Foto</th>
+          <th class="sortable" data-col="0">Linha <span class="sort-icon">⇅</span></th>
+          <th class="sortable" data-col="1">Data <span class="sort-icon">⇅</span></th>
+          <th class="sortable" data-col="2">Solicitante <span class="sort-icon">⇅</span></th>
+          <th class="sortable" data-col="3">Setor <span class="sort-icon">⇅</span></th>
+          <th class="sortable" data-col="4">Local <span class="sort-icon">⇅</span></th>
+          <th class="sortable" data-col="5">Categoria <span class="sort-icon">⇅</span></th>
+          <th class="sortable" data-col="6">Natureza <span class="sort-icon">⇅</span></th>
+          <th class="sortable" data-col="7">Status <span class="sort-icon">⇅</span></th>
+          <th>Complemento</th>
+          <th class="sortable" data-col="9">Início <span class="sort-icon">⇅</span></th>
+          <th class="sortable" data-col="10">Finalização <span class="sort-icon">⇅</span></th>
+          <th>Prazo</th>
+          <th>Retrabalho</th>
+          <th class="sortable" data-col="13">Custo <span class="sort-icon">⇅</span></th>
+          <th>Ações</th>
         </tr>
       </thead>
 
       <tbody>
         {% for item in chamados %}
+        {% if item.requester_name %}
         <tr>
-          <td><span class="id-pill">Linha {{ item.source_row }}</span></td>
+          <td><span class="id-pill">{{ item.source_row }}</span></td>
           <td>{{ item.created_at_fmt }}</td>
-          <td>
-            <strong>{{ item.requester_name or "-" }}</strong><br>
-            <small>{{ item.requester_email or "" }}</small>
-          </td>
+          <td><strong>{{ item.requester_name }}</strong></td>
           <td>{{ item.department or "-" }}</td>
           <td>{{ item.location or "-" }}</td>
           <td>{{ item.category or "-" }}</td>
+          <td>{{ item.maintenance_type or "-" }}</td>
           <td class="font-bold">{{ item.status_label }}</td>
-          <td class="font-bold">{{ item.priority_label }}</td>
-          <td class="font-bold">{{ item.amount_fmt }}</td>
-          <td>{{ item.supplier or "-" }}</td>
-          <td>{{ item.work_order or "-" }}</td>
+          <td class="font-bold">{{ item.complemento_status }}</td>
+          <td>{{ item.complemento_data_inicio_fmt }}</td>
+          <td>{{ item.complemento_data_finalizacao_fmt }}</td>
+          <td>{{ item.complemento.dentro_prazo or "-" }}</td>
+          <td>{{ item.complemento.retrabalho or "-" }}</td>
+          <td class="font-bold">{{ item.complemento_custo_fmt }}</td>
           <td>
-            {% if item.photo_url %}
-              <a class="btn-muted" href="{{ item.photo_url }}" target="_blank" rel="noopener">Abrir</a>
+            {% if is_admin %}
+            <button
+              type="button"
+              class="btn-muted"
+              onclick="editarComplemento(this)"
+              data-source-row="{{ item.source_row }}"
+              data-solicitante="{{ item.requester_name or '' }}"
+              data-setor="{{ item.department or '' }}"
+              data-unit="{{ item.unit or '' }}"
+              data-location="{{ item.location or '' }}"
+              data-category="{{ item.category or '' }}"
+              data-maintenance-type="{{ item.maintenance_type or '' }}"
+              data-complemento='{{ item.complemento|tojson|e }}'
+            >Complementar</button>
             {% else %}
-              -
+            -
             {% endif %}
           </td>
         </tr>
+        {% endif %}
         {% else %}
         <tr>
-          <td colspan="12" class="empty">Nenhum chamado sincronizado.</td>
+          <td colspan="16" class="empty">
+            Nenhuma solicitação espelhada ainda. Assim que o Google Sheets retornar as linhas, elas aparecem aqui automaticamente.
+          </td>
         </tr>
         {% endfor %}
       </tbody>
     </table>
   </div>
 </section>
+
+<style>
+  /* ── Cards de resumo ── */
+  .fac-cards {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+  }
+  @media (max-width: 768px) { .fac-cards { grid-template-columns: repeat(2, 1fr); } }
+
+  .fac-card {
+    background: #fff;
+    border: 1px solid #e4e7ec;
+    border-radius: 12px;
+    padding: 20px 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    box-shadow: 0 1px 4px rgba(15,23,42,.06);
+  }
+  .fac-card-label { font-size: 12px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: #667085; }
+  .fac-card-value { font-size: 28px; font-weight: 700; color: #101828; line-height: 1.1; }
+  .fac-card-warning { border-top: 4px solid #f79009; }
+  .fac-card-warning .fac-card-value { color: #b54708; }
+  .fac-card-success { border-top: 4px solid #12b76a; }
+  .fac-card-success .fac-card-value { color: #027a48; }
+  .fac-card-blue   { border-top: 4px solid #2e90fa; }
+  .fac-card-blue   .fac-card-value { color: #1849a9; }
+
+  /* ── Filtros ── */
+  .fac-filters {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    padding: 14px 0 18px;
+  }
+  .fac-filter-input { min-width: 150px; flex: 1; max-width: 220px; }
+
+  /* ── Ordenação ── */
+  th.sortable { cursor: pointer; user-select: none; white-space: nowrap; }
+  th.sortable:hover { background: #f2f4f7; }
+  .sort-icon { font-size: 11px; opacity: .45; margin-left: 4px; }
+  th.sort-asc  .sort-icon { opacity: 1; }
+  th.sort-desc .sort-icon { opacity: 1; }
+  th.sort-asc  .sort-icon::after { content: " ▲"; }
+  th.sort-desc .sort-icon::after { content: " ▼"; }
+  th.sort-asc  .sort-icon { font-size: 0; }
+  th.sort-desc .sort-icon { font-size: 0; }
+
+  /* ── Modal ── */
+  .facilities-modal {
+    position: fixed;
+    inset: 0;
+    z-index: 1000;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    background: rgba(15, 23, 42, .62);
+  }
+
+  .facilities-modal.open {
+    display: flex;
+  }
+
+  .facilities-dialog {
+    width: min(1080px, 100%);
+    max-height: calc(100vh - 48px);
+    overflow: auto;
+    border-radius: 8px;
+    background: #fff;
+    box-shadow: 0 24px 80px rgba(15, 23, 42, .28);
+  }
+
+  .facilities-dialog-head {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 18px 20px;
+    border-bottom: 1px solid #e4e7ec;
+    background: #fff;
+  }
+
+  .facilities-dialog-head h3 {
+    margin: 0;
+  }
+
+  .facilities-dialog-head p {
+    margin: 4px 0 0;
+    color: #667085;
+  }
+
+  .modal-close {
+    width: 36px;
+    height: 36px;
+    border: 1px solid #d0d5dd;
+    border-radius: 8px;
+    background: #fff;
+    color: #101828;
+    font-size: 20px;
+    font-weight: 800;
+    cursor: pointer;
+  }
+
+  .facilities-dialog-body {
+    padding: 20px;
+  }
+</style>
+
+<div class="facilities-modal" id="modal_complemento" aria-hidden="true">
+  <div class="facilities-dialog" role="dialog" aria-modal="true" aria-labelledby="modal_complemento_titulo">
+    <div class="facilities-dialog-head">
+      <div>
+        <h3 id="modal_complemento_titulo">Complementar solicitação</h3>
+        <p id="modal_complemento_resumo">Selecione uma solicitação na tabela.</p>
+      </div>
+      <button type="button" class="modal-close" onclick="fecharComplemento()" aria-label="Fechar">×</button>
+    </div>
+
+    <div class="facilities-dialog-body">
+      <form method="post" action="/facilities/complementar" class="form-grid" id="form_complemento">
+        <input type="hidden" name="source_row" id="source_row">
+
+        <div>
+          <label class="label">Linha da planilha</label>
+          <input class="input" id="linha_visual" readonly>
+        </div>
+
+        <div>
+          <label class="label">Solicitante</label>
+          <input class="input" id="solicitante_visual" readonly>
+        </div>
+
+        <div>
+          <label class="label">Setor</label>
+          <input class="input" id="setor_visual" readonly>
+        </div>
+
+        <div>
+          <label class="label">Área / serviço</label>
+          <select class="input" name="area_servico" id="area_servico">
+            <option value="">Selecione</option>
+            {% for item in opcoes.areas %}
+              <option value="{{ item }}">{{ item }}</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div>
+          <label class="label">Unidade / local</label>
+          <select class="input" name="unidade_local" id="unidade_local">
+            <option value="">Selecione</option>
+            {% for item in opcoes.unidades %}
+              <option value="{{ item }}">{{ item }}</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div>
+          <label class="label">Tipo atendimento</label>
+          <select class="input" name="tipo_atendimento" id="tipo_atendimento">
+            <option value="">Selecione</option>
+            {% for item in opcoes.tipos %}
+              <option value="{{ item }}">{{ item }}</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div>
+          <label class="label">Data início</label>
+          <input class="input" type="date" name="data_inicio" id="data_inicio">
+        </div>
+
+        <div>
+          <label class="label">Data finalização</label>
+          <input class="input" type="date" name="data_finalizacao" id="data_finalizacao">
+        </div>
+
+        <div>
+          <label class="label">Dentro do prazo</label>
+          <select class="input" name="dentro_prazo" id="dentro_prazo">
+            <option value="">Selecione</option>
+            {% for item in opcoes.prazos %}
+              <option value="{{ item }}">{{ item }}</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div>
+          <label class="label">Retrabalho</label>
+          <select class="input" name="retrabalho" id="retrabalho">
+            <option value="">Selecione</option>
+            {% for item in opcoes.retrabalhos %}
+              <option value="{{ item }}">{{ item }}</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div>
+          <label class="label">Custo</label>
+          <input class="input" name="custo" id="custo" placeholder="R$ 0,00">
+        </div>
+
+        <div class="span-3">
+          <label class="label">Observação</label>
+          <textarea class="input" name="observacao" id="observacao" rows="2"></textarea>
+        </div>
+
+        <div class="span-3">
+          <label class="label">Rastreamento / identificação do serviço</label>
+          <textarea class="input" name="rastreamento" id="rastreamento" rows="2"></textarea>
+        </div>
+
+        <div class="span-3 ux-actions-row">
+          <button class="btn-primary" id="btn_salvar_complemento" disabled>Concluir complemento</button>
+          <button class="btn-secondary" type="button" onclick="fecharComplemento()">Cancelar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script>
+function setValue(id, value) {
+  const el = document.getElementById(id);
+  if (el) el.value = value || "";
+}
+
+function ensureOption(selectId, value) {
+  const select = document.getElementById(selectId);
+  if (!select || !value) return;
+  const exists = Array.from(select.options).some((option) => option.value === value);
+  if (!exists) {
+    const option = document.createElement("option");
+    option.value = value;
+    option.textContent = value;
+    select.appendChild(option);
+  }
+}
+
+function editarComplemento(btn) {
+  const d = btn.dataset || {};
+  let complemento = {};
+  try {
+    complemento = JSON.parse(d.complemento || "{}");
+  } catch (e) {
+    complemento = {};
+  }
+
+  const area = complemento.area_servico || d.category || "";
+  const unidade = complemento.unidade_local || d.unit || d.location || "";
+  const tipo = complemento.tipo_atendimento || d.maintenanceType || "";
+
+  ensureOption("area_servico", area);
+  ensureOption("unidade_local", unidade);
+  ensureOption("tipo_atendimento", tipo);
+
+  setValue("source_row", d.sourceRow);
+  setValue("linha_visual", d.sourceRow);
+  setValue("solicitante_visual", d.solicitante);
+  setValue("setor_visual", d.setor);
+  setValue("area_servico", area);
+  setValue("unidade_local", unidade);
+  setValue("tipo_atendimento", tipo);
+  setValue("data_inicio", complemento.data_inicio);
+  setValue("data_finalizacao", complemento.data_finalizacao);
+  setValue("dentro_prazo", complemento.dentro_prazo);
+  setValue("retrabalho", complemento.retrabalho);
+  setValue("custo", complemento.custo);
+  setValue("observacao", complemento.observacao);
+  setValue("rastreamento", complemento.rastreamento);
+
+  document.getElementById("btn_salvar_complemento").disabled = false;
+  document.getElementById("modal_complemento_resumo").innerText =
+    "Linha " + d.sourceRow + " · " + (d.solicitante || "Sem solicitante");
+  abrirComplemento();
+}
+
+function limparComplemento() {
+  const form = document.getElementById("form_complemento");
+  if (form) form.reset();
+  setValue("source_row", "");
+  document.getElementById("btn_salvar_complemento").disabled = true;
+}
+
+function abrirComplemento() {
+  const modal = document.getElementById("modal_complemento");
+  modal.classList.add("open");
+  modal.setAttribute("aria-hidden", "false");
+  document.body.style.overflow = "hidden";
+}
+
+function fecharComplemento() {
+  const modal = document.getElementById("modal_complemento");
+  modal.classList.remove("open");
+  modal.setAttribute("aria-hidden", "true");
+  document.body.style.overflow = "";
+}
+
+document.getElementById("modal_complemento").addEventListener("click", function (event) {
+  if (event.target === this) fecharComplemento();
+});
+
+document.addEventListener("keydown", function (event) {
+  if (event.key === "Escape") fecharComplemento();
+});
+
+// ── Filtro ──
+function filtrarTabela() {
+  const sol = document.getElementById("flt_solicitante").value.toLowerCase();
+  const set = document.getElementById("flt_setor").value.toLowerCase();
+  const loc = document.getElementById("flt_local").value.toLowerCase();
+  const cat = document.getElementById("flt_categoria").value.toLowerCase();
+  const sta = document.getElementById("flt_status").value.toLowerCase();
+
+  document.querySelectorAll("#tbl_facilities tbody tr").forEach(function(tr) {
+    const cells = tr.querySelectorAll("td");
+    if (cells.length < 8) return;
+    const match =
+      (!sol || cells[2].textContent.toLowerCase().includes(sol)) &&
+      (!set || cells[3].textContent.toLowerCase().includes(set)) &&
+      (!loc || cells[4].textContent.toLowerCase().includes(loc)) &&
+      (!cat || cells[5].textContent.toLowerCase().includes(cat)) &&
+      (!sta || cells[7].textContent.toLowerCase().includes(sta));
+    tr.style.display = match ? "" : "none";
+  });
+}
+
+// ── Ordenação ──
+(function() {
+  var sortCol = -1, sortDir = 1;
+
+  document.querySelectorAll("#tbl_facilities th.sortable").forEach(function(th) {
+    th.addEventListener("click", function() {
+      const col = parseInt(th.dataset.col);
+      if (sortCol === col) { sortDir *= -1; } else { sortCol = col; sortDir = 1; }
+
+      document.querySelectorAll("#tbl_facilities th").forEach(function(h) {
+        h.classList.remove("sort-asc", "sort-desc");
+        const ic = h.querySelector(".sort-icon");
+        if (ic) ic.textContent = "⇅";
+      });
+      th.classList.add(sortDir === 1 ? "sort-asc" : "sort-desc");
+      const ic = th.querySelector(".sort-icon");
+      if (ic) ic.textContent = sortDir === 1 ? " ▲" : " ▼";
+
+      const tbody = document.querySelector("#tbl_facilities tbody");
+      const rows = Array.from(tbody.querySelectorAll("tr")).filter(function(r) {
+        return r.querySelectorAll("td").length > 1;
+      });
+
+      rows.sort(function(a, b) {
+        const ta = (a.querySelectorAll("td")[col] || {}).textContent || "";
+        const tb = (b.querySelectorAll("td")[col] || {}).textContent || "";
+        const na = parseFloat(ta.replace(/[^0-9,.-]/g, "").replace(",", "."));
+        const nb = parseFloat(tb.replace(/[^0-9,.-]/g, "").replace(",", "."));
+        if (!isNaN(na) && !isNaN(nb)) return (na - nb) * sortDir;
+        return ta.localeCompare(tb, "pt-BR") * sortDir;
+      });
+
+      rows.forEach(function(r) { tbody.appendChild(r); });
+    });
+  });
+})();
+</script>
 
 {% endblock %}

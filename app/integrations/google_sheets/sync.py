@@ -1,5 +1,6 @@
 import json
 import os
+import tempfile
 from datetime import datetime
 from decimal import Decimal
 
@@ -62,7 +63,12 @@ maintenance_tickets = Table(
     Column("updated_system_at", DateTime, default=datetime.utcnow),
 )
 
-metadata_maintenance.create_all(engine)
+
+def criar_tabela_maintenance():
+    try:
+        metadata_maintenance.create_all(engine)
+    except Exception as exc:
+        print(f"AVISO - não consegui criar tabela maintenance_tickets: {exc}")
 
 
 def garantir_schema():
@@ -113,6 +119,7 @@ def garantir_schema():
 
 
 garantir_schema()
+criar_tabela_maintenance()
 
 
 def json_default(value):
@@ -121,7 +128,15 @@ def json_default(value):
     return value
 
 
-def fetch_maintenance_tickets(oauth_client_path: str, token_path: str):
+def fetch_maintenance_tickets(
+    oauth_client_path: str,
+    token_path: str,
+    spreadsheet_id: str = None,
+    worksheet_name: str = None,
+):
+    effective_spreadsheet_id = spreadsheet_id or SPREADSHEET_ID
+    effective_worksheet_name = worksheet_name or WORKSHEET_NAME
+
     print("Iniciando conexão Google Sheets...")
     google_client = GoogleSheetsClient(
         oauth_client_path=oauth_client_path,
@@ -131,18 +146,11 @@ def fetch_maintenance_tickets(oauth_client_path: str, token_path: str):
     email = google_client.authenticated_email()
     print(f"Conta Google autenticada: {email or 'não identificada'}")
 
-    spreadsheet = google_client.open_spreadsheet(SPREADSHEET_ID)
+    spreadsheet = google_client.open_spreadsheet(effective_spreadsheet_id)
     print(f"Planilha aberta com sucesso: {spreadsheet.title}")
 
-    worksheets = spreadsheet.worksheets()
-    print("Abas encontradas:")
-    for worksheet in worksheets:
-        print(f"- {worksheet.title} | GID: {worksheet.id}")
-
-    worksheet = google_client.get_worksheet_by_gid(
-        spreadsheet_id=SPREADSHEET_ID,
-        gid=GID_ABA_RESPOSTAS,
-    )
+    worksheet = spreadsheet.worksheet(effective_worksheet_name)
+    print(f"Aba selecionada: {worksheet.title}")
 
     rows = worksheet.get_all_records()
     print(f"Quantidade de linhas lidas: {len(rows)}")
@@ -150,6 +158,8 @@ def fetch_maintenance_tickets(oauth_client_path: str, token_path: str):
 
     tickets = []
     for index, row in enumerate(rows, start=2):
+        if not str(row.get("Carimbo de data/hora", "")).strip():
+            continue
         ticket = map_row(row)
         ticket["source"] = "google_sheets"
         ticket["source_row"] = index
@@ -161,7 +171,7 @@ def fetch_maintenance_tickets(oauth_client_path: str, token_path: str):
     return tickets, {
         "authenticated_email": email,
         "spreadsheet_title": spreadsheet.title,
-        "worksheets": [{"title": w.title, "gid": w.id} for w in worksheets],
+        "worksheets": [{"title": w.title, "gid": w.id} for w in spreadsheet.worksheets()],
         "rows_read": len(rows),
         "first_rows": rows[:3],
     }
@@ -221,10 +231,14 @@ def sync_maintenance_tickets(
     oauth_client_path: str,
     token_path: str,
     output_dir: str,
+    spreadsheet_id: str = None,
+    worksheet_name: str = None,
 ):
     tickets, diagnostics = fetch_maintenance_tickets(
         oauth_client_path=oauth_client_path,
         token_path=token_path,
+        spreadsheet_id=spreadsheet_id,
+        worksheet_name=worksheet_name,
     )
     created, updated = upsert_tickets(db, tickets)
     csv_path, excel_path = export_to_files(tickets, output_dir)
@@ -252,7 +266,7 @@ if __name__ == "__main__":
             db=db,
             oauth_client_path=os.path.join(default_credentials_dir, "oauth_client.json"),
             token_path=os.path.join(default_credentials_dir, "token_google.json"),
-            output_dir=os.getenv("FACILITIES_AUDIT_DIR", "C:/planilha_google"),
+            output_dir=os.getenv("FACILITIES_AUDIT_DIR", os.path.join(tempfile.gettempdir(), "porsche_google")),
         )
         print(f"Sincronização concluída: {result}")
     finally:

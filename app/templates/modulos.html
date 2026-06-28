@@ -257,6 +257,31 @@
     font-size: 13px;
   }
 
+  .modulo-card-full.bloqueado {
+    opacity: .62;
+    cursor: not-allowed;
+    pointer-events: none;
+    filter: grayscale(.5);
+  }
+
+  .modulo-card-full.bloqueado .modulo-enter {
+    background: #94a3b8;
+  }
+
+  .modulo-lock-badge {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    z-index: 2;
+    background: #f1f5f9;
+    border: 1px solid #e2e8f0;
+    border-radius: 999px;
+    padding: 6px 12px;
+    font-size: 12px;
+    font-weight: 700;
+    color: #64748b;
+  }
+
   @media (max-width: 1120px) {
     .modulos-main {
       grid-template-columns: 1fr;
@@ -312,7 +337,7 @@
 
       <div class="modulos-mini-kpis">
         <div>
-          <b>3</b>
+          <b>{% if request.state.current_user and request.state.current_user.perfil == 'admin' %}4{% else %}3{% endif %}</b>
           <span>Módulos ativos</span>
         </div>
         <div>
@@ -322,8 +347,17 @@
       </div>
     </aside>
 
+    {% if sem_acesso %}
+    <div style="position:fixed;top:20px;right:20px;z-index:999;background:#fef3c7;border:1px solid #f59e0b;border-radius:10px;padding:12px 18px;font-size:13px;font-weight:700;color:#92400e;box-shadow:0 4px 16px rgba(0,0,0,.1)">
+      🔒 Sem acesso ao módulo <strong>{{ sem_acesso }}</strong>. Contate o administrador.
+    </div>
+    {% endif %}
+
     <div class="modulos-grid-full">
-      <a class="modulo-card-full" href="/autonomos/dashboard">
+
+      {% set tem_autonomos = "autonomos" in modulos_usuario %}
+      <a class="modulo-card-full {% if not tem_autonomos %}bloqueado{% endif %}" href="{% if tem_autonomos %}/autonomos/dashboard{% else %}#{% endif %}">
+        {% if not tem_autonomos %}<span class="modulo-lock-badge">🔒 Sem acesso</span>{% endif %}
         <div class="modulo-card-top">
           <div class="modulo-icon-full">🏎️</div>
           <h2>Autônomos</h2>
@@ -331,19 +365,16 @@
             Gestão de pilotos, autônomos, carros, etapas, composição de equipe,
             alocações, pesquisas, equipes alocadas e rateios operacionais.
           </p>
-          <div class="modulo-enter">Entrar no módulo</div>
+          <div class="modulo-enter">{% if tem_autonomos %}Entrar no módulo{% else %}Bloqueado{% endif %}</div>
         </div>
-
         <div class="modulo-tags-full">
-          <span>Cadastros</span>
-          <span>Alocações</span>
-          <span>Equipes</span>
-          <span>Pesquisas</span>
-          <span>Importações</span>
+          <span>Cadastros</span><span>Alocações</span><span>Equipes</span><span>Pesquisas</span><span>Importações</span>
         </div>
       </a>
 
-      <a class="modulo-card-full" href="/dho">
+      {% set tem_dho = "dho" in modulos_usuario %}
+      <a class="modulo-card-full {% if not tem_dho %}bloqueado{% endif %}" href="{% if tem_dho %}/dho{% else %}#{% endif %}">
+        {% if not tem_dho %}<span class="modulo-lock-badge">🔒 Sem acesso</span>{% endif %}
         <div class="modulo-card-top">
           <div class="modulo-icon-full">🧭</div>
           <h2>DHO</h2>
@@ -351,19 +382,16 @@
             Gestão de vagas abertas com estrutura DataWorld, treinamentos cadastrados,
             aplicação de treinamentos, horas realizadas e cadastros de apoio.
           </p>
-          <div class="modulo-enter">Entrar no módulo</div>
+          <div class="modulo-enter">{% if tem_dho %}Entrar no módulo{% else %}Bloqueado{% endif %}</div>
         </div>
-
         <div class="modulo-tags-full">
-          <span>DataWorld</span>
-          <span>rel_colab_77</span>
-          <span>Vagas</span>
-          <span>Treinamentos</span>
-          <span>Importações DHO</span>
+          <span>DataWorld</span><span>rel_colab_77</span><span>Vagas</span><span>Treinamentos</span><span>Importações DHO</span>
         </div>
       </a>
 
-      <a class="modulo-card-full" href="/facilities">
+      {% set tem_facilities = "facilities" in modulos_usuario %}
+      <a class="modulo-card-full {% if not tem_facilities %}bloqueado{% endif %}" href="{% if tem_facilities %}/facilities{% else %}#{% endif %}">
+        {% if not tem_facilities %}<span class="modulo-lock-badge">🔒 Sem acesso</span>{% endif %}
         <div class="modulo-card-top">
           <div class="modulo-icon-full">🏢</div>
           <h2>Facilities</h2>
@@ -371,16 +399,33 @@
             Gestão dos dados operacionais de Facilities a partir da planilha compartilhada,
             com importação CSV, campos dinâmicos e registros editáveis.
           </p>
-          <div class="modulo-enter">Entrar no módulo</div>
+          <div class="modulo-enter">{% if tem_facilities %}Entrar no módulo{% else %}Bloqueado{% endif %}</div>
         </div>
-
         <div class="modulo-tags-full">
-          <span>Planilha</span>
-          <span>Campos</span>
-          <span>Registros</span>
-          <span>Importação CSV</span>
+          <span>Planilha</span><span>Campos</span><span>Registros</span><span>Importação CSV</span>
         </div>
       </a>
+
+      {% if request.state.current_user and request.state.current_user.perfil == 'admin' %}
+      <a class="modulo-card-full" href="/usuarios" style="background: linear-gradient(135deg, rgba(15,23,42,.96) 0%, rgba(30,41,59,.92) 100%); color: #fff; border-color: rgba(255,255,255,.12);">
+        <div class="modulo-card-top">
+          <div class="modulo-icon-full" style="background: rgba(255,255,255,.1); box-shadow: inset 0 0 0 1px rgba(255,255,255,.15);">⚙️</div>
+          <h2 style="color:#fff;">Administração</h2>
+          <p style="color:#94a3b8;">
+            Gestão de usuários e controle de acesso por módulo. Crie, edite e bloqueie
+            usuários definindo quais módulos cada operador pode acessar.
+          </p>
+          <div class="modulo-enter" style="background: rgba(255,255,255,.15); border: 1px solid rgba(255,255,255,.25);">Gerenciar usuários</div>
+        </div>
+        <div class="modulo-tags-full">
+          <span style="background:rgba(255,255,255,.1);border-color:rgba(255,255,255,.2);color:#e2e8f0;">Usuários</span>
+          <span style="background:rgba(255,255,255,.1);border-color:rgba(255,255,255,.2);color:#e2e8f0;">Permissões</span>
+          <span style="background:rgba(255,255,255,.1);border-color:rgba(255,255,255,.2);color:#e2e8f0;">Módulos</span>
+          <span style="background:rgba(255,255,255,.1);border-color:rgba(255,255,255,.2);color:#e2e8f0;">Perfis</span>
+        </div>
+      </a>
+      {% endif %}
+
     </div>
   </div>
 </section>
