@@ -7,7 +7,7 @@ from starlette.responses import RedirectResponse
 
 from app.auth import SESSION_COOKIE, read_session_token
 from app.database import Base, engine, limpar_datas_vazias_sqlite
-from app.routers import alocacoes, auth, cadastros, dashboard, relatorios, usuarios, referencias_importacao, pesquisas, composicao_padrao, equipe_geral, dho
+from app.routers import alocacoes, auth, cadastros, dashboard, relatorios, usuarios, referencias_importacao, pesquisas, composicao_padrao, equipe_geral, dho, facilities, composicao_meta_equipe
 
 
 Base.metadata.create_all(bind=engine)
@@ -324,3 +324,5 @@ except Exception as exc:
 
 # Rota de referência de IDs para importação Excel
 app.include_router(referencias_importacao.router)
+app.include_router(facilities.router)
+app.include_router(composicao_meta_equipe.router)
