@@ -1,0 +1,6 @@
+faixa_id,faixa_descricao,dias_min,dias_max,ordem
+1,0 a 30 dias,0,30,1
+2,31 a 60 dias,31,60,2
+3,61 a 90 dias,61,90,3
+4,91 a 180 dias,91,180,4
+5,Acima de 180 dias,181,9999,5
