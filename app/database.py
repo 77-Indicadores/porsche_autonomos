@@ -51,6 +51,37 @@ def get_db():
         db.close()
 
 
+def garantir_schema_usuarios(bind=engine):
+    """Adiciona campos novos de usuarios em bancos criados por versoes antigas."""
+    with bind.begin() as conn:
+        dialect = conn.dialect.name
+
+        if dialect == "sqlite":
+            tabelas = {
+                row[0]
+                for row in conn.execute(
+                    text("SELECT name FROM sqlite_master WHERE type='table'")
+                ).fetchall()
+            }
+            if "usuarios" not in tabelas:
+                return
+
+            colunas = {
+                row[1]
+                for row in conn.execute(text("PRAGMA table_info(usuarios)")).fetchall()
+            }
+            if "modulos_acesso" not in colunas:
+                conn.execute(text("ALTER TABLE usuarios ADD COLUMN modulos_acesso TEXT"))
+
+        elif dialect == "postgresql":
+            conn.execute(
+                text(
+                    "ALTER TABLE IF EXISTS usuarios "
+                    "ADD COLUMN IF NOT EXISTS modulos_acesso TEXT"
+                )
+            )
+
+
 def limpar_datas_vazias_sqlite():
     if not DATABASE_URL.startswith("sqlite"):
         return

@@ -110,6 +110,63 @@ dho_treinamento_aplicacoes = Table(
     Column("atualizado_em", DateTime, default=datetime.utcnow),
 )
 
+
+def _separar_valores_multiplos(valor):
+    texto = str(valor or "").replace("\r\n", "\n").replace("\r", "\n")
+    return [parte.strip() for parte in texto.replace("\n", ";").split(";") if parte.strip()]
+
+
+def _expandir_aplicacao_por_pessoa(dados):
+    nomes = _separar_valores_multiplos(dados.get("pessoa_nome"))
+    if not nomes:
+        return [dict(dados)]
+
+    campos_individuais = ("matricula", "funcao", "centro_custo")
+    valores_individuais = {
+        campo: _separar_valores_multiplos(dados.get(campo))
+        for campo in campos_individuais
+    }
+
+    aplicacoes = []
+    for indice, nome in enumerate(nomes):
+        item = dict(dados)
+        item["pessoa_nome"] = nome
+        for campo in campos_individuais:
+            partes = valores_individuais[campo]
+            if len(partes) == len(nomes):
+                item[campo] = partes[indice]
+        aplicacoes.append(item)
+    return aplicacoes
+
+
+def _normalizar_aplicacoes_multiplas(conn, tabela=dho_treinamento_aplicacoes):
+    """Converte registros antigos com varios nomes em uma linha por pessoa."""
+    normalizados = 0
+    registros = conn.execute(select(tabela)).mappings().all()
+
+    for registro in registros:
+        aplicacoes = _expandir_aplicacao_por_pessoa(dict(registro))
+        if len(aplicacoes) <= 1:
+            continue
+
+        id_aplicacao = registro["id_aplicacao"]
+        primeira = dict(aplicacoes[0])
+        primeira.pop("id_aplicacao", None)
+        conn.execute(
+            update(tabela)
+            .where(tabela.c.id_aplicacao == id_aplicacao)
+            .values(**primeira)
+        )
+
+        for aplicacao in aplicacoes[1:]:
+            nova = dict(aplicacao)
+            nova.pop("id_aplicacao", None)
+            conn.execute(insert(tabela).values(**nova))
+            normalizados += 1
+
+    return normalizados
+
+
 metadata_dho.create_all(engine)
 
 
@@ -258,6 +315,17 @@ def garantir_schema_dho_treinamentos():
 
 
 garantir_schema_dho_treinamentos()
+
+try:
+    with engine.begin() as conn:
+        total_normalizados = _normalizar_aplicacoes_multiplas(conn)
+        if total_normalizados:
+            print(
+                f"OK - {total_normalizados} aplicacao(oes) de treinamento "
+                "separada(s) em uma linha por colaborador."
+            )
+except Exception as exc:
+    print(f"AVISO - nao consegui separar aplicacoes de treinamento antigas: {exc}")
 
 
 TIPOS_TREINAMENTO = [
@@ -1164,13 +1232,27 @@ def salvar_aplicacao_treinamento(
 
     id_aplicacao = str(id_aplicacao or "").strip()
 
+    aplicacoes = _expandir_aplicacao_por_pessoa(dados)
+
     if id_aplicacao:
-        db.execute(update(dho_treinamento_aplicacoes).where(dho_treinamento_aplicacoes.c.id_aplicacao == int(id_aplicacao)).values(**dados))
+        db.execute(
+            update(dho_treinamento_aplicacoes)
+            .where(dho_treinamento_aplicacoes.c.id_aplicacao == int(id_aplicacao))
+            .values(**aplicacoes[0])
+        )
+        for aplicacao in aplicacoes[1:]:
+            aplicacao["criado_em"] = datetime.utcnow()
+            db.execute(insert(dho_treinamento_aplicacoes).values(**aplicacao))
         msg = "Aplicação atualizada."
     else:
-        dados["criado_em"] = datetime.utcnow()
-        db.execute(insert(dho_treinamento_aplicacoes).values(**dados))
-        msg = "Treinamento aplicado."
+        for aplicacao in aplicacoes:
+            aplicacao["criado_em"] = datetime.utcnow()
+            db.execute(insert(dho_treinamento_aplicacoes).values(**aplicacao))
+        msg = (
+            f"Treinamento aplicado para {len(aplicacoes)} colaboradores."
+            if len(aplicacoes) > 1
+            else "Treinamento aplicado."
+        )
 
     db.commit()
     return redirect_with_message("/dho/aplicacoes-treinamento", success=msg)
@@ -1829,25 +1911,26 @@ async def importar_aplicacoes_treinamento_dho(
                 ignorados += 1
                 continue
 
-            db.execute(
-                insert(dho_treinamento_aplicacoes).values(
-                    id_treinamento=id_treinamento,
-                    tipo_pessoa="Colaborador",
-                    id_autonomo=None,
-                    pessoa_nome=pessoa_nome,
-                    matricula=matricula,
-                    funcao=funcao,
-                    centro_custo=centro_custo,
-                    data_treinamento=data_treinamento,
-                    carga_horaria=_float_importacao(carga_horaria),
-                    status=status,
-                    observacoes=observacoes,
-                    criado_em=datetime.utcnow(),
-                    atualizado_em=datetime.utcnow(),
-                )
-            )
+            dados_aplicacao = {
+                "id_treinamento": id_treinamento,
+                "tipo_pessoa": "Colaborador",
+                "id_autonomo": None,
+                "pessoa_nome": pessoa_nome,
+                "matricula": matricula,
+                "funcao": funcao,
+                "centro_custo": centro_custo,
+                "data_treinamento": data_treinamento,
+                "carga_horaria": _float_importacao(carga_horaria),
+                "status": status,
+                "observacoes": observacoes,
+                "criado_em": datetime.utcnow(),
+                "atualizado_em": datetime.utcnow(),
+            }
 
-            total += 1
+            aplicacoes = _expandir_aplicacao_por_pessoa(dados_aplicacao)
+            for aplicacao in aplicacoes:
+                db.execute(insert(dho_treinamento_aplicacoes).values(**aplicacao))
+                total += 1
 
         db.commit()
 
