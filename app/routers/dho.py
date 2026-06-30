@@ -862,7 +862,8 @@ def _ler_token_dataworld():
     Ordem:
     1. Variáveis de ambiente
     2. C:\\Users\\felip\\token_dw.json
-    3. token_dw.json na raiz do projeto
+    3. Config padrão do datadotworld
+    4. token_dw.json na raiz do projeto
     """
     candidatos_env = [
         "DATADOTWORLD_API_TOKEN",
@@ -877,6 +878,8 @@ def _ler_token_dataworld():
             return str(valor).strip()
 
     caminhos = [
+        Path.home() / ".dw" / "config",
+        Path.home() / ".data.world" / "config",
         Path(r"C:\\Users\\felip\\token_dw.json"),
         BASE / "token_dw.json",
         BASE.parent / "token_dw.json",
@@ -898,7 +901,22 @@ def _ler_token_dataworld():
                     if data.get(chave):
                         return str(data.get(chave)).strip()
             except Exception:
-                return raw.strip().strip('"').strip("'")
+                try:
+                    import configparser
+
+                    parser = configparser.ConfigParser()
+                    parser.read_string(raw)
+
+                    for section in [parser.default_section, *parser.sections()]:
+                        source = parser.defaults() if section == parser.default_section else parser[section]
+                        for chave in ["token", "api_token", "auth_token", "dataworld_token"]:
+                            if source.get(chave):
+                                return str(source.get(chave)).strip()
+                except Exception:
+                    pass
+
+                if "=" not in raw and "[" not in raw:
+                    return raw.strip().strip('"').strip("'")
 
         except Exception:
             pass
@@ -989,7 +1007,9 @@ def carregar_pessoas_dataworld():
             token = _ler_token_dataworld()
 
             if token:
-                resp = requests.post(
+                session = requests.Session()
+                session.trust_env = False
+                resp = session.post(
                     "https://api.data.world/v0/sql/77indicadores/porsche",
                     headers={
                         "Authorization": f"Bearer {token}",
@@ -1064,9 +1084,81 @@ def carregar_pessoas_dataworld():
         key=lambda x: str(x.get("nome_exibicao") or "").lower()
     )
 
-    _CACHE_PESSOAS_DW["dados"] = pessoas
+    if pessoas:
+        _CACHE_PESSOAS_DW["dados"] = pessoas
 
     return pessoas
+
+
+def carregar_pessoas_aplicacao_treinamento(db: Session):
+    pessoas = list(carregar_pessoas_dataworld())
+    dedup = {
+        (
+            str(p.get("nome_exibicao") or "").strip().lower(),
+            str(p.get("matricula") or "").strip().lower(),
+            str(p.get("email") or "").strip().lower(),
+        ): p
+        for p in pessoas
+    }
+
+    try:
+        for aut in get_autonomos(db):
+            nome = str(getattr(aut, "nome_autonomo", "") or "").strip()
+            if not nome:
+                continue
+
+            chave = (nome.lower(), "", "")
+            if chave not in dedup:
+                dedup[chave] = {
+                    "nome": nome,
+                    "nome_completo": nome,
+                    "nome_exibicao": nome,
+                    "matricula": "",
+                    "email": str(getattr(aut, "email", "") or "").strip(),
+                    "cargo": str(getattr(getattr(aut, "cargo", None), "nome_cargo", "") or "").strip(),
+                    "departamento": "Autônomo",
+                    "label": nome,
+                }
+    except Exception as exc:
+        print(f"AVISO - não consegui carregar autônomos como fallback DHO: {exc}")
+
+    try:
+        rows = db.execute(
+            select(
+                dho_treinamento_aplicacoes.c.pessoa_nome,
+                dho_treinamento_aplicacoes.c.matricula,
+                dho_treinamento_aplicacoes.c.funcao,
+                dho_treinamento_aplicacoes.c.centro_custo,
+            )
+            .where(dho_treinamento_aplicacoes.c.pessoa_nome.isnot(None))
+            .order_by(dho_treinamento_aplicacoes.c.pessoa_nome)
+        ).mappings().all()
+
+        for row in rows:
+            nome = str(row.get("pessoa_nome") or "").strip()
+            matricula = str(row.get("matricula") or "").strip()
+            if not nome:
+                continue
+
+            chave = (nome.lower(), matricula.lower(), "")
+            if chave not in dedup:
+                dedup[chave] = {
+                    "nome": nome,
+                    "nome_completo": nome,
+                    "nome_exibicao": nome,
+                    "matricula": matricula,
+                    "email": "",
+                    "cargo": str(row.get("funcao") or "").strip(),
+                    "departamento": str(row.get("centro_custo") or "").strip(),
+                    "label": nome,
+                }
+    except Exception as exc:
+        print(f"AVISO - não consegui carregar histórico de pessoas DHO: {exc}")
+
+    return sorted(
+        dedup.values(),
+        key=lambda x: str(x.get("nome_exibicao") or "").lower(),
+    )
 
 
 def carregar_estrutura_dataworld():
@@ -1184,7 +1276,7 @@ def aplicacoes_treinamento(request: Request, q: str = "", db: Session = Depends(
             "q": q,
             "treinamentos": get_treinamentos(db),
             "autonomos": get_autonomos(db),
-            "pessoas_dataworld": carregar_pessoas_dataworld(),
+            "pessoas_dataworld": carregar_pessoas_aplicacao_treinamento(db),
             "status_aplicacao": STATUS_APLICACAO,
             "fmt_num": fmt_num,
             **flash_from_request(request),
