@@ -1,39 +1,6 @@
 {% extends "base.html" %}
 
-{% block header %}Aplicar Treinamento
-<script>
-function atualizarDetalhesPessoaDataWorld() {
-  const input = document.getElementById("pessoa_nome");
-  const detalhes = document.getElementById("detalhes_pessoa");
-  const lista = document.getElementById("lista_pessoas_dataworld");
-
-  if (!input || !detalhes || !lista) return;
-
-  const valor = (input.value || "").trim();
-  let texto = "";
-
-  const opcoes = Array.from(lista.options || []);
-  const opt = opcoes.find(o => (o.value || "").trim() === valor);
-
-  if (opt) {
-    const partes = [];
-
-    if (opt.dataset.matricula) partes.push("Matrícula " + opt.dataset.matricula);
-    if (opt.dataset.cargo) partes.push(opt.dataset.cargo);
-    if (opt.dataset.departamento) partes.push(opt.dataset.departamento);
-    if (opt.dataset.email) partes.push(opt.dataset.email);
-
-    texto = partes.join(" · ");
-  }
-
-  detalhes.value = texto;
-}
-
-document.getElementById("pessoa_nome")?.addEventListener("input", atualizarDetalhesPessoaDataWorld);
-document.getElementById("pessoa_nome")?.addEventListener("change", atualizarDetalhesPessoaDataWorld);
-</script>
-
-{% endblock %}
+{% block header %}Aplicar Treinamento{% endblock %}
 {% block subtitle %}Registro de treinamento aplicado por pessoa/autônomo{% endblock %}
 
 {% block header_action %}
@@ -81,15 +48,21 @@ document.getElementById("pessoa_nome")?.addEventListener("change", atualizarDeta
 
     <div class="span-3">
       <label class="label">Pessoa</label>
-      <input
-        class="input"
-        name="pessoa_nome"
-        id="pessoa_nome"
-        list="lista_pessoas_dataworld"
-        placeholder="Digite as primeiras letras para buscar..."
-        autocomplete="off"
-        required
-      >
+      <div class="person-combobox" id="pessoa_combobox">
+        <input
+          class="input"
+          name="pessoa_nome"
+          id="pessoa_nome"
+          placeholder="Digite as primeiras letras para buscar..."
+          autocomplete="off"
+          role="combobox"
+          aria-autocomplete="list"
+          aria-expanded="false"
+          aria-controls="pessoa_sugestoes"
+          required
+        >
+        <div class="person-suggestions" id="pessoa_sugestoes" role="listbox"></div>
+      </div>
 
       <datalist id="lista_pessoas_dataworld">
         {% for p in pessoas_dataworld %}
@@ -219,22 +192,49 @@ document.getElementById("pessoa_nome")?.addEventListener("change", atualizarDeta
   </table>
 </section>
 
-
 <script>
 function setValue(id, value) {
   const el = document.getElementById(id);
   if (el) el.value = value || "";
 }
 
-function buscarOpcaoPessoa(valor) {
+function normalizarBuscaPessoa(valor) {
+  return (valor || "")
+    .toString()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim()
+    .toLowerCase();
+}
+
+function opcoesPessoa() {
   const lista = document.getElementById("lista_pessoas_dataworld");
-  if (!lista) return null;
+  if (!lista) return [];
+  return Array.from(lista.options || []);
+}
 
-  const valorNormalizado = (valor || "").trim().toLowerCase();
+function textoOpcaoPessoa(opt) {
+  return (opt.textContent || opt.value || "").trim();
+}
 
-  return Array.from(lista.options || []).find(function(opt) {
-    return (opt.value || "").trim().toLowerCase() === valorNormalizado;
+function buscarOpcaoPessoa(valor) {
+  const valorNormalizado = normalizarBuscaPessoa(valor);
+
+  return opcoesPessoa().find(function(opt) {
+    return normalizarBuscaPessoa(opt.value) === valorNormalizado;
   });
+}
+
+function fecharSugestoesPessoa() {
+  const input = document.getElementById("pessoa_nome");
+  const box = document.getElementById("pessoa_sugestoes");
+
+  if (box) {
+    box.innerHTML = "";
+    box.classList.remove("is-open");
+  }
+
+  if (input) input.setAttribute("aria-expanded", "false");
 }
 
 function atualizarCamposPessoa() {
@@ -255,6 +255,106 @@ function atualizarCamposPessoa() {
   setValue("centro_custo", opt.dataset.centroCusto || "");
 }
 
+function selecionarOpcaoPessoa(opt) {
+  if (!opt) return;
+  setValue("pessoa_nome", opt.value || "");
+  atualizarCamposPessoa();
+  fecharSugestoesPessoa();
+}
+
+function criarItemSugestaoPessoa(opt, index) {
+  const item = document.createElement("button");
+  item.type = "button";
+  item.className = "person-suggestion";
+  item.setAttribute("role", "option");
+  item.setAttribute("data-index", String(index));
+
+  const nome = document.createElement("strong");
+  nome.textContent = opt.value || "";
+
+  const detalhe = document.createElement("span");
+  detalhe.textContent = textoOpcaoPessoa(opt);
+
+  item.appendChild(nome);
+  item.appendChild(detalhe);
+  item.addEventListener("mousedown", function(event) {
+    event.preventDefault();
+    selecionarOpcaoPessoa(opt);
+  });
+
+  return item;
+}
+
+function renderizarSugestoesPessoa() {
+  const input = document.getElementById("pessoa_nome");
+  const box = document.getElementById("pessoa_sugestoes");
+  if (!input || !box) return;
+
+  const termo = normalizarBuscaPessoa(input.value);
+
+  if (termo.length < 1) {
+    fecharSugestoesPessoa();
+    return;
+  }
+
+  const resultados = opcoesPessoa()
+    .filter(function(opt) {
+      const texto = normalizarBuscaPessoa((opt.value || "") + " " + textoOpcaoPessoa(opt));
+      return texto.includes(termo);
+    })
+    .slice(0, 30);
+
+  box.innerHTML = "";
+
+  if (!resultados.length) {
+    const vazio = document.createElement("div");
+    vazio.className = "person-suggestion-empty";
+    vazio.textContent = "Nenhuma pessoa encontrada";
+    box.appendChild(vazio);
+  } else {
+    resultados.forEach(function(opt, index) {
+      box.appendChild(criarItemSugestaoPessoa(opt, index));
+    });
+  }
+
+  box.classList.add("is-open");
+  input.setAttribute("aria-expanded", "true");
+}
+
+function moverDestaqueSugestaoPessoa(direcao) {
+  const box = document.getElementById("pessoa_sugestoes");
+  if (!box) return;
+
+  const itens = Array.from(box.querySelectorAll(".person-suggestion"));
+  if (!itens.length) return;
+
+  const atual = itens.findIndex(function(item) {
+    return item.classList.contains("is-active");
+  });
+  const proximo = direcao > 0
+    ? Math.min(atual + 1, itens.length - 1)
+    : Math.max(atual - 1, 0);
+
+  itens.forEach(function(item) { item.classList.remove("is-active"); });
+  itens[proximo].classList.add("is-active");
+  itens[proximo].scrollIntoView({ block: "nearest" });
+}
+
+function selecionarSugestaoAtivaPessoa() {
+  const box = document.getElementById("pessoa_sugestoes");
+  if (!box) return false;
+
+  const ativo = box.querySelector(".person-suggestion.is-active");
+  if (!ativo) return false;
+
+  const opt = opcoesPessoa().find(function(opcao) {
+    return (opcao.value || "") === (ativo.querySelector("strong")?.textContent || "");
+  });
+
+  selecionarOpcaoPessoa(opt);
+  return true;
+}
+
 function editarAplicacao(btn) {
   const d = btn.dataset || {};
 
@@ -272,6 +372,7 @@ function editarAplicacao(btn) {
   setValue("observacoes", d.observacoes);
 
   atualizarCamposPessoa();
+  fecharSugestoesPessoa();
 
   document.getElementById("titulo-form-dho").innerText = "Editar aplicação #" + d.idAplicacao;
   document.getElementById("btn_salvar_dho").innerText = "Salvar alterações";
@@ -288,6 +389,7 @@ function novaAplicacao() {
   setValue("matricula", "");
   setValue("funcao", "");
   setValue("centro_custo", "");
+  fecharSugestoesPessoa();
 
   document.getElementById("titulo-form-dho").innerText = "Nova / editar aplicação";
   document.getElementById("btn_salvar_dho").innerText = "Salvar aplicação";
@@ -295,8 +397,43 @@ function novaAplicacao() {
   window.scrollTo({ top: 0, behavior: "smooth" });
 }
 
-document.getElementById("pessoa_nome")?.addEventListener("input", atualizarCamposPessoa);
+document.getElementById("pessoa_nome")?.addEventListener("input", function() {
+  atualizarCamposPessoa();
+  renderizarSugestoesPessoa();
+});
 document.getElementById("pessoa_nome")?.addEventListener("change", atualizarCamposPessoa);
+document.getElementById("pessoa_nome")?.addEventListener("focus", renderizarSugestoesPessoa);
+document.getElementById("pessoa_nome")?.addEventListener("keydown", function(event) {
+  const box = document.getElementById("pessoa_sugestoes");
+  const aberto = box && box.classList.contains("is-open");
+
+  if (!aberto) return;
+
+  if (event.key === "ArrowDown") {
+    event.preventDefault();
+    moverDestaqueSugestaoPessoa(1);
+  }
+
+  if (event.key === "ArrowUp") {
+    event.preventDefault();
+    moverDestaqueSugestaoPessoa(-1);
+  }
+
+  if (event.key === "Enter" && selecionarSugestaoAtivaPessoa()) {
+    event.preventDefault();
+  }
+
+  if (event.key === "Escape") {
+    fecharSugestoesPessoa();
+  }
+});
+
+document.addEventListener("mousedown", function(event) {
+  const combo = document.getElementById("pessoa_combobox");
+  if (combo && !combo.contains(event.target)) {
+    fecharSugestoesPessoa();
+  }
+});
 
 document.getElementById("id_treinamento")?.addEventListener("change", function() {
   const opt = this.selectedOptions[0];
@@ -305,6 +442,5 @@ document.getElementById("id_treinamento")?.addEventListener("change", function()
   }
 });
 </script>
-
 
 {% endblock %}

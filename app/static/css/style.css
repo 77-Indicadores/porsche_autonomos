@@ -516,6 +516,67 @@ textarea:focus {
   border-color: #dc2626;
 }
 
+.person-combobox {
+  position: relative;
+}
+
+.person-suggestions {
+  display: none;
+  position: absolute;
+  z-index: 50;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  max-height: 320px;
+  overflow-y: auto;
+  background: #ffffff;
+  border: 1px solid #d4d4d8;
+  border-radius: 10px;
+  box-shadow: 0 18px 42px rgba(15, 23, 42, .18);
+}
+
+.person-suggestions.is-open {
+  display: block;
+}
+
+.person-suggestion {
+  display: block;
+  width: 100%;
+  padding: 10px 12px;
+  border: 0;
+  border-bottom: 1px solid #f1f1f2;
+  background: #ffffff;
+  color: #18181b;
+  text-align: left;
+  cursor: pointer;
+}
+
+.person-suggestion:hover,
+.person-suggestion.is-active {
+  background: #f4f4f5;
+}
+
+.person-suggestion strong,
+.person-suggestion span {
+  display: block;
+}
+
+.person-suggestion strong {
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.person-suggestion span,
+.person-suggestion-empty {
+  color: #52525b;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.person-suggestion-empty {
+  padding: 12px;
+}
+
 /* Tabelas */
 .table {
   width: 100%;
