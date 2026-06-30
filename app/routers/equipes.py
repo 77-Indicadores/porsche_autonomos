@@ -3,7 +3,6 @@ from collections import OrderedDict
 from fastapi import APIRouter, Depends, Request
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import text
-from sqlalchemy import text
 
 from app.database import get_db
 from app.models import DimEtapa, DimProva, FatoPilotoAutonomoProva
@@ -27,6 +26,33 @@ def fmt_qtd(value):
         return str(v).replace(".", ",")
     except Exception:
         return str(value or "")
+
+
+def calcular_rateios_equipe_atual(fatos):
+    """Rateia o pacote de quem aparece em mais de uma equipe na mesma etapa/categoria."""
+    destinos_por_pessoa = {}
+
+    for fato in fatos:
+        chave_pessoa = (fato.id_etapa, fato.id_prova, fato.id_autonomo)
+        chave_equipe = (fato.id_piloto, fato.id_carro)
+        destinos_por_pessoa.setdefault(chave_pessoa, set()).add(chave_equipe)
+
+    rateios = {}
+    for fato in fatos:
+        chave_pessoa = (fato.id_etapa, fato.id_prova, fato.id_autonomo)
+        divisor = len(destinos_por_pessoa.get(chave_pessoa, set())) or 1
+        valor_pacote = float(fato.valor_fechado_etapa or 0)
+        dias = int(fato.dias_trabalhados or 0)
+        valor_no_carro = valor_pacote / divisor
+
+        rateios[fato.id_fato] = {
+            "divisor": divisor,
+            "valor_pacote": valor_pacote,
+            "valor_no_carro": valor_no_carro,
+            "valor_dia_no_carro": valor_no_carro / dias if dias else 0,
+        }
+
+    return rateios
 
 
 def garantir_exemplo_equipe_geral(db: Session):
@@ -141,6 +167,8 @@ def equipes(
         FatoPilotoAutonomoProva.funcao_autonomo,
     ).all()
 
+    rateios_equipe_atual = calcular_rateios_equipe_atual(fatos)
+
     equipes_map = OrderedDict()
 
     for f in fatos:
@@ -154,14 +182,11 @@ def equipes(
                 "carro": f.carro,
                 "membros": [],
                 "substituicoes": [],
-                "custo_autonomos": 0.0,
-                "custo_rateio_equipe_geral": 0.0,
-                "custo_autonomos": 0.0,
+                "custo_equipe_atual": 0.0,
                 "custo_rateio_equipe_geral": 0.0,
                 "custo_total": 0.0,
                 "qtd_membros": 0,
                 "teve_troca": False,
-                "rateios_equipe_geral": [],
                 "rateios_equipe_geral": [],
             }
 
@@ -170,6 +195,15 @@ def equipes(
         valor = float(f.valor_fechado_etapa or 0)
         dias = int(f.dias_trabalhados or 0)
         valor_dia = float(f.valor_dia or 0)
+        rateio_atual = rateios_equipe_atual.get(
+            f.id_fato,
+            {
+                "divisor": 1,
+                "valor_pacote": valor,
+                "valor_no_carro": valor,
+                "valor_dia_no_carro": valor_dia,
+            },
+        )
 
         equipe["membros"].append({
             "funcao": f.funcao_autonomo or "-",
@@ -177,14 +211,16 @@ def equipes(
             "valor": valor,
             "dias": dias,
             "valor_dia": valor_dia,
+            "divisor": rateio_atual["divisor"],
+            "valor_no_carro": rateio_atual["valor_no_carro"],
+            "valor_dia_no_carro": rateio_atual["valor_dia_no_carro"],
             "status": f.status_vinculo or "",
             "foi_substituido": (f.foi_substituido or "").lower() == "sim",
             "observacoes": f.observacoes or "",
         })
 
-        equipe["custo_autonomos"] += valor
-        equipe["custo_autonomos"] += valor
-        equipe["custo_total"] += valor
+        equipe["custo_equipe_atual"] += rateio_atual["valor_no_carro"]
+        equipe["custo_total"] += rateio_atual["valor_no_carro"]
         equipe["qtd_membros"] += 1
 
         if (f.foi_substituido or "").lower() == "sim":

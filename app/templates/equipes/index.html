@@ -75,13 +75,13 @@
 
       <div class="equipe-kpis">
         <div class="equipe-kpi">
-          <span>Custo autônomos</span>
-          <strong>R$ {{ "{:,.2f}".format(equipe.custo_autonomos).replace(",", "X").replace(".", ",").replace("X", ".") }}</strong>
+          <span>Custo rateio</span>
+          <strong>R$ {{ "{:,.2f}".format(equipe.custo_rateio_equipe_geral).replace(",", "X").replace(".", ",").replace("X", ".") }}</strong>
         </div>
 
         <div class="equipe-kpi">
-          <span>Rateio equipe geral</span>
-          <strong>R$ {{ "{:,.2f}".format(equipe.custo_rateio_equipe_geral).replace(",", "X").replace(".", ",").replace("X", ".") }}</strong>
+          <span>Custo equipe atual</span>
+          <strong>R$ {{ "{:,.2f}".format(equipe.custo_equipe_atual).replace(",", "X").replace(".", ",").replace("X", ".") }}</strong>
         </div>
 
         <div class="equipe-kpi">
@@ -123,12 +123,17 @@
               <div class="membro-left">
                 <div class="membro-funcao">{{ membro.funcao }}</div>
                 <div class="membro-nome">{{ membro.nome }}</div>
+                {% if membro.divisor > 1 %}
+                  <div class="text-sm text-zinc-500 mt-1">
+                    Pacote dividido por {{ membro.divisor }} equipes/carros
+                  </div>
+                {% endif %}
               </div>
 
               <div class="membro-right">
                 <div><span>Pacote</span><strong>R$ {{ "{:,.2f}".format(membro.valor).replace(",", "X").replace(".", ",").replace("X", ".") }}</strong></div>
                 <div><span>Dias</span><strong>{{ membro.dias }}</strong></div>
-                <div><span>Valor/dia</span><strong>R$ {{ "{:,.2f}".format(membro.valor_dia).replace(",", "X").replace(".", ",").replace("X", ".") }}</strong></div>
+                <div><span>Valor no carro</span><strong>R$ {{ "{:,.2f}".format(membro.valor_no_carro).replace(",", "X").replace(".", ",").replace("X", ".") }}</strong></div>
               </div>
             </div>
           {% endfor %}
