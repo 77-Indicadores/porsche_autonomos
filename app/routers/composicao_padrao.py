@@ -16,12 +16,11 @@ from sqlalchemy import (
     select,
     text,
     update,
-    func,
 )
 from sqlalchemy.orm import Session
 
 from app.database import engine, get_db
-from app.models import DimCarro, DimCargoAutonomo, DimEtapa, DimProva, FatoPilotoAutonomoProva
+from app.models import DimCarro, DimCargoAutonomo, DimEtapa, DimProva
 from app.template_config import templates
 from app.utils import flash_from_request, parse_money, redirect_with_message
 
@@ -123,93 +122,6 @@ def get_nome_cargo(db: Session, id_cargo):
     return obj.nome_cargo if obj else f"ID {id_cargo}"
 
 
-def normalizar(texto):
-    return " ".join(str(texto or "").strip().lower().split())
-
-
-def buscar_cargo_por_funcao(db: Session, funcao_autonomo):
-    nome = normalizar(funcao_autonomo)
-    if not nome:
-        return None
-
-    cargos = db.query(DimCargoAutonomo).all()
-    for cargo in cargos:
-        if normalizar(cargo.nome_cargo) == nome:
-            return cargo
-
-    return None
-
-
-def gerar_itens_pelas_alocacoes(
-    db: Session,
-    id_etapa: str = "",
-    id_prova: str = "",
-    id_carro: str = "",
-    id_cargo_autonomo: str = "",
-    status: str = "",
-):
-    if status and status != "Ativo":
-        return []
-
-    query = db.query(
-        FatoPilotoAutonomoProva.id_etapa,
-        FatoPilotoAutonomoProva.id_prova,
-        FatoPilotoAutonomoProva.id_carro,
-        FatoPilotoAutonomoProva.funcao_autonomo,
-        func.count(FatoPilotoAutonomoProva.id_fato).label("qtd_esperada"),
-        func.avg(FatoPilotoAutonomoProva.valor_fechado_etapa).label("custo_medio_esperado"),
-    )
-
-    if id_etapa:
-        query = query.filter(FatoPilotoAutonomoProva.id_etapa == int(id_etapa))
-
-    if id_prova:
-        query = query.filter(FatoPilotoAutonomoProva.id_prova == int(id_prova))
-
-    if id_carro:
-        query = query.filter(FatoPilotoAutonomoProva.id_carro == int(id_carro))
-
-    query = query.group_by(
-        FatoPilotoAutonomoProva.id_etapa,
-        FatoPilotoAutonomoProva.id_prova,
-        FatoPilotoAutonomoProva.id_carro,
-        FatoPilotoAutonomoProva.funcao_autonomo,
-    )
-
-    rows = query.all()
-    items = []
-
-    for row in rows:
-        cargo = buscar_cargo_por_funcao(db, row.funcao_autonomo)
-
-        if id_cargo_autonomo:
-            if not cargo or cargo.id_cargo_autonomo != int(id_cargo_autonomo):
-                continue
-
-        qtd = float(row.qtd_esperada or 0)
-        custo = float(row.custo_medio_esperado or 0)
-
-        items.append({
-            "id_composicao": None,
-            "id_etapa": row.id_etapa,
-            "id_prova": row.id_prova,
-            "id_carro": row.id_carro,
-            "id_cargo_autonomo": cargo.id_cargo_autonomo if cargo else "",
-            "qtd_esperada": int(qtd) if qtd.is_integer() else qtd,
-            "custo_medio_esperado": custo,
-            "custo_total_esperado": qtd * custo,
-            "status": "Ativo",
-            "observacoes": "Gerado automaticamente pelas equipes alocadas.",
-            "nome_etapa": get_nome_etapa(db, row.id_etapa),
-            "nome_prova": get_nome_prova(db, row.id_prova),
-            "nome_carro": get_nome_carro(db, row.id_carro),
-            "nome_cargo": cargo.nome_cargo if cargo else (row.funcao_autonomo or "-"),
-            "origem": "alocacoes",
-        })
-
-    return items
-
-
 @router.get("/composicao-padrao")
 def index(
     request: Request,
@@ -274,18 +186,6 @@ def index(
         total_custo += item["custo_total_esperado"]
 
         items.append(item)
-
-    if not items:
-        items = gerar_itens_pelas_alocacoes(
-            db,
-            id_etapa=id_etapa,
-            id_prova=id_prova,
-            id_carro=id_carro,
-            id_cargo_autonomo=id_cargo_autonomo,
-            status=status,
-        )
-        total_qtd = sum(float(item.get("qtd_esperada") or 0) for item in items)
-        total_custo = sum(float(item.get("custo_total_esperado") or 0) for item in items)
 
     return templates.TemplateResponse(
         "composicao_padrao/index.html",
