@@ -15,6 +15,7 @@ google_oauth2_credentials_module.Credentials = object
 google_auth_oauthlib_module = types.ModuleType("google_auth_oauthlib")
 google_auth_oauthlib_flow_module = types.ModuleType("google_auth_oauthlib.flow")
 google_auth_oauthlib_flow_module.InstalledAppFlow = object
+google_auth_oauthlib_flow_module.Flow = object
 
 sys.modules.setdefault("google", google_module)
 sys.modules.setdefault("google.auth", google_auth_module)
@@ -59,6 +60,7 @@ def test_sincronizar_restaura_e_persiste_credenciais_no_banco(monkeypatch):
     persistidos = []
 
     monkeypatch.setattr(facilities, "_is_admin", lambda _request: True)
+    monkeypatch.setattr(facilities, "ensure_google_oauth_client_config", lambda _db: True)
     monkeypatch.setattr(
         facilities,
         "_restaurar_arquivo_do_banco",
@@ -74,6 +76,8 @@ def test_sincronizar_restaura_e_persiste_credenciais_no_banco(monkeypatch):
         "sync_maintenance_tickets",
         lambda **_kwargs: {"total": 3, "created": 1, "updated": 2},
     )
+    monkeypatch.setattr(facilities, "has_google_oauth_client", lambda _db: True)
+    monkeypatch.setattr(facilities, "has_google_token", lambda _db: True)
 
     response = facilities.sincronizar(request=_request_admin(), db=db)
 
@@ -84,3 +88,29 @@ def test_sincronizar_restaura_e_persiste_credenciais_no_banco(monkeypatch):
     assert (facilities.GOOGLE_OAUTH_CLIENT_DB_KEY, facilities.DEFAULT_OAUTH_CLIENT_PATH) in persistidos
     assert (facilities.GOOGLE_TOKEN_DB_KEY, facilities.DEFAULT_TOKEN_PATH) in persistidos
     assert db.commits == 1
+
+
+def test_google_oauth_client_json_do_env_eh_reconhecido(monkeypatch):
+    monkeypatch.setattr(
+        facilities,
+        "GOOGLE_WEB_CLIENT_JSON",
+        '{"web":{"client_id":"abc","redirect_uris":["https://example.com/facilities/oauth/callback"]}}',
+    )
+
+    config = facilities.load_google_oauth_client_config()
+
+    assert config["web"]["client_id"] == "abc"
+
+
+def test_sincronizar_redireciona_para_oauth_quando_falta_token(monkeypatch):
+    db = _DbFalso()
+
+    monkeypatch.setattr(facilities, "_is_admin", lambda _request: True)
+    monkeypatch.setattr(facilities, "_restaurar_credenciais_google", lambda _db: None)
+    monkeypatch.setattr(facilities, "has_google_oauth_client", lambda _db: True)
+    monkeypatch.setattr(facilities, "has_google_token", lambda _db: False)
+
+    response = facilities.sincronizar(request=_request_admin(), db=db)
+
+    assert response.status_code == 303
+    assert response.headers["location"] == "/facilities/oauth/iniciar"

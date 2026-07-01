@@ -5,7 +5,6 @@ from urllib.request import urlopen
 
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
-from google_auth_oauthlib.flow import InstalledAppFlow
 
 
 SCOPES = [
@@ -18,6 +17,10 @@ SCOPES = [
 
 
 class GoogleSheetsPermissionError(RuntimeError):
+    pass
+
+
+class GoogleSheetsAuthRequiredError(RuntimeError):
     pass
 
 
@@ -36,27 +39,19 @@ class GoogleSheetsClient:
         if os.path.exists(self.token_path):
             credentials = Credentials.from_authorized_user_file(self.token_path, SCOPES)
 
-        if not credentials or not credentials.valid:
-            if credentials and credentials.expired and credentials.refresh_token:
+        if not credentials:
+            raise GoogleSheetsAuthRequiredError("Token Google nao encontrado.")
+
+        if not credentials.valid:
+            if credentials.expired and credentials.refresh_token:
                 credentials.refresh(Request())
+                os.makedirs(os.path.dirname(self.token_path), exist_ok=True)
+                with open(self.token_path, "w", encoding="utf-8") as token_file:
+                    token_file.write(credentials.to_json())
             else:
-                if not os.path.exists(self.oauth_client_path):
-                    raise FileNotFoundError(
-                        f"Arquivo OAuth não encontrado: {self.oauth_client_path}"
-                    )
-
-                flow = InstalledAppFlow.from_client_secrets_file(
-                    self.oauth_client_path,
-                    SCOPES,
+                raise GoogleSheetsAuthRequiredError(
+                    "Token Google invalido ou sem refresh token."
                 )
-                credentials = flow.run_local_server(
-                    port=0,
-                    prompt="select_account consent",
-                )
-
-            os.makedirs(os.path.dirname(self.token_path), exist_ok=True)
-            with open(self.token_path, "w", encoding="utf-8") as token_file:
-                token_file.write(credentials.to_json())
 
         return credentials
 
@@ -80,7 +75,7 @@ class GoogleSheetsClient:
             if "403" in message or "PERMISSION_DENIED" in message:
                 email = self.authenticated_email() or "conta autenticada"
                 raise GoogleSheetsPermissionError(
-                    "A conta autenticada no OAuth não tem permissão para abrir a "
+                    "A conta autenticada no OAuth nao tem permissao para abrir a "
                     f"planilha. Compartilhe a planilha com o e-mail autenticado: {email}."
                 ) from exc
             raise
@@ -92,4 +87,4 @@ class GoogleSheetsClient:
             if worksheet.id == gid:
                 return worksheet
 
-        raise ValueError(f"Aba com GID {gid} não encontrada.")
+        raise ValueError(f"Aba com GID {gid} nao encontrada.")

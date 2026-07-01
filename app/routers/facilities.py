@@ -12,10 +12,15 @@ from fastapi.responses import RedirectResponse
 from sqlalchemy import func, select
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
+from google_auth_oauthlib.flow import Flow
 
 from app.auth import tem_acesso_modulo, is_admin as _is_admin
 from app.database import get_db
-from app.integrations.google_sheets.client import GoogleSheetsPermissionError
+from app.integrations.google_sheets.client import (
+    GoogleSheetsAuthRequiredError,
+    GoogleSheetsPermissionError,
+    SCOPES,
+)
 from app.integrations.google_sheets.mapper import map_row
 from app.integrations.google_sheets.sync import (
     GID_ABA_RESPOSTAS,
@@ -33,6 +38,8 @@ router = APIRouter(tags=["facilities"])
 BASE_DIR = Path(__file__).resolve().parents[2]
 GOOGLE_TOKEN_DB_KEY = "google_sheets_token"
 GOOGLE_OAUTH_CLIENT_DB_KEY = "google_oauth_client"
+GOOGLE_OAUTH_STATE_DB_KEY = "google_oauth_state"
+GOOGLE_WEB_CLIENT_JSON = os.getenv("GOOGLE_WEB_CLIENT_JSON", "").strip()
 
 DEFAULT_CREDENTIALS_DIR = os.getenv(
     "GOOGLE_SHEETS_CREDENTIALS_DIR",
@@ -184,6 +191,68 @@ def _set_config(db: Session, chave: str, valor: str):
     else:
         db.add(ConfigSistema(chave=chave, valor=valor))
     db.flush()
+
+
+def load_google_oauth_client_config() -> dict | None:
+    raw = GOOGLE_WEB_CLIENT_JSON or ""
+    if not raw:
+        return None
+    try:
+        payload = json.loads(raw)
+    except json.JSONDecodeError:
+        return None
+    return payload if isinstance(payload, dict) else None
+
+
+def persist_google_oauth_client_config(db: Session, client_config: dict) -> bool:
+    if not client_config:
+        return False
+    _set_config(
+        db,
+        GOOGLE_OAUTH_CLIENT_DB_KEY,
+        json.dumps(client_config, ensure_ascii=False),
+    )
+    db.commit()
+    return True
+
+
+def ensure_google_oauth_client_config(db: Session) -> bool:
+    persisted = _get_config(db, GOOGLE_OAUTH_CLIENT_DB_KEY)
+    if persisted:
+        return True
+    client_config = load_google_oauth_client_config()
+    if not client_config:
+        return False
+    return persist_google_oauth_client_config(db, client_config)
+
+
+def has_google_oauth_client(db: Session) -> bool:
+    return os.path.exists(DEFAULT_OAUTH_CLIENT_PATH) or bool(_get_config(db, GOOGLE_OAUTH_CLIENT_DB_KEY)) or bool(load_google_oauth_client_config())
+
+
+def has_google_token(db: Session) -> bool:
+    return os.path.exists(DEFAULT_TOKEN_PATH) or bool(_get_config(db, GOOGLE_TOKEN_DB_KEY))
+
+
+def get_google_oauth_client_config(db: Session) -> dict | None:
+    persisted = _get_config(db, GOOGLE_OAUTH_CLIENT_DB_KEY)
+    if persisted:
+        try:
+            payload = json.loads(persisted)
+            if isinstance(payload, dict):
+                return payload
+        except json.JSONDecodeError:
+            pass
+    return load_google_oauth_client_config()
+
+
+def get_google_oauth_redirect_uri(db: Session) -> str | None:
+    client_config = get_google_oauth_client_config(db)
+    if not client_config:
+        return None
+    web_config = client_config.get("web") or {}
+    redirect_uris = web_config.get("redirect_uris") or []
+    return redirect_uris[0] if redirect_uris else None
 
 
 def ler_complementos(db: Session) -> dict:
@@ -343,6 +412,7 @@ def tentar_atualizar_espelho(db: Session):
 
 
 def _restaurar_credenciais_google(db: Session):
+    ensure_google_oauth_client_config(db)
     _restaurar_arquivo_do_banco(db, GOOGLE_OAUTH_CLIENT_DB_KEY, DEFAULT_OAUTH_CLIENT_PATH)
     _restaurar_arquivo_do_banco(db, GOOGLE_TOKEN_DB_KEY, DEFAULT_TOKEN_PATH)
 
@@ -424,6 +494,8 @@ def index(request: Request, db: Session = Depends(get_db)):
     if not tem_acesso_modulo(request, "facilities"):
         return RedirectResponse("/?sem_acesso=facilities", status_code=303)
 
+    ensure_google_oauth_client_config(db)
+
     sync_result = None
     sync_error = ""
     cache_notice = ""
@@ -449,8 +521,8 @@ def index(request: Request, db: Session = Depends(get_db)):
     total_abertos = sum(1 for item in chamados if item.get("status") in ("open", "pending", "in_progress"))
     total_concluidos = sum(1 for item in chamados if item.get("status") in ("completed", "closed"))
     valor_total = sum(Decimal(item.get("amount") or 0) for item in chamados)
-    has_oauth_client = os.path.exists(DEFAULT_OAUTH_CLIENT_PATH) or bool(_get_config(db, GOOGLE_OAUTH_CLIENT_DB_KEY))
-    has_token = os.path.exists(DEFAULT_TOKEN_PATH) or bool(_get_config(db, GOOGLE_TOKEN_DB_KEY))
+    has_oauth_client = has_google_oauth_client(db)
+    has_token = has_google_token(db)
 
     return templates.TemplateResponse(
         "facilities/index.html",
@@ -718,8 +790,15 @@ def sincronizar(
 ):
     if not _is_admin(request):
         return RedirectResponse("/?sem_acesso=facilities", status_code=303)
+    _restaurar_credenciais_google(db)
+    if not has_google_oauth_client(db):
+        return redirect_with_message(
+            "/facilities",
+            error="Credencial OAuth do Google nao encontrada no ambiente.",
+        )
+    if not has_google_token(db):
+        return RedirectResponse("/facilities/oauth/iniciar", status_code=303)
     try:
-        _restaurar_credenciais_google(db)
         result = sync_maintenance_tickets(
             db=db,
             oauth_client_path=oauth_client_path,
@@ -727,6 +806,8 @@ def sincronizar(
             output_dir=audit_dir,
         )
         _persistir_credenciais_google(db)
+    except GoogleSheetsAuthRequiredError:
+        return RedirectResponse("/facilities/oauth/iniciar", status_code=303)
     except GoogleSheetsPermissionError as exc:
         return redirect_with_message("/facilities", error=str(exc))
     except FileNotFoundError as exc:
@@ -741,6 +822,91 @@ def sincronizar(
         "/facilities",
         success=(
             "Google Sheets sincronizado: "
+            f"{result['total']} linhas, "
+            f"{result['created']} criadas e "
+            f"{result['updated']} atualizadas."
+        ),
+    )
+
+
+@router.get("/facilities/oauth/iniciar")
+def facilities_oauth_iniciar(request: Request, db: Session = Depends(get_db)):
+    if not _is_admin(request):
+        return RedirectResponse("/?sem_acesso=facilities", status_code=303)
+
+    ensure_google_oauth_client_config(db)
+    client_config = get_google_oauth_client_config(db)
+    redirect_uri = get_google_oauth_redirect_uri(db)
+    if not client_config or not redirect_uri:
+        return redirect_with_message(
+            "/facilities",
+            error="Credencial OAuth do Google nao encontrada no ambiente.",
+        )
+
+    flow = Flow.from_client_config(client_config, scopes=SCOPES)
+    flow.redirect_uri = redirect_uri
+    authorization_url, state = flow.authorization_url(
+        access_type="offline",
+        include_granted_scopes="true",
+        prompt="select_account consent",
+    )
+    _set_config(db, GOOGLE_OAUTH_STATE_DB_KEY, state)
+    db.commit()
+    return RedirectResponse(authorization_url, status_code=303)
+
+
+@router.get("/facilities/oauth/callback")
+def facilities_oauth_callback(
+    request: Request,
+    code: str = "",
+    state: str = "",
+    db: Session = Depends(get_db),
+):
+    if not _is_admin(request):
+        return RedirectResponse("/?sem_acesso=facilities", status_code=303)
+
+    client_config = get_google_oauth_client_config(db)
+    redirect_uri = get_google_oauth_redirect_uri(db)
+    saved_state = _get_config(db, GOOGLE_OAUTH_STATE_DB_KEY) or ""
+    if not client_config or not redirect_uri:
+        return redirect_with_message(
+            "/facilities",
+            error="Credencial OAuth do Google nao encontrada no ambiente.",
+        )
+    if not code:
+        return redirect_with_message("/facilities", error="Codigo OAuth do Google ausente.")
+    if saved_state and state and state != saved_state:
+        return redirect_with_message("/facilities", error="Estado OAuth do Google invalido.")
+
+    try:
+        flow = Flow.from_client_config(client_config, scopes=SCOPES, state=state or saved_state)
+        flow.redirect_uri = redirect_uri
+        flow.fetch_token(code=code)
+        credentials = flow.credentials
+        _restaurar_credenciais_google(db)
+        os.makedirs(os.path.dirname(DEFAULT_TOKEN_PATH), exist_ok=True)
+        with open(DEFAULT_TOKEN_PATH, "w", encoding="utf-8") as token_file:
+            token_file.write(credentials.to_json())
+        _persistir_credenciais_google(db)
+        result = sync_maintenance_tickets(
+            db=db,
+            oauth_client_path=DEFAULT_OAUTH_CLIENT_PATH,
+            token_path=DEFAULT_TOKEN_PATH,
+            output_dir=DEFAULT_AUDIT_DIR,
+        )
+        _persistir_credenciais_google(db)
+    except GoogleSheetsPermissionError as exc:
+        return redirect_with_message("/facilities", error=str(exc))
+    except Exception as exc:
+        return redirect_with_message(
+            "/facilities",
+            error=f"Erro ao concluir login Google: {exc}",
+        )
+
+    return redirect_with_message(
+        "/facilities",
+        success=(
+            "Google conectado e espelho sincronizado: "
             f"{result['total']} linhas, "
             f"{result['created']} criadas e "
             f"{result['updated']} atualizadas."
