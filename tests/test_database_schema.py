@@ -1,6 +1,6 @@
 from sqlalchemy import create_engine, inspect, text
 
-from app.database import garantir_schema_usuarios
+from app.database import build_engine_kwargs, garantir_schema_usuarios
 
 
 def test_garante_modulos_acesso_em_banco_antigo():
@@ -26,3 +26,18 @@ def test_garante_modulos_acesso_em_banco_antigo():
 
     colunas = {coluna["name"] for coluna in inspect(engine).get_columns("usuarios")}
     assert "modulos_acesso" in colunas
+
+
+def test_build_engine_kwargs_habilita_healthcheck_para_postgres():
+    kwargs = build_engine_kwargs("postgresql://user:pass@localhost/db")
+
+    assert kwargs["future"] is True
+    assert kwargs["pool_pre_ping"] is True
+    assert kwargs["pool_recycle"] == 1800
+
+
+def test_build_engine_kwargs_mantem_configuracao_sqlite():
+    kwargs = build_engine_kwargs("sqlite:///:memory:")
+
+    assert kwargs["future"] is True
+    assert kwargs["connect_args"] == {"check_same_thread": False}
