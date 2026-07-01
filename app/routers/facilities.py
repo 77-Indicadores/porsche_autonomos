@@ -32,6 +32,7 @@ router = APIRouter(tags=["facilities"])
 
 BASE_DIR = Path(__file__).resolve().parents[2]
 GOOGLE_TOKEN_DB_KEY = "google_sheets_token"
+GOOGLE_OAUTH_CLIENT_DB_KEY = "google_oauth_client"
 
 DEFAULT_CREDENTIALS_DIR = os.getenv(
     "GOOGLE_SHEETS_CREDENTIALS_DIR",
@@ -259,47 +260,53 @@ def lista_opcoes_complementares():
     return opcoes
 
 
-def _preparar_token_path(db: Session) -> str:
-    """Garante que o token esteja disponível no caminho esperado.
-
-    Tenta carregar do banco quando o arquivo não existe localmente,
-    permitindo que o token sobreviva a deploys.
-    """
-    if not os.path.exists(DEFAULT_TOKEN_PATH):
-        token_json = _get_config(db, GOOGLE_TOKEN_DB_KEY)
-        if token_json:
-            os.makedirs(os.path.dirname(DEFAULT_TOKEN_PATH), exist_ok=True)
-            with open(DEFAULT_TOKEN_PATH, "w", encoding="utf-8") as fh:
-                fh.write(token_json)
-    return DEFAULT_TOKEN_PATH
+def _restaurar_arquivo_do_banco(db: Session, db_key: str, caminho: str):
+    """Escreve no disco um arquivo cujo conteúdo está salvo no banco."""
+    if os.path.exists(caminho):
+        return True
+    conteudo = _get_config(db, db_key)
+    if not conteudo:
+        return False
+    os.makedirs(os.path.dirname(caminho), exist_ok=True)
+    with open(caminho, "w", encoding="utf-8") as fh:
+        fh.write(conteudo)
+    return True
 
 
-def _persistir_token_no_banco(db: Session):
-    """Salva o token atual (possivelmente renovado) no banco."""
-    if os.path.exists(DEFAULT_TOKEN_PATH):
+def _persistir_arquivo_no_banco(db: Session, db_key: str, caminho: str):
+    if os.path.exists(caminho):
         try:
-            with open(DEFAULT_TOKEN_PATH, "r", encoding="utf-8") as fh:
-                _set_config(db, GOOGLE_TOKEN_DB_KEY, fh.read())
+            with open(caminho, "r", encoding="utf-8") as fh:
+                _set_config(db, db_key, fh.read())
         except Exception:
             pass
 
 
 def tentar_atualizar_espelho(db: Session):
-    if not os.path.exists(DEFAULT_OAUTH_CLIENT_PATH):
-        return None, f"Arquivo OAuth não encontrado: {DEFAULT_OAUTH_CLIENT_PATH}"
+    # Restaura oauth_client do banco se o arquivo não existir localmente
+    if not _restaurar_arquivo_do_banco(db, GOOGLE_OAUTH_CLIENT_DB_KEY, DEFAULT_OAUTH_CLIENT_PATH):
+        return None, (
+            "Credenciais OAuth do Google não configuradas. "
+            "Faça upload do oauth_client.json pelo painel de administração."
+        )
 
-    token_path = _preparar_token_path(db)
-    if not os.path.exists(token_path):
-        return None, f"Token Google não encontrado: {token_path}"
+    # Restaura token do banco se o arquivo não existir localmente
+    if not _restaurar_arquivo_do_banco(db, GOOGLE_TOKEN_DB_KEY, DEFAULT_TOKEN_PATH):
+        return None, (
+            "Token Google não encontrado. "
+            "Realize a autenticação OAuth para gerar o token."
+        )
 
     try:
         result = sync_maintenance_tickets(
             db=db,
             oauth_client_path=DEFAULT_OAUTH_CLIENT_PATH,
-            token_path=token_path,
+            token_path=DEFAULT_TOKEN_PATH,
             output_dir=DEFAULT_AUDIT_DIR,
         )
-        _persistir_token_no_banco(db)
+        # Persiste token renovado e oauth_client no banco
+        _persistir_arquivo_no_banco(db, GOOGLE_TOKEN_DB_KEY, DEFAULT_TOKEN_PATH)
+        _persistir_arquivo_no_banco(db, GOOGLE_OAUTH_CLIENT_DB_KEY, DEFAULT_OAUTH_CLIENT_PATH)
         return result, ""
     except GoogleSheetsPermissionError as exc:
         return None, str(exc)
@@ -381,32 +388,24 @@ def carregar_chamados_para_tela(db: Session):
 def index(request: Request, db: Session = Depends(get_db)):
     if not tem_acesso_modulo(request, "facilities"):
         return RedirectResponse("/?sem_acesso=facilities", status_code=303)
-    sync_result, sync_error = tentar_atualizar_espelho(db)
+
+    sync_result = None
+    sync_error = ""
     cache_notice = ""
 
     try:
         rows = db.execute(
             select(maintenance_tickets).order_by(maintenance_tickets.c.source_row.desc())
         ).mappings().all()
-    except SQLAlchemyError as exc:
+    except SQLAlchemyError:
         rows = []
-        detalhe = (
-            "Banco local ainda sem a tabela do espelho. "
-            "O SQLite não conseguiu escrever na pasta data/app.db."
-        )
-        sync_error = f"{sync_error} | {detalhe}" if sync_error else detalhe
 
     if not rows and os.path.exists(DEFAULT_CACHE_CSV_PATH):
         rows = carregar_csv_espelho()
         cache_notice = (
-            "Mostrando dados do espelho local gerado pelo script: "
-            f"{DEFAULT_CACHE_CSV_PATH}"
+            "Mostrando dados do espelho local. "
+            "Clique em 'Atualizar espelho' para sincronizar com o Google Sheets."
         )
-        if sync_error:
-            sync_error = (
-                "Modo espelho local ativo. Para leitura em tempo real direto no Google, "
-                "use Atualizar espelho com a conexão Google liberada neste servidor."
-            )
 
     complementos = ler_complementos(db)
     chamados = preparar_chamados(rows, complementos)
@@ -435,7 +434,7 @@ def index(request: Request, db: Session = Depends(get_db)):
                 "oauth_client_path": DEFAULT_OAUTH_CLIENT_PATH,
                 "token_path": DEFAULT_TOKEN_PATH,
                 "audit_dir": DEFAULT_AUDIT_DIR,
-                "has_oauth_client": os.path.exists(DEFAULT_OAUTH_CLIENT_PATH),
+                "has_oauth_client": os.path.exists(DEFAULT_OAUTH_CLIENT_PATH) or bool(_get_config(db, GOOGLE_OAUTH_CLIENT_DB_KEY)),
                 "has_token": os.path.exists(DEFAULT_TOKEN_PATH) or bool(_get_config(db, GOOGLE_TOKEN_DB_KEY)),
                 "cache_csv_path": DEFAULT_CACHE_CSV_PATH,
                 "has_cache_csv": os.path.exists(DEFAULT_CACHE_CSV_PATH),
