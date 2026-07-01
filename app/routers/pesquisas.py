@@ -25,6 +25,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import Session
 
+from app.auth import is_admin as _is_admin
 from app.database import BASE_DIR, engine, get_db
 from app.models import DimAutonomo, DimEtapa, DimPiloto
 from app.template_config import templates
@@ -373,11 +374,14 @@ def pesquisas_home(request: Request, db: Session = Depends(get_db)):
 
 @router.post("/pesquisas/upload")
 async def pesquisas_upload(
+    request: Request,
     id_etapa: int = Form(...),
     tipo_pesquisa: str = Form(...),
     arquivo: UploadFile = File(...),
     db: Session = Depends(get_db),
 ):
+    if not _is_admin(request):
+        return RedirectResponse("/?sem_acesso=pesquisas", status_code=303)
     if tipo_pesquisa not in [t[0] for t in TIPOS_PESQUISA]:
         return redirect_with_message("/pesquisas", error="Tipo de pesquisa inválido.")
 
@@ -636,7 +640,9 @@ def pesquisas_mapear(
 
 
 @router.post("/pesquisas/{id_upload}/reprocessar-mapeamentos")
-def reprocessar_mapeamentos(id_upload: int, db: Session = Depends(get_db)):
+def reprocessar_mapeamentos(request: Request, id_upload: int, db: Session = Depends(get_db)):
+    if not _is_admin(request):
+        return RedirectResponse("/?sem_acesso=pesquisas", status_code=303)
     respostas = db.execute(
         select(pesquisa_respostas).where(pesquisa_respostas.c.id_upload == id_upload)
     ).mappings().all()

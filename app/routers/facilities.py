@@ -166,7 +166,7 @@ def _set_config(db: Session, chave: str, valor: str):
         obj.valor = valor
     else:
         db.add(ConfigSistema(chave=chave, valor=valor))
-    db.commit()
+    db.flush()
 
 
 def ler_complementos(db: Session) -> dict:
@@ -217,7 +217,7 @@ def _upsert_complemento(db: Session, chave: str, dados: dict):
     obj.observacao = dados.get("observacao", "")
     obj.rastreamento = dados.get("rastreamento", "")
     obj.atualizado_em = dados.get("atualizado_em", "")
-    db.commit()
+    db.flush()
 
 
 def lista_opcoes_complementares():
@@ -307,6 +307,10 @@ def tentar_atualizar_espelho(db: Session):
         # Persiste token renovado e oauth_client no banco
         _persistir_arquivo_no_banco(db, GOOGLE_TOKEN_DB_KEY, DEFAULT_TOKEN_PATH)
         _persistir_arquivo_no_banco(db, GOOGLE_OAUTH_CLIENT_DB_KEY, DEFAULT_OAUTH_CLIENT_PATH)
+        try:
+            db.commit()
+        except Exception:
+            db.rollback()
         return result, ""
     except GoogleSheetsPermissionError as exc:
         return None, str(exc)
@@ -484,8 +488,10 @@ def salvar_complemento(
     }
     try:
         _upsert_complemento(db, chave, dados)
+        db.commit()
         return redirect_with_message("/facilities", success="Complemento salvo.")
     except Exception as exc:
+        db.rollback()
         return redirect_with_message("/facilities", error=f"Erro ao salvar complemento: {exc}")
 
 
@@ -636,6 +642,7 @@ async def upload_complementar(request: Request, arquivo: UploadFile = File(...),
 
             for chave_novo, dados_novo in complementos_novos.items():
                 _upsert_complemento(db, chave_novo, dados_novo)
+            db.commit()
 
         wb.close()
 

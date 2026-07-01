@@ -492,10 +492,6 @@ def get_autonomos(db: Session):
 def dho_home(request: Request, db: Session = Depends(get_db)):
     if not tem_acesso_modulo(request, "dho"):
         return RedirectResponse("/?sem_acesso=dho", status_code=303)
-    try:
-        sincronizar_estrutura_dataworld(db)
-    except Exception as exc:
-        print(f"AVISO - não consegui sincronizar estrutura DHO Data.World: {exc}")
 
     qtd_vagas = count_table(db, dho_vagas)
     qtd_treinamentos = count_table(db, dho_treinamentos)
@@ -578,12 +574,6 @@ def dho_home(request: Request, db: Session = Depends(get_db)):
 @router.get("/dho/estrutura")
 def estrutura(request: Request, db: Session = Depends(get_db)):
     erro_dataworld = ""
-
-    try:
-        sincronizar_estrutura_dataworld(db)
-    except Exception as exc:
-        erro_dataworld = str(exc)
-
     departamentos = get_departamentos(db)
     cargos = get_cargos(db)
 
@@ -601,6 +591,9 @@ def estrutura(request: Request, db: Session = Depends(get_db)):
 
 @router.post("/dho/estrutura/sincronizar")
 def sincronizar_estrutura(request: Request, db: Session = Depends(get_db)):
+    if not _is_admin(request):
+        return RedirectResponse("/?sem_acesso=dho", status_code=303)
+
     _CACHE_PESSOAS_DW["dados"] = None
     _CACHE_ESTRUTURA_DW["sincronizada"] = False
 
@@ -1416,10 +1409,13 @@ def dho_importacoes(request: Request):
 
 @router.post("/dho/importacoes")
 async def importar_dho(
+    request: Request,
     tipo_importacao: str = Form(...),
     arquivo: UploadFile = File(...),
     db: Session = Depends(get_db),
 ):
+    if not _is_admin(request):
+        return RedirectResponse("/?sem_acesso=dho", status_code=303)
     try:
         from openpyxl import load_workbook
 
@@ -1956,9 +1952,12 @@ def baixar_modelo_aplicacoes_treinamento_dho():
 
 @router.post("/dho/importacoes/aplicacoes-treinamento")
 async def importar_aplicacoes_treinamento_dho(
+    request: Request,
     arquivo: UploadFile = File(...),
     db: Session = Depends(get_db),
 ):
+    if not _is_admin(request):
+        return RedirectResponse("/?sem_acesso=dho", status_code=303)
     try:
         from openpyxl import load_workbook
 
