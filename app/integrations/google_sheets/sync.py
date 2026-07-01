@@ -197,28 +197,33 @@ def upsert_tickets(db: Session, tickets):
     created = 0
     updated = 0
 
-    for ticket in tickets:
-        where_source = and_(
-            maintenance_tickets.c.source_spreadsheet_id == ticket["source_spreadsheet_id"],
-            maintenance_tickets.c.source_gid == ticket["source_gid"],
-            maintenance_tickets.c.source_row == ticket["source_row"],
-        )
-        exists = db.execute(select(maintenance_tickets.c.id).where(where_source)).first()
+    try:
+        for ticket in tickets:
+            where_source = and_(
+                maintenance_tickets.c.source_spreadsheet_id == ticket["source_spreadsheet_id"],
+                maintenance_tickets.c.source_gid == ticket["source_gid"],
+                maintenance_tickets.c.source_row == ticket["source_row"],
+            )
+            exists = db.execute(select(maintenance_tickets.c.id).where(where_source)).first()
 
-        values = {
-            **ticket,
-            "updated_system_at": datetime.utcnow(),
-        }
+            values = {
+                **ticket,
+                "updated_system_at": datetime.utcnow(),
+            }
 
-        if exists:
-            db.execute(update(maintenance_tickets).where(where_source).values(**values))
-            updated += 1
-        else:
-            values["created_system_at"] = datetime.utcnow()
-            db.execute(insert(maintenance_tickets).values(**values))
-            created += 1
+            if exists:
+                db.execute(update(maintenance_tickets).where(where_source).values(**values))
+                updated += 1
+            else:
+                values["created_system_at"] = datetime.utcnow()
+                db.execute(insert(maintenance_tickets).values(**values))
+                created += 1
 
-    db.commit()
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise
+
     print(f"Total de registros criados: {created}")
     print(f"Total de registros atualizados: {updated}")
     return created, updated

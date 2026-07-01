@@ -205,6 +205,30 @@ class Usuario(Base):
     modulos_acesso = Column(Text, nullable=True)
 
 
+class ConfigSistema(Base):
+    __tablename__ = "config_sistema"
+
+    chave = Column(String(120), primary_key=True)
+    valor = Column(Text, nullable=True)
+
+
+class FacilitiesComplemento(Base):
+    __tablename__ = "facilities_complementos"
+
+    source_row = Column(String(20), primary_key=True)
+    area_servico = Column(String(255), nullable=True)
+    unidade_local = Column(String(255), nullable=True)
+    tipo_atendimento = Column(String(255), nullable=True)
+    data_inicio = Column(String(20), nullable=True)
+    data_finalizacao = Column(String(20), nullable=True)
+    dentro_prazo = Column(String(10), nullable=True)
+    retrabalho = Column(String(10), nullable=True)
+    custo = Column(String(50), nullable=True)
+    observacao = Column(Text, nullable=True)
+    rastreamento = Column(String(255), nullable=True)
+    atualizado_em = Column(String(30), nullable=True)
+
+
 # Compatibilidade legada para routers antigos.
 # Mantemos aliases para evitar falha de import enquanto os fluxos antigos
 # coexistem no repositório.

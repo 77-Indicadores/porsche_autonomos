@@ -13,6 +13,7 @@
 
 {% block content %}
 
+{% if is_admin %}
 <section class="panel mb-6">
   <div class="panel-head">
     <h3>Planilha espelhada</h3>
@@ -70,6 +71,7 @@
     </div>
   {% endif %}
 </section>
+{% endif %}
 
 {% if is_admin %}
 <section class="panel mb-6">

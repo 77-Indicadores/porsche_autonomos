@@ -31,7 +31,7 @@ from app.utils import flash_from_request, redirect_with_message
 router = APIRouter(tags=["facilities"])
 
 BASE_DIR = Path(__file__).resolve().parents[2]
-COMPLEMENTOS_MEMORIA = {}
+GOOGLE_TOKEN_DB_KEY = "google_sheets_token"
 
 DEFAULT_CREDENTIALS_DIR = os.getenv(
     "GOOGLE_SHEETS_CREDENTIALS_DIR",
@@ -152,24 +152,71 @@ def tempo_atendimento(complemento):
     return max(dias, 0)
 
 
-def ler_complementos():
-    dados = dict(COMPLEMENTOS_MEMORIA)
-    if os.path.exists(DEFAULT_COMPLEMENTOS_PATH):
+def _get_config(db: Session, chave: str) -> str | None:
+    from app.models import ConfigSistema
+    obj = db.query(ConfigSistema).filter(ConfigSistema.chave == chave).first()
+    return obj.valor if obj else None
+
+
+def _set_config(db: Session, chave: str, valor: str):
+    from app.models import ConfigSistema
+    obj = db.query(ConfigSistema).filter(ConfigSistema.chave == chave).first()
+    if obj:
+        obj.valor = valor
+    else:
+        db.add(ConfigSistema(chave=chave, valor=valor))
+    db.commit()
+
+
+def ler_complementos(db: Session) -> dict:
+    from app.models import FacilitiesComplemento
+    dados: dict = {}
+    try:
+        rows = db.query(FacilitiesComplemento).all()
+        for row in rows:
+            dados[row.source_row] = {
+                "area_servico": row.area_servico or "",
+                "unidade_local": row.unidade_local or "",
+                "tipo_atendimento": row.tipo_atendimento or "",
+                "data_inicio": row.data_inicio or "",
+                "data_finalizacao": row.data_finalizacao or "",
+                "dentro_prazo": row.dentro_prazo or "",
+                "retrabalho": row.retrabalho or "",
+                "custo": row.custo or "",
+                "observacao": row.observacao or "",
+                "rastreamento": row.rastreamento or "",
+                "atualizado_em": row.atualizado_em or "",
+            }
+    except Exception:
+        pass
+    # Migração única do JSON legado quando o banco ainda está vazio
+    if not dados and os.path.exists(DEFAULT_COMPLEMENTOS_PATH):
         try:
             with open(DEFAULT_COMPLEMENTOS_PATH, "r", encoding="utf-8") as arquivo:
-                dados.update(json.load(arquivo))
+                dados = json.load(arquivo)
         except Exception:
             pass
     return dados
 
 
-def salvar_complementos(dados):
-    COMPLEMENTOS_MEMORIA.clear()
-    COMPLEMENTOS_MEMORIA.update(dados)
-
-    os.makedirs(os.path.dirname(DEFAULT_COMPLEMENTOS_PATH), exist_ok=True)
-    with open(DEFAULT_COMPLEMENTOS_PATH, "w", encoding="utf-8") as arquivo:
-        json.dump(dados, arquivo, ensure_ascii=False, indent=2)
+def _upsert_complemento(db: Session, chave: str, dados: dict):
+    from app.models import FacilitiesComplemento
+    obj = db.query(FacilitiesComplemento).filter(FacilitiesComplemento.source_row == chave).first()
+    if obj is None:
+        obj = FacilitiesComplemento(source_row=chave)
+        db.add(obj)
+    obj.area_servico = dados.get("area_servico", "")
+    obj.unidade_local = dados.get("unidade_local", "")
+    obj.tipo_atendimento = dados.get("tipo_atendimento", "")
+    obj.data_inicio = dados.get("data_inicio", "")
+    obj.data_finalizacao = dados.get("data_finalizacao", "")
+    obj.dentro_prazo = dados.get("dentro_prazo", "")
+    obj.retrabalho = dados.get("retrabalho", "")
+    obj.custo = dados.get("custo", "")
+    obj.observacao = dados.get("observacao", "")
+    obj.rastreamento = dados.get("rastreamento", "")
+    obj.atualizado_em = dados.get("atualizado_em", "")
+    db.commit()
 
 
 def lista_opcoes_complementares():
@@ -212,19 +259,47 @@ def lista_opcoes_complementares():
     return opcoes
 
 
+def _preparar_token_path(db: Session) -> str:
+    """Garante que o token esteja disponível no caminho esperado.
+
+    Tenta carregar do banco quando o arquivo não existe localmente,
+    permitindo que o token sobreviva a deploys.
+    """
+    if not os.path.exists(DEFAULT_TOKEN_PATH):
+        token_json = _get_config(db, GOOGLE_TOKEN_DB_KEY)
+        if token_json:
+            os.makedirs(os.path.dirname(DEFAULT_TOKEN_PATH), exist_ok=True)
+            with open(DEFAULT_TOKEN_PATH, "w", encoding="utf-8") as fh:
+                fh.write(token_json)
+    return DEFAULT_TOKEN_PATH
+
+
+def _persistir_token_no_banco(db: Session):
+    """Salva o token atual (possivelmente renovado) no banco."""
+    if os.path.exists(DEFAULT_TOKEN_PATH):
+        try:
+            with open(DEFAULT_TOKEN_PATH, "r", encoding="utf-8") as fh:
+                _set_config(db, GOOGLE_TOKEN_DB_KEY, fh.read())
+        except Exception:
+            pass
+
+
 def tentar_atualizar_espelho(db: Session):
     if not os.path.exists(DEFAULT_OAUTH_CLIENT_PATH):
         return None, f"Arquivo OAuth não encontrado: {DEFAULT_OAUTH_CLIENT_PATH}"
-    if not os.path.exists(DEFAULT_TOKEN_PATH):
-        return None, f"Token Google não encontrado: {DEFAULT_TOKEN_PATH}"
+
+    token_path = _preparar_token_path(db)
+    if not os.path.exists(token_path):
+        return None, f"Token Google não encontrado: {token_path}"
 
     try:
         result = sync_maintenance_tickets(
             db=db,
             oauth_client_path=DEFAULT_OAUTH_CLIENT_PATH,
-            token_path=DEFAULT_TOKEN_PATH,
+            token_path=token_path,
             output_dir=DEFAULT_AUDIT_DIR,
         )
+        _persistir_token_no_banco(db)
         return result, ""
     except GoogleSheetsPermissionError as exc:
         return None, str(exc)
@@ -299,7 +374,7 @@ def carregar_chamados_para_tela(db: Session):
         except SQLAlchemyError as exc:
             source_error = f"Não consegui ler o espelho local: {exc}"
 
-    return preparar_chamados(rows, ler_complementos()), source_notice, source_error
+    return preparar_chamados(rows, ler_complementos(db)), source_notice, source_error
 
 
 @router.get("/facilities")
@@ -333,7 +408,7 @@ def index(request: Request, db: Session = Depends(get_db)):
                 "use Atualizar espelho com a conexão Google liberada neste servidor."
             )
 
-    complementos = ler_complementos()
+    complementos = ler_complementos(db)
     chamados = preparar_chamados(rows, complementos)
 
     total = len(chamados)
@@ -361,7 +436,7 @@ def index(request: Request, db: Session = Depends(get_db)):
                 "token_path": DEFAULT_TOKEN_PATH,
                 "audit_dir": DEFAULT_AUDIT_DIR,
                 "has_oauth_client": os.path.exists(DEFAULT_OAUTH_CLIENT_PATH),
-                "has_token": os.path.exists(DEFAULT_TOKEN_PATH),
+                "has_token": os.path.exists(DEFAULT_TOKEN_PATH) or bool(_get_config(db, GOOGLE_TOKEN_DB_KEY)),
                 "cache_csv_path": DEFAULT_CACHE_CSV_PATH,
                 "has_cache_csv": os.path.exists(DEFAULT_CACHE_CSV_PATH),
                 "complementos_path": DEFAULT_COMPLEMENTOS_PATH,
@@ -392,10 +467,10 @@ def salvar_complemento(
     custo: str = Form(""),
     observacao: str = Form(""),
     rastreamento: str = Form(""),
+    db: Session = Depends(get_db),
 ):
     chave = str(source_row).strip()
-    dados = ler_complementos()
-    dados[chave] = {
+    dados = {
         "area_servico": area_servico.strip(),
         "unidade_local": unidade_local.strip(),
         "tipo_atendimento": tipo_atendimento.strip(),
@@ -408,24 +483,15 @@ def salvar_complemento(
         "rastreamento": rastreamento.strip(),
         "atualizado_em": datetime.utcnow().isoformat(timespec="seconds"),
     }
-
     try:
-        salvar_complementos(dados)
+        _upsert_complemento(db, chave, dados)
         return redirect_with_message("/facilities", success="Complemento salvo.")
     except Exception as exc:
-        COMPLEMENTOS_MEMORIA.clear()
-        COMPLEMENTOS_MEMORIA.update(dados)
-        return redirect_with_message(
-            "/facilities",
-            error=(
-                "Complemento mantido em memória nesta sessão, mas não consegui gravar "
-                f"o arquivo {DEFAULT_COMPLEMENTOS_PATH}: {exc}"
-            ),
-        )
+        return redirect_with_message("/facilities", error=f"Erro ao salvar complemento: {exc}")
 
 
 @router.post("/facilities/upload-complementar")
-async def upload_complementar(request: Request, arquivo: UploadFile = File(...)):
+async def upload_complementar(request: Request, arquivo: UploadFile = File(...), db: Session = Depends(get_db)):
     if not _is_admin(request):
         return redirect_with_message(
             "/facilities",
@@ -569,7 +635,8 @@ async def upload_complementar(request: Request, arquivo: UploadFile = File(...))
                             complementos_novos[str(idx)] = candidatos[melhor_idx]["dados"]
                             linhas_importadas += 1
 
-            salvar_complementos(complementos_novos)
+            for chave_novo, dados_novo in complementos_novos.items():
+                _upsert_complemento(db, chave_novo, dados_novo)
 
         wb.close()
 
@@ -603,11 +670,14 @@ async def upload_complementar(request: Request, arquivo: UploadFile = File(...))
 
 @router.post("/facilities/sincronizar")
 def sincronizar(
+    request: Request,
     oauth_client_path: str = Form(DEFAULT_OAUTH_CLIENT_PATH),
     token_path: str = Form(DEFAULT_TOKEN_PATH),
     audit_dir: str = Form(DEFAULT_AUDIT_DIR),
     db: Session = Depends(get_db),
 ):
+    if not _is_admin(request):
+        return RedirectResponse("/?sem_acesso=facilities", status_code=303)
     try:
         result = sync_maintenance_tickets(
             db=db,

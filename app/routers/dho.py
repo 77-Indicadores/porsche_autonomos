@@ -1392,7 +1392,7 @@ def _get_or_create_departamento(db: Session, nome_departamento: str):
         )
     )
 
-    db.commit()
+    db.flush()
 
     try:
         return result.inserted_primary_key[0]
@@ -1866,7 +1866,7 @@ def _get_or_create_treinamento_importacao(db: Session, nome_treinamento: str):
         )
     )
 
-    db.commit()
+    db.flush()
 
     try:
         return result.inserted_primary_key[0]
