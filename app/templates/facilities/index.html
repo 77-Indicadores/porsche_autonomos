@@ -37,9 +37,15 @@
 
     <div class="kpi-card">
       <span>Credenciais</span>
-      <strong>{{ "OK" if config.has_oauth_client and config.has_token else "Pendente" }}</strong>
+      <strong>{{ config.google_sync.label }}</strong>
     </div>
   </div>
+
+  {% if config.google_sync.help %}
+    <div class="alert {% if config.has_token %}success{% else %}error{% endif %} mt-4">
+      {{ config.google_sync.help }}
+    </div>
+  {% endif %}
 
   {% if sync_result %}
     <div class="alert success mt-4">

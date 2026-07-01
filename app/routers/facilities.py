@@ -153,6 +153,23 @@ def tempo_atendimento(complemento):
     return max(dias, 0)
 
 
+def google_sync_status(has_oauth_client: bool, has_token: bool) -> dict[str, str]:
+    if has_oauth_client and has_token:
+        return {
+            "label": "OK",
+            "help": "Conexao com o Google pronta para sincronizar.",
+        }
+    if has_oauth_client:
+        return {
+            "label": "Pendente",
+            "help": "Clique em 'Atualizar espelho' para conectar sua conta Google novamente.",
+        }
+    return {
+        "label": "Pendente",
+        "help": "Configuracao OAuth do Google pendente no ambiente do sistema.",
+    }
+
+
 def _get_config(db: Session, chave: str) -> str | None:
     from app.models import ConfigSistema
     obj = db.query(ConfigSistema).filter(ConfigSistema.chave == chave).first()
@@ -287,14 +304,14 @@ def tentar_atualizar_espelho(db: Session):
     if not _restaurar_arquivo_do_banco(db, GOOGLE_OAUTH_CLIENT_DB_KEY, DEFAULT_OAUTH_CLIENT_PATH):
         return None, (
             "Credenciais OAuth do Google não configuradas. "
-            "Faça upload do oauth_client.json pelo painel de administração."
+            "Configure a credencial OAuth do Google no ambiente do sistema."
         )
 
     # Restaura token do banco se o arquivo não existir localmente
     if not _restaurar_arquivo_do_banco(db, GOOGLE_TOKEN_DB_KEY, DEFAULT_TOKEN_PATH):
         return None, (
             "Token Google não encontrado. "
-            "Realize a autenticação OAuth para gerar o token."
+            "Clique em 'Atualizar espelho' para autenticar novamente."
         )
 
     try:
@@ -323,6 +340,20 @@ def tentar_atualizar_espelho(db: Session):
                 "(oauth2.googleapis.com / sheets.googleapis.com)."
             )
         return None, f"Não consegui atualizar o espelho do Google Sheets agora: {exc}"
+
+
+def _restaurar_credenciais_google(db: Session):
+    _restaurar_arquivo_do_banco(db, GOOGLE_OAUTH_CLIENT_DB_KEY, DEFAULT_OAUTH_CLIENT_PATH)
+    _restaurar_arquivo_do_banco(db, GOOGLE_TOKEN_DB_KEY, DEFAULT_TOKEN_PATH)
+
+
+def _persistir_credenciais_google(db: Session):
+    _persistir_arquivo_no_banco(db, GOOGLE_TOKEN_DB_KEY, DEFAULT_TOKEN_PATH)
+    _persistir_arquivo_no_banco(db, GOOGLE_OAUTH_CLIENT_DB_KEY, DEFAULT_OAUTH_CLIENT_PATH)
+    try:
+        db.commit()
+    except Exception:
+        db.rollback()
 
 
 def carregar_csv_espelho():
@@ -418,6 +449,8 @@ def index(request: Request, db: Session = Depends(get_db)):
     total_abertos = sum(1 for item in chamados if item.get("status") in ("open", "pending", "in_progress"))
     total_concluidos = sum(1 for item in chamados if item.get("status") in ("completed", "closed"))
     valor_total = sum(Decimal(item.get("amount") or 0) for item in chamados)
+    has_oauth_client = os.path.exists(DEFAULT_OAUTH_CLIENT_PATH) or bool(_get_config(db, GOOGLE_OAUTH_CLIENT_DB_KEY))
+    has_token = os.path.exists(DEFAULT_TOKEN_PATH) or bool(_get_config(db, GOOGLE_TOKEN_DB_KEY))
 
     return templates.TemplateResponse(
         "facilities/index.html",
@@ -438,8 +471,9 @@ def index(request: Request, db: Session = Depends(get_db)):
                 "oauth_client_path": DEFAULT_OAUTH_CLIENT_PATH,
                 "token_path": DEFAULT_TOKEN_PATH,
                 "audit_dir": DEFAULT_AUDIT_DIR,
-                "has_oauth_client": os.path.exists(DEFAULT_OAUTH_CLIENT_PATH) or bool(_get_config(db, GOOGLE_OAUTH_CLIENT_DB_KEY)),
-                "has_token": os.path.exists(DEFAULT_TOKEN_PATH) or bool(_get_config(db, GOOGLE_TOKEN_DB_KEY)),
+                "has_oauth_client": has_oauth_client,
+                "has_token": has_token,
+                "google_sync": google_sync_status(has_oauth_client, has_token),
                 "cache_csv_path": DEFAULT_CACHE_CSV_PATH,
                 "has_cache_csv": os.path.exists(DEFAULT_CACHE_CSV_PATH),
                 "complementos_path": DEFAULT_COMPLEMENTOS_PATH,
@@ -685,12 +719,14 @@ def sincronizar(
     if not _is_admin(request):
         return RedirectResponse("/?sem_acesso=facilities", status_code=303)
     try:
+        _restaurar_credenciais_google(db)
         result = sync_maintenance_tickets(
             db=db,
             oauth_client_path=oauth_client_path,
             token_path=token_path,
             output_dir=audit_dir,
         )
+        _persistir_credenciais_google(db)
     except GoogleSheetsPermissionError as exc:
         return redirect_with_message("/facilities", error=str(exc))
     except FileNotFoundError as exc:
