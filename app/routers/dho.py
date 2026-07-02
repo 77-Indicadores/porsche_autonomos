@@ -1,6 +1,7 @@
 ﻿from pathlib import Path
 import json
 import os
+import unicodedata
 from io import BytesIO
 from datetime import datetime
 
@@ -342,6 +343,26 @@ STATUS_VAGA = ["Aberta", "Em andamento", "Concluída", "Cancelada"]
 TIPOS_RECRUTAMENTO = ["Interno", "Externo"]
 STATUS_TREINAMENTO = ["Ativo", "Inativo"]
 STATUS_APLICACAO = ["Realizado", "Pendente", "Cancelado"]
+
+
+def _texto_comparavel(valor) -> str:
+    texto = str(valor or "").strip()
+    if not texto:
+        return ""
+    texto = unicodedata.normalize("NFKD", texto)
+    texto = "".join(ch for ch in texto if not unicodedata.combining(ch))
+    return " ".join(texto.lower().split())
+
+
+def _normalizar_valor_enumerado(valor, opcoes):
+    chave = _texto_comparavel(valor)
+    if not chave:
+        return None
+
+    for opcao in opcoes:
+        if _texto_comparavel(opcao) == chave:
+            return opcao
+    return None
 
 
 def garantir_schema():
@@ -1588,12 +1609,24 @@ async def importar_dho(
             elif tipo_importacao == "vagas":
                 departamento_nome = _valor_linha(row, "nome_departamento", "departamento", "area", "área")
                 nome_cargo = _valor_linha(row, "nome_cargo", "cargo", "funcao", "função")
-                tipo_vaga = _valor_linha(row, "tipo_vaga", "tipo") or "Nova vaga"
+                tipo_vaga = _normalizar_valor_enumerado(
+                    _valor_linha(row, "tipo_vaga", "tipo"),
+                    TIPOS_VAGA,
+                ) or "Nova vaga"
                 motivo = _valor_linha(row, "motivo_substituicao", "motivo")
-                sexo = _valor_linha(row, "sexo") or "Indiferente"
+                sexo = _normalizar_valor_enumerado(
+                    _valor_linha(row, "sexo"),
+                    SEXOS,
+                ) or "Indiferente"
                 qtd = _valor_linha(row, "qtd_vagas", "quantidade", "qtd") or 1
-                status = _valor_linha(row, "status") or "Aberta"
-                tipo_recrutamento = _valor_linha(row, "tipo_recrutamento", "recrutamento") or "Externo"
+                status = _normalizar_valor_enumerado(
+                    _valor_linha(row, "status"),
+                    STATUS_VAGA,
+                ) or "Aberta"
+                tipo_recrutamento = _normalizar_valor_enumerado(
+                    _valor_linha(row, "tipo_recrutamento", "recrutamento"),
+                    TIPOS_RECRUTAMENTO,
+                ) or "Externo"
                 responsavel = _valor_linha(row, "responsavel", "responsável")
                 data_abertura = _valor_linha(row, "data_abertura", "abertura")
                 data_conclusao = _valor_linha(row, "data_conclusao", "conclusao", "conclusão")
@@ -1624,12 +1657,12 @@ async def importar_dho(
                 db.execute(insert(dho_vagas).values(
                     id_departamento=id_dep,
                     id_cargo=id_cargo,
-                    tipo_vaga=tipo_vaga if tipo_vaga in TIPOS_VAGA else "Nova vaga",
+                    tipo_vaga=tipo_vaga,
                     motivo_substituicao=motivo if tipo_vaga == "Substituição" else "",
-                    sexo=sexo if sexo in SEXOS else "Indiferente",
+                    sexo=sexo,
                     qtd_vagas=int(float(qtd or 1)),
-                    status=status if status in STATUS_VAGA else "Aberta",
-                    tipo_recrutamento=tipo_recrutamento if tipo_recrutamento in TIPOS_RECRUTAMENTO else "Externo",
+                    status=status,
+                    tipo_recrutamento=tipo_recrutamento,
                     responsavel=responsavel,
                     data_abertura=data_abertura,
                     data_conclusao=data_conclusao,
