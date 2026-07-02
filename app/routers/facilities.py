@@ -733,11 +733,28 @@ async def upload_complementar(request: Request, arquivo: UploadFile = File(...),
                 })
 
             complementos_novos = {}
+
+            def _processar_linha_matching(idx, data_csv, csv_nome, csv_email, csv_setor):
+                candidatos = excel_por_data.get(data_csv, [])
+                melhor_idx = -1
+                melhor_score = -1
+                for ci, cand in enumerate(candidatos):
+                    if cand["usado"]:
+                        continue
+                    s = score_match(cand["solicitante"], cand["setor"], csv_nome, csv_email, csv_setor)
+                    if s > melhor_score:
+                        melhor_score = s
+                        melhor_idx = ci
+                if melhor_idx >= 0:
+                    candidatos[melhor_idx]["usado"] = True
+                    complementos_novos[str(idx)] = candidatos[melhor_idx]["dados"]
+                    return True
+                return False
+
             csv_path = DEFAULT_CACHE_CSV_PATH
             if os.path.exists(csv_path):
                 with open(csv_path, "r", encoding="utf-8-sig", newline="") as arq:
                     reader = csv.DictReader(arq)
-                    vals_list = list(reader.fieldnames) if reader.fieldnames else []
                     for idx, row_csv in enumerate(reader, start=2):
                         vals = list(row_csv.values())
                         if not vals or not vals[0]:
@@ -753,22 +770,27 @@ async def upload_complementar(request: Request, arquivo: UploadFile = File(...),
                         csv_nome = vals[1] if len(vals) > 1 else ""
                         csv_email = vals[2] if len(vals) > 2 else ""
                         csv_setor = vals[3] if len(vals) > 3 else ""
-
-                        candidatos = excel_por_data.get(data_csv, [])
-                        melhor_idx = -1
-                        melhor_score = -1
-                        for ci, cand in enumerate(candidatos):
-                            if cand["usado"]:
-                                continue
-                            s = score_match(cand["solicitante"], cand["setor"], csv_nome, csv_email, csv_setor)
-                            if s > melhor_score:
-                                melhor_score = s
-                                melhor_idx = ci
-
-                        if melhor_idx >= 0:
-                            candidatos[melhor_idx]["usado"] = True
-                            complementos_novos[str(idx)] = candidatos[melhor_idx]["dados"]
+                        if _processar_linha_matching(idx, data_csv, csv_nome, csv_email, csv_setor):
                             linhas_importadas += 1
+            else:
+                try:
+                    from app.integrations.google_sheets.sync import maintenance_tickets as mt
+                    db_rows = db.execute(
+                        select(mt).order_by(mt.c.source_row)
+                    ).mappings().all()
+                    for row_db in db_rows:
+                        created = row_db.get("created_at")
+                        if not created:
+                            continue
+                        data_csv = created.strftime("%Y-%m-%d") if hasattr(created, "strftime") else str(created)[:10]
+                        csv_nome = str(row_db.get("requester_name") or "")
+                        csv_email = str(row_db.get("requester_email") or "")
+                        csv_setor = str(row_db.get("department") or "")
+                        idx = row_db.get("source_row") or 0
+                        if _processar_linha_matching(idx, data_csv, csv_nome, csv_email, csv_setor):
+                            linhas_importadas += 1
+                except Exception as exc:
+                    print(f"AVISO - fallback banco para complementar falhou: {exc}")
 
             for chave_novo, dados_novo in complementos_novos.items():
                 _upsert_complemento(db, chave_novo, dados_novo)
