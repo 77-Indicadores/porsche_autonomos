@@ -39,6 +39,7 @@ BASE_DIR = Path(__file__).resolve().parents[2]
 GOOGLE_TOKEN_DB_KEY = "google_sheets_token"
 GOOGLE_OAUTH_CLIENT_DB_KEY = "google_oauth_client"
 GOOGLE_OAUTH_STATE_DB_KEY = "google_oauth_state"
+GOOGLE_OAUTH_CODE_VERIFIER_DB_KEY = "google_oauth_code_verifier"
 GOOGLE_WEB_CLIENT_JSON = os.getenv("GOOGLE_WEB_CLIENT_JSON", "").strip()
 
 DEFAULT_CREDENTIALS_DIR = os.getenv(
@@ -253,6 +254,21 @@ def get_google_oauth_redirect_uri(db: Session) -> str | None:
     web_config = client_config.get("web") or {}
     redirect_uris = web_config.get("redirect_uris") or []
     return redirect_uris[0] if redirect_uris else None
+
+
+def build_google_oauth_flow(
+    client_config: dict,
+    state: str | None = None,
+    code_verifier: str | None = None,
+):
+    kwargs = {"scopes": SCOPES}
+    if state:
+        kwargs["state"] = state
+    if code_verifier:
+        kwargs["code_verifier"] = code_verifier
+    else:
+        kwargs["autogenerate_code_verifier"] = True
+    return Flow.from_client_config(client_config, **kwargs)
 
 
 def ler_complementos(db: Session) -> dict:
@@ -843,7 +859,7 @@ def facilities_oauth_iniciar(request: Request, db: Session = Depends(get_db)):
             error="Credencial OAuth do Google nao encontrada no ambiente.",
         )
 
-    flow = Flow.from_client_config(client_config, scopes=SCOPES)
+    flow = build_google_oauth_flow(client_config)
     flow.redirect_uri = redirect_uri
     authorization_url, state = flow.authorization_url(
         access_type="offline",
@@ -851,6 +867,8 @@ def facilities_oauth_iniciar(request: Request, db: Session = Depends(get_db)):
         prompt="select_account consent",
     )
     _set_config(db, GOOGLE_OAUTH_STATE_DB_KEY, state)
+    if getattr(flow, "code_verifier", None):
+        _set_config(db, GOOGLE_OAUTH_CODE_VERIFIER_DB_KEY, flow.code_verifier)
     db.commit()
     return RedirectResponse(authorization_url, status_code=303)
 
@@ -868,6 +886,7 @@ def facilities_oauth_callback(
     client_config = get_google_oauth_client_config(db)
     redirect_uri = get_google_oauth_redirect_uri(db)
     saved_state = _get_config(db, GOOGLE_OAUTH_STATE_DB_KEY) or ""
+    saved_code_verifier = _get_config(db, GOOGLE_OAUTH_CODE_VERIFIER_DB_KEY) or ""
     if not client_config or not redirect_uri:
         return redirect_with_message(
             "/facilities",
@@ -879,7 +898,11 @@ def facilities_oauth_callback(
         return redirect_with_message("/facilities", error="Estado OAuth do Google invalido.")
 
     try:
-        flow = Flow.from_client_config(client_config, scopes=SCOPES, state=state or saved_state)
+        flow = build_google_oauth_flow(
+            client_config,
+            state=state or saved_state,
+            code_verifier=saved_code_verifier,
+        )
         flow.redirect_uri = redirect_uri
         flow.fetch_token(code=code)
         credentials = flow.credentials

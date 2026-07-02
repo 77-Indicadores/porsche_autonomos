@@ -1,5 +1,6 @@
 import sys
 import types
+from pathlib import Path
 
 from starlette.requests import Request
 
@@ -114,3 +115,111 @@ def test_sincronizar_redireciona_para_oauth_quando_falta_token(monkeypatch):
 
     assert response.status_code == 303
     assert response.headers["location"] == "/facilities/oauth/iniciar"
+
+
+def test_oauth_iniciar_salva_code_verifier_para_callback(monkeypatch):
+    db = _DbFalso()
+    configs = {}
+
+    class FakeFlow:
+        code_verifier = "verifier-123"
+
+        @classmethod
+        def from_client_config(cls, *_args, **kwargs):
+            assert kwargs["autogenerate_code_verifier"] is True
+            return cls()
+
+        def authorization_url(self, **_kwargs):
+            return "https://accounts.google.com/o/oauth2/auth", "state-123"
+
+    monkeypatch.setattr(facilities, "_is_admin", lambda _request: True)
+    monkeypatch.setattr(facilities, "ensure_google_oauth_client_config", lambda _db: True)
+    monkeypatch.setattr(
+        facilities,
+        "get_google_oauth_client_config",
+        lambda _db: {"web": {"client_id": "abc"}},
+    )
+    monkeypatch.setattr(
+        facilities,
+        "get_google_oauth_redirect_uri",
+        lambda _db: "https://example.com/facilities/oauth/callback",
+    )
+    monkeypatch.setattr(facilities, "Flow", FakeFlow)
+    monkeypatch.setattr(facilities, "_set_config", lambda _db, key, value: configs.__setitem__(key, value))
+
+    response = facilities.facilities_oauth_iniciar(
+        request=_request_admin("/facilities/oauth/iniciar"),
+        db=db,
+    )
+
+    assert response.status_code == 303
+    assert response.headers["location"] == "https://accounts.google.com/o/oauth2/auth"
+    assert configs[facilities.GOOGLE_OAUTH_STATE_DB_KEY] == "state-123"
+    assert configs[facilities.GOOGLE_OAUTH_CODE_VERIFIER_DB_KEY] == "verifier-123"
+
+
+def test_oauth_callback_reusa_code_verifier_salvo(monkeypatch):
+    db = _DbFalso()
+    fetch_token_calls = []
+    token_path = Path("data/test_token_google.json")
+    oauth_client_path = Path("data/test_oauth_client.json")
+    if token_path.exists():
+        token_path.unlink()
+
+    class FakeCredentials:
+        def to_json(self):
+            return '{"token":"abc"}'
+
+    class FakeFlow:
+        credentials = FakeCredentials()
+
+        @classmethod
+        def from_client_config(cls, *_args, **kwargs):
+            assert kwargs["state"] == "state-123"
+            assert kwargs["code_verifier"] == "verifier-123"
+            return cls()
+
+        def fetch_token(self, **kwargs):
+            fetch_token_calls.append(kwargs)
+
+    def fake_get_config(_db, key):
+        return {
+            facilities.GOOGLE_OAUTH_STATE_DB_KEY: "state-123",
+            facilities.GOOGLE_OAUTH_CODE_VERIFIER_DB_KEY: "verifier-123",
+        }.get(key, "")
+
+    monkeypatch.setattr(facilities, "_is_admin", lambda _request: True)
+    monkeypatch.setattr(
+        facilities,
+        "get_google_oauth_client_config",
+        lambda _db: {"web": {"client_id": "abc"}},
+    )
+    monkeypatch.setattr(
+        facilities,
+        "get_google_oauth_redirect_uri",
+        lambda _db: "https://example.com/facilities/oauth/callback",
+    )
+    monkeypatch.setattr(facilities, "_get_config", fake_get_config)
+    monkeypatch.setattr(facilities, "Flow", FakeFlow)
+    monkeypatch.setattr(facilities, "DEFAULT_TOKEN_PATH", str(token_path))
+    monkeypatch.setattr(facilities, "DEFAULT_OAUTH_CLIENT_PATH", str(oauth_client_path))
+    monkeypatch.setattr(facilities, "_restaurar_credenciais_google", lambda _db: None)
+    monkeypatch.setattr(facilities, "_persistir_credenciais_google", lambda _db: None)
+    monkeypatch.setattr(
+        facilities,
+        "sync_maintenance_tickets",
+        lambda **_kwargs: {"total": 1, "created": 1, "updated": 0},
+    )
+
+    response = facilities.facilities_oauth_callback(
+        request=_request_admin("/facilities/oauth/callback"),
+        code="code-123",
+        state="state-123",
+        db=db,
+    )
+
+    assert response.status_code == 303
+    assert response.headers["location"].startswith("/facilities?success=")
+    assert fetch_token_calls == [{"code": "code-123"}]
+    if token_path.exists():
+        token_path.unlink()
