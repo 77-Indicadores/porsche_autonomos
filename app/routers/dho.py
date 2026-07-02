@@ -1257,9 +1257,35 @@ def aplicacoes_treinamento(request: Request, q: str = "", db: Session = Depends(
 
     try:
         items = db.execute(query.order_by(dho_treinamento_aplicacoes.c.id_aplicacao.desc())).mappings().all()
+        items = list(items)
     except Exception as exc:
         print(f"AVISO - não consegui listar aplicações DHO: {exc}")
         items = []
+
+    # Enriquece registros com dados do dataworld quando matricula/funcao/centro_custo estão vazios
+    pessoas_dw = carregar_pessoas_dataworld()
+    dw_por_nome = {
+        str(p.get("nome_exibicao") or "").strip().lower(): p
+        for p in pessoas_dw
+    }
+    items_enriquecidos = []
+    for row in items:
+        item = dict(row)
+        if not item.get("matricula") or not item.get("funcao") or not item.get("centro_custo"):
+            nome_key = str(item.get("pessoa_nome") or "").strip().lower()
+            pessoa_dw = dw_por_nome.get(nome_key)
+            if pessoa_dw:
+                item.setdefault("matricula", None)
+                item.setdefault("funcao", None)
+                item.setdefault("centro_custo", None)
+                if not item["matricula"]:
+                    item["matricula"] = pessoa_dw.get("matricula") or ""
+                if not item["funcao"]:
+                    item["funcao"] = pessoa_dw.get("cargo") or ""
+                if not item["centro_custo"]:
+                    item["centro_custo"] = pessoa_dw.get("departamento") or ""
+        items_enriquecidos.append(item)
+    items = items_enriquecidos
 
     return templates.TemplateResponse(
         "dho/aplicacoes_treinamento.html",
