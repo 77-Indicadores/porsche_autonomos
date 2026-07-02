@@ -223,3 +223,33 @@ def test_oauth_callback_reusa_code_verifier_salvo(monkeypatch):
     assert fetch_token_calls == [{"code": "code-123"}]
     if token_path.exists():
         token_path.unlink()
+
+
+def test_oauth_desconectar_remove_somente_token_e_estado(monkeypatch):
+    db = _DbFalso()
+    removidos = []
+    token_path = Path("data/test_disconnect_token_google.json")
+    oauth_client_path = Path("data/test_disconnect_oauth_client.json")
+    token_path.write_text('{"token":"abc"}', encoding="utf-8")
+    oauth_client_path.write_text('{"web":{"client_id":"abc"}}', encoding="utf-8")
+
+    monkeypatch.setattr(facilities, "_is_admin", lambda _request: True)
+    monkeypatch.setattr(facilities, "_delete_config", lambda _db, key: removidos.append(key))
+    monkeypatch.setattr(facilities, "DEFAULT_TOKEN_PATH", str(token_path))
+    monkeypatch.setattr(facilities, "DEFAULT_OAUTH_CLIENT_PATH", str(oauth_client_path))
+
+    response = facilities.facilities_oauth_desconectar(
+        request=_request_admin("/facilities/oauth/desconectar"),
+        db=db,
+    )
+
+    assert response.status_code == 303
+    assert response.headers["location"].startswith("/facilities?success=")
+    assert not token_path.exists()
+    assert oauth_client_path.exists()
+    assert facilities.GOOGLE_TOKEN_DB_KEY in removidos
+    assert facilities.GOOGLE_OAUTH_STATE_DB_KEY in removidos
+    assert facilities.GOOGLE_OAUTH_CODE_VERIFIER_DB_KEY in removidos
+    assert facilities.GOOGLE_OAUTH_CLIENT_DB_KEY not in removidos
+    assert db.commits == 1
+    oauth_client_path.unlink()

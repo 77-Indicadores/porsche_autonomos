@@ -47,6 +47,12 @@
     </div>
   {% endif %}
 
+  {% if config.has_token %}
+    <form method="post" action="/facilities/oauth/desconectar" class="mt-4">
+      <button class="btn-muted" type="submit">Desconectar Google</button>
+    </form>
+  {% endif %}
+
   {% if sync_result %}
     <div class="alert success mt-4">
       Espelho atualizado: {{ sync_result.total }} solicitações lidas da planilha online.

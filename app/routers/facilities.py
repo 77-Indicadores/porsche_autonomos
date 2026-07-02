@@ -194,6 +194,14 @@ def _set_config(db: Session, chave: str, valor: str):
     db.flush()
 
 
+def _delete_config(db: Session, chave: str):
+    from app.models import ConfigSistema
+    obj = db.query(ConfigSistema).filter(ConfigSistema.chave == chave).first()
+    if obj:
+        db.delete(obj)
+    db.flush()
+
+
 def load_google_oauth_client_config() -> dict | None:
     raw = GOOGLE_WEB_CLIENT_JSON or ""
     if not raw:
@@ -934,6 +942,23 @@ def facilities_oauth_callback(
             f"{result['created']} criadas e "
             f"{result['updated']} atualizadas."
         ),
+    )
+
+
+@router.post("/facilities/oauth/desconectar")
+def facilities_oauth_desconectar(request: Request, db: Session = Depends(get_db)):
+    if not _is_admin(request):
+        return RedirectResponse("/?sem_acesso=facilities", status_code=303)
+
+    _delete_config(db, GOOGLE_TOKEN_DB_KEY)
+    _delete_config(db, GOOGLE_OAUTH_STATE_DB_KEY)
+    _delete_config(db, GOOGLE_OAUTH_CODE_VERIFIER_DB_KEY)
+    if os.path.exists(DEFAULT_TOKEN_PATH):
+        os.remove(DEFAULT_TOKEN_PATH)
+    db.commit()
+    return redirect_with_message(
+        "/facilities",
+        success="Conta Google desconectada. Clique em 'Atualizar espelho' para conectar novamente.",
     )
 
 
