@@ -2215,3 +2215,135 @@ async def importar_aplicacoes_treinamento_dho(
             error=f"Erro ao importar aplicações de treinamento: {exc}",
         )
 
+
+# ── EMPREGADOS ─────────────────────────────────────────────────────────────────
+
+@router.get("/dho/empregados")
+def empregados_list(request: Request, db: Session = Depends(get_db)):
+    current_user = request.session.get("user")
+    if not current_user:
+        return RedirectResponse("/login", status_code=303)
+    rows = db.execute(
+        select(
+            dho_empregados,
+            dho_departamentos.c.nome_departamento,
+            dho_cargos.c.nome_cargo,
+        )
+        .select_from(
+            dho_empregados
+            .outerjoin(dho_departamentos, dho_departamentos.c.id_departamento == dho_empregados.c.id_departamento)
+            .outerjoin(dho_cargos, dho_cargos.c.id_cargo == dho_empregados.c.id_cargo)
+        )
+        .order_by(dho_empregados.c.nome)
+    ).mappings().all()
+    return templates.TemplateResponse(
+        "dho/empregados.html",
+        {
+            "request": request,
+            "current_user": current_user,
+            "empregados": rows,
+            "departamentos": get_departamentos(db),
+            "cargos": get_cargos(db),
+            **flash_from_request(request),
+        },
+    )
+
+
+@router.post("/dho/empregados")
+async def empregados_criar(
+    request: Request,
+    matricula: str = Form(""),
+    nome: str = Form(...),
+    email: str = Form(""),
+    id_departamento: str = Form(""),
+    id_cargo: str = Form(""),
+    data_admissao: str = Form(""),
+    data_desligamento: str = Form(""),
+    status: str = Form("Ativo"),
+    observacoes: str = Form(""),
+    db: Session = Depends(get_db),
+):
+    current_user = request.session.get("user")
+    if not current_user:
+        return RedirectResponse("/login", status_code=303)
+    try:
+        db.execute(
+            insert(dho_empregados).values(
+                matricula=matricula or None,
+                nome=nome.strip(),
+                email=email or None,
+                id_departamento=to_int_or_none(id_departamento),
+                id_cargo=to_int_or_none(id_cargo),
+                data_admissao=data_admissao or None,
+                data_desligamento=data_desligamento or None,
+                status=status,
+                observacoes=observacoes or None,
+                criado_em=datetime.utcnow(),
+                atualizado_em=datetime.utcnow(),
+            )
+        )
+        db.commit()
+        return redirect_with_message("/dho/empregados", success="Empregado cadastrado com sucesso.")
+    except Exception as exc:
+        db.rollback()
+        return redirect_with_message("/dho/empregados", error=f"Erro ao cadastrar empregado: {exc}")
+
+
+@router.post("/dho/empregados/{id_empregado}/editar")
+async def empregados_editar(
+    id_empregado: int,
+    request: Request,
+    matricula: str = Form(""),
+    nome: str = Form(...),
+    email: str = Form(""),
+    id_departamento: str = Form(""),
+    id_cargo: str = Form(""),
+    data_admissao: str = Form(""),
+    data_desligamento: str = Form(""),
+    status: str = Form("Ativo"),
+    observacoes: str = Form(""),
+    db: Session = Depends(get_db),
+):
+    current_user = request.session.get("user")
+    if not current_user:
+        return RedirectResponse("/login", status_code=303)
+    try:
+        db.execute(
+            update(dho_empregados)
+            .where(dho_empregados.c.id_empregado == id_empregado)
+            .values(
+                matricula=matricula or None,
+                nome=nome.strip(),
+                email=email or None,
+                id_departamento=to_int_or_none(id_departamento),
+                id_cargo=to_int_or_none(id_cargo),
+                data_admissao=data_admissao or None,
+                data_desligamento=data_desligamento or None,
+                status=status,
+                observacoes=observacoes or None,
+                atualizado_em=datetime.utcnow(),
+            )
+        )
+        db.commit()
+        return redirect_with_message("/dho/empregados", success="Empregado atualizado.")
+    except Exception as exc:
+        db.rollback()
+        return redirect_with_message("/dho/empregados", error=f"Erro ao atualizar empregado: {exc}")
+
+
+@router.post("/dho/empregados/{id_empregado}/excluir")
+async def empregados_excluir(
+    id_empregado: int,
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    current_user = request.session.get("user")
+    if not current_user:
+        return RedirectResponse("/login", status_code=303)
+    try:
+        db.execute(dho_empregados.delete().where(dho_empregados.c.id_empregado == id_empregado))
+        db.commit()
+        return redirect_with_message("/dho/empregados", success="Empregado excluído.")
+    except Exception as exc:
+        db.rollback()
+        return redirect_with_message("/dho/empregados", error=f"Erro ao excluir empregado: {exc}")
