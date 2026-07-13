@@ -29,15 +29,15 @@
       {% if request.url.path.startswith('/dho') %}
       <div class="nav-section">
         <div class="nav-section-title">DHO</div>
+        <div class="nav-subsection-title">Cadastros</div>
+        <a class="nav-link {% if request.url.path.startswith('/dho/empregados') %}active{% endif %}" href="/dho/empregados">👥 Empregados</a>
+        <a class="nav-link {% if request.url.path.startswith('/dho/estrutura') %}active{% endif %}" href="/dho/estrutura">🏢 Depto. e Cargos</a>
         <div class="nav-subsection-title">Recrutamento e Seleção</div>
         <a class="nav-link {% if request.url.path == '/dho' %}active{% endif %}" href="/dho">📊 Visão Geral DHO</a>
         <a class="nav-link {% if request.url.path.startswith('/dho/vagas') %}active{% endif %}" href="/dho/vagas">💼 Vagas Abertas</a>
         <div class="nav-subsection-title">Treinamento</div>
         <a class="nav-link {% if request.url.path.startswith('/dho/treinamentos') %}active{% endif %}" href="/dho/treinamentos">🎓 Treinamentos</a>
         <a class="nav-link {% if request.url.path.startswith('/dho/aplicacoes-treinamento') %}active{% endif %}" href="/dho/aplicacoes-treinamento">✅ Aplicar Treinamento</a>
-        <div class="nav-subsection-title">Cadastros</div>
-        <a class="nav-link {% if request.url.path.startswith('/dho/empregados') %}active{% endif %}" href="/dho/empregados">👥 Empregados</a>
-        <a class="nav-link {% if request.url.path.startswith('/dho/estrutura') %}active{% endif %}" href="/dho/estrutura">🏢 Depto. e Cargos</a>
       </div>
 
       {% elif request.url.path.startswith('/facilities') %}
