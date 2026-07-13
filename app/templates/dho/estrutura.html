@@ -1,66 +1,59 @@
 {% extends "base.html" %}
 
-{% block header %}Estrutura DataWorld{% endblock %}
-{% block subtitle %}Departamentos e cargos vindos da tabela rel_colab_77.{% endblock %}
+{% block header %}Departamentos e Cargos{% endblock %}
+{% block subtitle %}Lista distinta — Data World + cadastros manuais{% endblock %}
 
 {% block header_action %}
 <form method="post" action="/dho/estrutura/sincronizar" style="display:inline;">
-  <button class="quick-action primary">Sincronizar DataWorld</button>
+  <button class="quick-action light">Sincronizar Data World</button>
 </form>
 {% endblock %}
 
 {% block content %}
 
+{% if success %}
+<div class="alert alert-success">{{ success }}</div>
+{% endif %}
+{% if error %}
+<div class="alert alert-danger">{{ error }}</div>
+{% endif %}
 {% if erro_dataworld %}
-<div class="alert error">Não consegui consultar a DataWorld agora: {{ erro_dataworld }}</div>
+<div class="alert alert-warning">Data World indisponível: {{ erro_dataworld }}</div>
 {% endif %}
 
-<section class="panel mb-6">
-  <div class="panel-head">
-    <h3>Fonte dos dados</h3>
-  </div>
-
-  <div class="grid gap-3 md:grid-cols-3">
-    <div class="kpi-card">
-      <span>Dataset</span>
-      <strong>77indicadores/porsche</strong>
-    </div>
-
-    <div class="kpi-card">
-      <span>Tabela</span>
-      <strong>rel_colab_77</strong>
-    </div>
-
-    <div class="kpi-card">
-      <span>Uso</span>
-      <strong>Listas distintas</strong>
-    </div>
-  </div>
-</section>
-
-<section class="panel mb-6">
-  <div class="grid gap-3 md:grid-cols-2">
-    <div class="kpi-card">
-      <span>Departamentos</span>
-      <strong>{{ departamentos|length }}</strong>
-    </div>
-
-    <div class="kpi-card">
-      <span>Cargos</span>
-      <strong>{{ cargos|length }}</strong>
-    </div>
-  </div>
-</section>
-
 <section class="exec-grid">
+
+  {# ── DEPARTAMENTOS ──────────────────────────────────────────── #}
   <article class="panel">
     <div class="panel-head">
-      <h3>Departamentos</h3>
+      <h3 id="dep-form-title">Novo Departamento</h3>
     </div>
+
+    <form method="post" action="/dho/departamentos" id="form-dep" class="form-grid">
+      <input type="hidden" name="id_departamento" id="id_departamento">
+
+      <div>
+        <label class="label">Nome *</label>
+        <input class="input" name="nome_departamento" id="nome_departamento" required>
+      </div>
+
+      <div>
+        <label class="label">Status</label>
+        <select class="input" name="status" id="status_dep">
+          <option>Ativo</option>
+          <option>Inativo</option>
+        </select>
+      </div>
+
+      <div class="ux-actions-row">
+        <button class="btn-primary" type="submit">Salvar</button>
+        <button class="btn-muted" type="button" onclick="limparDep()">Novo</button>
+      </div>
+    </form>
 
     <table class="table mt-4">
       <thead>
-        <tr><th>ID</th><th>Departamento</th><th>Status</th></tr>
+        <tr><th>ID</th><th>Departamento</th><th>Status</th><th>Ações</th></tr>
       </thead>
       <tbody>
         {% for d in departamentos %}
@@ -68,37 +61,117 @@
           <td><span class="id-pill">{{ d.id_departamento }}</span></td>
           <td>{{ d.nome_departamento }}</td>
           <td><span class="badge">{{ d.status }}</span></td>
+          <td>
+            <button class="btn-muted" type="button"
+              onclick="editarDep({{ d.id_departamento }}, {{ d.nome_departamento|tojson }}, {{ d.status|tojson }})">
+              Editar
+            </button>
+          </td>
         </tr>
         {% else %}
-        <tr><td colspan="3" class="empty">Nenhum departamento encontrado em rel_colab_77.</td></tr>
+        <tr><td colspan="4" class="empty">Nenhum departamento cadastrado.</td></tr>
         {% endfor %}
       </tbody>
     </table>
   </article>
 
+  {# ── CARGOS ─────────────────────────────────────────────────── #}
   <article class="panel">
     <div class="panel-head">
-      <h3>Cargos</h3>
+      <h3 id="cargo-form-title">Novo Cargo</h3>
     </div>
+
+    <form method="post" action="/dho/cargos" id="form-cargo" class="form-grid">
+      <input type="hidden" name="id_cargo" id="id_cargo">
+
+      <div>
+        <label class="label">Nome do cargo *</label>
+        <input class="input" name="nome_cargo" id="nome_cargo" required>
+      </div>
+
+      <div>
+        <label class="label">Departamento</label>
+        <select class="input" name="id_departamento" id="id_departamento_cargo">
+          <option value="">— selecione —</option>
+          {% for d in departamentos %}
+          <option value="{{ d.id_departamento }}">{{ d.nome_departamento }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div>
+        <label class="label">Status</label>
+        <select class="input" name="status" id="status_cargo">
+          <option>Ativo</option>
+          <option>Inativo</option>
+        </select>
+      </div>
+
+      <div class="ux-actions-row">
+        <button class="btn-primary" type="submit">Salvar</button>
+        <button class="btn-muted" type="button" onclick="limparCargo()">Novo</button>
+      </div>
+    </form>
 
     <table class="table mt-4">
       <thead>
-        <tr><th>ID</th><th>Cargo</th><th>Departamento</th><th>Status</th></tr>
+        <tr><th>ID</th><th>Cargo</th><th>Departamento</th><th>Status</th><th>Ações</th></tr>
       </thead>
       <tbody>
         {% for c in cargos %}
         <tr>
           <td><span class="id-pill">{{ c.id_cargo }}</span></td>
           <td>{{ c.nome_cargo }}</td>
-          <td>{{ c.nome_departamento or "-" }}</td>
+          <td>{{ c.nome_departamento or "—" }}</td>
           <td><span class="badge">{{ c.status }}</span></td>
+          <td>
+            <button class="btn-muted" type="button"
+              onclick="editarCargo({{ c.id_cargo }}, {{ c.nome_cargo|tojson }}, {{ (c.id_departamento or '')|tojson }}, {{ c.status|tojson }})">
+              Editar
+            </button>
+          </td>
         </tr>
         {% else %}
-        <tr><td colspan="4" class="empty">Nenhum cargo encontrado em rel_colab_77.</td></tr>
+        <tr><td colspan="5" class="empty">Nenhum cargo cadastrado.</td></tr>
         {% endfor %}
       </tbody>
     </table>
   </article>
+
 </section>
+
+<script>
+function limparDep() {
+  document.getElementById('id_departamento').value = '';
+  document.getElementById('nome_departamento').value = '';
+  document.getElementById('status_dep').value = 'Ativo';
+  document.getElementById('dep-form-title').textContent = 'Novo Departamento';
+  window.scrollTo({top:0, behavior:'smooth'});
+}
+function editarDep(id, nome, status) {
+  document.getElementById('id_departamento').value = id;
+  document.getElementById('nome_departamento').value = nome;
+  document.getElementById('status_dep').value = status;
+  document.getElementById('dep-form-title').textContent = 'Editar Departamento';
+  window.scrollTo({top:0, behavior:'smooth'});
+}
+
+function limparCargo() {
+  document.getElementById('id_cargo').value = '';
+  document.getElementById('nome_cargo').value = '';
+  document.getElementById('id_departamento_cargo').value = '';
+  document.getElementById('status_cargo').value = 'Ativo';
+  document.getElementById('cargo-form-title').textContent = 'Novo Cargo';
+  window.scrollTo({top:0, behavior:'smooth'});
+}
+function editarCargo(id, nome, idDep, status) {
+  document.getElementById('id_cargo').value = id;
+  document.getElementById('nome_cargo').value = nome;
+  document.getElementById('id_departamento_cargo').value = idDep;
+  document.getElementById('status_cargo').value = status;
+  document.getElementById('cargo-form-title').textContent = 'Editar Cargo';
+  window.scrollTo({top:0, behavior:'smooth'});
+}
+</script>
 
 {% endblock %}
