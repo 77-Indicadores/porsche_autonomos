@@ -168,6 +168,23 @@ def _normalizar_aplicacoes_multiplas(conn, tabela=dho_treinamento_aplicacoes):
     return normalizados
 
 
+dho_empregados = Table(
+    "dho_empregados",
+    metadata_dho,
+    Column("id_empregado", Integer, primary_key=True, autoincrement=True),
+    Column("matricula", String(80), nullable=True),
+    Column("nome", String(200), nullable=False),
+    Column("email", String(200), nullable=True),
+    Column("id_departamento", Integer, nullable=True),
+    Column("id_cargo", Integer, nullable=True),
+    Column("data_admissao", String(20), nullable=True),
+    Column("data_desligamento", String(20), nullable=True),
+    Column("status", String(50), default="Ativo"),
+    Column("observacoes", Text, nullable=True),
+    Column("criado_em", DateTime, default=datetime.utcnow),
+    Column("atualizado_em", DateTime, default=datetime.utcnow),
+)
+
 metadata_dho.create_all(engine)
 
 
@@ -311,6 +328,43 @@ def garantir_schema_dho_treinamentos():
                     ADD COLUMN IF NOT EXISTS atualizado_em TIMESTAMP
                 """))
 
+            elif dialect == "mssql":
+                def _col_exists(table, col):
+                    return conn.execute(text(
+                        "SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS "
+                        f"WHERE TABLE_NAME='{table}' AND COLUMN_NAME='{col}'"
+                    )).scalar() > 0
+
+                for col, sql_type in {
+                    "tipo_treinamento": "NVARCHAR(120) DEFAULT 'Autônomo'",
+                    "carga_horaria_padrao": "FLOAT",
+                    "valor_treinamento": "FLOAT",
+                    "status": "NVARCHAR(60) DEFAULT 'Ativo'",
+                    "observacoes": "NVARCHAR(MAX)",
+                    "criado_em": "DATETIME",
+                    "atualizado_em": "DATETIME",
+                }.items():
+                    if not _col_exists("dho_treinamentos", col):
+                        conn.execute(text(f"ALTER TABLE dho_treinamentos ADD {col} {sql_type}"))
+
+                for col, sql_type in {
+                    "id_treinamento": "INT",
+                    "tipo_pessoa": "NVARCHAR(60)",
+                    "id_autonomo": "INT",
+                    "pessoa_nome": "NVARCHAR(180)",
+                    "matricula": "NVARCHAR(80)",
+                    "funcao": "NVARCHAR(180)",
+                    "centro_custo": "NVARCHAR(180)",
+                    "data_treinamento": "NVARCHAR(20)",
+                    "carga_horaria": "FLOAT",
+                    "status": "NVARCHAR(60)",
+                    "observacoes": "NVARCHAR(MAX)",
+                    "criado_em": "DATETIME",
+                    "atualizado_em": "DATETIME",
+                }.items():
+                    if not _col_exists("dho_treinamento_aplicacoes", col):
+                        conn.execute(text(f"ALTER TABLE dho_treinamento_aplicacoes ADD {col} {sql_type}"))
+
     except Exception as exc:
         print(f"AVISO - erro ao ajustar schema de treinamentos DHO: {exc}")
 
@@ -398,6 +452,39 @@ def garantir_schema():
                     ADD COLUMN IF NOT EXISTS status VARCHAR(60) DEFAULT 'Ativo',
                     ADD COLUMN IF NOT EXISTS observacoes TEXT
                 """))
+
+            elif dialect == "mssql":
+                def _col_exists2(table, col):
+                    return conn.execute(text(
+                        "SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS "
+                        f"WHERE TABLE_NAME='{table}' AND COLUMN_NAME='{col}'"
+                    )).scalar() > 0
+
+                for col, sql_type in {
+                    "id_departamento": "INT",
+                    "id_cargo": "INT",
+                    "tipo_vaga": "NVARCHAR(80)",
+                    "motivo_substituicao": "NVARCHAR(80)",
+                    "sexo": "NVARCHAR(40)",
+                    "qtd_vagas": "INT DEFAULT 1",
+                    "responsavel": "NVARCHAR(160)",
+                    "data_abertura": "NVARCHAR(20)",
+                    "data_conclusao": "NVARCHAR(20)",
+                    "tipo_recrutamento": "NVARCHAR(40)",
+                    "observacoes": "NVARCHAR(MAX)",
+                }.items():
+                    if not _col_exists2("dho_vagas", col):
+                        conn.execute(text(f"ALTER TABLE dho_vagas ADD {col} {sql_type}"))
+
+                for col, sql_type in {
+                    "tipo_treinamento": "NVARCHAR(120)",
+                    "carga_horaria_padrao": "FLOAT",
+                    "valor_treinamento": "FLOAT",
+                    "status": "NVARCHAR(60)",
+                    "observacoes": "NVARCHAR(MAX)",
+                }.items():
+                    if not _col_exists2("dho_treinamentos", col):
+                        conn.execute(text(f"ALTER TABLE dho_treinamentos ADD {col} {sql_type}"))
 
             elif dialect == "sqlite":
                 def cols(table):
@@ -947,6 +1034,38 @@ _CACHE_ESTRUTURA_DW = {
 }
 
 
+def carregar_pessoas_interno(db: Session):
+    """Retorna empregados da tabela interna como lista de dicts compatíveis com o template."""
+    try:
+        rows = db.execute(
+            select(
+                dho_empregados,
+                dho_departamentos.c.nome_departamento,
+                dho_cargos.c.nome_cargo,
+            )
+            .select_from(
+                dho_empregados
+                .outerjoin(dho_departamentos, dho_departamentos.c.id_departamento == dho_empregados.c.id_departamento)
+                .outerjoin(dho_cargos, dho_cargos.c.id_cargo == dho_empregados.c.id_cargo)
+            )
+            .where(dho_empregados.c.status == "Ativo")
+            .order_by(dho_empregados.c.nome)
+        ).mappings().all()
+        return [
+            {
+                "nome": r["nome"],
+                "matricula": r["matricula"] or "",
+                "email": r["email"] or "",
+                "cargo": r["nome_cargo"] or "",
+                "departamento": r["nome_departamento"] or "",
+            }
+            for r in rows
+        ]
+    except Exception as exc:
+        print(f"AVISO - erro ao carregar empregados internos: {exc}")
+        return []
+
+
 def carregar_pessoas_dataworld():
     """
     Busca pessoas na tabela rel_colab_77 do dataset 77indicadores/porsche.
@@ -1105,10 +1224,10 @@ def carregar_pessoas_dataworld():
 
 
 def carregar_pessoas_aplicacao_treinamento(db: Session):
-    pessoas = list(carregar_pessoas_dataworld())
+    pessoas = carregar_pessoas_interno(db) or list(carregar_pessoas_dataworld())
     dedup = {
         (
-            str(p.get("nome_exibicao") or "").strip().lower(),
+            str(p.get("nome_exibicao") or p.get("nome") or "").strip().lower(),
             str(p.get("matricula") or "").strip().lower(),
             str(p.get("email") or "").strip().lower(),
         ): p
@@ -1283,10 +1402,10 @@ def aplicacoes_treinamento(request: Request, q: str = "", db: Session = Depends(
         print(f"AVISO - não consegui listar aplicações DHO: {exc}")
         items = []
 
-    # Enriquece registros com dados do dataworld quando matricula/funcao/centro_custo estão vazios
-    pessoas_dw = carregar_pessoas_dataworld()
+    # Enriquece registros quando matricula/funcao/centro_custo estão vazios
+    pessoas_dw = carregar_pessoas_interno(db) or list(carregar_pessoas_dataworld())
     dw_por_nome = {
-        str(p.get("nome_exibicao") or "").strip().lower(): p
+        str(p.get("nome_exibicao") or p.get("nome") or "").strip().lower(): p
         for p in pessoas_dw
     }
     items_enriquecidos = []

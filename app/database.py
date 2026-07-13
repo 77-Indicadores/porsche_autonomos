@@ -32,23 +32,45 @@ load_dotenv_file()
 DEFAULT_SQLITE_URL = f"sqlite:///{DATA_DIR / 'app.db'}"
 DATABASE_URL = os.getenv("DATABASE_URL", DEFAULT_SQLITE_URL)
 
-def build_engine_kwargs(database_url: str) -> dict:
-    engine_kwargs = {"future": True}
-    if database_url.startswith("sqlite"):
-        engine_kwargs["connect_args"] = {"check_same_thread": False}
-        if database_url == "sqlite:///:memory:":
-            engine_kwargs["poolclass"] = StaticPool
-        return engine_kwargs
 
-    # Revalida conexoes antes de reutilizar e recicla as muito antigas.
-    engine_kwargs["pool_pre_ping"] = True
-    engine_kwargs["pool_recycle"] = 1800
-    return engine_kwargs
+def _resolve_database_url(raw_url: str):
+    """Retorna (url, kwargs) prontos para create_engine, tratando MSSQL com caracteres especiais."""
+    kwargs = {"future": True}
+
+    if raw_url.startswith("sqlite"):
+        kwargs["connect_args"] = {"check_same_thread": False}
+        if raw_url == "sqlite:///:memory:":
+            kwargs["poolclass"] = StaticPool
+        return raw_url, kwargs
+
+    if raw_url.startswith("mssql"):
+        import urllib.parse as _up
+        from sqlalchemy.engine import URL as _SA_URL
+        _stripped = raw_url.replace("mssql+pymssql://", "")
+        _userinfo, _hostdb = _stripped.rsplit("@", 1)
+        _user, _password = _userinfo.split(":", 1)
+        _host_port, _dbname = _hostdb.split("/", 1)
+        _host, _port = (_host_port.split(":", 1) if ":" in _host_port else (_host_port, "1433"))
+        url = _SA_URL.create(
+            "mssql+pymssql",
+            username=_up.unquote(_user),
+            password=_up.unquote(_password),
+            host=_host,
+            port=int(_port),
+            database=_dbname,
+        )
+        kwargs["pool_pre_ping"] = True
+        kwargs["pool_recycle"] = 1800
+        return url, kwargs
+
+    # PostgreSQL e outros
+    kwargs["pool_pre_ping"] = True
+    kwargs["pool_recycle"] = 1800
+    return raw_url, kwargs
 
 
-engine_kwargs = build_engine_kwargs(DATABASE_URL)
-
-engine = create_engine(DATABASE_URL, **engine_kwargs)
+_engine_url, engine_kwargs = _resolve_database_url(DATABASE_URL)
+engine = create_engine(_engine_url, **engine_kwargs)
 SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False, future=True)
 Base = declarative_base()
 
