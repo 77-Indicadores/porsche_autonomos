@@ -1042,7 +1042,7 @@ def carregar_pessoas_interno(db: Session):
         return []
 
 
-def carregar_pessoas_dataworld():
+def carregar_pessoas_dataworld(raise_errors: bool = False):
     """
     Busca pessoas na tabela rel_colab_77 do dataset Catworld configurado.
 
@@ -1101,7 +1101,9 @@ def carregar_pessoas_dataworld():
                 "label": nome_exibicao + ((" - " + " · ".join(detalhes)) if detalhes else ""),
             })
 
-    except CATWORLD_QUERY_ERRORS as exc:
+    except (RuntimeError, *CATWORLD_QUERY_ERRORS) as exc:
+        if raise_errors:
+            raise
         print(f"AVISO - Catworld indisponível: {exc}")
 
     # Deduplica por nome + matrícula/email
@@ -1129,7 +1131,7 @@ def carregar_pessoas_dataworld():
 
 
 def carregar_pessoas_aplicacao_treinamento(db: Session):
-    pessoas = carregar_pessoas_interno(db) or list(carregar_pessoas_dataworld())
+    pessoas = carregar_pessoas_interno(db)
     dedup = {
         (
             str(p.get("nome_exibicao") or p.get("nome") or "").strip().lower(),
@@ -1139,64 +1141,122 @@ def carregar_pessoas_aplicacao_treinamento(db: Session):
         for p in pessoas
     }
 
-    try:
-        for aut in get_autonomos(db):
-            nome = str(getattr(aut, "nome_autonomo", "") or "").strip()
-            if not nome:
-                continue
-
-            chave = (nome.lower(), "", "")
-            if chave not in dedup:
-                dedup[chave] = {
-                    "nome": nome,
-                    "nome_completo": nome,
-                    "nome_exibicao": nome,
-                    "matricula": "",
-                    "email": str(getattr(aut, "email", "") or "").strip(),
-                    "cargo": str(getattr(getattr(aut, "cargo", None), "nome_cargo", "") or "").strip(),
-                    "departamento": "Autônomo",
-                    "label": nome,
-                }
-    except Exception as exc:
-        print(f"AVISO - não consegui carregar autônomos como fallback DHO: {exc}")
-
-    try:
-        rows = db.execute(
-            select(
-                dho_treinamento_aplicacoes.c.pessoa_nome,
-                dho_treinamento_aplicacoes.c.matricula,
-                dho_treinamento_aplicacoes.c.funcao,
-                dho_treinamento_aplicacoes.c.centro_custo,
-            )
-            .where(dho_treinamento_aplicacoes.c.pessoa_nome.isnot(None))
-            .order_by(dho_treinamento_aplicacoes.c.pessoa_nome)
-        ).mappings().all()
-
-        for row in rows:
-            nome = str(row.get("pessoa_nome") or "").strip()
-            matricula = str(row.get("matricula") or "").strip()
-            if not nome:
-                continue
-
-            chave = (nome.lower(), matricula.lower(), "")
-            if chave not in dedup:
-                dedup[chave] = {
-                    "nome": nome,
-                    "nome_completo": nome,
-                    "nome_exibicao": nome,
-                    "matricula": matricula,
-                    "email": "",
-                    "cargo": str(row.get("funcao") or "").strip(),
-                    "departamento": str(row.get("centro_custo") or "").strip(),
-                    "label": nome,
-                }
-    except Exception as exc:
-        print(f"AVISO - não consegui carregar histórico de pessoas DHO: {exc}")
-
     return sorted(
         dedup.values(),
         key=lambda x: str(x.get("nome_exibicao") or "").lower(),
     )
+
+
+def _chave_empregado_catworld(pessoa):
+    matricula = str(pessoa.get("matricula") or "").strip().lower()
+    email = str(pessoa.get("email") or "").strip().lower()
+    nome = str(pessoa.get("nome_exibicao") or pessoa.get("nome_completo") or pessoa.get("nome") or "").strip().lower()
+
+    if matricula:
+        return ("matricula", matricula)
+    if email:
+        return ("email", email)
+    if nome:
+        return ("nome", nome)
+    return None
+
+
+def sincronizar_empregados_dataworld(db: Session):
+    _CACHE_PESSOAS_DW["dados"] = None
+    pessoas = carregar_pessoas_dataworld(raise_errors=True)
+
+    sincronizar_estrutura_dataworld(db, force=True)
+
+    departamentos_por_nome = {}
+    for row in db.execute(select(dho_departamentos)).mappings().all():
+        nome = str(row.get("nome_departamento") or "").strip().lower()
+        if nome:
+            departamentos_por_nome[nome] = row.get("id_departamento")
+
+    cargos_por_nome_departamento = {}
+    for row in db.execute(select(dho_cargos)).mappings().all():
+        nome_cargo = str(row.get("nome_cargo") or "").strip().lower()
+        if nome_cargo:
+            cargos_por_nome_departamento[(nome_cargo, row.get("id_departamento"))] = row.get("id_cargo")
+
+    empregados_por_chave = {}
+    for row in db.execute(select(dho_empregados)).mappings().all():
+        chaves = []
+        matricula = str(row.get("matricula") or "").strip().lower()
+        email = str(row.get("email") or "").strip().lower()
+        nome = str(row.get("nome") or "").strip().lower()
+        if matricula:
+            chaves.append(("matricula", matricula))
+        if email:
+            chaves.append(("email", email))
+        if nome:
+            chaves.append(("nome", nome))
+        for chave in chaves:
+            empregados_por_chave.setdefault(chave, row)
+
+    vistos = set()
+    criados = 0
+    atualizados = 0
+    agora = datetime.utcnow()
+
+    for pessoa in pessoas:
+        chave = _chave_empregado_catworld(pessoa)
+        if not chave:
+            continue
+
+        nome = str(pessoa.get("nome_exibicao") or pessoa.get("nome_completo") or pessoa.get("nome") or "").strip()
+        if not nome:
+            continue
+
+        id_departamento = departamentos_por_nome.get(str(pessoa.get("departamento") or "").strip().lower())
+        id_cargo = cargos_por_nome_departamento.get((
+            str(pessoa.get("cargo") or "").strip().lower(),
+            id_departamento,
+        ))
+
+        dados = {
+            "matricula": str(pessoa.get("matricula") or "").strip() or None,
+            "nome": nome,
+            "email": str(pessoa.get("email") or "").strip() or None,
+            "id_departamento": id_departamento,
+            "id_cargo": id_cargo,
+            "status": "Ativo",
+            "observacoes": "Sincronizado pelo Catworld rel_colab_77.",
+            "atualizado_em": agora,
+        }
+
+        existente = empregados_por_chave.get(chave)
+        if existente:
+            db.execute(
+                update(dho_empregados)
+                .where(dho_empregados.c.id_empregado == existente["id_empregado"])
+                .values(**dados)
+            )
+            vistos.add(existente["id_empregado"])
+            atualizados += 1
+        else:
+            dados["criado_em"] = agora
+            result = db.execute(insert(dho_empregados).values(**dados))
+            if result.inserted_primary_key:
+                vistos.add(result.inserted_primary_key[0])
+            criados += 1
+
+    inativados = 0
+    if vistos:
+        inativados = db.execute(
+            update(dho_empregados)
+            .where(dho_empregados.c.id_empregado.notin_(vistos))
+            .where(dho_empregados.c.status == "Ativo")
+            .values(status="Inativo", atualizado_em=agora)
+        ).rowcount or 0
+
+    db.commit()
+    return {
+        "total_catworld": len(pessoas),
+        "criados": criados,
+        "atualizados": atualizados,
+        "inativados": inativados,
+    }
 
 
 def carregar_estrutura_dataworld():
@@ -1864,6 +1924,49 @@ def _float_importacao(valor):
         return None
 
 
+def _normalizar_chave_pessoa(valor):
+    texto = unicodedata.normalize("NFKD", str(valor or "").strip())
+    texto = "".join(ch for ch in texto if not unicodedata.combining(ch))
+    return " ".join(texto.lower().split())
+
+
+def _empregados_importacao_por_nome(db: Session):
+    rows = db.execute(
+        select(
+            dho_empregados,
+            dho_departamentos.c.nome_departamento,
+            dho_cargos.c.nome_cargo,
+        )
+        .select_from(
+            dho_empregados
+            .outerjoin(dho_departamentos, dho_departamentos.c.id_departamento == dho_empregados.c.id_departamento)
+            .outerjoin(dho_cargos, dho_cargos.c.id_cargo == dho_empregados.c.id_cargo)
+        )
+        .where(dho_empregados.c.status == "Ativo")
+        .order_by(dho_empregados.c.nome)
+    ).mappings().all()
+
+    return {
+        _normalizar_chave_pessoa(row["nome"]): row
+        for row in rows
+        if str(row.get("nome") or "").strip()
+    }
+
+
+def _treinamentos_importacao_por_nome(db: Session):
+    rows = db.execute(
+        select(dho_treinamentos)
+        .where(dho_treinamentos.c.status == "Ativo")
+        .order_by(dho_treinamentos.c.nome_treinamento)
+    ).mappings().all()
+
+    return {
+        _normalizar_chave_pessoa(row["nome_treinamento"]): row
+        for row in rows
+        if str(row.get("nome_treinamento") or "").strip()
+    }
+
+
 def _garantir_schema_aplicacao_treinamento_importacao():
     """
     Garante as colunas usadas na importação de aplicações de treinamento.
@@ -1957,14 +2060,18 @@ def _get_or_create_treinamento_importacao(db: Session, nome_treinamento: str):
 
 
 @router.get("/dho/importacoes/modelo-aplicacoes-treinamento")
-def baixar_modelo_aplicacoes_treinamento_dho():
+def baixar_modelo_aplicacoes_treinamento_dho(db: Session = Depends(get_db)):
     from openpyxl import Workbook
     from openpyxl.styles import Font, PatternFill, Alignment
+    from openpyxl.worksheet.datavalidation import DataValidation
     from openpyxl.utils import get_column_letter
 
     wb = Workbook()
     ws = wb.active
     ws.title = "Aplicacoes Treinamento"
+    ws_pessoas = wb.create_sheet("Pessoas")
+    ws_treinamentos = wb.create_sheet("Treinamentos")
+    ws_listas = wb.create_sheet("Listas")
 
     headers = [
         "nome_treinamento",
@@ -1978,35 +2085,49 @@ def baixar_modelo_aplicacoes_treinamento_dho():
         "observacoes",
     ]
 
-    exemplos = [
-        [
-            "Integração de novos profissionais",
-            "João da Silva",
-            "1001",
-            "Mecânico",
-            "Operações",
-            "20/05/2026",
-            2,
-            "Realizado",
-            "",
-        ],
-        [
-            "Reciclagem operacional de autônomos",
-            "Maria Oliveira",
-            "1002",
-            "Coordenadora de Pista",
-            "Operações",
-            "21/05/2026",
-            3,
-            "Realizado",
-            "",
-        ],
-    ]
-
     ws.append(headers)
 
-    for row in exemplos:
-        ws.append(row)
+    pessoas = db.execute(
+        select(
+            dho_empregados,
+            dho_departamentos.c.nome_departamento,
+            dho_cargos.c.nome_cargo,
+        )
+        .select_from(
+            dho_empregados
+            .outerjoin(dho_departamentos, dho_departamentos.c.id_departamento == dho_empregados.c.id_departamento)
+            .outerjoin(dho_cargos, dho_cargos.c.id_cargo == dho_empregados.c.id_cargo)
+        )
+        .where(dho_empregados.c.status == "Ativo")
+        .order_by(dho_empregados.c.nome)
+    ).mappings().all()
+
+    treinamentos = db.execute(
+        select(dho_treinamentos)
+        .where(dho_treinamentos.c.status == "Ativo")
+        .order_by(dho_treinamentos.c.nome_treinamento)
+    ).mappings().all()
+
+    ws_pessoas.append(["pessoa_nome", "matricula", "funcao", "centro_custo", "email"])
+    for pessoa in pessoas:
+        ws_pessoas.append([
+            pessoa["nome"],
+            pessoa["matricula"] or "",
+            pessoa["nome_cargo"] or "",
+            pessoa["nome_departamento"] or "",
+            pessoa["email"] or "",
+        ])
+
+    ws_treinamentos.append(["nome_treinamento", "carga_horaria_padrao"])
+    for treinamento in treinamentos:
+        ws_treinamentos.append([
+            treinamento["nome_treinamento"],
+            treinamento["carga_horaria_padrao"] or "",
+        ])
+
+    ws_listas.append(["status"])
+    for status_item in STATUS_APLICACAO:
+        ws_listas.append([status_item])
 
     header_fill = PatternFill("solid", fgColor="0F172A")
     header_font = Font(color="FFFFFF", bold=True)
@@ -2018,6 +2139,50 @@ def baixar_modelo_aplicacoes_treinamento_dho():
         cell.alignment = center
         ws.column_dimensions[get_column_letter(col_idx)].width = max(22, len(str(cell.value)) + 4)
 
+    for aba in (ws_pessoas, ws_treinamentos, ws_listas):
+        for col_idx, cell in enumerate(aba[1], start=1):
+            cell.fill = header_fill
+            cell.font = header_font
+            cell.alignment = center
+            aba.column_dimensions[get_column_letter(col_idx)].width = max(22, len(str(cell.value)) + 4)
+
+    max_rows = 1000
+    last_pessoa = max(ws_pessoas.max_row, 2)
+    last_treinamento = max(ws_treinamentos.max_row, 2)
+    last_status = max(ws_listas.max_row, 2)
+
+    dv_treinamento = DataValidation(
+        type="list",
+        formula1=f"=Treinamentos!$A$2:$A${last_treinamento}",
+        allow_blank=False,
+    )
+    dv_pessoa = DataValidation(
+        type="list",
+        formula1=f"=Pessoas!$A$2:$A${last_pessoa}",
+        allow_blank=False,
+    )
+    dv_status = DataValidation(
+        type="list",
+        formula1=f"=Listas!$A$2:$A${last_status}",
+        allow_blank=False,
+    )
+    ws.add_data_validation(dv_treinamento)
+    ws.add_data_validation(dv_pessoa)
+    ws.add_data_validation(dv_status)
+    dv_treinamento.add(f"A2:A{max_rows}")
+    dv_pessoa.add(f"B2:B{max_rows}")
+    dv_status.add(f"H2:H{max_rows}")
+
+    for row_idx in range(2, max_rows + 1):
+        ws.cell(row_idx, 3).value = f'=IFERROR(VLOOKUP($B{row_idx},Pessoas!$A:$E,2,FALSE),"")'
+        ws.cell(row_idx, 4).value = f'=IFERROR(VLOOKUP($B{row_idx},Pessoas!$A:$E,3,FALSE),"")'
+        ws.cell(row_idx, 5).value = f'=IFERROR(VLOOKUP($B{row_idx},Pessoas!$A:$E,4,FALSE),"")'
+        ws.cell(row_idx, 7).value = f'=IFERROR(VLOOKUP($A{row_idx},Treinamentos!$A:$B,2,FALSE),"")'
+        ws.cell(row_idx, 8).value = "Realizado"
+
+    ws_pessoas.sheet_state = "hidden"
+    ws_treinamentos.sheet_state = "hidden"
+    ws_listas.sheet_state = "hidden"
     ws.freeze_panes = "A2"
 
     bio = BytesIO()
@@ -2058,6 +2223,11 @@ async def importar_aplicacoes_treinamento_dho(
         headers = [_normalizar_coluna_importacao(h) for h in linhas[0]]
         total = 0
         ignorados = 0
+        empregados_por_nome = _empregados_importacao_por_nome(db)
+        treinamentos_por_nome = _treinamentos_importacao_por_nome(db)
+        pessoas_nao_encontradas = []
+        treinamentos_nao_encontrados = []
+        status_invalidos = []
 
         for vals in linhas[1:]:
             row = {
@@ -2067,9 +2237,6 @@ async def importar_aplicacoes_treinamento_dho(
 
             nome_treinamento = _valor_importacao(row, "nome_treinamento", "curso", "treinamento")
             pessoa_nome = _valor_importacao(row, "pessoa_nome", "nome", "nome_completo", "pessoa")
-            matricula = _valor_importacao(row, "matricula")
-            funcao = _valor_importacao(row, "funcao", "cargo", "cargo_visivel")
-            centro_custo = _valor_importacao(row, "centro_custo", "departamento", "area")
             data_treinamento = _valor_importacao(row, "data_treinamento", "data", "data_realizacao")
             carga_horaria = _valor_importacao(row, "carga_horaria", "horas", "carga")
             status = _valor_importacao(row, "status") or "Realizado"
@@ -2079,22 +2246,37 @@ async def importar_aplicacoes_treinamento_dho(
                 ignorados += 1
                 continue
 
-            id_treinamento = _get_or_create_treinamento_importacao(db, nome_treinamento)
-
-            if not id_treinamento:
+            treinamento = treinamentos_por_nome.get(_normalizar_chave_pessoa(nome_treinamento))
+            if not treinamento:
                 ignorados += 1
+                treinamentos_nao_encontrados.append(nome_treinamento)
                 continue
 
+            empregado = empregados_por_nome.get(_normalizar_chave_pessoa(pessoa_nome))
+            if not empregado:
+                ignorados += 1
+                pessoas_nao_encontradas.append(pessoa_nome)
+                continue
+
+            if status not in STATUS_APLICACAO:
+                ignorados += 1
+                status_invalidos.append(status)
+                continue
+
+            carga_horaria_importada = _float_importacao(carga_horaria)
+            if carga_horaria_importada is None:
+                carga_horaria_importada = treinamento["carga_horaria_padrao"]
+
             dados_aplicacao = {
-                "id_treinamento": id_treinamento,
+                "id_treinamento": treinamento["id_treinamento"],
                 "tipo_pessoa": "Colaborador",
                 "id_autonomo": None,
-                "pessoa_nome": pessoa_nome,
-                "matricula": matricula,
-                "funcao": funcao,
-                "centro_custo": centro_custo,
+                "pessoa_nome": empregado["nome"],
+                "matricula": empregado["matricula"] or "",
+                "funcao": empregado["nome_cargo"] or "",
+                "centro_custo": empregado["nome_departamento"] or "",
                 "data_treinamento": data_treinamento,
-                "carga_horaria": _float_importacao(carga_horaria),
+                "carga_horaria": carga_horaria_importada,
                 "status": status,
                 "observacoes": observacoes,
                 "criado_em": datetime.utcnow(),
@@ -2108,9 +2290,20 @@ async def importar_aplicacoes_treinamento_dho(
 
         db.commit()
 
+        detalhe_ignorados = ""
+        if pessoas_nao_encontradas:
+            nomes = ", ".join(sorted(set(pessoas_nao_encontradas))[:10])
+            detalhe_ignorados = f" Pessoas não encontradas em Empregados: {nomes}."
+        if treinamentos_nao_encontrados:
+            nomes = ", ".join(sorted(set(treinamentos_nao_encontrados))[:10])
+            detalhe_ignorados += f" Treinamentos não encontrados: {nomes}."
+        if status_invalidos:
+            nomes = ", ".join(sorted(set(status_invalidos))[:10])
+            detalhe_ignorados += f" Status inválidos: {nomes}."
+
         return redirect_with_message(
             "/dho/importacoes",
-            success=f"Importação concluída. {total} aplicação(ões) importada(s). {ignorados} linha(s) ignorada(s).",
+            success=f"Importação concluída. {total} aplicação(ões) importada(s). {ignorados} linha(s) ignorada(s).{detalhe_ignorados}",
         )
 
     except Exception as exc:
@@ -2141,16 +2334,43 @@ def empregados_list(request: Request, db: Session = Depends(get_db)):
         )
         .order_by(dho_empregados.c.nome)
     ).mappings().all()
+
     return templates.TemplateResponse(
         "dho/empregados.html",
         {
             "request": request,
             "current_user": current_user,
             "empregados": rows,
-            "departamentos": get_departamentos(db),
-            "cargos": get_cargos(db),
+            "total_empregados": len(rows),
             **flash_from_request(request),
         },
+    )
+
+
+@router.post("/dho/empregados/sincronizar")
+def empregados_sincronizar(request: Request, db: Session = Depends(get_db)):
+    current_user = getattr(request.state, "current_user", None)
+    if not current_user:
+        return RedirectResponse("/auth/login", status_code=303)
+
+    try:
+        resultado = sincronizar_empregados_dataworld(db)
+    except Exception as exc:
+        db.rollback()
+        return redirect_with_message(
+            "/dho/empregados",
+            error=f"Não consegui sincronizar empregados pelo Catworld: {exc}",
+        )
+
+    return redirect_with_message(
+        "/dho/empregados",
+        success=(
+            "Empregados sincronizados pelo Catworld. "
+            f"{resultado['total_catworld']} registro(s) lido(s), "
+            f"{resultado['criados']} criado(s), "
+            f"{resultado['atualizados']} atualizado(s), "
+            f"{resultado['inativados']} inativado(s)."
+        ),
     )
 
 
@@ -2171,27 +2391,10 @@ async def empregados_criar(
     current_user = getattr(request.state, "current_user", None)
     if not current_user:
         return RedirectResponse("/auth/login", status_code=303)
-    try:
-        db.execute(
-            insert(dho_empregados).values(
-                matricula=matricula or None,
-                nome=nome.strip(),
-                email=email or None,
-                id_departamento=to_int_or_none(id_departamento),
-                id_cargo=to_int_or_none(id_cargo),
-                data_admissao=data_admissao or None,
-                data_desligamento=data_desligamento or None,
-                status=status,
-                observacoes=observacoes or None,
-                criado_em=datetime.utcnow(),
-                atualizado_em=datetime.utcnow(),
-            )
-        )
-        db.commit()
-        return redirect_with_message("/dho/empregados", success="Empregado cadastrado com sucesso.")
-    except Exception as exc:
-        db.rollback()
-        return redirect_with_message("/dho/empregados", error=f"Erro ao cadastrar empregado: {exc}")
+    return redirect_with_message(
+        "/dho/empregados",
+        error="Empregados são somente leitura e vêm exclusivamente do Catworld.",
+    )
 
 
 @router.post("/dho/empregados/{id_empregado}/editar")
@@ -2212,28 +2415,10 @@ async def empregados_editar(
     current_user = getattr(request.state, "current_user", None)
     if not current_user:
         return RedirectResponse("/auth/login", status_code=303)
-    try:
-        db.execute(
-            update(dho_empregados)
-            .where(dho_empregados.c.id_empregado == id_empregado)
-            .values(
-                matricula=matricula or None,
-                nome=nome.strip(),
-                email=email or None,
-                id_departamento=to_int_or_none(id_departamento),
-                id_cargo=to_int_or_none(id_cargo),
-                data_admissao=data_admissao or None,
-                data_desligamento=data_desligamento or None,
-                status=status,
-                observacoes=observacoes or None,
-                atualizado_em=datetime.utcnow(),
-            )
-        )
-        db.commit()
-        return redirect_with_message("/dho/empregados", success="Empregado atualizado.")
-    except Exception as exc:
-        db.rollback()
-        return redirect_with_message("/dho/empregados", error=f"Erro ao atualizar empregado: {exc}")
+    return redirect_with_message(
+        "/dho/empregados",
+        error="Empregados são somente leitura e vêm exclusivamente do Catworld.",
+    )
 
 
 @router.post("/dho/empregados/{id_empregado}/excluir")
@@ -2245,10 +2430,7 @@ async def empregados_excluir(
     current_user = getattr(request.state, "current_user", None)
     if not current_user:
         return RedirectResponse("/auth/login", status_code=303)
-    try:
-        db.execute(dho_empregados.delete().where(dho_empregados.c.id_empregado == id_empregado))
-        db.commit()
-        return redirect_with_message("/dho/empregados", success="Empregado excluído.")
-    except Exception as exc:
-        db.rollback()
-        return redirect_with_message("/dho/empregados", error=f"Erro ao excluir empregado: {exc}")
+    return redirect_with_message(
+        "/dho/empregados",
+        error="Empregados são somente leitura e vêm exclusivamente do Catworld.",
+    )

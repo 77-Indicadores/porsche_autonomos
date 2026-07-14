@@ -1,0 +1,46 @@
+{
+  "created_at": "2026-07-14T10:25:09.475820",
+  "legacy_record": {
+    "id_aplicacao": 3,
+    "id_treinamento": 11,
+    "tipo_pessoa": "Colaborador",
+    "id_autonomo": null,
+    "pessoa_nome": "Debora Melo de Lima, Mylu Vitoria de Sousa Vieira Takafaz",
+    "matricula": "",
+    "funcao": "",
+    "centro_custo": "",
+    "data_treinamento": "25/05/2026",
+    "carga_horaria": 2.0,
+    "status": "Realizado",
+    "observacoes": "",
+    "criado_em": "2026-06-29 13:45:27.862293",
+    "atualizado_em": "2026-06-29 13:45:27.862086",
+    "nome_treinamento": "Integração de novos colaboradores/ Conteúdos normas e procedimentos da empresa "
+  },
+  "replacement_rows": [
+    [
+      "Integra??o de novos colaboradores/ Conte?dos normas e procedimentos da empresa",
+      "DEBORA MELO DE LIMA",
+      "",
+      "ESTAGIARIO",
+      "PLANEJAMENTO E RELACIONAMENTO",
+      "25/05/2026",
+      2,
+      "Realizado",
+      "Separado do registro legado id_aplicacao 3."
+    ],
+    [
+      "Integra??o de novos colaboradores/ Conte?dos normas e procedimentos da empresa",
+      "MYLU VIT?RIA DE SOUSA VIEIRA TAKAFAZ",
+      "",
+      "ESTAGIARIO",
+      "ENGENHARIA OFICINA",
+      "25/05/2026",
+      2,
+      "Realizado",
+      "Separado do registro legado id_aplicacao 3."
+    ]
+  ],
+  "spreadsheet": "C:\\Users\\TRABALHO\\Downloads\\Cópia de modelo_importacao_dho_aplicacoes_treinamento.xlsx",
+  "spreadsheet_backup": "C:\\Users\\TRABALHO\\Downloads\\Cópia de modelo_importacao_dho_aplicacoes_treinamento_backup_20260714_102506.xlsx"
+}

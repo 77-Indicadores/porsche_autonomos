@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 
 {% block header %}Empregados{% endblock %}
-{% block subtitle %}Cadastro de colaboradores internos{% endblock %}
+{% block subtitle %}Base local sincronizada exclusivamente pelo Catworld{% endblock %}
 
 {% block content %}
 
@@ -11,161 +11,45 @@
 {% if error %}
 <div class="alert alert-danger">{{ error }}</div>
 {% endif %}
-
-<section class="exec-grid">
-  <article class="panel">
-    <div class="panel-head">
-      <h3 id="form-title">Novo Empregado</h3>
-    </div>
-
-    <form method="post" action="/dho/empregados" id="form-empregado" class="form-grid">
-      <input type="hidden" name="id_empregado" id="id_empregado">
-
-      <div>
-        <label class="label">Nome *</label>
-        <input class="input" name="nome" id="nome" required>
-      </div>
-
-      <div>
-        <label class="label">Matrícula</label>
-        <input class="input" name="matricula" id="matricula">
-      </div>
-
-      <div>
-        <label class="label">E-mail</label>
-        <input class="input" type="email" name="email" id="email">
-      </div>
-
-      <div>
-        <label class="label">Departamento</label>
-        <select class="input" name="id_departamento" id="id_departamento_sel">
-          <option value="">— selecione —</option>
-          {% for d in departamentos %}
-          <option value="{{ d.id_departamento }}">{{ d.nome_departamento }}</option>
-          {% endfor %}
-        </select>
-      </div>
-
-      <div>
-        <label class="label">Cargo</label>
-        <select class="input" name="id_cargo" id="id_cargo_sel">
-          <option value="">— selecione —</option>
-          {% for c in cargos %}
-          <option value="{{ c.id_cargo }}">{{ c.nome_cargo }}</option>
-          {% endfor %}
-        </select>
-      </div>
-
-      <div>
-        <label class="label">Data de admissão</label>
-        <input class="input" type="date" name="data_admissao" id="data_admissao">
-      </div>
-
-      <div>
-        <label class="label">Data de desligamento</label>
-        <input class="input" type="date" name="data_desligamento" id="data_desligamento">
-      </div>
-
-      <div>
-        <label class="label">Status</label>
-        <select class="input" name="status" id="status_emp">
-          <option>Ativo</option>
-          <option>Inativo</option>
-          <option>Desligado</option>
-        </select>
-      </div>
-
-      <div>
-        <label class="label">Observações</label>
-        <textarea class="input" name="observacoes" id="observacoes" rows="2"></textarea>
-      </div>
-
-      <div class="ux-actions-row">
-        <button class="btn-primary" type="submit">Salvar</button>
-        <button class="btn-muted" type="button" onclick="limparForm()">Novo</button>
-      </div>
-    </form>
-  </article>
-</section>
+<div class="quick-actions">
+  <form method="post" action="/dho/empregados/sincronizar">
+    <button class="quick-action primary" type="submit">Sincronizar Catworld</button>
+  </form>
+  <span class="quick-action light">{{ total_empregados }} empregado(s) na base local</span>
+</div>
 
 <article class="panel mt-4">
   <div class="panel-head">
-    <h3>Empregados cadastrados</h3>
+    <h3>Empregados sincronizados</h3>
   </div>
   <table class="table">
     <thead>
       <tr>
-        <th>ID</th><th>Nome</th><th>Matrícula</th><th>E-mail</th>
-        <th>Departamento</th><th>Cargo</th><th>Admissão</th><th>Status</th><th>Ações</th>
+        <th>Nome</th>
+        <th>Matrícula</th>
+        <th>E-mail</th>
+        <th>Departamento</th>
+        <th>Cargo</th>
+        <th>Status</th>
       </tr>
     </thead>
     <tbody>
       {% for e in empregados %}
       <tr>
-        <td><span class="id-pill">{{ e.id_empregado }}</span></td>
         <td>{{ e.nome }}</td>
         <td>{{ e.matricula or '' }}</td>
         <td>{{ e.email or '' }}</td>
         <td>{{ e.nome_departamento or '' }}</td>
         <td>{{ e.nome_cargo or '' }}</td>
-        <td>{{ e.data_admissao or '' }}</td>
-        <td><span class="badge">{{ e.status }}</span></td>
-        <td>
-          <button class="btn-muted" type="button"
-            onclick="editarEmpregado(
-              {{ e.id_empregado }},
-              {{ e.nome | tojson }},
-              {{ (e.matricula or '') | tojson }},
-              {{ (e.email or '') | tojson }},
-              {{ (e.id_departamento or '') | tojson }},
-              {{ (e.id_cargo or '') | tojson }},
-              {{ (e.data_admissao or '') | tojson }},
-              {{ (e.data_desligamento or '') | tojson }},
-              {{ e.status | tojson }},
-              {{ (e.observacoes or '') | tojson }}
-            )">Editar</button>
-          <form method="post" action="/dho/empregados/{{ e.id_empregado }}/excluir" style="display:inline"
-            onsubmit="return confirm('Excluir {{ e.nome }}?')">
-            <button class="btn-danger" type="submit">Excluir</button>
-          </form>
-        </td>
+        <td><span class="badge">{{ e.status or '' }}</span></td>
       </tr>
       {% else %}
-      <tr><td colspan="9" class="empty">Nenhum empregado cadastrado.</td></tr>
+      <tr>
+        <td colspan="6" class="empty">Nenhum empregado sincronizado. Use o botão Sincronizar Catworld.</td>
+      </tr>
       {% endfor %}
     </tbody>
   </table>
 </article>
-
-<script>
-function limparForm() {
-  document.getElementById('id_empregado').value = '';
-  document.getElementById('form-empregado').action = '/dho/empregados';
-  document.getElementById('form-title').textContent = 'Novo Empregado';
-  ['nome','matricula','email','data_admissao','data_desligamento','observacoes'].forEach(function(id) {
-    var el = document.getElementById(id); if(el) el.value = '';
-  });
-  document.getElementById('id_departamento_sel').value = '';
-  document.getElementById('id_cargo_sel').value = '';
-  document.getElementById('status_emp').value = 'Ativo';
-  window.scrollTo({top:0, behavior:'smooth'});
-}
-
-function editarEmpregado(id, nome, matricula, email, idDep, idCargo, adm, desl, status, obs) {
-  document.getElementById('id_empregado').value = id;
-  document.getElementById('form-empregado').action = '/dho/empregados/' + id + '/editar';
-  document.getElementById('form-title').textContent = 'Editar Empregado';
-  document.getElementById('nome').value = nome;
-  document.getElementById('matricula').value = matricula;
-  document.getElementById('email').value = email;
-  document.getElementById('id_departamento_sel').value = idDep;
-  document.getElementById('id_cargo_sel').value = idCargo;
-  document.getElementById('data_admissao').value = adm;
-  document.getElementById('data_desligamento').value = desl;
-  document.getElementById('status_emp').value = status;
-  document.getElementById('observacoes').value = obs;
-  window.scrollTo({top:0, behavior:'smooth'});
-}
-</script>
 
 {% endblock %}

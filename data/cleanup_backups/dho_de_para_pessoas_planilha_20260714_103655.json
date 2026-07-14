@@ -1,0 +1,164 @@
+{
+  "created_at": "2026-07-14T10:36:59.766140",
+  "changes": [
+    {
+      "row": 16,
+      "from": {
+        "pessoa_nome": "Joao paulo baldini",
+        "matricula": 0,
+        "funcao": "Especialista em planejamento e relacionamento",
+        "centro_custo": "Planejamento e relacionamento",
+        "observacoes": null
+      },
+      "to": {
+        "pessoa_nome": "JOAO PAULO BALDINI RODRIGUES",
+        "matricula": "101",
+        "funcao": "ESPECIALISTA EM PLANEJAMENTO E RELACIONAMENTO",
+        "centro_custo": "PLANEJAMENTO E RELACIONAMENTO"
+      },
+      "score": 0.92,
+      "method": "fuzzy"
+    },
+    {
+      "row": 20,
+      "from": {
+        "pessoa_nome": "Regina franze de oliveira",
+        "matricula": 0,
+        "funcao": "Diretor marketing e eventos",
+        "centro_custo": "Diretoria eventos e marketing",
+        "observacoes": null
+      },
+      "to": {
+        "pessoa_nome": "REGINA FRANZÉ",
+        "matricula": null,
+        "funcao": "DIRETOR MARKETING E EVENTOS",
+        "centro_custo": "DIRETORIA EVENTOS E MARKETING"
+      },
+      "score": 0.92,
+      "method": "fuzzy"
+    },
+    {
+      "row": 43,
+      "from": {
+        "pessoa_nome": "Joao paulo baldini",
+        "matricula": 0,
+        "funcao": "Especialista em planejamento e relacionamento",
+        "centro_custo": "Planejamento e relacionamento",
+        "observacoes": null
+      },
+      "to": {
+        "pessoa_nome": "JOAO PAULO BALDINI RODRIGUES",
+        "matricula": "101",
+        "funcao": "ESPECIALISTA EM PLANEJAMENTO E RELACIONAMENTO",
+        "centro_custo": "PLANEJAMENTO E RELACIONAMENTO"
+      },
+      "score": 0.92,
+      "method": "fuzzy"
+    },
+    {
+      "row": 47,
+      "from": {
+        "pessoa_nome": "Regina franze de oliveira",
+        "matricula": 0,
+        "funcao": "Diretor marketing e eventos",
+        "centro_custo": "Diretoria eventos e marketing",
+        "observacoes": null
+      },
+      "to": {
+        "pessoa_nome": "REGINA FRANZÉ",
+        "matricula": null,
+        "funcao": "DIRETOR MARKETING E EVENTOS",
+        "centro_custo": "DIRETORIA EVENTOS E MARKETING"
+      },
+      "score": 0.92,
+      "method": "fuzzy"
+    },
+    {
+      "row": 65,
+      "from": {
+        "pessoa_nome": "Edson Talon",
+        "matricula": null,
+        "funcao": null,
+        "centro_custo": null,
+        "observacoes": "REVISAR pessoa nao casada com dho_empregados. Migrado da aplicacao antiga #2. "
+      },
+      "to": {
+        "pessoa_nome": "EDSON MITUNAGA TALON",
+        "matricula": null,
+        "funcao": "GERENTE FINANCEIRO",
+        "centro_custo": "FINANCEIRO"
+      },
+      "score": 1.0,
+      "method": "manual_alias"
+    },
+    {
+      "row": 88,
+      "from": {
+        "pessoa_nome": "Guilherme Santana de Carvalho",
+        "matricula": null,
+        "funcao": null,
+        "centro_custo": null,
+        "observacoes": "REVISAR pessoa nao casada com dho_empregados. Migrado da aplicacao antiga #28. "
+      },
+      "to": {
+        "pessoa_nome": "GUILHERME SANTANA CARVALHO",
+        "matricula": null,
+        "funcao": "MECANICO DE COMPETIÇÃO JR",
+        "centro_custo": "CATEGORIA 2 (CHALLENGE)"
+      },
+      "score": 0.9454545454545454,
+      "method": "fuzzy"
+    }
+  ],
+  "unmatched": [
+    {
+      "row": 19,
+      "pessoa": "Rafael borges",
+      "reason": "no_candidate"
+    },
+    {
+      "row": 46,
+      "pessoa": "Rafael borges",
+      "reason": "no_candidate"
+    },
+    {
+      "row": 73,
+      "pessoa": "Kevin Saturnino Martins",
+      "reason": "no_candidate"
+    },
+    {
+      "row": 74,
+      "pessoa": "Luciano dos Santos Moraes",
+      "reason": "low_or_ambiguous",
+      "best": "FERNANDO DOS SANTOS ALVES",
+      "best_score": 0.72,
+      "second_score": 0
+    },
+    {
+      "row": 86,
+      "pessoa": "Pedro Antonio de Oliveira.",
+      "reason": "low_or_ambiguous",
+      "best": "PEDRO ANTONIO FRANCISCO DE OLIVEIRA",
+      "best_score": 0.8333333333333334,
+      "second_score": 0.7719298245614035
+    },
+    {
+      "row": 87,
+      "pessoa": "Gil Kim",
+      "reason": "no_candidate"
+    },
+    {
+      "row": 98,
+      "pessoa": "João da Silva",
+      "reason": "low_or_ambiguous",
+      "best": "JOSE ALAN DA SILVA",
+      "best_score": 0.7741935483870968,
+      "second_score": 0
+    },
+    {
+      "row": 99,
+      "pessoa": "Maria Oliveira",
+      "reason": "no_candidate"
+    }
+  ]
+}

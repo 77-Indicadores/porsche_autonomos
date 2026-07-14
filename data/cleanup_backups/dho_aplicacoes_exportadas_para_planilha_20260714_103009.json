@@ -1,0 +1,1261 @@
+{
+  "created_at": "2026-07-14T10:30:12.520958",
+  "spreadsheet": "C:\\Users\\TRABALHO\\Downloads\\Cópia de modelo_importacao_dho_aplicacoes_treinamento.xlsx",
+  "spreadsheet_backup": "C:\\Users\\TRABALHO\\Downloads\\Cópia de modelo_importacao_dho_aplicacoes_treinamento_backup_export_all_20260714_103009.xlsx",
+  "exported": [
+    {
+      "legacy": {
+        "id_aplicacao": 1,
+        "criado_em": "2026-06-29 13:42:38.502942",
+        "atualizado_em": "2026-06-29 13:42:38.502920",
+        "nome_treinamento": "Integração de novos colaboradores/ Conteúdos normas e procedimentos da empresa ",
+        "pessoa_nome": "Leonardo Paixão Abreu Lima",
+        "matricula": "",
+        "funcao": "",
+        "centro_custo": "",
+        "data_treinamento": "09/02/2026",
+        "carga_horaria": 2.0,
+        "status": "Realizado",
+        "observacoes": ""
+      },
+      "new_row": [
+        "Integração de novos colaboradores/ Conteúdos normas e procedimentos da empresa",
+        "LEONARDO PAIXAO ABREU LIMA",
+        "",
+        "AUX ESTOQUE",
+        "PECAS",
+        "09/02/2026",
+        2.0,
+        "Realizado",
+        "Migrado da aplica??o antiga #1 (exact). "
+      ],
+      "match_type": "exact",
+      "matched_employee": {
+        "nome": "LEONARDO PAIXAO ABREU LIMA",
+        "matricula": null,
+        "email": "leo.paixao.abreu.lima@gmail.com",
+        "nome_departamento": "PECAS",
+        "nome_cargo": "AUX ESTOQUE"
+      }
+    },
+    {
+      "legacy": {
+        "id_aplicacao": 2,
+        "criado_em": "2026-06-29 13:44:04.690307",
+        "atualizado_em": "2026-06-29 13:44:04.690297",
+        "nome_treinamento": "Integração de novos colaboradores/ Conteúdos normas e procedimentos da empresa ",
+        "pessoa_nome": "Edson Talon",
+        "matricula": "",
+        "funcao": "",
+        "centro_custo": "",
+        "data_treinamento": "03/03/2026",
+        "carga_horaria": 2.0,
+        "status": "Realizado",
+        "observacoes": ""
+      },
+      "new_row": [
+        "Integração de novos colaboradores/ Conteúdos normas e procedimentos da empresa",
+        "Edson Talon",
+        "",
+        "",
+        "",
+        "03/03/2026",
+        2.0,
+        "Realizado",
+        "REVISAR pessoa n?o casada com dho_empregados. Migrado da aplica??o antiga #2. "
+      ],
+      "match_type": "unmatched",
+      "matched_employee": null
+    },
+    {
+      "legacy": {
+        "id_aplicacao": 4,
+        "criado_em": "2026-06-29 13:46:15.925749",
+        "atualizado_em": "2026-06-29 13:46:25.096536",
+        "nome_treinamento": "Integração de novos colaboradores/ Conteúdos normas e procedimentos da empresa ",
+        "pessoa_nome": "Beatriz Pereira dos Santos",
+        "matricula": "",
+        "funcao": "",
+        "centro_custo": "",
+        "data_treinamento": "28/05/2026",
+        "carga_horaria": 2.0,
+        "status": "Realizado",
+        "observacoes": ""
+      },
+      "new_row": [
+        "Integração de novos colaboradores/ Conteúdos normas e procedimentos da empresa",
+        "BEATRIZ PEREIRA DOS SANTOS",
+        "",
+        "ANALISTA DE DEPARTAMENTO PESSOAL SR",
+        "RECURSOS HUMANOS",
+        "28/05/2026",
+        2.0,
+        "Realizado",
+        "Migrado da aplica??o antiga #4 (exact). "
+      ],
+      "match_type": "exact",
+      "matched_employee": {
+        "nome": "BEATRIZ PEREIRA DOS SANTOS",
+        "matricula": null,
+        "email": "beatriz.santos@porschegt3cup.com.br",
+        "nome_departamento": "RECURSOS HUMANOS",
+        "nome_cargo": "ANALISTA DE DEPARTAMENTO PESSOAL SR"
+      }
+    },
+    {
+      "legacy": {
+        "id_aplicacao": 5,
+        "criado_em": "2026-06-29 13:48:42.843169",
+        "atualizado_em": "2026-06-29 13:56:02.692213",
+        "nome_treinamento": "Integração de novos colaboradores/ Conteúdos normas e procedimentos da empresa ",
+        "pessoa_nome": "Lucas Bartz Nogueira Portante",
+        "matricula": "",
+        "funcao": "",
+        "centro_custo": "",
+        "data_treinamento": "16/06/2026",
+        "carga_horaria": 2.0,
+        "status": "Realizado",
+        "observacoes": ""
+      },
+      "new_row": [
+        "Integração de novos colaboradores/ Conteúdos normas e procedimentos da empresa",
+        "LUCAS BARTZ NOGUEIRA PORTANTE",
+        "",
+        "LIDER DE ENGENHARIA",
+        "ENGENHARIA OFICINA",
+        "16/06/2026",
+        2.0,
+        "Realizado",
+        "Migrado da aplica??o antiga #5 (exact). "
+      ],
+      "match_type": "exact",
+      "matched_employee": {
+        "nome": "LUCAS BARTZ NOGUEIRA PORTANTE",
+        "matricula": null,
+        "email": "lucas.bnp@hotmail.com",
+        "nome_departamento": "ENGENHARIA OFICINA",
+        "nome_cargo": "LIDER DE ENGENHARIA"
+      }
+    },
+    {
+      "legacy": {
+        "id_aplicacao": 6,
+        "criado_em": "2026-06-29 13:50:40.959880",
+        "atualizado_em": "2026-06-29 13:50:40.959855",
+        "nome_treinamento": "Integração de novos colaboradores/ Conteúdos normas e procedimentos da empresa ",
+        "pessoa_nome": "Enzo Palma de Souza",
+        "matricula": "",
+        "funcao": "",
+        "centro_custo": "",
+        "data_treinamento": "18/05/2026",
+        "carga_horaria": 2.0,
+        "status": "Realizado",
+        "observacoes": ""
+      },
+      "new_row": [
+        "Integração de novos colaboradores/ Conteúdos normas e procedimentos da empresa",
+        "ENZO PALMA DE SOUZA",
+        "",
+        "ESTAGIARIO",
+        "EVENTOS",
+        "18/05/2026",
+        2.0,
+        "Realizado",
+        "Migrado da aplica??o antiga #6 (exact). "
+      ],
+      "match_type": "exact",
+      "matched_employee": {
+        "nome": "ENZO PALMA DE SOUZA",
+        "matricula": null,
+        "email": "enzopalma.contact@gmail.com",
+        "nome_departamento": "EVENTOS",
+        "nome_cargo": "ESTAGIARIO"
+      }
+    },
+    {
+      "legacy": {
+        "id_aplicacao": 7,
+        "criado_em": "2026-06-29 13:51:51.606470",
+        "atualizado_em": "2026-06-29 13:51:51.606463",
+        "nome_treinamento": "Integração de novos colaboradores/ Conteúdos normas e procedimentos da empresa ",
+        "pessoa_nome": "Giovanna Santos Vieira",
+        "matricula": "",
+        "funcao": "",
+        "centro_custo": "",
+        "data_treinamento": "20/05/2026",
+        "carga_horaria": 2.0,
+        "status": "Realizado",
+        "observacoes": ""
+      },
+      "new_row": [
+        "Integração de novos colaboradores/ Conteúdos normas e procedimentos da empresa",
+        "GIOVANNA SANTOS VIEIRA",
+        "",
+        "ASSISTENTE ADMINISTRATIVO",
+        "RECURSOS HUMANOS",
+        "20/05/2026",
+        2.0,
+        "Realizado",
+        "Migrado da aplica??o antiga #7 (exact). "
+      ],
+      "match_type": "exact",
+      "matched_employee": {
+        "nome": "GIOVANNA SANTOS VIEIRA",
+        "matricula": null,
+        "email": "giiovannast00@gmail.com",
+        "nome_departamento": "RECURSOS HUMANOS",
+        "nome_cargo": "ASSISTENTE ADMINISTRATIVO"
+      }
+    },
+    {
+      "legacy": {
+        "id_aplicacao": 8,
+        "criado_em": "2026-06-29 13:53:18.497026",
+        "atualizado_em": "2026-06-30 12:04:53.409193",
+        "nome_treinamento": "Integração de novos colaboradores/ Conteúdos normas e procedimentos da empresa ",
+        "pessoa_nome": "Estefani Reis de Souza",
+        "matricula": "",
+        "funcao": "",
+        "centro_custo": "",
+        "data_treinamento": "22/04/2026",
+        "carga_horaria": 2.0,
+        "status": "Realizado",
+        "observacoes": ""
+      },
+      "new_row": [
+        "Integração de novos colaboradores/ Conteúdos normas e procedimentos da empresa",
+        "ESTEFANI REIS DE SOUZA",
+        "",
+        "ESTAGIARIO",
+        "FINANCEIRO",
+        "22/04/2026",
+        2.0,
+        "Realizado",
+        "Migrado da aplica??o antiga #8 (exact). "
+      ],
+      "match_type": "exact",
+      "matched_employee": {
+        "nome": "ESTEFANI REIS DE SOUZA",
+        "matricula": null,
+        "email": "estefanireis101@gmail.com",
+        "nome_departamento": "FINANCEIRO",
+        "nome_cargo": "ESTAGIARIO"
+      }
+    },
+    {
+      "legacy": {
+        "id_aplicacao": 9,
+        "criado_em": "2026-06-29 13:54:16.202474",
+        "atualizado_em": "2026-06-29 13:54:16.202469",
+        "nome_treinamento": "Integração de novos colaboradores/ Conteúdos normas e procedimentos da empresa ",
+        "pessoa_nome": "Erica Cristina da Silva",
+        "matricula": "",
+        "funcao": "",
+        "centro_custo": "",
+        "data_treinamento": "27/04/2026",
+        "carga_horaria": 2.0,
+        "status": "Realizado",
+        "observacoes": ""
+      },
+      "new_row": [
+        "Integração de novos colaboradores/ Conteúdos normas e procedimentos da empresa",
+        "ERICA CRISTINA DA SILVA",
+        "",
+        "ANALISTA DE DEPARTAMENTO PESSOAL SR",
+        "RECURSOS HUMANOS",
+        "27/04/2026",
+        2.0,
+        "Realizado",
+        "Migrado da aplica??o antiga #9 (exact). "
+      ],
+      "match_type": "exact",
+      "matched_employee": {
+        "nome": "ERICA CRISTINA DA SILVA",
+        "matricula": null,
+        "email": "erica.otavio@hotmail.com",
+        "nome_departamento": "RECURSOS HUMANOS",
+        "nome_cargo": "ANALISTA DE DEPARTAMENTO PESSOAL SR"
+      }
+    },
+    {
+      "legacy": {
+        "id_aplicacao": 12,
+        "criado_em": "2026-06-29 13:42:38.502942",
+        "atualizado_em": "2026-06-29 13:42:38.502920",
+        "nome_treinamento": "Integração de novos colaboradores/ Conteúdos normas e procedimentos da empresa ",
+        "pessoa_nome": "João Pedro Moya",
+        "matricula": "",
+        "funcao": "",
+        "centro_custo": "",
+        "data_treinamento": "09/02/2026",
+        "carga_horaria": 2.0,
+        "status": "Realizado",
+        "observacoes": ""
+      },
+      "new_row": [
+        "Integração de novos colaboradores/ Conteúdos normas e procedimentos da empresa",
+        "JOÃO PEDRO MOYA GEORGES",
+        "",
+        "ESTAGIARIO",
+        "ENGENHARIA OFICINA",
+        "09/02/2026",
+        2.0,
+        "Realizado",
+        "Migrado da aplica??o antiga #12 (fuzzy). "
+      ],
+      "match_type": "fuzzy",
+      "matched_employee": {
+        "nome": "JOÃO PEDRO MOYA GEORGES",
+        "matricula": null,
+        "email": "joaopedromg01@outlook.com",
+        "nome_departamento": "ENGENHARIA OFICINA",
+        "nome_cargo": "ESTAGIARIO"
+      }
+    },
+    {
+      "legacy": {
+        "id_aplicacao": 13,
+        "criado_em": "2026-06-29 13:42:38.502942",
+        "atualizado_em": "2026-06-29 13:42:38.502920",
+        "nome_treinamento": "Integração de novos colaboradores/ Conteúdos normas e procedimentos da empresa ",
+        "pessoa_nome": "Kevin Saturnino Martins",
+        "matricula": "",
+        "funcao": "",
+        "centro_custo": "",
+        "data_treinamento": "09/02/2026",
+        "carga_horaria": 2.0,
+        "status": "Realizado",
+        "observacoes": ""
+      },
+      "new_row": [
+        "Integração de novos colaboradores/ Conteúdos normas e procedimentos da empresa",
+        "Kevin Saturnino Martins",
+        "",
+        "",
+        "",
+        "09/02/2026",
+        2.0,
+        "Realizado",
+        "REVISAR pessoa n?o casada com dho_empregados. Migrado da aplica??o antiga #13. "
+      ],
+      "match_type": "unmatched",
+      "matched_employee": null
+    },
+    {
+      "legacy": {
+        "id_aplicacao": 14,
+        "criado_em": "2026-06-29 13:42:38.502942",
+        "atualizado_em": "2026-06-29 13:42:38.502920",
+        "nome_treinamento": "Integração de novos colaboradores/ Conteúdos normas e procedimentos da empresa ",
+        "pessoa_nome": "Luciano dos Santos Moraes",
+        "matricula": "",
+        "funcao": "",
+        "centro_custo": "",
+        "data_treinamento": "09/02/2026",
+        "carga_horaria": 2.0,
+        "status": "Realizado",
+        "observacoes": ""
+      },
+      "new_row": [
+        "Integração de novos colaboradores/ Conteúdos normas e procedimentos da empresa",
+        "Luciano dos Santos Moraes",
+        "",
+        "",
+        "",
+        "09/02/2026",
+        2.0,
+        "Realizado",
+        "REVISAR pessoa n?o casada com dho_empregados. Migrado da aplica??o antiga #14. "
+      ],
+      "match_type": "unmatched",
+      "matched_employee": null
+    },
+    {
+      "legacy": {
+        "id_aplicacao": 15,
+        "criado_em": "2026-06-29 13:44:04.690307",
+        "atualizado_em": "2026-06-29 13:44:04.690297",
+        "nome_treinamento": "Integração de novos colaboradores/ Conteúdos normas e procedimentos da empresa ",
+        "pessoa_nome": "Juan Carlos Cordeiro Abade",
+        "matricula": "",
+        "funcao": "",
+        "centro_custo": "",
+        "data_treinamento": "03/03/2026",
+        "carga_horaria": 2.0,
+        "status": "Realizado",
+        "observacoes": ""
+      },
+      "new_row": [
+        "Integração de novos colaboradores/ Conteúdos normas e procedimentos da empresa",
+        "JUAN CARLOS CORDEIRO ABADE",
+        "",
+        "AJUDANTE DE MECANICO",
+        "CATEGORIA 1 CARRERA",
+        "03/03/2026",
+        2.0,
+        "Realizado",
+        "Migrado da aplica??o antiga #15 (exact). "
+      ],
+      "match_type": "exact",
+      "matched_employee": {
+        "nome": "JUAN CARLOS CORDEIRO ABADE",
+        "matricula": null,
+        "email": "juancarlos.cordeiro_abade@hotmail.com",
+        "nome_departamento": "CATEGORIA 1 CARRERA",
+        "nome_cargo": "AJUDANTE DE MECANICO"
+      }
+    },
+    {
+      "legacy": {
+        "id_aplicacao": 16,
+        "criado_em": "2026-06-29 13:44:04.690307",
+        "atualizado_em": "2026-06-29 13:44:04.690297",
+        "nome_treinamento": "Integração de novos colaboradores/ Conteúdos normas e procedimentos da empresa ",
+        "pessoa_nome": "Hebert Coronado",
+        "matricula": "",
+        "funcao": "",
+        "centro_custo": "",
+        "data_treinamento": "03/03/2026",
+        "carga_horaria": 2.0,
+        "status": "Realizado",
+        "observacoes": ""
+      },
+      "new_row": [
+        "Integração de novos colaboradores/ Conteúdos normas e procedimentos da empresa",
+        "HEBERT CORONADO",
+        "",
+        "MOTORISTA CAMINHAO",
+        "LOGISTICA",
+        "03/03/2026",
+        2.0,
+        "Realizado",
+        "Migrado da aplica??o antiga #16 (exact). "
+      ],
+      "match_type": "exact",
+      "matched_employee": {
+        "nome": "HEBERT CORONADO",
+        "matricula": null,
+        "email": "Hebertcoronado87@gmail.com",
+        "nome_departamento": "LOGISTICA",
+        "nome_cargo": "MOTORISTA CAMINHAO"
+      }
+    },
+    {
+      "legacy": {
+        "id_aplicacao": 17,
+        "criado_em": "2026-06-29 13:44:04.690307",
+        "atualizado_em": "2026-06-29 13:44:04.690297",
+        "nome_treinamento": "Integração de novos colaboradores/ Conteúdos normas e procedimentos da empresa ",
+        "pessoa_nome": "Natan Peixoto Maciel",
+        "matricula": "",
+        "funcao": "",
+        "centro_custo": "",
+        "data_treinamento": "03/03/2026",
+        "carga_horaria": 2.0,
+        "status": "Realizado",
+        "observacoes": ""
+      },
+      "new_row": [
+        "Integração de novos colaboradores/ Conteúdos normas e procedimentos da empresa",
+        "NATAN PEIXOTO MACIEL",
+        "",
+        "ESTAGIARIO",
+        "ENGENHARIA QUALIDADE",
+        "03/03/2026",
+        2.0,
+        "Realizado",
+        "Migrado da aplica??o antiga #17 (exact). "
+      ],
+      "match_type": "exact",
+      "matched_employee": {
+        "nome": "NATAN PEIXOTO MACIEL",
+        "matricula": null,
+        "email": "natanpeixoto52@gmail.com",
+        "nome_departamento": "ENGENHARIA QUALIDADE",
+        "nome_cargo": "ESTAGIARIO"
+      }
+    },
+    {
+      "legacy": {
+        "id_aplicacao": 18,
+        "criado_em": "2026-06-29 13:44:04.690307",
+        "atualizado_em": "2026-06-29 13:44:04.690297",
+        "nome_treinamento": "Integração de novos colaboradores/ Conteúdos normas e procedimentos da empresa ",
+        "pessoa_nome": "Jeferson Vieira",
+        "matricula": "",
+        "funcao": "",
+        "centro_custo": "",
+        "data_treinamento": "03/03/2026",
+        "carga_horaria": 2.0,
+        "status": "Realizado",
+        "observacoes": ""
+      },
+      "new_row": [
+        "Integração de novos colaboradores/ Conteúdos normas e procedimentos da empresa",
+        "JEFERSON VIEIRA",
+        "",
+        "FUNILEIRO MECÂNICO SR",
+        "CATEGORIA 2 (CHALLENGE)",
+        "03/03/2026",
+        2.0,
+        "Realizado",
+        "Migrado da aplica??o antiga #18 (exact). "
+      ],
+      "match_type": "exact",
+      "matched_employee": {
+        "nome": "JEFERSON VIEIRA",
+        "matricula": null,
+        "email": "jefersonvieira60627@gmail.com",
+        "nome_departamento": "CATEGORIA 2 (CHALLENGE)",
+        "nome_cargo": "FUNILEIRO MECÂNICO SR"
+      }
+    },
+    {
+      "legacy": {
+        "id_aplicacao": 19,
+        "criado_em": "2026-06-29 13:45:27.862293",
+        "atualizado_em": "2026-06-29 13:45:27.862086",
+        "nome_treinamento": "Integração de novos colaboradores/ Conteúdos normas e procedimentos da empresa ",
+        "pessoa_nome": "Thiago Ramiro Abreu",
+        "matricula": "",
+        "funcao": "",
+        "centro_custo": "",
+        "data_treinamento": "25/05/2026",
+        "carga_horaria": 2.0,
+        "status": "Realizado",
+        "observacoes": ""
+      },
+      "new_row": [
+        "Integração de novos colaboradores/ Conteúdos normas e procedimentos da empresa",
+        "THIAGO RAMIRO ABREU",
+        "",
+        "ANALISTA DE CAPTAÇÃO DE MIDIAS PL",
+        "MÍDIAS",
+        "25/05/2026",
+        2.0,
+        "Realizado",
+        "Migrado da aplica??o antiga #19 (exact). "
+      ],
+      "match_type": "exact",
+      "matched_employee": {
+        "nome": "THIAGO RAMIRO ABREU",
+        "matricula": null,
+        "email": "trafilmes1@gmail.com",
+        "nome_departamento": "MÍDIAS",
+        "nome_cargo": "ANALISTA DE CAPTAÇÃO DE MIDIAS PL"
+      }
+    },
+    {
+      "legacy": {
+        "id_aplicacao": 20,
+        "criado_em": "2026-06-29 13:45:27.862293",
+        "atualizado_em": "2026-06-29 13:45:27.862086",
+        "nome_treinamento": "Integração de novos colaboradores/ Conteúdos normas e procedimentos da empresa ",
+        "pessoa_nome": "Flavio Gomes da Silva",
+        "matricula": "",
+        "funcao": "",
+        "centro_custo": "",
+        "data_treinamento": "25/05/2026",
+        "carga_horaria": 2.0,
+        "status": "Realizado",
+        "observacoes": ""
+      },
+      "new_row": [
+        "Integração de novos colaboradores/ Conteúdos normas e procedimentos da empresa",
+        "FLAVIO GOMES DA SILVA",
+        "",
+        "ANALISTA FINANCEIRO PL",
+        "EVENTOS",
+        "25/05/2026",
+        2.0,
+        "Realizado",
+        "Migrado da aplica??o antiga #20 (exact). "
+      ],
+      "match_type": "exact",
+      "matched_employee": {
+        "nome": "FLAVIO GOMES DA SILVA",
+        "matricula": null,
+        "email": "flavio.gomes.mk@outlook.com",
+        "nome_departamento": "EVENTOS",
+        "nome_cargo": "ANALISTA FINANCEIRO PL"
+      }
+    },
+    {
+      "legacy": {
+        "id_aplicacao": 21,
+        "criado_em": "2026-06-29 13:50:40.959880",
+        "atualizado_em": "2026-06-29 13:50:40.959855",
+        "nome_treinamento": "Integração de novos colaboradores/ Conteúdos normas e procedimentos da empresa ",
+        "pessoa_nome": "Patricia Pinheiro da Cruz",
+        "matricula": "",
+        "funcao": "",
+        "centro_custo": "",
+        "data_treinamento": "18/05/2026",
+        "carga_horaria": 2.0,
+        "status": "Realizado",
+        "observacoes": ""
+      },
+      "new_row": [
+        "Integração de novos colaboradores/ Conteúdos normas e procedimentos da empresa",
+        "PATRICIA PINHEIRO DA CRUZ",
+        "",
+        "ANALISTA FINANCEIRO SÊNIOR",
+        "FINANCEIRO",
+        "18/05/2026",
+        2.0,
+        "Realizado",
+        "Migrado da aplica??o antiga #21 (exact). "
+      ],
+      "match_type": "exact",
+      "matched_employee": {
+        "nome": "PATRICIA PINHEIRO DA CRUZ",
+        "matricula": null,
+        "email": "Patricia.pinoliver@gmail.com",
+        "nome_departamento": "FINANCEIRO",
+        "nome_cargo": "ANALISTA FINANCEIRO SÊNIOR"
+      }
+    },
+    {
+      "legacy": {
+        "id_aplicacao": 22,
+        "criado_em": "2026-06-29 13:50:40.959880",
+        "atualizado_em": "2026-06-29 13:50:40.959855",
+        "nome_treinamento": "Integração de novos colaboradores/ Conteúdos normas e procedimentos da empresa ",
+        "pessoa_nome": "Bianca Traglia Rocha Assis",
+        "matricula": "",
+        "funcao": "",
+        "centro_custo": "",
+        "data_treinamento": "18/05/2026",
+        "carga_horaria": 2.0,
+        "status": "Realizado",
+        "observacoes": ""
+      },
+      "new_row": [
+        "Integração de novos colaboradores/ Conteúdos normas e procedimentos da empresa",
+        "BIANCA TRAGLIA ROCHA ASSIS",
+        "",
+        "ESTAGIARIO",
+        "RECURSOS HUMANOS",
+        "18/05/2026",
+        2.0,
+        "Realizado",
+        "Migrado da aplica??o antiga #22 (exact). "
+      ],
+      "match_type": "exact",
+      "matched_employee": {
+        "nome": "BIANCA TRAGLIA ROCHA ASSIS",
+        "matricula": null,
+        "email": "biancatraglia@gmail.com",
+        "nome_departamento": "RECURSOS HUMANOS",
+        "nome_cargo": "ESTAGIARIO"
+      }
+    },
+    {
+      "legacy": {
+        "id_aplicacao": 23,
+        "criado_em": "2026-06-29 13:50:40.959880",
+        "atualizado_em": "2026-06-29 13:50:40.959855",
+        "nome_treinamento": "Integração de novos colaboradores/ Conteúdos normas e procedimentos da empresa ",
+        "pessoa_nome": "Diogo Mariano Honorato Silva",
+        "matricula": "",
+        "funcao": "",
+        "centro_custo": "",
+        "data_treinamento": "18/05/2026",
+        "carga_horaria": 2.0,
+        "status": "Realizado",
+        "observacoes": ""
+      },
+      "new_row": [
+        "Integração de novos colaboradores/ Conteúdos normas e procedimentos da empresa",
+        "DIOGO MARIANO HONORATO SILVA",
+        "",
+        "ANALISTA FINANCEIRO PLENO",
+        "FINANCEIRO",
+        "18/05/2026",
+        2.0,
+        "Realizado",
+        "Migrado da aplica??o antiga #23 (exact). "
+      ],
+      "match_type": "exact",
+      "matched_employee": {
+        "nome": "DIOGO MARIANO HONORATO SILVA",
+        "matricula": null,
+        "email": "diogomhsilva@gmail.com",
+        "nome_departamento": "FINANCEIRO",
+        "nome_cargo": "ANALISTA FINANCEIRO PLENO"
+      }
+    },
+    {
+      "legacy": {
+        "id_aplicacao": 24,
+        "criado_em": "2026-06-29 13:51:51.606470",
+        "atualizado_em": "2026-06-29 13:51:51.606463",
+        "nome_treinamento": "Integração de novos colaboradores/ Conteúdos normas e procedimentos da empresa ",
+        "pessoa_nome": "Vinicius Perpetuo Ferrante",
+        "matricula": "",
+        "funcao": "",
+        "centro_custo": "",
+        "data_treinamento": "20/05/2026",
+        "carga_horaria": 2.0,
+        "status": "Realizado",
+        "observacoes": ""
+      },
+      "new_row": [
+        "Integração de novos colaboradores/ Conteúdos normas e procedimentos da empresa",
+        "VINICIUS PERPETUO FERRANTE",
+        "",
+        "ANALISTA MARKETING SR",
+        "MARKETING",
+        "20/05/2026",
+        2.0,
+        "Realizado",
+        "Migrado da aplica??o antiga #24 (exact). "
+      ],
+      "match_type": "exact",
+      "matched_employee": {
+        "nome": "VINICIUS PERPETUO FERRANTE",
+        "matricula": null,
+        "email": "viniferrante@gmail.com",
+        "nome_departamento": "MARKETING",
+        "nome_cargo": "ANALISTA MARKETING SR"
+      }
+    },
+    {
+      "legacy": {
+        "id_aplicacao": 25,
+        "criado_em": "2026-06-29 13:48:42.843169",
+        "atualizado_em": "2026-06-29 13:56:02.692213",
+        "nome_treinamento": "Integração de novos colaboradores/ Conteúdos normas e procedimentos da empresa ",
+        "pessoa_nome": "Rafaella Vizoni Barros",
+        "matricula": "",
+        "funcao": "",
+        "centro_custo": "",
+        "data_treinamento": "16/06/2026",
+        "carga_horaria": 2.0,
+        "status": "Realizado",
+        "observacoes": ""
+      },
+      "new_row": [
+        "Integração de novos colaboradores/ Conteúdos normas e procedimentos da empresa",
+        "RAFAELLA VIZONI BARROS",
+        "",
+        "ASSISTENTE EVENTOS",
+        "EVENTOS",
+        "16/06/2026",
+        2.0,
+        "Realizado",
+        "Migrado da aplica??o antiga #25 (exact). "
+      ],
+      "match_type": "exact",
+      "matched_employee": {
+        "nome": "RAFAELLA VIZONI BARROS",
+        "matricula": null,
+        "email": "rafaellavizoni@gmail.com",
+        "nome_departamento": "EVENTOS",
+        "nome_cargo": "ASSISTENTE EVENTOS"
+      }
+    },
+    {
+      "legacy": {
+        "id_aplicacao": 26,
+        "criado_em": "2026-06-29 13:53:18.497026",
+        "atualizado_em": "2026-06-30 12:04:53.409193",
+        "nome_treinamento": "Integração de novos colaboradores/ Conteúdos normas e procedimentos da empresa ",
+        "pessoa_nome": "Pedro Antonio de Oliveira.",
+        "matricula": "",
+        "funcao": "",
+        "centro_custo": "",
+        "data_treinamento": "22/04/2026",
+        "carga_horaria": 2.0,
+        "status": "Realizado",
+        "observacoes": ""
+      },
+      "new_row": [
+        "Integração de novos colaboradores/ Conteúdos normas e procedimentos da empresa",
+        "Pedro Antonio de Oliveira.",
+        "",
+        "",
+        "",
+        "22/04/2026",
+        2.0,
+        "Realizado",
+        "REVISAR pessoa n?o casada com dho_empregados. Migrado da aplica??o antiga #26. "
+      ],
+      "match_type": "unmatched",
+      "matched_employee": null
+    },
+    {
+      "legacy": {
+        "id_aplicacao": 27,
+        "criado_em": "2026-06-29 13:53:18.497026",
+        "atualizado_em": "2026-06-30 12:04:53.409193",
+        "nome_treinamento": "Integração de novos colaboradores/ Conteúdos normas e procedimentos da empresa ",
+        "pessoa_nome": "Gil Kim",
+        "matricula": "",
+        "funcao": "",
+        "centro_custo": "",
+        "data_treinamento": "22/04/2026",
+        "carga_horaria": 2.0,
+        "status": "Realizado",
+        "observacoes": ""
+      },
+      "new_row": [
+        "Integração de novos colaboradores/ Conteúdos normas e procedimentos da empresa",
+        "Gil Kim",
+        "",
+        "",
+        "",
+        "22/04/2026",
+        2.0,
+        "Realizado",
+        "REVISAR pessoa n?o casada com dho_empregados. Migrado da aplica??o antiga #27. "
+      ],
+      "match_type": "unmatched",
+      "matched_employee": null
+    },
+    {
+      "legacy": {
+        "id_aplicacao": 28,
+        "criado_em": "2026-06-29 13:53:18.497026",
+        "atualizado_em": "2026-06-30 12:04:53.409193",
+        "nome_treinamento": "Integração de novos colaboradores/ Conteúdos normas e procedimentos da empresa ",
+        "pessoa_nome": "Guilherme Santana de Carvalho",
+        "matricula": "",
+        "funcao": "",
+        "centro_custo": "",
+        "data_treinamento": "22/04/2026",
+        "carga_horaria": 2.0,
+        "status": "Realizado",
+        "observacoes": ""
+      },
+      "new_row": [
+        "Integração de novos colaboradores/ Conteúdos normas e procedimentos da empresa",
+        "Guilherme Santana de Carvalho",
+        "",
+        "",
+        "",
+        "22/04/2026",
+        2.0,
+        "Realizado",
+        "REVISAR pessoa n?o casada com dho_empregados. Migrado da aplica??o antiga #28. "
+      ],
+      "match_type": "unmatched",
+      "matched_employee": null
+    },
+    {
+      "legacy": {
+        "id_aplicacao": 29,
+        "criado_em": "2026-07-08 18:11:11.826694",
+        "atualizado_em": "2026-07-08 18:11:11.825415",
+        "nome_treinamento": "Integração de novos colaboradores/ Conteúdos normas e procedimentos da empresa ",
+        "pessoa_nome": "GABRIEL SANTOS BARRETO FREITAS VICTOR",
+        "matricula": "10011",
+        "funcao": "ANALISTA DE ENGENHARIA JUNIOR",
+        "centro_custo": "ENGENHARIA QUALIDADE",
+        "data_treinamento": "13/01/2026",
+        "carga_horaria": 2.0,
+        "status": "Realizado",
+        "observacoes": ""
+      },
+      "new_row": [
+        "Integração de novos colaboradores/ Conteúdos normas e procedimentos da empresa",
+        "GABRIEL SANTOS BARRETO FREITAS VICTOR",
+        "10011",
+        "ANALISTA DE ENGENHARIA JUNIOR",
+        "ENGENHARIA QUALIDADE",
+        "13/01/2026",
+        2.0,
+        "Realizado",
+        "Migrado da aplica??o antiga #29 (exact). "
+      ],
+      "match_type": "exact",
+      "matched_employee": {
+        "nome": "GABRIEL SANTOS BARRETO FREITAS VICTOR",
+        "matricula": "10011",
+        "email": "eng@porschegt3cup.com.br",
+        "nome_departamento": "ENGENHARIA QUALIDADE",
+        "nome_cargo": "ANALISTA DE ENGENHARIA JUNIOR"
+      }
+    },
+    {
+      "legacy": {
+        "id_aplicacao": 30,
+        "criado_em": "2026-07-08 18:11:50.799256",
+        "atualizado_em": "2026-07-08 18:11:50.799229",
+        "nome_treinamento": "Integração de novos colaboradores/ Conteúdos normas e procedimentos da empresa ",
+        "pessoa_nome": "MARIA EDUARDA MELO DANIEL CARVALHO",
+        "matricula": "",
+        "funcao": "ESTAGIARIO",
+        "centro_custo": "PLANEJAMENTO E RELACIONAMENTO",
+        "data_treinamento": "19/01/2026",
+        "carga_horaria": 2.0,
+        "status": "Realizado",
+        "observacoes": ""
+      },
+      "new_row": [
+        "Integração de novos colaboradores/ Conteúdos normas e procedimentos da empresa",
+        "MARIA EDUARDA MELO DANIEL CARVALHO",
+        "",
+        "ESTAGIARIO",
+        "PLANEJAMENTO E RELACIONAMENTO",
+        "19/01/2026",
+        2.0,
+        "Realizado",
+        "Migrado da aplica??o antiga #30 (exact). "
+      ],
+      "match_type": "exact",
+      "matched_employee": {
+        "nome": "MARIA EDUARDA MELO DANIEL CARVALHO",
+        "matricula": null,
+        "email": "mariamelodc@gmail.com",
+        "nome_departamento": "PLANEJAMENTO E RELACIONAMENTO",
+        "nome_cargo": "ESTAGIARIO"
+      }
+    },
+    {
+      "legacy": {
+        "id_aplicacao": 31,
+        "criado_em": "2026-07-08 18:12:14.045686",
+        "atualizado_em": "2026-07-08 18:12:14.045560",
+        "nome_treinamento": "Integração de novos colaboradores/ Conteúdos normas e procedimentos da empresa ",
+        "pessoa_nome": "VITORIA CARVALHO SILVEIRA",
+        "matricula": "",
+        "funcao": "ESTAGIARIO",
+        "centro_custo": "MARKETING",
+        "data_treinamento": "19/01/2026",
+        "carga_horaria": 2.0,
+        "status": "Realizado",
+        "observacoes": ""
+      },
+      "new_row": [
+        "Integração de novos colaboradores/ Conteúdos normas e procedimentos da empresa",
+        "VITORIA CARVALHO SILVEIRA",
+        "",
+        "ESTAGIARIO",
+        "MARKETING",
+        "19/01/2026",
+        2.0,
+        "Realizado",
+        "Migrado da aplica??o antiga #31 (exact). "
+      ],
+      "match_type": "exact",
+      "matched_employee": {
+        "nome": "VITORIA CARVALHO SILVEIRA",
+        "matricula": null,
+        "email": "vitoria.csilveira0@gmail.com",
+        "nome_departamento": "MARKETING",
+        "nome_cargo": "ESTAGIARIO"
+      }
+    },
+    {
+      "legacy": {
+        "id_aplicacao": 32,
+        "criado_em": "2026-07-08 18:12:32.371581",
+        "atualizado_em": "2026-07-08 18:12:32.371511",
+        "nome_treinamento": "Integração de novos colaboradores/ Conteúdos normas e procedimentos da empresa ",
+        "pessoa_nome": "WALTER ROBERTO PEREIRA DE MEDEIROS FILHO",
+        "matricula": "",
+        "funcao": "LIDER DE ENGENHARIA",
+        "centro_custo": "ENGENHARIA OFICINA",
+        "data_treinamento": "19/01/2026",
+        "carga_horaria": 2.0,
+        "status": "Realizado",
+        "observacoes": ""
+      },
+      "new_row": [
+        "Integração de novos colaboradores/ Conteúdos normas e procedimentos da empresa",
+        "WALTER ROBERTO PEREIRA DE MEDEIROS FILHO",
+        "",
+        "LIDER DE ENGENHARIA",
+        "ENGENHARIA OFICINA",
+        "19/01/2026",
+        2.0,
+        "Realizado",
+        "Migrado da aplica??o antiga #32 (exact). "
+      ],
+      "match_type": "exact",
+      "matched_employee": {
+        "nome": "WALTER ROBERTO PEREIRA DE MEDEIROS FILHO",
+        "matricula": null,
+        "email": "wrmedeirosfilho@gmail.com",
+        "nome_departamento": "ENGENHARIA OFICINA",
+        "nome_cargo": "LIDER DE ENGENHARIA"
+      }
+    },
+    {
+      "legacy": {
+        "id_aplicacao": 33,
+        "criado_em": "2026-07-08 18:13:03.421198",
+        "atualizado_em": "2026-07-08 18:13:03.421168",
+        "nome_treinamento": "Integração de novos colaboradores/ Conteúdos normas e procedimentos da empresa ",
+        "pessoa_nome": "GABRIEL AZEVEDO DE OLIVEIRA",
+        "matricula": "",
+        "funcao": "AJUDANTE MECANICO",
+        "centro_custo": "CATEGORIA 2 (CHALLENGE)",
+        "data_treinamento": "02/02/2026",
+        "carga_horaria": 2.0,
+        "status": "Realizado",
+        "observacoes": ""
+      },
+      "new_row": [
+        "Integração de novos colaboradores/ Conteúdos normas e procedimentos da empresa",
+        "GABRIEL AZEVEDO DE OLIVEIRA",
+        "",
+        "AJUDANTE MECANICO",
+        "CATEGORIA 2 (CHALLENGE)",
+        "02/02/2026",
+        2.0,
+        "Realizado",
+        "Migrado da aplica??o antiga #33 (exact). "
+      ],
+      "match_type": "exact",
+      "matched_employee": {
+        "nome": "GABRIEL AZEVEDO DE OLIVEIRA",
+        "matricula": null,
+        "email": "gabazevedooliveira@gmail.com",
+        "nome_departamento": "CATEGORIA 2 (CHALLENGE)",
+        "nome_cargo": "AJUDANTE MECANICO"
+      }
+    },
+    {
+      "legacy": {
+        "id_aplicacao": 34,
+        "criado_em": "2026-07-08 18:13:24.415678",
+        "atualizado_em": "2026-07-08 18:13:24.412498",
+        "nome_treinamento": "Integração de novos colaboradores/ Conteúdos normas e procedimentos da empresa ",
+        "pessoa_nome": "JOÃO PEDRO MOYA GEORGES",
+        "matricula": "",
+        "funcao": "ESTAGIARIO",
+        "centro_custo": "ENGENHARIA OFICINA",
+        "data_treinamento": "02/02/2026",
+        "carga_horaria": 2.0,
+        "status": "Realizado",
+        "observacoes": ""
+      },
+      "new_row": [
+        "Integração de novos colaboradores/ Conteúdos normas e procedimentos da empresa",
+        "JOÃO PEDRO MOYA GEORGES",
+        "",
+        "ESTAGIARIO",
+        "ENGENHARIA OFICINA",
+        "02/02/2026",
+        2.0,
+        "Realizado",
+        "Migrado da aplica??o antiga #34 (exact). "
+      ],
+      "match_type": "exact",
+      "matched_employee": {
+        "nome": "JOÃO PEDRO MOYA GEORGES",
+        "matricula": null,
+        "email": "joaopedromg01@outlook.com",
+        "nome_departamento": "ENGENHARIA OFICINA",
+        "nome_cargo": "ESTAGIARIO"
+      }
+    },
+    {
+      "legacy": {
+        "id_aplicacao": 35,
+        "criado_em": "2026-07-08 18:13:48.502358",
+        "atualizado_em": "2026-07-08 18:13:48.502290",
+        "nome_treinamento": "Integração de novos colaboradores/ Conteúdos normas e procedimentos da empresa ",
+        "pessoa_nome": "JULIO CEZAR BENEDICTO",
+        "matricula": "",
+        "funcao": "AJUDANTE MECANICO",
+        "centro_custo": "CATEGORIA 1 (CARRERA)",
+        "data_treinamento": "02/02/2026",
+        "carga_horaria": 2.0,
+        "status": "Realizado",
+        "observacoes": ""
+      },
+      "new_row": [
+        "Integração de novos colaboradores/ Conteúdos normas e procedimentos da empresa",
+        "JULIO CEZAR BENEDICTO",
+        "",
+        "AJUDANTE MECANICO",
+        "CATEGORIA 1 (CARRERA)",
+        "02/02/2026",
+        2.0,
+        "Realizado",
+        "Migrado da aplica??o antiga #35 (exact). "
+      ],
+      "match_type": "exact",
+      "matched_employee": {
+        "nome": "JULIO CEZAR BENEDICTO",
+        "matricula": null,
+        "email": "Jc5313828@gmail.com",
+        "nome_departamento": "CATEGORIA 1 (CARRERA)",
+        "nome_cargo": "AJUDANTE MECANICO"
+      }
+    },
+    {
+      "legacy": {
+        "id_aplicacao": 36,
+        "criado_em": "2026-07-08 18:14:11.955220",
+        "atualizado_em": "2026-07-08 18:14:11.955155",
+        "nome_treinamento": "Integração de novos colaboradores/ Conteúdos normas e procedimentos da empresa ",
+        "pessoa_nome": "LEANDRO LIMA COELHO",
+        "matricula": "",
+        "funcao": "AJUDANTE MECANICO",
+        "centro_custo": "ALINHAMENTO",
+        "data_treinamento": "02/02/2026",
+        "carga_horaria": 2.0,
+        "status": "Realizado",
+        "observacoes": ""
+      },
+      "new_row": [
+        "Integração de novos colaboradores/ Conteúdos normas e procedimentos da empresa",
+        "LEANDRO LIMA COELHO",
+        "",
+        "AJUDANTE MECANICO",
+        "ALINHAMENTO",
+        "02/02/2026",
+        2.0,
+        "Realizado",
+        "Migrado da aplica??o antiga #36 (exact). "
+      ],
+      "match_type": "exact",
+      "matched_employee": {
+        "nome": "LEANDRO LIMA COELHO",
+        "matricula": null,
+        "email": "coelho.leandro07@gmail.com",
+        "nome_departamento": "ALINHAMENTO",
+        "nome_cargo": "AJUDANTE MECANICO"
+      }
+    },
+    {
+      "legacy": {
+        "id_aplicacao": 37,
+        "criado_em": "2026-07-08 18:14:24.634492",
+        "atualizado_em": "2026-07-08 18:14:24.634415",
+        "nome_treinamento": "Integração de novos colaboradores/ Conteúdos normas e procedimentos da empresa ",
+        "pessoa_nome": "NATHALIA ABREU CINTRA",
+        "matricula": "",
+        "funcao": "ESTAGIARIO",
+        "centro_custo": "RECURSOS HUMANOS",
+        "data_treinamento": "02/02/2026",
+        "carga_horaria": 2.0,
+        "status": "Realizado",
+        "observacoes": ""
+      },
+      "new_row": [
+        "Integração de novos colaboradores/ Conteúdos normas e procedimentos da empresa",
+        "NATHALIA ABREU CINTRA",
+        "",
+        "ESTAGIARIO",
+        "RECURSOS HUMANOS",
+        "02/02/2026",
+        2.0,
+        "Realizado",
+        "Migrado da aplica??o antiga #37 (exact). "
+      ],
+      "match_type": "exact",
+      "matched_employee": {
+        "nome": "NATHALIA ABREU CINTRA",
+        "matricula": null,
+        "email": "rh.admin1@porschegt3cup.com.br",
+        "nome_departamento": "RECURSOS HUMANOS",
+        "nome_cargo": "ESTAGIARIO"
+      }
+    },
+    {
+      "legacy": {
+        "id_aplicacao": 38,
+        "criado_em": "2026-07-10 13:16:43.901519",
+        "atualizado_em": "2026-07-10 13:16:43.901529",
+        "nome_treinamento": "Integração de novos profissionais",
+        "pessoa_nome": "João da Silva",
+        "matricula": "1001",
+        "funcao": "Mecânico",
+        "centro_custo": "Operações",
+        "data_treinamento": "20/05/2026",
+        "carga_horaria": 2.0,
+        "status": "Realizado",
+        "observacoes": ""
+      },
+      "new_row": [
+        "Integração de novos profissionais",
+        "João da Silva",
+        "1001",
+        "Mecânico",
+        "Operações",
+        "20/05/2026",
+        2.0,
+        "Realizado",
+        "REVISAR pessoa n?o casada com dho_empregados. Migrado da aplica??o antiga #38. "
+      ],
+      "match_type": "unmatched",
+      "matched_employee": null
+    },
+    {
+      "legacy": {
+        "id_aplicacao": 39,
+        "criado_em": "2026-07-10 13:16:43.920821",
+        "atualizado_em": "2026-07-10 13:16:43.920827",
+        "nome_treinamento": "Reciclagem operacional de autônomos",
+        "pessoa_nome": "Maria Oliveira",
+        "matricula": "1002",
+        "funcao": "Coordenadora de Pista",
+        "centro_custo": "Operações",
+        "data_treinamento": "21/05/2026",
+        "carga_horaria": 3.0,
+        "status": "Realizado",
+        "observacoes": ""
+      },
+      "new_row": [
+        "Reciclagem operacional de autônomos",
+        "Maria Oliveira",
+        "1002",
+        "Coordenadora de Pista",
+        "Operações",
+        "21/05/2026",
+        3.0,
+        "Realizado",
+        "REVISAR pessoa n?o casada com dho_empregados. Migrado da aplica??o antiga #39. "
+      ],
+      "match_type": "unmatched",
+      "matched_employee": null
+    }
+  ],
+  "issues": [
+    {
+      "id_aplicacao": 2,
+      "pessoa_nome": "Edson Talon",
+      "motivo": "unmatched"
+    },
+    {
+      "id_aplicacao": 13,
+      "pessoa_nome": "Kevin Saturnino Martins",
+      "motivo": "unmatched"
+    },
+    {
+      "id_aplicacao": 14,
+      "pessoa_nome": "Luciano dos Santos Moraes",
+      "motivo": "unmatched"
+    },
+    {
+      "id_aplicacao": 26,
+      "pessoa_nome": "Pedro Antonio de Oliveira.",
+      "motivo": "unmatched"
+    },
+    {
+      "id_aplicacao": 27,
+      "pessoa_nome": "Gil Kim",
+      "motivo": "unmatched"
+    },
+    {
+      "id_aplicacao": 28,
+      "pessoa_nome": "Guilherme Santana de Carvalho",
+      "motivo": "unmatched"
+    },
+    {
+      "id_aplicacao": 38,
+      "pessoa_nome": "João da Silva",
+      "motivo": "unmatched"
+    },
+    {
+      "id_aplicacao": 39,
+      "pessoa_nome": "Maria Oliveira",
+      "motivo": "unmatched"
+    }
+  ]
+}

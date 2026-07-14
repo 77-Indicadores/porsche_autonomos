@@ -1,0 +1,84 @@
+{
+  "created_at": "2026-07-14T10:44:27.015562",
+  "changes": [
+    {
+      "row": 86,
+      "from": {
+        "pessoa_nome": "Pedro Antonio de Oliveira.",
+        "matricula": null,
+        "funcao": null,
+        "centro_custo": null,
+        "observacoes": "REVISAR pessoa nao casada com dho_empregados. Migrado da aplicacao antiga #26. "
+      },
+      "to": {
+        "pessoa_nome": "PEDRO ANTONIO FRANCISCO DE OLIVEIRA",
+        "matricula": null,
+        "funcao": "ESTAGIARIO",
+        "centro_custo": "ENGENHARIA OFICINA"
+      }
+    },
+    {
+      "row": 87,
+      "from": {
+        "pessoa_nome": "Gil Kim",
+        "matricula": null,
+        "funcao": null,
+        "centro_custo": null,
+        "observacoes": "REVISAR pessoa nao casada com dho_empregados. Migrado da aplicacao antiga #27. "
+      },
+      "to": {
+        "pessoa_nome": "GIL TCHEON KIM",
+        "matricula": null,
+        "funcao": "AJUDANTE DE MECANICO",
+        "centro_custo": "CATEGORIA 1 (CARRERA)"
+      }
+    }
+  ],
+  "removed": [
+    {
+      "row": 73,
+      "pessoa": "Kevin Saturnino Martins",
+      "values": [
+        "Integração de novos colaboradores/ Conteúdos normas e procedimentos da empresa",
+        "Kevin Saturnino Martins",
+        null,
+        null,
+        null,
+        "09/02/2026",
+        2,
+        "Realizado",
+        "REVISAR pessoa nao casada com dho_empregados. Migrado da aplicacao antiga #13. "
+      ]
+    },
+    {
+      "row": 74,
+      "pessoa": "Luciano dos Santos Moraes",
+      "values": [
+        "Integração de novos colaboradores/ Conteúdos normas e procedimentos da empresa",
+        "Luciano dos Santos Moraes",
+        null,
+        null,
+        null,
+        "09/02/2026",
+        2,
+        "Realizado",
+        "REVISAR pessoa nao casada com dho_empregados. Migrado da aplicacao antiga #14. "
+      ]
+    },
+    {
+      "row": 99,
+      "pessoa": "Maria Oliveira",
+      "values": [
+        "Reciclagem operacional de autônomos",
+        "Maria Oliveira",
+        "1002",
+        "Coordenadora de Pista",
+        "Operações",
+        "21/05/2026",
+        3,
+        "Realizado",
+        "REVISAR pessoa nao casada com dho_empregados. Migrado da aplicacao antiga #39. "
+      ]
+    }
+  ]
+}
