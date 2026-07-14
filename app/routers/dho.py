@@ -717,7 +717,7 @@ def sincronizar_estrutura(request: Request, db: Session = Depends(get_db)):
     except Exception as exc:
         return redirect_with_message(
             "/dho/estrutura",
-            error=f"Não consegui sincronizar Catworld rel_colab_77: {exc}",
+            error=f"Não consegui sincronizar a fonte oficial: {exc}",
         )
 
     return redirect_with_message(
@@ -2359,13 +2359,13 @@ def empregados_sincronizar(request: Request, db: Session = Depends(get_db)):
         db.rollback()
         return redirect_with_message(
             "/dho/empregados",
-            error=f"Não consegui sincronizar empregados pelo Catworld: {exc}",
+            error=f"Não consegui sincronizar empregados pela fonte oficial: {exc}",
         )
 
     return redirect_with_message(
         "/dho/empregados",
         success=(
-            "Empregados sincronizados pelo Catworld. "
+            "Empregados sincronizados pela fonte oficial. "
             f"{resultado['total_catworld']} registro(s) lido(s), "
             f"{resultado['criados']} criado(s), "
             f"{resultado['atualizados']} atualizado(s), "
@@ -2393,7 +2393,7 @@ async def empregados_criar(
         return RedirectResponse("/auth/login", status_code=303)
     return redirect_with_message(
         "/dho/empregados",
-        error="Empregados são somente leitura e vêm exclusivamente do Catworld.",
+        error="Empregados são somente leitura e vêm exclusivamente da fonte oficial.",
     )
 
 
@@ -2417,7 +2417,7 @@ async def empregados_editar(
         return RedirectResponse("/auth/login", status_code=303)
     return redirect_with_message(
         "/dho/empregados",
-        error="Empregados são somente leitura e vêm exclusivamente do Catworld.",
+        error="Empregados são somente leitura e vêm exclusivamente da fonte oficial.",
     )
 
 
@@ -2432,5 +2432,5 @@ async def empregados_excluir(
         return RedirectResponse("/auth/login", status_code=303)
     return redirect_with_message(
         "/dho/empregados",
-        error="Empregados são somente leitura e vêm exclusivamente do Catworld.",
+        error="Empregados são somente leitura e vêm exclusivamente da fonte oficial.",
     )

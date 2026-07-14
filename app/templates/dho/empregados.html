@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 
 {% block header %}Empregados{% endblock %}
-{% block subtitle %}Base local sincronizada exclusivamente pelo Catworld{% endblock %}
+{% block subtitle %}Base local sincronizada pela fonte oficial{% endblock %}
 
 {% block content %}
 
@@ -13,7 +13,7 @@
 {% endif %}
 <div class="quick-actions">
   <form method="post" action="/dho/empregados/sincronizar">
-    <button class="quick-action primary" type="submit">Sincronizar Catworld</button>
+    <button class="quick-action primary" type="submit">Sincronizar empregados</button>
   </form>
   <span class="quick-action light">{{ total_empregados }} empregado(s) na base local</span>
 </div>
@@ -45,7 +45,7 @@
       </tr>
       {% else %}
       <tr>
-        <td colspan="6" class="empty">Nenhum empregado sincronizado. Use o botão Sincronizar Catworld.</td>
+        <td colspan="6" class="empty">Nenhum empregado sincronizado. Use o botão Sincronizar empregados.</td>
       </tr>
       {% endfor %}
     </tbody>
