@@ -2125,9 +2125,9 @@ async def importar_aplicacoes_treinamento_dho(
 
 @router.get("/dho/empregados")
 def empregados_list(request: Request, db: Session = Depends(get_db)):
-    current_user = request.session.get("user")
+    current_user = getattr(request.state, "current_user", None)
     if not current_user:
-        return RedirectResponse("/login", status_code=303)
+        return RedirectResponse("/auth/login", status_code=303)
     rows = db.execute(
         select(
             dho_empregados,
@@ -2168,9 +2168,9 @@ async def empregados_criar(
     observacoes: str = Form(""),
     db: Session = Depends(get_db),
 ):
-    current_user = request.session.get("user")
+    current_user = getattr(request.state, "current_user", None)
     if not current_user:
-        return RedirectResponse("/login", status_code=303)
+        return RedirectResponse("/auth/login", status_code=303)
     try:
         db.execute(
             insert(dho_empregados).values(
@@ -2209,9 +2209,9 @@ async def empregados_editar(
     observacoes: str = Form(""),
     db: Session = Depends(get_db),
 ):
-    current_user = request.session.get("user")
+    current_user = getattr(request.state, "current_user", None)
     if not current_user:
-        return RedirectResponse("/login", status_code=303)
+        return RedirectResponse("/auth/login", status_code=303)
     try:
         db.execute(
             update(dho_empregados)
@@ -2242,9 +2242,9 @@ async def empregados_excluir(
     request: Request,
     db: Session = Depends(get_db),
 ):
-    current_user = request.session.get("user")
+    current_user = getattr(request.state, "current_user", None)
     if not current_user:
-        return RedirectResponse("/login", status_code=303)
+        return RedirectResponse("/auth/login", status_code=303)
     try:
         db.execute(dho_empregados.delete().where(dho_empregados.c.id_empregado == id_empregado))
         db.commit()
