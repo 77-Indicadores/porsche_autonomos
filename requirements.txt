@@ -9,10 +9,10 @@ google-auth
 google-auth-oauthlib
 requests
 pandas
+catworld-sdk
 passlib[bcrypt]
 bcrypt==4.0.1
 itsdangerous
 pytest
 alembic
 psycopg2-binary
-pymssql
