@@ -1,10 +1,17 @@
 ﻿from pathlib import Path
-import json
 import os
 import unicodedata
 from io import BytesIO
 from datetime import datetime
 
+from catworld import CatworldClient
+from catworld.exceptions import (
+    AuthenticationError,
+    ConnectionError as CatworldConnectionError,
+    PermissionDeniedError,
+    QueryTimeoutError,
+    ValidationError,
+)
 from fastapi.responses import StreamingResponse
 from fastapi import APIRouter, Depends, Form, Request, UploadFile, File
 from sqlalchemy import inspect
@@ -554,7 +561,7 @@ def get_departamentos(db: Session):
     try:
         sincronizar_estrutura_dataworld(db)
     except Exception as exc:
-        print(f"AVISO - não consegui sincronizar departamentos Data.World: {exc}")
+        print(f"AVISO - não consegui sincronizar departamentos Catworld: {exc}")
 
     return db.execute(
         select(dho_departamentos).order_by(dho_departamentos.c.nome_departamento)
@@ -565,7 +572,7 @@ def get_cargos(db: Session):
     try:
         sincronizar_estrutura_dataworld(db)
     except Exception as exc:
-        print(f"AVISO - não consegui sincronizar cargos Data.World: {exc}")
+        print(f"AVISO - não consegui sincronizar cargos Catworld: {exc}")
 
     rows = db.execute(
         select(
@@ -710,7 +717,7 @@ def sincronizar_estrutura(request: Request, db: Session = Depends(get_db)):
     except Exception as exc:
         return redirect_with_message(
             "/dho/estrutura",
-            error=f"Não consegui sincronizar Data.World rel_colab_77: {exc}",
+            error=f"Não consegui sincronizar Catworld rel_colab_77: {exc}",
         )
 
     return redirect_with_message(
@@ -957,72 +964,41 @@ def excluir_treinamento(id_treinamento: int, db: Session = Depends(get_db)):
 
 
 
-def _ler_token_dataworld():
-    """
-    Tenta localizar token Data.World sem deixar fixo no código.
-    Ordem:
-    1. Variáveis de ambiente
-    2. C:\\Users\\felip\\token_dw.json
-    3. Config padrão do datadotworld
-    4. token_dw.json na raiz do projeto
-    """
-    candidatos_env = [
-        "DATADOTWORLD_API_TOKEN",
-        "DATAWORLD_TOKEN",
-        "DW_AUTH_TOKEN",
-        "DW_TOKEN",
-    ]
+CATWORLD_QUERY_ERRORS = (
+    AuthenticationError,
+    PermissionDeniedError,
+    ValidationError,
+    QueryTimeoutError,
+    CatworldConnectionError,
+)
 
-    for env in candidatos_env:
-        valor = os.getenv(env)
-        if valor:
-            return str(valor).strip()
 
-    caminhos = [
-        Path.home() / ".dw" / "config",
-        Path.home() / ".data.world" / "config",
-        Path(r"C:\\Users\\felip\\token_dw.json"),
-        BASE / "token_dw.json",
-        BASE.parent / "token_dw.json",
-    ]
+def _catworld_client():
+    base_url = os.getenv("CATWORLD_URL")
+    token = os.getenv("CATWORLD_TOKEN")
 
-    for caminho in caminhos:
-        try:
-            if not caminho.exists():
-                continue
+    if not base_url or not token:
+        raise RuntimeError("CATWORLD_URL e CATWORLD_TOKEN precisam estar configurados.")
 
-            raw = caminho.read_text(encoding="utf-8").strip()
+    return CatworldClient(base_url=base_url, token=token)
 
-            if not raw:
-                continue
 
-            try:
-                data = json.loads(raw)
-                for chave in ["token", "api_token", "auth_token", "DATADOTWORLD_API_TOKEN", "dataworld_token"]:
-                    if data.get(chave):
-                        return str(data.get(chave)).strip()
-            except Exception:
-                try:
-                    import configparser
+def _catworld_dataset_id():
+    dataset_id = os.getenv("CATWORLD_DATASET_ID")
 
-                    parser = configparser.ConfigParser()
-                    parser.read_string(raw)
+    if not dataset_id:
+        raise RuntimeError("CATWORLD_DATASET_ID precisa estar configurado.")
 
-                    for section in [parser.default_section, *parser.sections()]:
-                        source = parser.defaults() if section == parser.default_section else parser[section]
-                        for chave in ["token", "api_token", "auth_token", "dataworld_token"]:
-                            if source.get(chave):
-                                return str(source.get(chave)).strip()
-                except Exception:
-                    pass
+    return dataset_id
 
-                if "=" not in raw and "[" not in raw:
-                    return raw.strip().strip('"').strip("'")
 
-        except Exception:
-            pass
-
-    return None
+def _consultar_catworld(sql: str):
+    client = _catworld_client()
+    try:
+        resultado = client.query(sql, dataset_id=_catworld_dataset_id())
+        return resultado.rows or []
+    finally:
+        client.close()
 
 
 _CACHE_PESSOAS_DW = {
@@ -1068,7 +1044,7 @@ def carregar_pessoas_interno(db: Session):
 
 def carregar_pessoas_dataworld():
     """
-    Busca pessoas na tabela rel_colab_77 do dataset 77indicadores/porsche.
+    Busca pessoas na tabela rel_colab_77 do dataset Catworld configurado.
 
     Campos usados:
     - nome
@@ -1090,14 +1066,10 @@ def carregar_pessoas_dataworld():
 
     pessoas = []
 
-    # 1) Tenta via datadotworld, se estiver instalado/configurado
     try:
-        import datadotworld as dw
+        rows = _consultar_catworld(sql)
 
-        resultado = dw.query("77indicadores/porsche", sql)
-        df = resultado.dataframe
-
-        for _, row in df.iterrows():
+        for row in rows:
             nome = str(row.get("nome") or "").strip()
             nome_completo = str(row.get("nome_completo") or row.get("colaborador") or row.get("funcionario") or "").strip()
             matricula = str(row.get("matricula") or row.get("chapa") or "").strip()
@@ -1129,75 +1101,8 @@ def carregar_pessoas_dataworld():
                 "label": nome_exibicao + ((" - " + " · ".join(detalhes)) if detalhes else ""),
             })
 
-    except Exception as exc:
-        print(f"AVISO - Data.World via datadotworld indisponível: {exc}")
-
-    # 2) Fallback via API HTTP Data.World
-    if not pessoas:
-        try:
-            import requests
-
-            token = _ler_token_dataworld()
-
-            if token:
-                session = requests.Session()
-                session.trust_env = False
-                resp = session.post(
-                    "https://api.data.world/v0/sql/77indicadores/porsche",
-                    headers={
-                        "Authorization": f"Bearer {token}",
-                        "Content-Type": "application/json",
-                    },
-                    json={"query": sql},
-                    timeout=20,
-                )
-
-                if resp.status_code == 200:
-                    data = resp.json()
-
-                    if isinstance(data, dict) and "results" in data:
-                        rows = data.get("results") or []
-                    elif isinstance(data, list):
-                        rows = data
-                    else:
-                        rows = []
-
-                    for row in rows:
-                        nome = str(row.get("nome") or "").strip()
-                        nome_completo = str(row.get("nome_completo") or row.get("colaborador") or row.get("funcionario") or "").strip()
-                        matricula = str(row.get("matricula") or row.get("chapa") or "").strip()
-                        email = str(row.get("email") or row.get("email_corporativo") or "").strip()
-                        cargo = str(row.get("cargo_visivel") or row.get("cargo") or row.get("funcao") or "").strip()
-                        departamento = str(row.get("departamento") or row.get("centro_custo") or row.get("setor") or "").strip()
-
-                        nome_exibicao = nome_completo or nome
-
-                        if not nome_exibicao:
-                            continue
-
-                        detalhes = []
-                        if matricula:
-                            detalhes.append(f"Matrícula {matricula}")
-                        if cargo:
-                            detalhes.append(cargo)
-                        if departamento:
-                            detalhes.append(departamento)
-
-                        pessoas.append({
-                            "nome": nome,
-                            "nome_completo": nome_completo,
-                            "nome_exibicao": nome_exibicao,
-                            "matricula": matricula,
-                            "email": email,
-                            "cargo": cargo,
-                            "departamento": departamento,
-                            "label": nome_exibicao + ((" - " + " · ".join(detalhes)) if detalhes else ""),
-                        })
-                else:
-                    print(f"AVISO - Data.World HTTP status {resp.status_code}: {resp.text[:200]}")
-
-        except Exception as exc:
-            print(f"AVISO - Data.World via API HTTP indisponível: {exc}")
+    except CATWORLD_QUERY_ERRORS as exc:
+        print(f"AVISO - Catworld indisponível: {exc}")
 
     # Deduplica por nome + matrícula/email
     dedup = {}

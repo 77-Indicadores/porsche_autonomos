@@ -1,11 +1,11 @@
 {% extends "base.html" %}
 
 {% block header %}Departamentos e Cargos{% endblock %}
-{% block subtitle %}Lista distinta — Data World + cadastros manuais{% endblock %}
+{% block subtitle %}Lista distinta — Catworld + cadastros manuais{% endblock %}
 
 {% block header_action %}
 <form method="post" action="/dho/estrutura/sincronizar" style="display:inline;">
-  <button class="quick-action light">Sincronizar Data World</button>
+  <button class="quick-action light">Sincronizar Catworld</button>
 </form>
 {% endblock %}
 
@@ -18,7 +18,7 @@
 <div class="alert alert-danger">{{ error }}</div>
 {% endif %}
 {% if erro_dataworld %}
-<div class="alert alert-warning">Data World indisponível: {{ erro_dataworld }}</div>
+<div class="alert alert-warning">Catworld indisponível: {{ erro_dataworld }}</div>
 {% endif %}
 
 <section class="exec-grid">
