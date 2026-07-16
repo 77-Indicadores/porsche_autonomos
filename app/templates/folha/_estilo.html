@@ -1,0 +1,31 @@
+<style>
+/* ---- Tabelas do módulo Folha ---- */
+.folha-tbl { width:100%; border-collapse:separate; border-spacing:0; font-size:13px; }
+.folha-tbl thead th {
+  position:sticky; top:0; z-index:2; background:#f8fafc; color:#334155;
+  font-weight:700; text-align:left; padding:11px 14px;
+  border-bottom:2px solid #e2e8f0; white-space:nowrap;
+}
+.folha-tbl tbody td { padding:10px 14px; border-bottom:1px solid #eef2f7; color:#1e293b; vertical-align:middle; }
+.folha-tbl tbody tr:nth-child(even) { background:#fafbfc; }
+.folha-tbl tbody tr:hover { background:#f1f5f9; }
+.folha-tbl .num { text-align:right; font-variant-numeric:tabular-nums; white-space:nowrap; }
+.folha-tbl a { color:#dc2626; font-weight:700; text-decoration:none; }
+.folha-tbl a:hover { text-decoration:underline; }
+
+/* Variante compacta para o consolidado (muitas colunas) */
+.folha-tbl.compact { font-size:10px; }
+.folha-tbl.compact thead th { padding:8px 10px; border-left:1px solid #eef2f7; }
+.folha-tbl.compact tbody td { padding:6px 10px; border-left:1px solid #f4f6f9; }
+.folha-tbl.compact thead th:first-child,
+.folha-tbl.compact tbody td:first-child { border-left:0; }
+
+.folha-wrap { overflow:auto; max-height:72vh; border:1px solid #eef2f7; border-radius:10px; }
+
+.folha-badge { display:inline-block; padding:2px 10px; border-radius:999px; background:#eef2ff; color:#3730a3; font-weight:700; font-size:11px; white-space:nowrap; }
+.folha-prov { color:#15803d; font-weight:700; }
+.folha-desc { color:#b91c1c; font-weight:700; }
+
+.folha-acoes { display:inline-flex; gap:6px; }
+.folha-acoes .btn-secondary, .folha-acoes .btn-danger { padding:.45rem .8rem; font-size:.8rem; }
+</style>

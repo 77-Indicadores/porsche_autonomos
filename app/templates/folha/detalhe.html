@@ -4,6 +4,7 @@
 {% block subtitle %}{{ arquivo.empresa_nome }} · Competência {{ arquivo.competencia }}{% endblock %}
 
 {% block content %}
+{% include "folha/_estilo.html" %}
 
 <section class="exec-grid">
   <article class="panel">
@@ -30,23 +31,23 @@
 
 <div class="ux-actions-row" style="margin-top:18px;gap:8px;">
   <button class="btn-primary" type="button" id="tab-btn-func" onclick="mostrarAba('func')">Funcionários</button>
-  <button class="btn-secondary" type="button" id="tab-btn-pivot" onclick="mostrarAba('pivot')">Eventos pivotados</button>
+  <button class="btn-secondary" type="button" id="tab-btn-pivot" onclick="mostrarAba('pivot')">Eventos (Evento · Hora · Valor)</button>
 </div>
 
 <section class="panel" id="aba-func" style="margin-top:12px;">
   <div class="panel-head"><div><h3>Funcionários</h3></div></div>
-  <div class="table-wrap">
-    <table class="data-table">
+  <div class="folha-wrap">
+    <table class="folha-tbl">
       <thead>
         <tr>
           <th>Matríc.</th>
           <th>Nome</th>
           <th>Cargo</th>
           <th>CPF</th>
-          <th style="text-align:right;">Salário</th>
-          <th style="text-align:right;">Proventos</th>
-          <th style="text-align:right;">Descontos</th>
-          <th style="text-align:right;">Líquido</th>
+          <th class="num">Salário</th>
+          <th class="num">Proventos</th>
+          <th class="num">Descontos</th>
+          <th class="num">Líquido</th>
           <th></th>
         </tr>
       </thead>
@@ -57,10 +58,10 @@
           <td>{{ f.nome }}</td>
           <td style="font-size:12px;">{{ f.cargo or '-' }}</td>
           <td style="font-size:12px;">{{ f.cpf or '-' }}</td>
-          <td style="text-align:right;">{{ f.salario | money_br }}</td>
-          <td style="text-align:right;">{{ f.total_proventos | money_br }}</td>
-          <td style="text-align:right;">{{ f.total_descontos | money_br }}</td>
-          <td style="text-align:right;">{{ f.liquido | money_br }}</td>
+          <td class="num">{{ f.salario | money_br }}</td>
+          <td class="num folha-prov">{{ f.total_proventos | money_br }}</td>
+          <td class="num folha-desc">{{ f.total_descontos | money_br }}</td>
+          <td class="num" style="font-weight:700;">{{ f.liquido | money_br }}</td>
           <td style="text-align:right;">
             <button class="btn-secondary" type="button" onclick="verRubricas({{ f.id_funcionario }}, this)">Rubricas</button>
           </td>
@@ -77,14 +78,14 @@
 <section class="panel" id="aba-pivot" style="margin-top:12px;display:none;">
   <div class="panel-head">
     <div>
-      <h3>Eventos pivotados</h3>
+      <h3>Eventos</h3>
       <p style="margin:6px 0 0;color:#64748b;font-size:13px;">
-        Cada evento vira duas colunas: <b>Hora</b> (referência) e <b>Valor</b>.
-        Proventos em verde, descontos em vermelho. Role para o lado para ver todos os eventos.
+        Uma linha por evento, com as colunas <b>Evento</b>, <b>Hora</b> e <b>Valor</b>.
+        Proventos em verde, descontos em vermelho.
       </p>
     </div>
   </div>
-  {% include "folha/_pivot.html" %}
+  {% include "folha/_eventos.html" %}
 </section>
 
 <script>

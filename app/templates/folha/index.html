@@ -4,6 +4,7 @@
 {% block subtitle %}Importe os extratos mensais em PDF. O sistema lê o arquivo e monta a base de dados.{% endblock %}
 
 {% block content %}
+{% include "folha/_estilo.html" %}
 
 <section class="exec-hero">
   <div>
@@ -66,17 +67,17 @@
   <div class="panel-head"><div><h3>Arquivos importados</h3></div></div>
 
   {% if arquivos %}
-  <div class="table-wrap">
-    <table class="data-table">
+  <div class="folha-wrap">
+    <table class="folha-tbl">
       <thead>
         <tr>
           <th>Arquivo</th>
           <th>Empresa</th>
           <th>Competência</th>
-          <th style="text-align:right;">Func.</th>
-          <th style="text-align:right;">Proventos</th>
-          <th style="text-align:right;">Descontos</th>
-          <th style="text-align:right;">Líquido</th>
+          <th class="num">Func.</th>
+          <th class="num">Proventos</th>
+          <th class="num">Descontos</th>
+          <th class="num">Líquido</th>
           <th>Enviado</th>
           <th style="text-align:right;">Ações</th>
         </tr>
@@ -84,23 +85,25 @@
       <tbody>
         {% for a in arquivos %}
         <tr>
-          <td><a href="/folha/{{ a.id_arquivo }}">{{ a.nome_arquivo }}</a></td>
+          <td>📄 <a href="/folha/{{ a.id_arquivo }}">{{ a.nome_arquivo }}</a></td>
           <td>{{ a.empresa_nome or '-' }}</td>
-          <td>{{ a.competencia or '-' }}</td>
-          <td style="text-align:right;">{{ a.qtd_funcionarios }}</td>
-          <td style="text-align:right;">{{ a.total_proventos | money_br }}</td>
-          <td style="text-align:right;">{{ a.total_descontos | money_br }}</td>
-          <td style="text-align:right;">{{ a.total_liquido | money_br }}</td>
+          <td><span class="folha-badge">{{ a.competencia or '-' }}</span></td>
+          <td class="num">{{ a.qtd_funcionarios }}</td>
+          <td class="num folha-prov">{{ a.total_proventos | money_br }}</td>
+          <td class="num folha-desc">{{ a.total_descontos | money_br }}</td>
+          <td class="num" style="font-weight:700;">{{ a.total_liquido | money_br }}</td>
           <td style="font-size:12px;color:#64748b;">{{ a.enviado_por or '-' }}</td>
-          <td style="text-align:right;white-space:nowrap;">
-            <a class="btn-secondary" href="/folha/{{ a.id_arquivo }}">Ver</a>
-            <a class="btn-secondary" href="/folha/{{ a.id_arquivo }}/pdf">PDF</a>
-            {% if is_admin %}
-            <form method="post" action="/folha/{{ a.id_arquivo }}/excluir" style="display:inline;"
-                  onsubmit="return confirm('Excluir o arquivo {{ a.nome_arquivo }} e todos os seus dados?');">
-              <button class="btn-danger" type="submit">Excluir</button>
-            </form>
-            {% endif %}
+          <td style="text-align:right;">
+            <span class="folha-acoes">
+              <a class="btn-secondary" href="/folha/{{ a.id_arquivo }}">Ver</a>
+              <a class="btn-secondary" href="/folha/{{ a.id_arquivo }}/pdf">PDF</a>
+              {% if is_admin %}
+              <form method="post" action="/folha/{{ a.id_arquivo }}/excluir" style="display:inline;"
+                    onsubmit="return confirm('Excluir o arquivo {{ a.nome_arquivo }} e todos os seus dados?');">
+                <button class="btn-danger" type="submit">Excluir</button>
+              </form>
+              {% endif %}
+            </span>
           </td>
         </tr>
         {% endfor %}
@@ -117,8 +120,8 @@
     <div>
       <h3>Dados consolidados</h3>
       <p style="margin:6px 0 0;color:#64748b;font-size:13px;">
-        Todos os funcionários de todos os arquivos, com os eventos pivotados —
-        cada rubrica em duas colunas (<b>Hora</b> e <b>Valor</b>). Role para o lado e para baixo.
+        Uma linha por evento de cada funcionário, com todos os campos do extrato +
+        <b>Evento</b>, <b>Referencia</b> e <b>Valor</b>. Use os filtros para restringir.
       </p>
     </div>
   </div>
@@ -146,10 +149,10 @@
     {% if filtro_empresa or filtro_competencia %}
     <a class="btn-secondary" href="/folha">Limpar</a>
     {% endif %}
-    <span style="color:#64748b;font-size:13px;">{{ pivot_linhas|length }} funcionário(s)</span>
+    <span style="color:#64748b;font-size:13px;">{{ eventos_linhas|length }} evento(s)</span>
   </form>
 
-  {% include "folha/_pivot.html" %}
+  {% include "folha/_eventos.html" %}
 </section>
 
 {% endblock %}

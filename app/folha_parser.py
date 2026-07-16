@@ -73,6 +73,7 @@ class RubricaExtraida:
 class FuncionarioExtraido:
     matricula: str
     nome: str
+    pagina: int | None = None
     situacao: str = ""
     cpf: str = ""
     data_admissao: str = ""
@@ -183,7 +184,7 @@ def parse_folha_pdf(conteudo: bytes) -> FolhaExtraida:
     em_resumo = False
 
     with pdfplumber.open(io.BytesIO(conteudo)) as pdf:
-        for page in pdf.pages:
+        for numero_pagina, page in enumerate(pdf.pages, start=1):
             competencia_pagina = ""
             calculo_pagina = ""
             for linha in _linhas_da_pagina(page):
@@ -232,6 +233,7 @@ def parse_folha_pdf(conteudo: bytes) -> FolhaExtraida:
                     funcionario = FuncionarioExtraido(
                         matricula=m.group(1),
                         nome=m.group(2).strip(),
+                        pagina=numero_pagina,
                         situacao=m.group(3).strip(),
                         cpf=m.group(4).strip(),
                         data_admissao=m.group(5).strip(),

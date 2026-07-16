@@ -30,7 +30,9 @@ from sqlalchemy import (
     delete,
     func,
     insert,
+    inspect,
     select,
+    text,
 )
 from sqlalchemy.orm import Session
 
@@ -69,6 +71,7 @@ folha_funcionarios = Table(
     metadata_folha,
     Column("id_funcionario", Integer, primary_key=True, autoincrement=True),
     Column("id_arquivo", Integer, nullable=False, index=True),
+    Column("pagina", Integer),
     Column("competencia", String(60)),
     Column("matricula", String(30)),
     Column("nome", String(200)),
@@ -110,33 +113,73 @@ folha_rubricas = Table(
 metadata_folha.create_all(engine)
 
 
+def _garantir_schema_folha():
+    """create_all não altera tabela já existente; adiciona colunas novas."""
+    insp = inspect(engine)
+    if "folha_funcionarios" in insp.get_table_names():
+        colunas = {c["name"] for c in insp.get_columns("folha_funcionarios")}
+        if "pagina" not in colunas:
+            with engine.begin() as conn:
+                conn.execute(text("ALTER TABLE folha_funcionarios ADD COLUMN pagina INTEGER"))
+
+
+_garantir_schema_folha()
+
+
 def _f(valor) -> float | None:
     return float(valor) if isinstance(valor, Decimal) else valor
 
 
-def _montar_pivot(rubricas):
-    """Monta o pivô de eventos: colunas = eventos distintos (P antes de D),
-    lookup = valores por funcionário. Reutilizado no detalhe e no consolidado."""
-    colunas: dict[str, dict] = {}
-    lookup: dict[int, dict[str, dict]] = {}
-    for r in rubricas:
-        codigo = r["codigo"] or ""
-        colunas.setdefault(
-            codigo,
-            {"codigo": codigo, "descricao": r["descricao"] or "", "tipo": r["tipo"] or "P"},
-        )
-        celula = lookup.setdefault(r["id_funcionario"], {}).setdefault(
-            codigo, {"hora": None, "valor": 0.0}
-        )
-        # Mesmo evento repetido para a pessoa (2 cálculos no mês) soma o valor.
-        celula["hora"] = r["referencia"]
-        celula["valor"] = (celula["valor"] or 0.0) + (r["valor"] or 0.0)
+def _num(valor) -> str:
+    """Formata número no padrão pt-BR (1.234,56); vazio se None."""
+    if valor is None:
+        return ""
+    try:
+        return f"{float(valor):,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+    except (TypeError, ValueError):
+        return str(valor)
 
-    pivot_colunas = sorted(
-        colunas.values(),
-        key=lambda c: (0 if c["tipo"] == "P" else 1, c["codigo"].zfill(6)),
-    )
-    return pivot_colunas, lookup
+
+# Colunas de identificação (fato completo), na ordem pedida.
+_LEADING_COMPLETO = [
+    "Empresa", "CNPJ", "Competência", "Página", "Cód. Empr.", "Nome", "CPF",
+    "Situação", "Admissão", "Vínculo", "CC", "Depto", "Horas Mês",
+    "Cargo Cód.", "Cargo", "CBO", "Filial", "Salário",
+]
+_LEADING_DETALHE = _LEADING_COMPLETO[2:]  # detalhe já mostra empresa/CNPJ no topo
+
+
+def _linha_evento(r, incluir_empresa: bool) -> dict:
+    """Monta uma linha do fato: campos de identificação + um evento."""
+    base = []
+    if incluir_empresa:
+        base = [r["empresa_nome"] or "-", r["cnpj"] or "-"]
+    leading = base + [
+        r["competencia"] or "-",
+        r["pagina"] if r["pagina"] is not None else "-",
+        r["matricula"] or "-",
+        r["nome"] or "-",
+        r["cpf"] or "-",
+        r["situacao"] or "-",
+        r["data_admissao"] or "-",
+        r["vinculo"] or "-",
+        r["centro_custo"] or "-",
+        r["departamento"] or "-",
+        _num(r["horas_mes"]),
+        r["codigo_cargo"] or "-",
+        r["cargo"] or "-",
+        r["cbo"] or "-",
+        r["filial"] or "-",
+        _num(r["salario"]),
+    ]
+    return {
+        "leading": leading,
+        "codigo": r["codigo"],
+        "descricao": r["descricao"],
+        "tipo": r["tipo"],
+        "hora": _num(r["referencia"]),
+        "valor": r["valor"],
+    }
 
 
 # ============================================================
@@ -174,10 +217,11 @@ def folha_home(
         .order_by(folha_funcionarios.c.competencia)
     ).scalars().all()
 
-    # ---- Dados consolidados (com filtros opcionais de empresa/competência) ----
+    # ---- Dados consolidados (uma linha por evento; filtros opcionais) ----
     consulta = (
-        select(folha_funcionarios, folha_arquivos.c.empresa_nome)
-        .join(folha_arquivos, folha_funcionarios.c.id_arquivo == folha_arquivos.c.id_arquivo)
+        select(folha_funcionarios, folha_arquivos.c.empresa_nome, folha_arquivos.c.cnpj, folha_rubricas)
+        .join(folha_funcionarios, folha_rubricas.c.id_funcionario == folha_funcionarios.c.id_funcionario)
+        .join(folha_arquivos, folha_rubricas.c.id_arquivo == folha_arquivos.c.id_arquivo)
     )
     if empresa:
         consulta = consulta.where(folha_arquivos.c.empresa_nome == empresa)
@@ -187,27 +231,12 @@ def folha_home(
         folha_arquivos.c.empresa_nome,
         folha_funcionarios.c.competencia,
         folha_funcionarios.c.nome,
+        folha_rubricas.c.tipo,
+        folha_rubricas.c.codigo,
     )
-    funcionarios = db.execute(consulta).mappings().all()
+    linhas_evento = db.execute(consulta).mappings().all()
 
-    ids = [f["id_funcionario"] for f in funcionarios]
-    if ids:
-        rubricas = db.execute(
-            select(folha_rubricas).where(folha_rubricas.c.id_funcionario.in_(ids))
-        ).mappings().all()
-    else:
-        rubricas = []
-    pivot_colunas, lookup = _montar_pivot(rubricas)
-
-    pivot_linhas = []
-    for f in funcionarios:
-        celulas = lookup.get(f["id_funcionario"], {})
-        pivot_linhas.append(
-            {
-                "leading": [f["empresa_nome"] or "-", f["competencia"] or "-", f["nome"]],
-                "valores": [celulas.get(c["codigo"]) for c in pivot_colunas],
-            }
-        )
+    eventos_linhas = [_linha_evento(r, incluir_empresa=True) for r in linhas_evento]
 
     return templates.TemplateResponse(
         "folha/index.html",
@@ -219,9 +248,8 @@ def folha_home(
             "competencias": competencias,
             "filtro_empresa": empresa,
             "filtro_competencia": competencia,
-            "pivot_leading": ["Empresa", "Competência", "Funcionário"],
-            "pivot_colunas": pivot_colunas,
-            "pivot_linhas": pivot_linhas,
+            "eventos_leading": _LEADING_COMPLETO,
+            "eventos_linhas": eventos_linhas,
             "success": request.query_params.get("success"),
             "error": request.query_params.get("error"),
             "is_admin": _is_admin(request),
@@ -293,6 +321,7 @@ async def folha_upload(
         id_funcionario = db.execute(
             insert(folha_funcionarios).values(
                 id_arquivo=id_arquivo,
+                pagina=fun.pagina,
                 competencia=fun.competencia,
                 matricula=fun.matricula,
                 nome=fun.nome,
@@ -361,22 +390,21 @@ def folha_detalhe(id_arquivo: int, request: Request, db: Session = Depends(get_d
         .order_by(folha_funcionarios.c.competencia, folha_funcionarios.c.nome)
     ).mappings().all()
 
-    # ---- Pivô de eventos: funcionários nas linhas, cada rubrica em colunas ----
-    rubricas = db.execute(
-        select(folha_rubricas).where(folha_rubricas.c.id_arquivo == id_arquivo)
+    # ---- Eventos (uma linha por rubrica) deste arquivo ----
+    linhas_evento = db.execute(
+        select(folha_funcionarios, folha_arquivos.c.empresa_nome, folha_arquivos.c.cnpj, folha_rubricas)
+        .join(folha_funcionarios, folha_rubricas.c.id_funcionario == folha_funcionarios.c.id_funcionario)
+        .join(folha_arquivos, folha_rubricas.c.id_arquivo == folha_arquivos.c.id_arquivo)
+        .where(folha_rubricas.c.id_arquivo == id_arquivo)
+        .order_by(
+            folha_funcionarios.c.competencia,
+            folha_funcionarios.c.nome,
+            folha_rubricas.c.tipo,
+            folha_rubricas.c.codigo,
+        )
     ).mappings().all()
 
-    pivot_colunas, lookup = _montar_pivot(rubricas)
-
-    pivot_linhas = []
-    for f in funcionarios:
-        celulas = lookup.get(f["id_funcionario"], {})
-        pivot_linhas.append(
-            {
-                "leading": [f["competencia"] or "-", f["nome"]],
-                "valores": [celulas.get(c["codigo"]) for c in pivot_colunas],
-            }
-        )
+    eventos_linhas = [_linha_evento(r, incluir_empresa=False) for r in linhas_evento]
 
     return templates.TemplateResponse(
         "folha/detalhe.html",
@@ -384,9 +412,8 @@ def folha_detalhe(id_arquivo: int, request: Request, db: Session = Depends(get_d
             "request": request,
             "arquivo": arquivo,
             "funcionarios": funcionarios,
-            "pivot_leading": ["Competência", "Funcionário"],
-            "pivot_colunas": pivot_colunas,
-            "pivot_linhas": pivot_linhas,
+            "eventos_leading": _LEADING_DETALHE,
+            "eventos_linhas": eventos_linhas,
             "is_admin": _is_admin(request),
         },
     )
