@@ -63,3 +63,22 @@ bosch_chamados_manutencao.xlsx
 patch_*.py
 fix_*.py
 auditoria/
+
+# Arquivos de outros projetos / limpeza
+base-dados-*/
+inadimplencia*
+sitecustomize.py
+start_server.js
+*.html.bak
+*.py.bak*
+
+# Dados / CSVs locais que não são do sistema
+*.csv
+!docs/*.csv
+
+# Pytest
+.pytest_cache/
+
+# Pastas de subprojetos externos
+porsche_autonomos/
+porsche_facilities/
