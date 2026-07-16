@@ -1,0 +1,50 @@
+{# Tabela pivô reutilizável.
+   Espera no contexto: pivot_leading (lista de rótulos das colunas iniciais),
+   pivot_colunas (eventos) e pivot_linhas (cada uma com .leading e .valores). #}
+{% if pivot_colunas %}
+<div class="table-wrap" style="overflow:auto;max-height:70vh;">
+  <table class="data-table" style="font-size:12px;white-space:nowrap;">
+    <thead>
+      <tr>
+        {% for h in pivot_leading %}
+        <th style="position:sticky;top:0;background:#fff;z-index:3;">{{ h }}</th>
+        {% endfor %}
+        {% for c in pivot_colunas %}
+        <th colspan="2" style="text-align:center;border-left:1px solid #e2e8f0;position:sticky;top:0;background:#fff;z-index:2;color:{{ '#15803d' if c.tipo == 'P' else '#b91c1c' }};">
+          {{ c.codigo }} · {{ c.descricao }}
+        </th>
+        {% endfor %}
+      </tr>
+      <tr>
+        {% for h in pivot_leading %}
+        <th style="position:sticky;top:28px;background:#fff;z-index:3;"></th>
+        {% endfor %}
+        {% for c in pivot_colunas %}
+        <th style="text-align:right;border-left:1px solid #e2e8f0;position:sticky;top:28px;background:#fff;">Hora</th>
+        <th style="text-align:right;position:sticky;top:28px;background:#fff;">Valor</th>
+        {% endfor %}
+      </tr>
+    </thead>
+    <tbody>
+      {% for linha in pivot_linhas %}
+      <tr>
+        {% for cel in linha.leading %}
+        <td>{{ cel }}</td>
+        {% endfor %}
+        {% for cel in linha.valores %}
+          {% if cel %}
+          <td style="text-align:right;border-left:1px solid #e2e8f0;color:#64748b;">{{ '%.2f'|format(cel.hora) if cel.hora is not none else '' }}</td>
+          <td style="text-align:right;">{{ cel.valor | money_br }}</td>
+          {% else %}
+          <td style="border-left:1px solid #e2e8f0;"></td>
+          <td></td>
+          {% endif %}
+        {% endfor %}
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+<p style="color:#64748b;">Sem eventos para exibir.</p>
+{% endif %}

@@ -1,0 +1,133 @@
+{% extends "base.html" %}
+
+{% block header %}{{ arquivo.nome_arquivo }}{% endblock %}
+{% block subtitle %}{{ arquivo.empresa_nome }} · Competência {{ arquivo.competencia }}{% endblock %}
+
+{% block content %}
+
+<section class="exec-grid">
+  <article class="panel">
+    <div class="modulos-mini-kpis">
+      <div><b>{{ arquivo.qtd_funcionarios }}</b><span>Funcionários</span></div>
+      <div><b>{{ arquivo.total_proventos | money_br }}</b><span>Proventos</span></div>
+      <div><b>{{ arquivo.total_descontos | money_br }}</b><span>Descontos</span></div>
+      <div><b>{{ arquivo.total_liquido | money_br }}</b><span>Líquido</span></div>
+    </div>
+  </article>
+  <article class="panel">
+    <p style="font-size:13px;color:#475569;margin:0;">
+      <b>CNPJ:</b> {{ arquivo.cnpj or '-' }}<br>
+      <b>Cálculo:</b> {{ arquivo.tipo_calculo or '-' }}<br>
+      <b>Emissão:</b> {{ arquivo.data_emissao or '-' }}<br>
+      <b>Enviado por:</b> {{ arquivo.enviado_por or '-' }}
+    </p>
+    <div class="ux-actions-row" style="margin-top:12px;">
+      <a class="btn-secondary" href="/folha">← Voltar</a>
+      <a class="btn-secondary" href="/folha/{{ arquivo.id_arquivo }}/pdf">Baixar PDF</a>
+    </div>
+  </article>
+</section>
+
+<div class="ux-actions-row" style="margin-top:18px;gap:8px;">
+  <button class="btn-primary" type="button" id="tab-btn-func" onclick="mostrarAba('func')">Funcionários</button>
+  <button class="btn-secondary" type="button" id="tab-btn-pivot" onclick="mostrarAba('pivot')">Eventos pivotados</button>
+</div>
+
+<section class="panel" id="aba-func" style="margin-top:12px;">
+  <div class="panel-head"><div><h3>Funcionários</h3></div></div>
+  <div class="table-wrap">
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Matríc.</th>
+          <th>Nome</th>
+          <th>Cargo</th>
+          <th>CPF</th>
+          <th style="text-align:right;">Salário</th>
+          <th style="text-align:right;">Proventos</th>
+          <th style="text-align:right;">Descontos</th>
+          <th style="text-align:right;">Líquido</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for f in funcionarios %}
+        <tr>
+          <td>{{ f.matricula }}</td>
+          <td>{{ f.nome }}</td>
+          <td style="font-size:12px;">{{ f.cargo or '-' }}</td>
+          <td style="font-size:12px;">{{ f.cpf or '-' }}</td>
+          <td style="text-align:right;">{{ f.salario | money_br }}</td>
+          <td style="text-align:right;">{{ f.total_proventos | money_br }}</td>
+          <td style="text-align:right;">{{ f.total_descontos | money_br }}</td>
+          <td style="text-align:right;">{{ f.liquido | money_br }}</td>
+          <td style="text-align:right;">
+            <button class="btn-secondary" type="button" onclick="verRubricas({{ f.id_funcionario }}, this)">Rubricas</button>
+          </td>
+        </tr>
+        <tr id="rubricas-{{ f.id_funcionario }}" style="display:none;">
+          <td colspan="9" style="background:#f8fafc;"></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="panel" id="aba-pivot" style="margin-top:12px;display:none;">
+  <div class="panel-head">
+    <div>
+      <h3>Eventos pivotados</h3>
+      <p style="margin:6px 0 0;color:#64748b;font-size:13px;">
+        Cada evento vira duas colunas: <b>Hora</b> (referência) e <b>Valor</b>.
+        Proventos em verde, descontos em vermelho. Role para o lado para ver todos os eventos.
+      </p>
+    </div>
+  </div>
+  {% include "folha/_pivot.html" %}
+</section>
+
+<script>
+function mostrarAba(qual) {
+  const ehFunc = qual === "func";
+  document.getElementById("aba-func").style.display = ehFunc ? "block" : "none";
+  document.getElementById("aba-pivot").style.display = ehFunc ? "none" : "block";
+  document.getElementById("tab-btn-func").className = ehFunc ? "btn-primary" : "btn-secondary";
+  document.getElementById("tab-btn-pivot").className = ehFunc ? "btn-secondary" : "btn-primary";
+}
+
+async function verRubricas(id, botao) {
+  const linha = document.getElementById("rubricas-" + id);
+  const celula = linha.querySelector("td");
+  if (linha.style.display === "table-row") {
+    linha.style.display = "none";
+    botao.textContent = "Rubricas";
+    return;
+  }
+  botao.textContent = "Ocultar";
+  linha.style.display = "table-row";
+  if (celula.dataset.carregado) return;
+
+  const resp = await fetch("/folha/funcionario/" + id + "/rubricas");
+  const dados = await resp.json();
+  const fmt = (v) => v == null ? "-" : Number(v).toLocaleString("pt-BR", {minimumFractionDigits: 2, maximumFractionDigits: 2});
+
+  let linhas = dados.rubricas.map(function (r) {
+    const cor = r.tipo === "D" ? "#b91c1c" : "#15803d";
+    const sinal = r.tipo === "D" ? "Desconto" : "Provento";
+    return "<tr><td style='width:70px;'>" + (r.codigo || "") + "</td>"
+      + "<td>" + (r.descricao || "") + "</td>"
+      + "<td style='text-align:right;'>" + fmt(r.referencia) + "</td>"
+      + "<td style='text-align:right;color:" + cor + ";'>" + fmt(r.valor) + "</td>"
+      + "<td style='color:" + cor + ";font-size:12px;'>" + sinal + "</td></tr>";
+  }).join("");
+
+  celula.innerHTML = "<table style='width:100%;border-collapse:collapse;font-size:13px;'>"
+    + "<thead><tr><th style='text-align:left;'>Cód.</th><th style='text-align:left;'>Descrição</th>"
+    + "<th style='text-align:right;'>Referência</th><th style='text-align:right;'>Valor</th><th></th></tr></thead>"
+    + "<tbody>" + (linhas || "<tr><td colspan='5'>Sem rubricas.</td></tr>") + "</tbody></table>";
+  celula.dataset.carregado = "1";
+}
+</script>
+
+{% endblock %}

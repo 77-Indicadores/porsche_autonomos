@@ -7,7 +7,7 @@ from passlib.context import CryptContext
 
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-MODULOS = ["autonomos", "dho", "facilities"]
+MODULOS = ["autonomos", "dho", "facilities", "folha"]
 SESSION_COOKIE = "porsche_session"
 SESSION_SECRET = "change-this-in-production"
 serializer = URLSafeSerializer(SESSION_SECRET, salt="auth")
