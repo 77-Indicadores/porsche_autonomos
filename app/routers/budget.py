@@ -269,11 +269,19 @@ _cargos_novos_cols = [
 ]
 try:
     with engine.connect() as _conn:
-        _rows = _conn.execute(text("PRAGMA table_info(budget_cargos)")).fetchall()
-        existing = [row[1] for row in _rows]
-        for col, coldef in _cargos_novos_cols:
-            if col not in existing:
-                _conn.execute(text(f"ALTER TABLE budget_cargos ADD COLUMN {col} {coldef}"))
+        dialect = engine.dialect.name  # "sqlite" ou "postgresql"
+        if dialect == "sqlite":
+            _rows = _conn.execute(text("PRAGMA table_info(budget_cargos)")).fetchall()
+            existing = [row[1] for row in _rows]
+            for col, coldef in _cargos_novos_cols:
+                if col not in existing:
+                    _conn.execute(text(f"ALTER TABLE budget_cargos ADD COLUMN {col} {coldef}"))
+        else:
+            # PostgreSQL: ADD COLUMN IF NOT EXISTS
+            for col, coldef in _cargos_novos_cols:
+                _conn.execute(text(
+                    f"ALTER TABLE budget_cargos ADD COLUMN IF NOT EXISTS {col} {coldef}"
+                ))
         _conn.commit()
 except Exception as _e:
     import logging
