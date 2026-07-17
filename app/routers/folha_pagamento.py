@@ -15,7 +15,9 @@ from __future__ import annotations
 from datetime import datetime
 from decimal import Decimal
 
-from fastapi import APIRouter, Depends, File, List, Request, UploadFile
+from typing import List
+
+from fastapi import APIRouter, Depends, File, Request, UploadFile
 from fastapi.responses import RedirectResponse, Response
 from sqlalchemy import (
     Column,
