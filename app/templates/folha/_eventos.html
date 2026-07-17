@@ -1,0 +1,34 @@
+{# Tabela longa de eventos (uma linha por rubrica).
+   Colunas: <leading...> · Evento · Referencia · Valor.
+   Espera: eventos_leading (rótulos das colunas de identificação) e
+   eventos_linhas (cada uma com .leading = valores + codigo/descricao/tipo/hora/valor). #}
+{% if eventos_linhas %}
+<div class="folha-wrap">
+  <table class="folha-tbl compact">
+    <thead>
+      <tr>
+        {% for h in eventos_leading %}
+        <th>{{ h }}</th>
+        {% endfor %}
+        <th>Evento</th>
+        <th class="num">Referencia</th>
+        <th class="num">Valor</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for l in eventos_linhas %}
+      <tr>
+        {% for cel in l.leading %}
+        <td>{{ cel }}</td>
+        {% endfor %}
+        <td class="{{ 'folha-prov' if l.tipo == 'P' else 'folha-desc' }}">{{ l.codigo }} {{ l.descricao }}</td>
+        <td class="num" style="color:#64748b;">{{ l.hora }}</td>
+        <td class="num {{ 'folha-prov' if l.tipo == 'P' else 'folha-desc' }}">{{ l.valor | money_br }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+<p style="color:#64748b;">Sem eventos para exibir.</p>
+{% endif %}

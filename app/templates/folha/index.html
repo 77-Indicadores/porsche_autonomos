@@ -1,0 +1,158 @@
+{% extends "base.html" %}
+
+{% block header %}Folha de Pagamento{% endblock %}
+{% block subtitle %}Importe os extratos mensais em PDF. O sistema lê o arquivo e monta a base de dados.{% endblock %}
+
+{% block content %}
+{% include "folha/_estilo.html" %}
+
+<section class="exec-hero">
+  <div>
+    <span class="exec-label">Folha</span>
+    <h2>Extratos importados</h2>
+    <p>
+      Cada PDF de extrato mensal vira base de dados: empresa, competência,
+      funcionários e rubricas (proventos e descontos). Você pode excluir e
+      reenviar um arquivo a qualquer momento.
+    </p>
+  </div>
+
+  <div class="exec-hero-card">
+    <span>Arquivos</span>
+    <strong>{{ resumo.arquivos }}</strong>
+    <small>{{ resumo.funcionarios }} funcionário(s) na base</small>
+  </div>
+</section>
+
+<section class="exec-grid">
+  <article class="panel">
+    <div class="panel-head">
+      <div>
+        <h3>📄 Importar extrato (PDF)</h3>
+        <p style="margin:6px 0 0;color:#64748b;font-size:13px;">
+          Selecione um PDF de extrato mensal. Aceita arquivo com um ou vários funcionários.
+        </p>
+      </div>
+    </div>
+
+    {% if is_admin %}
+    <form method="post" action="/folha/upload" enctype="multipart/form-data" class="form-grid">
+      <div class="span-3">
+        <label class="label">Arquivo PDF da folha</label>
+        <input class="input" type="file" name="arquivo" accept=".pdf" required>
+      </div>
+      <div class="span-3 ux-actions-row">
+        <button class="btn-primary">Importar folha</button>
+      </div>
+    </form>
+    {% else %}
+    <p style="color:#b91c1c;font-size:13px;">Apenas administradores podem importar arquivos.</p>
+    {% endif %}
+  </article>
+
+  <article class="panel">
+    <div class="panel-head">
+      <div>
+        <h3>💰 Totais consolidados</h3>
+      </div>
+    </div>
+    <div class="modulos-mini-kpis" style="margin-top:12px;">
+      <div><b>{{ resumo.proventos | money_br }}</b><span>Proventos</span></div>
+      <div><b>{{ resumo.liquido | money_br }}</b><span>Líquido</span></div>
+    </div>
+  </article>
+</section>
+
+<section class="panel" style="margin-top:18px;">
+  <div class="panel-head"><div><h3>Arquivos importados</h3></div></div>
+
+  {% if arquivos %}
+  <div class="folha-wrap">
+    <table class="folha-tbl">
+      <thead>
+        <tr>
+          <th>Arquivo</th>
+          <th>Empresa</th>
+          <th>Competência</th>
+          <th class="num">Func.</th>
+          <th class="num">Proventos</th>
+          <th class="num">Descontos</th>
+          <th class="num">Líquido</th>
+          <th>Enviado</th>
+          <th style="text-align:right;">Ações</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for a in arquivos %}
+        <tr>
+          <td>📄 <a href="/folha/{{ a.id_arquivo }}">{{ a.nome_arquivo }}</a></td>
+          <td>{{ a.empresa_nome or '-' }}</td>
+          <td><span class="folha-badge">{{ a.competencia or '-' }}</span></td>
+          <td class="num">{{ a.qtd_funcionarios }}</td>
+          <td class="num folha-prov">{{ a.total_proventos | money_br }}</td>
+          <td class="num folha-desc">{{ a.total_descontos | money_br }}</td>
+          <td class="num" style="font-weight:700;">{{ a.total_liquido | money_br }}</td>
+          <td style="font-size:12px;color:#64748b;">{{ a.enviado_por or '-' }}</td>
+          <td style="text-align:right;">
+            <span class="folha-acoes">
+              <a class="btn-secondary" href="/folha/{{ a.id_arquivo }}">Ver</a>
+              <a class="btn-secondary" href="/folha/{{ a.id_arquivo }}/pdf">PDF</a>
+              {% if is_admin %}
+              <form method="post" action="/folha/{{ a.id_arquivo }}/excluir" style="display:inline;"
+                    onsubmit="return confirm('Excluir o arquivo {{ a.nome_arquivo }} e todos os seus dados?');">
+                <button class="btn-danger" type="submit">Excluir</button>
+              </form>
+              {% endif %}
+            </span>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <p style="color:#64748b;">Nenhum arquivo importado ainda. Use o formulário acima para enviar o primeiro extrato.</p>
+  {% endif %}
+</section>
+
+<section class="panel" style="margin-top:18px;">
+  <div class="panel-head">
+    <div>
+      <h3>Dados consolidados</h3>
+      <p style="margin:6px 0 0;color:#64748b;font-size:13px;">
+        Uma linha por evento de cada funcionário, com todos os campos do extrato +
+        <b>Evento</b>, <b>Referencia</b> e <b>Valor</b>. Use os filtros para restringir.
+      </p>
+    </div>
+  </div>
+
+  <form method="get" action="/folha" class="ux-actions-row" style="gap:10px;align-items:flex-end;margin:6px 0 14px;flex-wrap:wrap;">
+    <div>
+      <label class="label">Empresa</label>
+      <select class="input" name="empresa">
+        <option value="">Todas</option>
+        {% for e in empresas %}
+        <option value="{{ e }}" {% if e == filtro_empresa %}selected{% endif %}>{{ e }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div>
+      <label class="label">Competência</label>
+      <select class="input" name="competencia">
+        <option value="">Todas</option>
+        {% for c in competencias %}
+        <option value="{{ c }}" {% if c == filtro_competencia %}selected{% endif %}>{{ c }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <button class="btn-primary" type="submit">Filtrar</button>
+    {% if filtro_empresa or filtro_competencia %}
+    <a class="btn-secondary" href="/folha">Limpar</a>
+    {% endif %}
+    <span style="color:#64748b;font-size:13px;">{{ eventos_linhas|length }} evento(s)</span>
+  </form>
+
+  {% include "folha/_eventos.html" %}
+</section>
+
+{% endblock %}

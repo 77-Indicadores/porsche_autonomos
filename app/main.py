@@ -327,3 +327,17 @@ except Exception as exc:
 app.include_router(referencias_importacao.router)
 app.include_router(facilities.router)
 app.include_router(composicao_meta_equipe.router)
+
+# ============================================================
+# Router Folha de Pagamento
+# ============================================================
+try:
+    import importlib
+    folha_runtime = importlib.import_module("app.routers.folha_pagamento")
+    app.include_router(folha_runtime.router)
+    print("OK - Rota /folha registrada.")
+except Exception as exc:
+    import traceback
+    print("ERRO AO REGISTRAR /folha")
+    print(exc)
+    print(traceback.format_exc())
