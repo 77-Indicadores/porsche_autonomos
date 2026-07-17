@@ -96,6 +96,16 @@ budget_cargos = Table(
     Column("bate_ponto", Boolean, default=True),
     Column("pct_adicional_25", Float, default=0.0),
     Column("pct_he_sobre_25", Float, default=0.0),
+    # flags de vínculo por cargo
+    Column("tem_fgts", Boolean, default=True),
+    Column("tem_inss", Boolean, default=True),
+    Column("tem_d13", Boolean, default=True),
+    Column("tem_ferias", Boolean, default=True),
+    Column("tem_terca", Boolean, default=True),
+    Column("tem_aviso", Boolean, default=True),
+    Column("tem_plr", Boolean, default=False),
+    Column("pode_he", Boolean, default=True),
+    Column("pode_beneficios", Boolean, default=True),
     Column("status", String(20), default="Ativo"),
     Column("vigencia_inicio", String(10)),
     Column("vigencia_fim", String(10)),
@@ -244,6 +254,25 @@ budget_resultado = Table(
 )
 
 metadata_budget.create_all(engine)
+
+# Migração: adiciona colunas de vínculo ao budget_cargos se não existirem
+_cargos_novos_cols = [
+    ("tem_fgts", "BOOLEAN DEFAULT 1"),
+    ("tem_inss", "BOOLEAN DEFAULT 1"),
+    ("tem_d13", "BOOLEAN DEFAULT 1"),
+    ("tem_ferias", "BOOLEAN DEFAULT 1"),
+    ("tem_terca", "BOOLEAN DEFAULT 1"),
+    ("tem_aviso", "BOOLEAN DEFAULT 1"),
+    ("tem_plr", "BOOLEAN DEFAULT 0"),
+    ("pode_he", "BOOLEAN DEFAULT 1"),
+    ("pode_beneficios", "BOOLEAN DEFAULT 1"),
+]
+with engine.connect() as _conn:
+    existing = [r[1] for r in _conn.execute(text("PRAGMA table_info(budget_cargos)")).fetchall()]
+    for col, coldef in _cargos_novos_cols:
+        if col not in existing:
+            _conn.execute(text(f"ALTER TABLE budget_cargos ADD COLUMN {col} {coldef}"))
+    _conn.commit()
 
 # Cenários padrão
 def _seed_cenarios(db: Session):
@@ -760,6 +789,15 @@ def budget_cargos_list(request: Request, db: Session = Depends(get_db)):
             "bate_ponto": p.get("bate_ponto", True),
             "pct_adicional_25": p.get("pct_adicional_25", 0.0),
             "pct_he_sobre_25": p.get("pct_he_sobre_25", 0.0),
+            "tem_fgts": p.get("tem_fgts", True),
+            "tem_inss": p.get("tem_inss", True),
+            "tem_d13": p.get("tem_d13", True),
+            "tem_ferias": p.get("tem_ferias", True),
+            "tem_terca": p.get("tem_terca", True),
+            "tem_aviso": p.get("tem_aviso", True),
+            "tem_plr": p.get("tem_plr", False),
+            "pode_he": p.get("pode_he", True),
+            "pode_beneficios": p.get("pode_beneficios", True),
             "status": p.get("status", "Ativo"),
             "cadastrado": bool(p),
         })
@@ -787,6 +825,15 @@ async def budget_cargos_salvar(request: Request, db: Session = Depends(get_db)):
             bate_ponto=form.get(f"ponto_{cod}") == "1",
             pct_adicional_25=float(form.get(f"p25_{cod}") or 0),
             pct_he_sobre_25=float(form.get(f"he25_{cod}") or 0),
+            tem_fgts=form.get(f"fgts_{cod}") == "1",
+            tem_inss=form.get(f"inss_{cod}") == "1",
+            tem_d13=form.get(f"d13_{cod}") == "1",
+            tem_ferias=form.get(f"fer_{cod}") == "1",
+            tem_terca=form.get(f"t1_{cod}") == "1",
+            tem_aviso=form.get(f"avi_{cod}") == "1",
+            tem_plr=form.get(f"plr_{cod}") == "1",
+            pode_he=form.get(f"he_{cod}") == "1",
+            pode_beneficios=form.get(f"ben_{cod}") == "1",
             status=form.get(f"status_{cod}", "Ativo"),
             vigencia_fim=None,
         )

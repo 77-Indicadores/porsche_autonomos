@@ -1,30 +1,24 @@
 {% extends "base.html" %}
 {% block header %}Budget — Parâmetros{% endblock %}
-{% block subtitle %}Configurações de cargos, vínculos, verbas, benefícios e encargos{% endblock %}
+{% block subtitle %}Todos os parâmetros por cargo em uma só tela{% endblock %}
 {% block content %}
 {% if success %}<div class="alert success">{{ success }}</div>{% endif %}
 {% if error %}<div class="alert error">{{ error }}</div>{% endif %}
 
-<div style="display:flex;gap:.25rem;margin-bottom:1.25rem;border-bottom:2px solid #e5e7eb;padding-bottom:0">
-  {% set tabs=[("cargos","🪪 Cargos"),("vinculos","📋 Vínculos"),("verbas","📝 Verbas"),("beneficios","🎁 Benefícios"),("encargos","🏛️ Encargos")] %}
-  {% for slug,label in tabs %}
-  <a href="/folha/budget/{{ slug }}" style="padding:.5rem 1.1rem;font-size:.84rem;font-weight:600;border-radius:6px 6px 0 0;text-decoration:none;border:1px solid {% if slug=='cargos' %}#e5e7eb;border-bottom:2px solid #fff;color:#dc2626;background:#fff{% else %}transparent;border-bottom:none;color:#6b7280;background:transparent{% endif %}">{{ label }}</a>
-  {% endfor %}
-</div>
-
 <style>
-  .cargos-table { width:100%; border-collapse:collapse; font-size:.83rem; }
-  .cargos-table th { background:#f9fafb; padding:.5rem .75rem; font-size:.67rem; font-weight:700; color:#6b7280; text-transform:uppercase; letter-spacing:.05em; border-bottom:2px solid #e5e7eb; white-space:nowrap; text-align:left; }
-  .cargos-table td { padding:.4rem .6rem; border-bottom:1px solid #f3f4f6; vertical-align:middle; }
-  .cargos-table tr:hover td { background:#fafafa; }
-  .cargos-table input[type=text] { width:100%; padding:.3rem .5rem; border:1px solid #e5e7eb; border-radius:5px; font-size:.82rem; box-sizing:border-box; background:transparent; }
-  .cargos-table input[type=text]:focus { outline:none; border-color:#dc2626; background:#fff; }
-  .cargos-table select.sel-sm { padding:.3rem .4rem; border:1px solid #e5e7eb; border-radius:5px; font-size:.82rem; background:transparent; }
-  .cargos-table select.sel-sm:focus { outline:none; border-color:#dc2626; }
-  .chk-cell { text-align:center; }
-  .chk-cell input[type=checkbox] { width:16px; height:16px; cursor:pointer; accent-color:#dc2626; }
-  .badge-novo { font-size:.65rem; font-weight:700; padding:.1rem .4rem; border-radius:999px; background:#dcfce7; color:#166534; }
-  .badge-ok  { font-size:.65rem; font-weight:700; padding:.1rem .4rem; border-radius:999px; background:#dbeafe; color:#1e40af; }
+  .it{padding:.28rem .4rem;border:1px solid #e5e7eb;border-radius:4px;font-size:.78rem;box-sizing:border-box;background:transparent;width:100%}
+  .it:focus{outline:none;border-color:#dc2626;background:#fff}
+  .sel-sm{padding:.28rem .3rem;border:1px solid #e5e7eb;border-radius:4px;font-size:.78rem;background:transparent;width:100%}
+  .sel-sm:focus{outline:none;border-color:#dc2626}
+  .chk{width:15px;height:15px;cursor:pointer;accent-color:#dc2626}
+  .tbl th{background:#f9fafb;padding:.4rem .5rem;font-size:.62rem;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:.04em;border-bottom:2px solid #e5e7eb;white-space:nowrap;text-align:center}
+  .tbl th.left{text-align:left}
+  .tbl td{padding:.3rem .4rem;border-bottom:1px solid #f3f4f6;vertical-align:middle;text-align:center}
+  .tbl td.left{text-align:left}
+  .tbl tr:hover td{background:#fafafa}
+  .badge-novo{font-size:.6rem;font-weight:700;padding:.1rem .35rem;border-radius:999px;background:#dcfce7;color:#166534}
+  .badge-ok{font-size:.6rem;font-weight:700;padding:.1rem .35rem;border-radius:999px;background:#dbeafe;color:#1e40af}
+  .grp-sep{background:#f9fafb;padding:.25rem .5rem;font-size:.62rem;font-weight:700;color:#9ca3af;text-transform:uppercase;letter-spacing:.08em;border-bottom:1px solid #e5e7eb;border-top:2px solid #e5e7eb}
 </style>
 
 {% if not cargos %}
@@ -33,25 +27,40 @@
 </div>
 {% else %}
 <form method="post" action="/folha/budget/cargos">
-  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.75rem">
-    <span style="font-size:.82rem;color:#6b7280">{{ cargos|length }} cargo(s) encontrado(s) na folha</span>
-    <button type="submit" style="padding:.5rem 1.5rem;background:#dc2626;color:#fff;border:none;border-radius:7px;font-weight:600;cursor:pointer;font-size:.9rem">💾 Salvar tudo</button>
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.6rem">
+    <span style="font-size:.82rem;color:#6b7280">{{ cargos|length }} cargo(s) da folha</span>
+    <button type="submit" style="padding:.45rem 1.4rem;background:#dc2626;color:#fff;border:none;border-radius:7px;font-weight:600;cursor:pointer;font-size:.85rem">💾 Salvar tudo</button>
   </div>
 
   <div style="background:#fff;border:1px solid #e5e7eb;border-radius:10px;overflow:auto">
-    <table class="cargos-table">
+    <table class="tbl" style="width:100%;border-collapse:collapse;font-size:.78rem">
       <thead>
         <tr>
-          <th style="width:70px">Código</th>
-          <th style="min-width:180px">Descrição</th>
-          <th style="min-width:110px">Grupo</th>
-          <th style="min-width:110px">Área</th>
-          <th style="min-width:80px">Nível</th>
-          <th class="chk-cell" style="width:80px">Bate Ponto</th>
-          <th style="width:100px">% Adic. 25%</th>
-          <th style="width:100px">% HE s/25%</th>
-          <th style="width:90px">Status</th>
-          <th style="width:50px"></th>
+          <th class="left" style="min-width:60px;position:sticky;left:0;z-index:2;background:#f9fafb">Cód.</th>
+          <th class="left" style="min-width:160px">Descrição</th>
+          <th style="min-width:90px">Grupo</th>
+          <th style="min-width:80px">Área</th>
+          <th style="min-width:70px">Nível</th>
+          <th style="width:52px" title="Bate Ponto">Ponto</th>
+          <th style="width:60px" title="% Adicional Noturno / Periculosidade 25%">%Adic</th>
+          <th style="width:60px" title="% HE sobre 25%">%HE</th>
+          <th colspan="9" style="background:#fef3c7;color:#92400e;border-left:2px solid #fde68a;border-right:2px solid #fde68a">Encargos / Vínculos</th>
+          <th style="width:70px">Status</th>
+          <th style="width:30px"></th>
+        </tr>
+        <tr>
+          <th class="left" style="position:sticky;left:0;z-index:2;background:#f9fafb"></th>
+          <th></th><th></th><th></th><th></th><th></th><th></th><th></th>
+          <th style="width:38px;background:#fef9ee;border-left:2px solid #fde68a;font-size:.58rem">FGTS</th>
+          <th style="width:38px;background:#fef9ee;font-size:.58rem">INSS</th>
+          <th style="width:38px;background:#fef9ee;font-size:.58rem">13º</th>
+          <th style="width:38px;background:#fef9ee;font-size:.58rem">Férias</th>
+          <th style="width:38px;background:#fef9ee;font-size:.58rem">1/3</th>
+          <th style="width:38px;background:#fef9ee;font-size:.58rem">Aviso</th>
+          <th style="width:38px;background:#fef9ee;font-size:.58rem">PLR</th>
+          <th style="width:38px;background:#fef9ee;font-size:.58rem">HE</th>
+          <th style="width:38px;background:#fef9ee;border-right:2px solid #fde68a;font-size:.58rem">Ben.</th>
+          <th></th><th></th>
         </tr>
       </thead>
       <tbody>
@@ -59,44 +68,55 @@
         <tr>
           <input type="hidden" name="cod_{{ c.codigo_cargo }}" value="{{ c.codigo_cargo }}">
           <input type="hidden" name="id_{{ c.codigo_cargo }}" value="{{ c.id }}">
-          <td style="font-weight:700;font-size:.8rem;color:#374151">
+          <td class="left" style="font-weight:700;font-size:.75rem;position:sticky;left:0;background:#fff;z-index:1">
             {{ c.codigo_cargo }}
             <span class="{{ 'badge-ok' if c.cadastrado else 'badge-novo' }}">{{ 'OK' if c.cadastrado else 'NOVO' }}</span>
           </td>
-          <td><input type="text" name="desc_{{ c.codigo_cargo }}" value="{{ c.descricao or c.nome_folha }}"></td>
-          <td><input type="text" name="grupo_{{ c.codigo_cargo }}" value="{{ c.grupo or '' }}" placeholder="—"></td>
-          <td><input type="text" name="area_{{ c.codigo_cargo }}" value="{{ c.area or '' }}" placeholder="—"></td>
-          <td><input type="text" name="nivel_{{ c.codigo_cargo }}" value="{{ c.nivel or '' }}" placeholder="Jr/Pl/Sr"></td>
-          <td class="chk-cell">
+          <td class="left"><input class="it" name="desc_{{ c.codigo_cargo }}" value="{{ c.descricao or c.nome_folha }}"></td>
+          <td><input class="it" name="grupo_{{ c.codigo_cargo }}" value="{{ c.grupo or '' }}" placeholder="—"></td>
+          <td><input class="it" name="area_{{ c.codigo_cargo }}" value="{{ c.area or '' }}" placeholder="—"></td>
+          <td><input class="it" name="nivel_{{ c.codigo_cargo }}" value="{{ c.nivel or '' }}" placeholder="Jr/Pl/Sr"></td>
+          <td>
             <input type="hidden" name="ponto_{{ c.codigo_cargo }}" value="0">
-            <input type="checkbox" name="ponto_{{ c.codigo_cargo }}" value="1" {% if c.bate_ponto %}checked{% endif %}>
+            <input type="checkbox" class="chk" name="ponto_{{ c.codigo_cargo }}" value="1" {% if c.bate_ponto %}checked{% endif %}>
           </td>
           <td>
-            <select class="sel-sm" name="p25_{{ c.codigo_cargo }}" style="width:100%">
-              <option value="0" {% if (c.pct_adicional_25 or 0) == 0 %}selected{% endif %}>0%</option>
-              <option value="0.25" {% if (c.pct_adicional_25 or 0) == 0.25 %}selected{% endif %}>25%</option>
-              <option value="0.30" {% if (c.pct_adicional_25 or 0) == 0.30 %}selected{% endif %}>30%</option>
-              <option value="0.50" {% if (c.pct_adicional_25 or 0) == 0.50 %}selected{% endif %}>50%</option>
+            <select class="sel-sm" name="p25_{{ c.codigo_cargo }}">
+              <option value="0" {% if (c.pct_adicional_25 or 0)==0 %}selected{% endif %}>0%</option>
+              <option value="0.25" {% if (c.pct_adicional_25 or 0)==0.25 %}selected{% endif %}>25%</option>
+              <option value="0.30" {% if (c.pct_adicional_25 or 0)==0.30 %}selected{% endif %}>30%</option>
+              <option value="0.50" {% if (c.pct_adicional_25 or 0)==0.50 %}selected{% endif %}>50%</option>
             </select>
           </td>
           <td>
-            <select class="sel-sm" name="he25_{{ c.codigo_cargo }}" style="width:100%">
-              <option value="0" {% if (c.pct_he_sobre_25 or 0) == 0 %}selected{% endif %}>0%</option>
-              <option value="0.25" {% if (c.pct_he_sobre_25 or 0) == 0.25 %}selected{% endif %}>25%</option>
-              <option value="0.50" {% if (c.pct_he_sobre_25 or 0) == 0.50 %}selected{% endif %}>50%</option>
-              <option value="0.75" {% if (c.pct_he_sobre_25 or 0) == 0.75 %}selected{% endif %}>75%</option>
+            <select class="sel-sm" name="he25_{{ c.codigo_cargo }}">
+              <option value="0" {% if (c.pct_he_sobre_25 or 0)==0 %}selected{% endif %}>0%</option>
+              <option value="0.25" {% if (c.pct_he_sobre_25 or 0)==0.25 %}selected{% endif %}>25%</option>
+              <option value="0.50" {% if (c.pct_he_sobre_25 or 0)==0.50 %}selected{% endif %}>50%</option>
+              <option value="0.75" {% if (c.pct_he_sobre_25 or 0)==0.75 %}selected{% endif %}>75%</option>
+            </select>
+          </td>
+          {% set chkflags = [
+            ("fgts", c.tem_fgts),("inss", c.tem_inss),("d13", c.tem_d13),
+            ("fer", c.tem_ferias),("t1", c.tem_terca),("avi", c.tem_aviso),
+            ("plr", c.tem_plr),("he", c.pode_he),("ben", c.pode_beneficios)
+          ] %}
+          {% for fn, val in chkflags %}
+          <td style="background:#fef9ee;{% if loop.first %}border-left:2px solid #fde68a;{% endif %}{% if loop.last %}border-right:2px solid #fde68a;{% endif %}">
+            <input type="hidden" name="{{ fn }}_{{ c.codigo_cargo }}" value="0">
+            <input type="checkbox" class="chk" name="{{ fn }}_{{ c.codigo_cargo }}" value="1" {% if val %}checked{% endif %}>
+          </td>
+          {% endfor %}
+          <td>
+            <select class="sel-sm" name="status_{{ c.codigo_cargo }}">
+              <option {% if c.status=='Ativo' %}selected{% endif %}>Ativo</option>
+              <option {% if c.status=='Inativo' %}selected{% endif %}>Inativo</option>
             </select>
           </td>
           <td>
-            <select class="sel-sm" name="status_{{ c.codigo_cargo }}" style="width:100%">
-              <option value="Ativo" {% if c.status == 'Ativo' %}selected{% endif %}>Ativo</option>
-              <option value="Inativo" {% if c.status == 'Inativo' %}selected{% endif %}>Inativo</option>
-            </select>
-          </td>
-          <td style="text-align:center">
             {% if c.id %}
             <form method="post" action="/folha/budget/cargos/{{ c.id }}/excluir" style="margin:0" onsubmit="return confirm('Excluir {{ c.codigo_cargo }}?')">
-              <button type="submit" style="padding:.2rem .5rem;border:1px solid #fca5a5;border-radius:4px;font-size:.75rem;background:transparent;color:#dc2626;cursor:pointer">🗑️</button>
+              <button type="submit" style="padding:.15rem .4rem;border:1px solid #fca5a5;border-radius:4px;font-size:.72rem;background:transparent;color:#dc2626;cursor:pointer">🗑️</button>
             </form>
             {% endif %}
           </td>
@@ -106,8 +126,8 @@
     </table>
   </div>
 
-  <div style="margin-top:.75rem;text-align:right">
-    <button type="submit" style="padding:.5rem 1.5rem;background:#dc2626;color:#fff;border:none;border-radius:7px;font-weight:600;cursor:pointer;font-size:.9rem">💾 Salvar tudo</button>
+  <div style="margin-top:.6rem;text-align:right">
+    <button type="submit" style="padding:.45rem 1.4rem;background:#dc2626;color:#fff;border:none;border-radius:7px;font-weight:600;cursor:pointer;font-size:.85rem">💾 Salvar tudo</button>
   </div>
 </form>
 {% endif %}
