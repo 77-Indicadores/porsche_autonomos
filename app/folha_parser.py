@@ -248,26 +248,27 @@ def parse_folha_pdf(conteudo: bytes) -> FolhaExtraida:
 
                 m = RE_VINCULO.match(texto)
                 if m:
-                    funcionario.vinculo = m.group(1).strip()
-                    funcionario.centro_custo = m.group(2).strip()
-                    funcionario.departamento = m.group(3).strip()
-                    funcionario.horas_mes = _parse_valor(m.group(4))
+                    if not funcionario.vinculo:
+                        funcionario.vinculo = m.group(1).strip()
+                        funcionario.centro_custo = m.group(2).strip()
+                        funcionario.departamento = m.group(3).strip()
+                        funcionario.horas_mes = _parse_valor(m.group(4))
                     continue
 
                 m = RE_CARGO.match(texto)
                 if m:
-                    funcionario.codigo_cargo = (m.group(1) or "").strip()
-                    # Remove CBO garbage glued to end of cargo name
-                    # e.g. "RELACIONAMENCT.BO. OP:L252105" → "RELACIONAMEN"
-                    # e.g. "MANUTENÇÃO C.B.O: 123456" → "MANUTENÇÃO"
-                    cargo_raw = m.group(2).strip()
-                    # CBO glued without space (CT.BO.) or with space (C.B.O:)
-                    cargo_raw = re.sub(r'C[\w.]*B[\w.]*O[\w.:]*\s+\S*\d{4,}\s*$', '', cargo_raw)
-                    cargo_raw = re.sub(r'\s+C\.B\.O[.:].*$', '', cargo_raw)
-                    funcionario.cargo = cargo_raw.strip()
-                    funcionario.cbo = ""
-                    funcionario.filial = m.group(3).strip()
-                    funcionario.salario = _parse_valor(m.group(4))
+                    # Só registra o primeiro cargo (quando há múltiplos vínculos no mesmo extrato,
+                    # como estagiária + autônomo + sócio, mantemos o principal que vem primeiro)
+                    if not funcionario.codigo_cargo:
+                        cargo_raw = m.group(2).strip()
+                        # Remove CBO glued to end of cargo name
+                        cargo_raw = re.sub(r'C[\w.]*B[\w.]*O[\w.:]*\s+\S*\d{4,}\s*$', '', cargo_raw)
+                        cargo_raw = re.sub(r'\s+C\.B\.O[.:].*$', '', cargo_raw)
+                        funcionario.codigo_cargo = (m.group(1) or "").strip()
+                        funcionario.cargo = cargo_raw.strip()
+                        funcionario.cbo = ""
+                        funcionario.filial = m.group(3).strip()
+                        funcionario.salario = _parse_valor(m.group(4))
                     continue
 
                 m = RE_TOTAIS.match(texto)

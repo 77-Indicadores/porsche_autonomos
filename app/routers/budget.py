@@ -94,6 +94,8 @@ budget_cargos = Table(
     Column("nome", String(200)),
     Column("descricao", String(200)),
     Column("salario", Float, default=0.0),
+    Column("horas_mes", Float, default=200.0),
+    Column("dependentes", Integer, default=0),
     Column("tem_periculosidade", Boolean, default=False),
     Column("bate_ponto", Boolean, default=True),
     Column("pct_adicional_25", Float, default=0.0),
@@ -276,6 +278,8 @@ try:
                 ("matricula", "VARCHAR(40)"),
                 ("nome", "VARCHAR(200)"),
                 ("salario", "FLOAT DEFAULT 0"),
+                ("horas_mes", "FLOAT DEFAULT 200"),
+                ("dependentes", "INTEGER DEFAULT 0"),
                 ("tem_periculosidade", "BOOLEAN DEFAULT 0"),
             ]
             _rows = _conn.execute(text("PRAGMA table_info(budget_cargos)")).fetchall()
@@ -299,6 +303,8 @@ try:
                 ("matricula", "VARCHAR(40)"),
                 ("nome", "VARCHAR(200)"),
                 ("salario", "FLOAT DEFAULT 0"),
+                ("horas_mes", "FLOAT DEFAULT 200"),
+                ("dependentes", "INTEGER DEFAULT 0"),
                 ("tem_periculosidade", "BOOLEAN DEFAULT FALSE"),
             ]
             for col, coldef in _cargos_novos_cols_pg:
@@ -800,7 +806,7 @@ def budget_cargos_list(request: Request, db: Session = Depends(get_db)):
     pessoas_folha = db.execute(
         text("""
             SELECT ff.matricula, ff.nome, ff.codigo_cargo, ff.cargo,
-                   ff.salario, ff.competencia,
+                   ff.salario, ff.horas_mes, ff.competencia,
                    fa.empresa_nome as empresa,
                    MAX(ff.id_funcionario) as id_func
             FROM folha_funcionarios ff
@@ -848,6 +854,8 @@ def budget_cargos_list(request: Request, db: Session = Depends(get_db)):
             "id": p.get("id", ""),
             "descricao": p.get("descricao") or c["cargo"] or "",
             "salario": p.get("salario") or c["salario"] or 0.0,
+            "horas_mes": p.get("horas_mes") or c["horas_mes"] or 200.0,
+            "dependentes": p.get("dependentes") or 0,
             "tem_periculosidade": p.get("tem_periculosidade", recebeu_peric),
             "bate_ponto": p.get("bate_ponto", True),
             "pct_adicional_25": p.get("pct_adicional_25", 0.0),
@@ -890,6 +898,8 @@ async def budget_cargos_salvar(request: Request, db: Session = Depends(get_db)):
             codigo_cargo=cod,
             descricao=form.get(f"desc_{chv}", "") or cod,
             salario=float(form.get(f"sal_{chv}") or 0),
+            horas_mes=float(form.get(f"hrs_{chv}") or 200),
+            dependentes=int(form.get(f"dep_{chv}") or 0),
             tem_periculosidade=form.get(f"peric_{chv}") == "1",
             bate_ponto=form.get(f"ponto_{chv}") == "1",
             pct_adicional_25=float(form.get(f"p25_{chv}") or 0),

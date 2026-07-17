@@ -45,6 +45,8 @@
           <th class="left" style="min-width:160px">Nome</th>
           <th class="left" style="min-width:140px">Descrição cargo</th>
           <th style="min-width:90px" title="Salário base">Salário</th>
+          <th style="width:45px" title="Carga horária mensal">Hrs/mês</th>
+          <th style="width:38px" title="Número de dependentes">Dep.</th>
           <th style="width:48px" title="Recebeu periculosidade">Peric.</th>
           <th style="width:48px" title="Bate ponto">Ponto</th>
           <th style="width:60px" title="% Adicional Noturno/Periculosidade">%Adic</th>
@@ -55,7 +57,7 @@
         </tr>
         <tr>
           <th class="left" style="position:sticky;left:0;z-index:2;background:#f9fafb"></th>
-          <th></th><th></th><th></th><th></th><th></th><th></th><th></th><th></th><th></th>
+          <th></th><th></th><th></th><th></th><th></th><th></th><th></th><th></th><th></th><th></th><th></th>
           <th style="width:38px;background:#fef9ee;border-left:2px solid #fde68a;font-size:.58rem">FGTS</th>
           <th style="width:38px;background:#fef9ee;font-size:.58rem">INSS</th>
           <th style="width:38px;background:#fef9ee;font-size:.58rem">13º</th>
@@ -89,6 +91,8 @@
           <td class="left"><input class="it" name="nome_{{ chv }}" value="{{ c.nome }}"></td>
           <td class="left"><input class="it" name="desc_{{ chv }}" value="{{ c.descricao or c.nome_folha }}"></td>
           <td><input class="it it-num" name="sal_{{ chv }}" type="number" step="0.01" min="0" value="{{ '%.2f'|format(c.salario or 0) }}"></td>
+          <td><input class="it it-num" name="hrs_{{ chv }}" type="number" step="1" min="0" value="{{ (c.horas_mes or 200)|int }}"></td>
+          <td><input class="it it-num" name="dep_{{ chv }}" type="number" step="1" min="0" value="{{ c.dependentes or 0 }}"></td>
           <td>
             <input type="hidden" name="peric_{{ chv }}" value="0">
             <input type="checkbox" class="chk" name="peric_{{ chv }}" value="1" {% if c.tem_periculosidade %}checked{% endif %}>
