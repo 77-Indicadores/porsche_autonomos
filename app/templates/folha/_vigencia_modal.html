@@ -1,0 +1,70 @@
+<!-- Modal de vigência — incluído em todos os cadastros de budget -->
+<div id="modal-vig" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9000;align-items:center;justify-content:center">
+  <div style="background:#fff;border-radius:12px;padding:1.5rem 1.75rem;max-width:400px;width:92%;box-shadow:0 24px 64px rgba(0,0,0,.3)">
+    <h3 style="margin:0 0 .35rem;font-size:1rem;font-weight:700">Como deseja editar?</h3>
+    <p id="modal-desc" style="margin:0 0 1.25rem;font-size:.85rem;color:#6b7280"></p>
+    <div style="display:flex;flex-direction:column;gap:.6rem">
+      <button onclick="modalAlterar()" style="padding:.6rem 1rem;background:#1e40af;color:#fff;border:none;border-radius:7px;font-weight:600;cursor:pointer;text-align:left;font-size:.88rem">
+        ✏️ Alterar esta linha &nbsp;<span style="font-weight:400;font-size:.78rem;opacity:.8">— sobrescreve o registro atual</span>
+      </button>
+      <button onclick="modalNovaVigencia()" style="padding:.6rem 1rem;background:#16a34a;color:#fff;border:none;border-radius:7px;font-weight:600;cursor:pointer;text-align:left;font-size:.88rem">
+        📅 Nova vigência &nbsp;<span style="font-weight:400;font-size:.78rem;opacity:.8">— fecha o atual ontem e cria novo hoje</span>
+      </button>
+      <button onclick="fecharModalVig()" style="padding:.5rem 1rem;background:transparent;border:1px solid #d1d5db;border-radius:7px;color:#374151;cursor:pointer;font-size:.85rem">
+        Cancelar
+      </button>
+    </div>
+  </div>
+</div>
+<script>
+var _modalEditarFn = null;
+var _modalEditarId = null;
+var _modalDesc = '';
+
+function abrirModal(id, desc, fn) {
+  _modalEditarId = id;
+  _modalEditarFn = fn;
+  _modalDesc = desc;
+  document.getElementById('modal-desc').textContent = desc;
+  document.getElementById('modal-vig').style.display = 'flex';
+}
+
+function fecharModalVig() {
+  document.getElementById('modal-vig').style.display = 'none';
+  _modalEditarFn = null;
+  _modalEditarId = null;
+}
+
+function modalAlterar() {
+  fecharModalVig();
+  if (_modalEditarFn) _modalEditarFn();
+}
+
+function modalNovaVigencia() {
+  fecharModalVig();
+  if (_modalEditarFn) _modalEditarFn();
+  // Transforma em nova linha: limpa id, seta fechar_anterior_id, vigencia_inicio = hoje
+  document.getElementById('f-id').value = '';
+  var fecharEl = document.getElementById('f-fechar-id');
+  if (fecharEl) fecharEl.value = _modalEditarId;
+  var hoje = new Date().toISOString().slice(0,10);
+  var vi = document.getElementById('f-vi');
+  if (vi) vi.value = hoje;
+  var vf = document.getElementById('f-vf');
+  if (vf) vf.value = '';
+  var badge = document.getElementById('modo-badge');
+  if (badge) {
+    badge.textContent = 'NOVA VIGÊNCIA';
+    badge.style.cssText = 'font-size:.72rem;font-weight:600;padding:.2rem .6rem;border-radius:999px;background:#dbeafe;color:#1e40af';
+  }
+  var ft = document.getElementById('form-title');
+  if (ft) ft.textContent = ft.textContent.replace(/ \(.*\)$/, '') + ' (nova vigência)';
+  var mf = document.getElementById('main-form');
+  if (mf) { mf.style.background = '#eff6ff'; mf.scrollIntoView({behavior:'smooth',block:'start'}); }
+}
+
+// Fecha modal ao clicar fora
+document.getElementById('modal-vig').addEventListener('click', function(e){
+  if (e.target === this) fecharModalVig();
+});
+</script>

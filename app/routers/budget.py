@@ -280,6 +280,13 @@ def _usuario(request: Request) -> str:
     return u.get("nome") or u.get("email") or "sistema"
 
 
+def _fechar_vigencia(db: Session, table, id_ant: int) -> None:
+    """Fecha vigência do registro anterior com vigencia_fim = ontem."""
+    from datetime import timedelta
+    ontem = (date.today() - timedelta(days=1)).isoformat()
+    db.execute(update(table).where(table.c.id == id_ant).values(vigencia_fim=ontem))
+
+
 def _vigente(row, competencia: str) -> bool:
     """Verifica se um registro está vigente para a competência (YYYY-MM)."""
     inicio = str(row.get("vigencia_inicio") or "")
@@ -691,18 +698,23 @@ def budget_empresas_salvar(
     id: str = Form(""), codigo: str = Form(...), razao_social: str = Form(...),
     cnpj: str = Form(""), status: str = Form("Ativo"),
     vigencia_inicio: str = Form(""), vigencia_fim: str = Form(""),
+    fechar_anterior_id: str = Form(""),
 ):
     dados = dict(codigo=codigo.strip(), razao_social=razao_social.strip(),
-                 cnpj=cnpj.strip(), status=status,
-                 vigencia_inicio=vigencia_inicio or None,
-                 vigencia_fim=vigencia_fim or None)
+                 cnpj=cnpj.strip(), status=status, vigencia_fim=vigencia_fim or None)
     if id.strip():
+        dados["vigencia_inicio"] = vigencia_inicio or None
         db.execute(update(budget_empresas).where(budget_empresas.c.id == int(id)).values(**dados))
         msg = "Empresa atualizada."
     else:
+        dados["vigencia_inicio"] = vigencia_inicio or "2000-01-01"
         dados["criado_por"] = _usuario(request)
+        if fechar_anterior_id.strip():
+            _fechar_vigencia(db, budget_empresas, int(fechar_anterior_id))
+            msg = "Nova vigência de empresa criada."
+        else:
+            msg = "Empresa cadastrada."
         db.execute(insert(budget_empresas).values(**dados))
-        msg = "Empresa cadastrada."
     db.commit()
     return redirect_with_message("/folha/budget/empresas", success=msg)
 
@@ -719,9 +731,14 @@ def budget_empresas_excluir(id: int, db: Session = Depends(get_db)):
 
 @router.get("/folha/budget/cargos")
 def budget_cargos_list(request: Request, db: Session = Depends(get_db)):
+    from app.routers.folha_pagamento import folha_funcionarios as ff
     rows = db.execute(select(budget_cargos).order_by(budget_cargos.c.codigo_cargo)).mappings().all()
+    cargos_folha = db.execute(
+        text("SELECT DISTINCT codigo_cargo, cargo FROM folha_funcionarios WHERE codigo_cargo IS NOT NULL AND codigo_cargo != '' ORDER BY cargo")
+    ).fetchall()
     return templates.TemplateResponse("folha/budget_cargos.html", {
         "request": request, "rows": rows,
+        "cargos_folha": [{"codigo": r[0], "nome": r[1]} for r in cargos_folha],
         "success": request.query_params.get("success"),
         "error": request.query_params.get("error"),
     })
@@ -734,6 +751,7 @@ def budget_cargos_salvar(
     nivel: str = Form(""), bate_ponto: str = Form("1"),
     pct_adicional_25: str = Form("0"), pct_he_sobre_25: str = Form("0"),
     status: str = Form("Ativo"), vigencia_inicio: str = Form(""), vigencia_fim: str = Form(""),
+    fechar_anterior_id: str = Form(""),
 ):
     dados = dict(
         codigo_cargo=codigo_cargo.strip(), descricao=descricao.strip(),
@@ -741,16 +759,21 @@ def budget_cargos_salvar(
         bate_ponto=bate_ponto == "1",
         pct_adicional_25=float(pct_adicional_25 or 0),
         pct_he_sobre_25=float(pct_he_sobre_25 or 0),
-        status=status, vigencia_inicio=vigencia_inicio or None,
-        vigencia_fim=vigencia_fim or None,
+        status=status, vigencia_fim=vigencia_fim or None,
     )
     if id.strip():
+        dados["vigencia_inicio"] = vigencia_inicio or None
         db.execute(update(budget_cargos).where(budget_cargos.c.id == int(id)).values(**dados))
         msg = "Cargo atualizado."
     else:
+        dados["vigencia_inicio"] = vigencia_inicio or "2000-01-01"
         dados["criado_por"] = _usuario(request)
+        if fechar_anterior_id.strip():
+            _fechar_vigencia(db, budget_cargos, int(fechar_anterior_id))
+            msg = "Nova vigência de cargo criada."
+        else:
+            msg = "Cargo cadastrado."
         db.execute(insert(budget_cargos).values(**dados))
-        msg = "Cargo cadastrado."
     db.commit()
     return redirect_with_message("/folha/budget/cargos", success=msg)
 
@@ -783,6 +806,7 @@ def budget_vinculos_salvar(
     tem_um_terco: str = Form("0"), tem_aviso_previo: str = Form("0"),
     tem_plr: str = Form("0"), pode_he: str = Form("0"), pode_beneficios: str = Form("0"),
     status: str = Form("Ativo"), vigencia_inicio: str = Form(""), vigencia_fim: str = Form(""),
+    fechar_anterior_id: str = Form(""),
 ):
     dados = dict(
         codigo=codigo.strip(), descricao=descricao.strip(),
@@ -790,15 +814,21 @@ def budget_vinculos_salvar(
         tem_decimo_terceiro=tem_decimo_terceiro == "1", tem_ferias=tem_ferias == "1",
         tem_um_terco=tem_um_terco == "1", tem_aviso_previo=tem_aviso_previo == "1",
         tem_plr=tem_plr == "1", pode_he=pode_he == "1", pode_beneficios=pode_beneficios == "1",
-        status=status, vigencia_inicio=vigencia_inicio or None, vigencia_fim=vigencia_fim or None,
+        status=status, vigencia_fim=vigencia_fim or None,
     )
     if id.strip():
+        dados["vigencia_inicio"] = vigencia_inicio or None
         db.execute(update(budget_vinculos).where(budget_vinculos.c.id == int(id)).values(**dados))
         msg = "Vínculo atualizado."
     else:
+        dados["vigencia_inicio"] = vigencia_inicio or "2000-01-01"
         dados["criado_por"] = _usuario(request)
+        if fechar_anterior_id.strip():
+            _fechar_vigencia(db, budget_vinculos, int(fechar_anterior_id))
+            msg = "Nova vigência de vínculo criada."
+        else:
+            msg = "Vínculo cadastrado."
         db.execute(insert(budget_vinculos).values(**dados))
-        msg = "Vínculo cadastrado."
     db.commit()
     return redirect_with_message("/folha/budget/vinculos", success=msg)
 
@@ -834,6 +864,7 @@ def budget_verbas_salvar(
     empresa_codigo: str = Form(""), vinculo_codigo: str = Form(""),
     cargo_grupo: str = Form(""), prioridade: str = Form("99"),
     status: str = Form("Ativo"), vigencia_inicio: str = Form(""), vigencia_fim: str = Form(""),
+    fechar_anterior_id: str = Form(""),
 ):
     dados = dict(
         codigo=codigo.strip(), descricao=descricao.strip(),
@@ -844,15 +875,21 @@ def budget_verbas_salvar(
         incide_ferias=incide_ferias == "1", incide_decimo=incide_decimo == "1",
         empresa_codigo=empresa_codigo or None, vinculo_codigo=vinculo_codigo or None,
         cargo_grupo=cargo_grupo or None, prioridade=int(prioridade or 99),
-        status=status, vigencia_inicio=vigencia_inicio or None, vigencia_fim=vigencia_fim or None,
+        status=status, vigencia_fim=vigencia_fim or None,
     )
     if id.strip():
+        dados["vigencia_inicio"] = vigencia_inicio or None
         db.execute(update(budget_verbas).where(budget_verbas.c.id == int(id)).values(**dados))
         msg = "Verba atualizada."
     else:
+        dados["vigencia_inicio"] = vigencia_inicio or "2000-01-01"
         dados["criado_por"] = _usuario(request)
+        if fechar_anterior_id.strip():
+            _fechar_vigencia(db, budget_verbas, int(fechar_anterior_id))
+            msg = "Nova vigência de verba criada."
+        else:
+            msg = "Verba cadastrada."
         db.execute(insert(budget_verbas).values(**dados))
-        msg = "Verba cadastrada."
     db.commit()
     return redirect_with_message("/folha/budget/verbas", success=msg)
 
@@ -889,6 +926,7 @@ def budget_beneficios_salvar(
     quantidade: str = Form("0"), por_dependente: str = Form("0"),
     pct_empresa: str = Form("1"), status: str = Form("Ativo"),
     vigencia_inicio: str = Form(""), vigencia_fim: str = Form(""),
+    fechar_anterior_id: str = Form(""),
 ):
     dados = dict(
         codigo=codigo.strip(), descricao=descricao.strip(),
@@ -897,15 +935,21 @@ def budget_beneficios_salvar(
         valor_fixo=float(valor_fixo or 0), valor_unitario=float(valor_unitario or 0),
         quantidade=float(quantidade or 0), por_dependente=por_dependente == "1",
         pct_empresa=float(pct_empresa or 1),
-        status=status, vigencia_inicio=vigencia_inicio or None, vigencia_fim=vigencia_fim or None,
+        status=status, vigencia_fim=vigencia_fim or None,
     )
     if id.strip():
+        dados["vigencia_inicio"] = vigencia_inicio or None
         db.execute(update(budget_beneficios).where(budget_beneficios.c.id == int(id)).values(**dados))
         msg = "Benefício atualizado."
     else:
+        dados["vigencia_inicio"] = vigencia_inicio or "2000-01-01"
         dados["criado_por"] = _usuario(request)
+        if fechar_anterior_id.strip():
+            _fechar_vigencia(db, budget_beneficios, int(fechar_anterior_id))
+            msg = "Nova vigência de benefício criada."
+        else:
+            msg = "Benefício cadastrado."
         db.execute(insert(budget_beneficios).values(**dados))
-        msg = "Benefício cadastrado."
     db.commit()
     return redirect_with_message("/folha/budget/beneficios", success=msg)
 
@@ -941,21 +985,28 @@ def budget_encargos_salvar(
     percentual: str = Form("0"), divisor: str = Form("1"),
     verbas_base: str = Form(""), prioridade: str = Form("99"),
     status: str = Form("Ativo"), vigencia_inicio: str = Form(""), vigencia_fim: str = Form(""),
+    fechar_anterior_id: str = Form(""),
 ):
     dados = dict(
         codigo=codigo.strip(), descricao=descricao.strip(),
         empresa_codigo=empresa_codigo or None, vinculo_codigo=vinculo_codigo or None,
         percentual=float(percentual or 0), divisor=float(divisor or 1),
         verbas_base=verbas_base.strip() or None, prioridade=int(prioridade or 99),
-        status=status, vigencia_inicio=vigencia_inicio or None, vigencia_fim=vigencia_fim or None,
+        status=status, vigencia_fim=vigencia_fim or None,
     )
     if id.strip():
+        dados["vigencia_inicio"] = vigencia_inicio or None
         db.execute(update(budget_encargos).where(budget_encargos.c.id == int(id)).values(**dados))
         msg = "Encargo atualizado."
     else:
+        dados["vigencia_inicio"] = vigencia_inicio or "2000-01-01"
         dados["criado_por"] = _usuario(request)
+        if fechar_anterior_id.strip():
+            _fechar_vigencia(db, budget_encargos, int(fechar_anterior_id))
+            msg = "Nova vigência de encargo criada."
+        else:
+            msg = "Encargo cadastrado."
         db.execute(insert(budget_encargos).values(**dados))
-        msg = "Encargo cadastrado."
     db.commit()
     return redirect_with_message("/folha/budget/encargos", success=msg)
 
@@ -993,6 +1044,7 @@ def budget_excecoes_salvar(
     percentual: str = Form(""), valor: str = Form(""), quantidade: str = Form(""),
     justificativa: str = Form(""), prioridade: str = Form("1"),
     status: str = Form("Ativo"), vigencia_inicio: str = Form(""), vigencia_fim: str = Form(""),
+    fechar_anterior_id: str = Form(""),
 ):
     dados = dict(
         empresa_codigo=empresa_codigo or None, matricula=matricula.strip(),
@@ -1001,15 +1053,21 @@ def budget_excecoes_salvar(
         valor=float(valor) if valor.strip() else None,
         quantidade=float(quantidade) if quantidade.strip() else None,
         justificativa=justificativa.strip() or None, prioridade=int(prioridade or 1),
-        status=status, vigencia_inicio=vigencia_inicio or None, vigencia_fim=vigencia_fim or None,
+        status=status, vigencia_fim=vigencia_fim or None,
     )
     if id.strip():
+        dados["vigencia_inicio"] = vigencia_inicio or None
         db.execute(update(budget_excecoes).where(budget_excecoes.c.id == int(id)).values(**dados))
         msg = "Exceção atualizada."
     else:
+        dados["vigencia_inicio"] = vigencia_inicio or "2000-01-01"
         dados["criado_por"] = _usuario(request)
+        if fechar_anterior_id.strip():
+            _fechar_vigencia(db, budget_excecoes, int(fechar_anterior_id))
+            msg = "Nova vigência de exceção criada."
+        else:
+            msg = "Exceção cadastrada."
         db.execute(insert(budget_excecoes).values(**dados))
-        msg = "Exceção cadastrada."
     db.commit()
     return redirect_with_message("/folha/budget/excecoes", success=msg)
 

@@ -13,6 +13,7 @@
     </div>
     <form method="post" action="/folha/budget/excecoes" id="main-form" style="padding:1rem;display:flex;flex-direction:column;gap:.75rem">
       <input type="hidden" name="id" id="f-id">
+      <input type="hidden" name="fechar_anterior_id" id="f-fechar-id">
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:.5rem">
         <div><label style="font-size:.78rem;font-weight:600;color:#374151;display:block;margin-bottom:.25rem">Empresa</label>
           <select class="input" name="empresa_codigo" id="f-emp" style="width:100%;box-sizing:border-box">
@@ -44,17 +45,19 @@
       </div>
       <div><label style="font-size:.78rem;font-weight:600;color:#374151;display:block;margin-bottom:.25rem">Justificativa</label>
         <textarea class="input" name="justificativa" id="f-just" rows="2" placeholder="Motivo da exceção" style="width:100%;box-sizing:border-box;resize:vertical"></textarea></div>
-      <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:.5rem">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:.5rem">
         <div><label style="font-size:.78rem;font-weight:600;color:#374151;display:block;margin-bottom:.25rem">Prioridade</label>
           <input class="input" name="prioridade" id="f-pri" type="number" value="1" style="width:100%;box-sizing:border-box"></div>
-        <div><label style="font-size:.78rem;font-weight:600;color:#374151;display:block;margin-bottom:.25rem">Vigência início</label>
-          <input class="input" name="vigencia_inicio" id="f-vi" type="date" style="width:100%;box-sizing:border-box"></div>
-        <div><label style="font-size:.78rem;font-weight:600;color:#374151;display:block;margin-bottom:.25rem">Vigência fim</label>
-          <input class="input" name="vigencia_fim" id="f-vf" type="date" style="width:100%;box-sizing:border-box"></div>
         <div><label style="font-size:.78rem;font-weight:600;color:#374151;display:block;margin-bottom:.25rem">Status</label>
           <select class="input" name="status" id="f-status" style="width:100%;box-sizing:border-box">
             <option value="Ativo">Ativo</option><option value="Inativo">Inativo</option>
           </select></div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:.5rem">
+        <div><label style="font-size:.78rem;font-weight:600;color:#374151;display:block;margin-bottom:.25rem">Vigência início</label>
+          <input class="input" name="vigencia_inicio" id="f-vi" type="date" style="width:100%;box-sizing:border-box"></div>
+        <div><label style="font-size:.78rem;font-weight:600;color:#374151;display:block;margin-bottom:.25rem">Vigência fim</label>
+          <input class="input" name="vigencia_fim" id="f-vf" type="date" style="width:100%;box-sizing:border-box"></div>
       </div>
       <div style="display:flex;gap:.5rem;padding-top:.25rem">
         <button type="submit" style="flex:1;padding:.5rem;background:#dc2626;color:#fff;border:none;border-radius:6px;font-weight:600;cursor:pointer">💾 Salvar</button>
@@ -84,7 +87,7 @@
           <td style="padding:.5rem .7rem"><span style="font-size:.7rem;font-weight:600;padding:.15rem .5rem;border-radius:999px;background:{% if r.status=='Ativo' %}#dcfce7;color:#166534{% else %}#fee2e2;color:#991b1b{% endif %}">{{ r.status }}</span></td>
           <td style="padding:.5rem .7rem">
             <div style="display:flex;gap:.3rem">
-              <button type="button" onclick="editar({{ r.id }},{{ (r.empresa_codigo or '')|tojson }},{{ r.matricula|tojson }},{{ r.codigo_verba|tojson }},{{ (r.descricao_verba or '')|tojson }},{{ r.percentual if r.percentual is not none else 'null' }},{{ r.valor if r.valor is not none else 'null' }},{{ r.quantidade if r.quantidade is not none else 'null' }},{{ (r.justificativa or '')|tojson }},{{ r.prioridade or 1 }},{{ (r.vigencia_inicio or '')|tojson }},{{ (r.vigencia_fim or '')|tojson }},{{ r.status|tojson }})" style="padding:.25rem .6rem;border:1px solid #d1d5db;border-radius:5px;font-size:.75rem;background:transparent;cursor:pointer">✏️</button>
+              <button type="button" onclick='abrirModal({{ r.id }},{{ (r.matricula ~ " / " ~ r.codigo_verba)|tojson }},()=>editar({{ r.id }},{{ (r.empresa_codigo or "")|tojson }},{{ r.matricula|tojson }},{{ r.codigo_verba|tojson }},{{ (r.descricao_verba or "")|tojson }},{{ r.percentual if r.percentual is not none else 'null' }},{{ r.valor if r.valor is not none else 'null' }},{{ r.quantidade if r.quantidade is not none else 'null' }},{{ (r.justificativa or "")|tojson }},{{ r.prioridade or 1 }},{{ (r.vigencia_inicio or "")|tojson }},{{ (r.vigencia_fim or "")|tojson }},{{ r.status|tojson }}))') style="padding:.25rem .6rem;border:1px solid #d1d5db;border-radius:5px;font-size:.75rem;background:transparent;cursor:pointer">✏️</button>
               <form method="post" action="/folha/budget/excecoes/{{ r.id }}/excluir" style="margin:0" onsubmit="return confirm('Excluir exceção da matrícula {{ r.matricula }}?')">
                 <button type="submit" style="padding:.25rem .6rem;border:1px solid #fca5a5;border-radius:5px;font-size:.75rem;background:transparent;color:#dc2626;cursor:pointer">🗑️</button>
               </form>
@@ -125,4 +128,5 @@ function editar(id,emp,mat,verba,dvb,pct,val,qtd,just,pri,vi,vf,status){
   document.getElementById('main-form').scrollIntoView({behavior:'smooth',block:'start'});
 }
 </script>
+{% include "folha/_vigencia_modal.html" %}
 {% endblock %}

@@ -13,6 +13,7 @@
     </div>
     <form method="post" action="/folha/budget/encargos" id="main-form" style="padding:1rem;display:flex;flex-direction:column;gap:.75rem">
       <input type="hidden" name="id" id="f-id">
+      <input type="hidden" name="fechar_anterior_id" id="f-fechar-id">
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:.5rem">
         <div><label style="font-size:.78rem;font-weight:600;color:#374151;display:block;margin-bottom:.25rem">Código *</label>
           <input class="input" name="codigo" id="f-cod" placeholder="Ex: FGTS" required style="width:100%;box-sizing:border-box"></div>
@@ -41,16 +42,16 @@
       </div>
       <div><label style="font-size:.78rem;font-weight:600;color:#374151;display:block;margin-bottom:.25rem">Verbas base (códigos separados por vírgula)</label>
         <input class="input" name="verbas_base" id="f-vbase" placeholder="Ex: SAL,PERI,ADIC25" style="width:100%;box-sizing:border-box"></div>
-      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:.5rem">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:.5rem">
         <div><label style="font-size:.78rem;font-weight:600;color:#374151;display:block;margin-bottom:.25rem">Vigência início</label>
           <input class="input" name="vigencia_inicio" id="f-vi" type="date" style="width:100%;box-sizing:border-box"></div>
         <div><label style="font-size:.78rem;font-weight:600;color:#374151;display:block;margin-bottom:.25rem">Vigência fim</label>
           <input class="input" name="vigencia_fim" id="f-vf" type="date" style="width:100%;box-sizing:border-box"></div>
-        <div><label style="font-size:.78rem;font-weight:600;color:#374151;display:block;margin-bottom:.25rem">Status</label>
-          <select class="input" name="status" id="f-status" style="width:100%;box-sizing:border-box">
-            <option value="Ativo">Ativo</option><option value="Inativo">Inativo</option>
-          </select></div>
       </div>
+      <div><label style="font-size:.78rem;font-weight:600;color:#374151;display:block;margin-bottom:.25rem">Status</label>
+        <select class="input" name="status" id="f-status" style="width:100%;box-sizing:border-box">
+          <option value="Ativo">Ativo</option><option value="Inativo">Inativo</option>
+        </select></div>
       <div style="display:flex;gap:.5rem;padding-top:.25rem">
         <button type="submit" style="flex:1;padding:.5rem;background:#dc2626;color:#fff;border:none;border-radius:6px;font-weight:600;cursor:pointer">💾 Salvar</button>
         <button type="button" onclick="limpar()" style="padding:.5rem 1rem;border:1px solid #d1d5db;border-radius:6px;background:#fff;cursor:pointer">＋ Novo</button>
@@ -79,7 +80,7 @@
           <td style="padding:.5rem .7rem"><span style="font-size:.7rem;font-weight:600;padding:.15rem .5rem;border-radius:999px;background:{% if r.status=='Ativo' %}#dcfce7;color:#166534{% else %}#fee2e2;color:#991b1b{% endif %}">{{ r.status }}</span></td>
           <td style="padding:.5rem .7rem">
             <div style="display:flex;gap:.3rem">
-              <button type="button" onclick="editar({{ r.id }},{{ r.codigo|tojson }},{{ r.descricao|tojson }},{{ (r.empresa_codigo or '')|tojson }},{{ (r.vinculo_codigo or '')|tojson }},{{ r.percentual or 0 }},{{ r.divisor or 1 }},{{ (r.verbas_base or '')|tojson }},{{ r.prioridade or 99 }},{{ (r.vigencia_inicio or '')|tojson }},{{ (r.vigencia_fim or '')|tojson }},{{ r.status|tojson }})" style="padding:.25rem .6rem;border:1px solid #d1d5db;border-radius:5px;font-size:.75rem;background:transparent;cursor:pointer">✏️</button>
+              <button type="button" onclick='abrirModal({{ r.id }},{{ (r.codigo ~ " — " ~ r.descricao)|tojson }},()=>editar({{ r.id }},{{ r.codigo|tojson }},{{ r.descricao|tojson }},{{ (r.empresa_codigo or "")|tojson }},{{ (r.vinculo_codigo or "")|tojson }},{{ r.percentual or 0 }},{{ r.divisor or 1 }},{{ (r.verbas_base or "")|tojson }},{{ r.prioridade or 99 }},{{ (r.vigencia_inicio or "")|tojson }},{{ (r.vigencia_fim or "")|tojson }},{{ r.status|tojson }}))') style="padding:.25rem .6rem;border:1px solid #d1d5db;border-radius:5px;font-size:.75rem;background:transparent;cursor:pointer">✏️</button>
               <form method="post" action="/folha/budget/encargos/{{ r.id }}/excluir" style="margin:0" onsubmit="return confirm('Excluir {{ r.codigo }}?')">
                 <button type="submit" style="padding:.25rem .6rem;border:1px solid #fca5a5;border-radius:5px;font-size:.75rem;background:transparent;color:#dc2626;cursor:pointer">🗑️</button>
               </form>
@@ -118,4 +119,5 @@ function editar(id,cod,desc,emp,vinc,pct,div,vbase,pri,vi,vf,status){
   document.getElementById('main-form').scrollIntoView({behavior:'smooth',block:'start'});
 }
 </script>
+{% include "folha/_vigencia_modal.html" %}
 {% endblock %}
