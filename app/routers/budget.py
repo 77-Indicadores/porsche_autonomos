@@ -822,39 +822,34 @@ def budget_vinculos_list(request: Request, db: Session = Depends(get_db)):
     })
 
 @router.post("/folha/budget/vinculos")
-def budget_vinculos_salvar(
-    request: Request, db: Session = Depends(get_db),
-    id: str = Form(""), codigo: str = Form(...), descricao: str = Form(""),
-    tem_fgts: str = Form("0"), tem_inss_patronal: str = Form("0"),
-    tem_decimo_terceiro: str = Form("0"), tem_ferias: str = Form("0"),
-    tem_um_terco: str = Form("0"), tem_aviso_previo: str = Form("0"),
-    tem_plr: str = Form("0"), pode_he: str = Form("0"), pode_beneficios: str = Form("0"),
-    status: str = Form("Ativo"), vigencia_inicio: str = Form(""), vigencia_fim: str = Form(""),
-    fechar_anterior_id: str = Form(""),
-):
-    dados = dict(
-        codigo=codigo.strip(), descricao=descricao.strip(),
-        tem_fgts=tem_fgts == "1", tem_inss_patronal=tem_inss_patronal == "1",
-        tem_decimo_terceiro=tem_decimo_terceiro == "1", tem_ferias=tem_ferias == "1",
-        tem_um_terco=tem_um_terco == "1", tem_aviso_previo=tem_aviso_previo == "1",
-        tem_plr=tem_plr == "1", pode_he=pode_he == "1", pode_beneficios=pode_beneficios == "1",
-        status=status, vigencia_fim=vigencia_fim or None,
-    )
-    if id.strip():
-        dados["vigencia_inicio"] = vigencia_inicio or None
-        db.execute(update(budget_vinculos).where(budget_vinculos.c.id == int(id)).values(**dados))
-        msg = "Vínculo atualizado."
-    else:
-        dados["vigencia_inicio"] = vigencia_inicio or "2000-01-01"
-        dados["criado_por"] = _usuario(request)
-        if fechar_anterior_id.strip():
-            _fechar_vigencia(db, budget_vinculos, int(fechar_anterior_id))
-            msg = "Nova vigência de vínculo criada."
+async def budget_vinculos_salvar(request: Request, db: Session = Depends(get_db)):
+    form = await request.form()
+    count = int(form.get("rows_count", 0))
+    usuario = _usuario(request)
+    salvos = 0
+    for i in range(count):
+        cod = (form.get(f"cod_{i}") or "").strip()
+        if not cod:
+            continue
+        id_val = form.get(f"id_{i}", "")
+        chk = lambda f: form.get(f"{f}_{i}") == "1"
+        dados = dict(
+            codigo=cod, descricao=form.get(f"desc_{i}", "") or None,
+            tem_fgts=chk("fgts"), tem_inss_patronal=chk("inss"),
+            tem_decimo_terceiro=chk("d13"), tem_ferias=chk("fer"),
+            tem_um_terco=chk("t1"), tem_aviso_previo=chk("avi"),
+            tem_plr=chk("plr"), pode_he=chk("he"), pode_beneficios=chk("ben"),
+            status=form.get(f"status_{i}", "Ativo"), vigencia_fim=None,
+        )
+        if id_val.strip():
+            db.execute(update(budget_vinculos).where(budget_vinculos.c.id == int(id_val)).values(**dados))
         else:
-            msg = "Vínculo cadastrado."
-        db.execute(insert(budget_vinculos).values(**dados))
+            dados["vigencia_inicio"] = "2000-01-01"
+            dados["criado_por"] = usuario
+            db.execute(insert(budget_vinculos).values(**dados))
+        salvos += 1
     db.commit()
-    return redirect_with_message("/folha/budget/vinculos", success=msg)
+    return redirect_with_message("/folha/budget/vinculos", success=f"{salvos} vínculo(s) salvos.")
 
 @router.post("/folha/budget/vinculos/{id}/excluir")
 def budget_vinculos_excluir(id: int, db: Session = Depends(get_db)):
@@ -877,45 +872,42 @@ def budget_verbas_list(request: Request, db: Session = Depends(get_db)):
     })
 
 @router.post("/folha/budget/verbas")
-def budget_verbas_salvar(
-    request: Request, db: Session = Depends(get_db),
-    id: str = Form(""), codigo: str = Form(...), descricao: str = Form(...),
-    categoria: str = Form("adicional"), tipo_calculo: str = Form("pct_salario"),
-    base_calculo: str = Form(""), percentual: str = Form("0"),
-    valor_fixo: str = Form("0"), quantidade_padrao: str = Form("0"),
-    incide_inss: str = Form("0"), incide_fgts: str = Form("0"),
-    incide_ferias: str = Form("0"), incide_decimo: str = Form("0"),
-    empresa_codigo: str = Form(""), vinculo_codigo: str = Form(""),
-    cargo_grupo: str = Form(""), prioridade: str = Form("99"),
-    status: str = Form("Ativo"), vigencia_inicio: str = Form(""), vigencia_fim: str = Form(""),
-    fechar_anterior_id: str = Form(""),
-):
-    dados = dict(
-        codigo=codigo.strip(), descricao=descricao.strip(),
-        categoria=categoria, tipo_calculo=tipo_calculo, base_calculo=base_calculo.strip(),
-        percentual=float(percentual or 0), valor_fixo=float(valor_fixo or 0),
-        quantidade_padrao=float(quantidade_padrao or 0),
-        incide_inss=incide_inss == "1", incide_fgts=incide_fgts == "1",
-        incide_ferias=incide_ferias == "1", incide_decimo=incide_decimo == "1",
-        empresa_codigo=empresa_codigo or None, vinculo_codigo=vinculo_codigo or None,
-        cargo_grupo=cargo_grupo or None, prioridade=int(prioridade or 99),
-        status=status, vigencia_fim=vigencia_fim or None,
-    )
-    if id.strip():
-        dados["vigencia_inicio"] = vigencia_inicio or None
-        db.execute(update(budget_verbas).where(budget_verbas.c.id == int(id)).values(**dados))
-        msg = "Verba atualizada."
-    else:
-        dados["vigencia_inicio"] = vigencia_inicio or "2000-01-01"
-        dados["criado_por"] = _usuario(request)
-        if fechar_anterior_id.strip():
-            _fechar_vigencia(db, budget_verbas, int(fechar_anterior_id))
-            msg = "Nova vigência de verba criada."
+async def budget_verbas_salvar(request: Request, db: Session = Depends(get_db)):
+    form = await request.form()
+    count = int(form.get("rows_count", 0))
+    usuario = _usuario(request)
+    salvos = 0
+    for i in range(count):
+        cod = (form.get(f"cod_{i}") or "").strip()
+        if not cod:
+            continue
+        id_val = form.get(f"id_{i}", "")
+        chk = lambda f: form.get(f"{f}_{i}") == "1"
+        dados = dict(
+            codigo=cod, descricao=form.get(f"desc_{i}", cod),
+            categoria=form.get(f"cat_{i}", "adicional"),
+            tipo_calculo=form.get(f"tipo_{i}", "pct_salario"),
+            base_calculo=form.get(f"base_{i}", "") or None,
+            percentual=float(form.get(f"pct_{i}") or 0),
+            valor_fixo=float(form.get(f"vfix_{i}") or 0),
+            quantidade_padrao=float(form.get(f"qtd_{i}") or 0),
+            incide_inss=chk("inss"), incide_fgts=chk("fgts"),
+            incide_ferias=chk("fer"), incide_decimo=chk("d13"),
+            empresa_codigo=form.get(f"emp_{i}") or None,
+            vinculo_codigo=form.get(f"vinc_{i}") or None,
+            cargo_grupo=form.get(f"grp_{i}") or None,
+            prioridade=int(form.get(f"pri_{i}") or 99),
+            status=form.get(f"status_{i}", "Ativo"), vigencia_fim=None,
+        )
+        if id_val.strip():
+            db.execute(update(budget_verbas).where(budget_verbas.c.id == int(id_val)).values(**dados))
         else:
-            msg = "Verba cadastrada."
-        db.execute(insert(budget_verbas).values(**dados))
+            dados["vigencia_inicio"] = "2000-01-01"
+            dados["criado_por"] = usuario
+            db.execute(insert(budget_verbas).values(**dados))
+        salvos += 1
     db.commit()
-    return redirect_with_message("/folha/budget/verbas", success=msg)
+    return redirect_with_message("/folha/budget/verbas", success=f"{salvos} verba(s) salva(s).")
 
 @router.post("/folha/budget/verbas/{id}/excluir")
 def budget_verbas_excluir(id: int, db: Session = Depends(get_db)):
@@ -942,40 +934,37 @@ def budget_beneficios_list(request: Request, db: Session = Depends(get_db)):
     })
 
 @router.post("/folha/budget/beneficios")
-def budget_beneficios_salvar(
-    request: Request, db: Session = Depends(get_db),
-    id: str = Form(""), codigo: str = Form(...), descricao: str = Form(...),
-    empresa_codigo: str = Form(""), vinculo_codigo: str = Form(""), cargo_grupo: str = Form(""),
-    valor_fixo: str = Form("0"), valor_unitario: str = Form("0"),
-    quantidade: str = Form("0"), por_dependente: str = Form("0"),
-    pct_empresa: str = Form("1"), status: str = Form("Ativo"),
-    vigencia_inicio: str = Form(""), vigencia_fim: str = Form(""),
-    fechar_anterior_id: str = Form(""),
-):
-    dados = dict(
-        codigo=codigo.strip(), descricao=descricao.strip(),
-        empresa_codigo=empresa_codigo or None, vinculo_codigo=vinculo_codigo or None,
-        cargo_grupo=cargo_grupo or None,
-        valor_fixo=float(valor_fixo or 0), valor_unitario=float(valor_unitario or 0),
-        quantidade=float(quantidade or 0), por_dependente=por_dependente == "1",
-        pct_empresa=float(pct_empresa or 1),
-        status=status, vigencia_fim=vigencia_fim or None,
-    )
-    if id.strip():
-        dados["vigencia_inicio"] = vigencia_inicio or None
-        db.execute(update(budget_beneficios).where(budget_beneficios.c.id == int(id)).values(**dados))
-        msg = "Benefício atualizado."
-    else:
-        dados["vigencia_inicio"] = vigencia_inicio or "2000-01-01"
-        dados["criado_por"] = _usuario(request)
-        if fechar_anterior_id.strip():
-            _fechar_vigencia(db, budget_beneficios, int(fechar_anterior_id))
-            msg = "Nova vigência de benefício criada."
+async def budget_beneficios_salvar(request: Request, db: Session = Depends(get_db)):
+    form = await request.form()
+    count = int(form.get("rows_count", 0))
+    usuario = _usuario(request)
+    salvos = 0
+    for i in range(count):
+        cod = (form.get(f"cod_{i}") or "").strip()
+        if not cod:
+            continue
+        id_val = form.get(f"id_{i}", "")
+        dados = dict(
+            codigo=cod, descricao=form.get(f"desc_{i}", cod),
+            empresa_codigo=form.get(f"emp_{i}") or None,
+            vinculo_codigo=form.get(f"vinc_{i}") or None,
+            cargo_grupo=form.get(f"grp_{i}") or None,
+            valor_fixo=float(form.get(f"vfix_{i}") or 0),
+            valor_unitario=float(form.get(f"vunit_{i}") or 0),
+            quantidade=float(form.get(f"qtd_{i}") or 0),
+            por_dependente=form.get(f"dep_{i}") == "1",
+            pct_empresa=float(form.get(f"pemp_{i}") or 1),
+            status=form.get(f"status_{i}", "Ativo"), vigencia_fim=None,
+        )
+        if id_val.strip():
+            db.execute(update(budget_beneficios).where(budget_beneficios.c.id == int(id_val)).values(**dados))
         else:
-            msg = "Benefício cadastrado."
-        db.execute(insert(budget_beneficios).values(**dados))
+            dados["vigencia_inicio"] = "2000-01-01"
+            dados["criado_por"] = usuario
+            db.execute(insert(budget_beneficios).values(**dados))
+        salvos += 1
     db.commit()
-    return redirect_with_message("/folha/budget/beneficios", success=msg)
+    return redirect_with_message("/folha/budget/beneficios", success=f"{salvos} benefício(s) salvos.")
 
 @router.post("/folha/budget/beneficios/{id}/excluir")
 def budget_beneficios_excluir(id: int, db: Session = Depends(get_db)):
@@ -1002,37 +991,35 @@ def budget_encargos_list(request: Request, db: Session = Depends(get_db)):
     })
 
 @router.post("/folha/budget/encargos")
-def budget_encargos_salvar(
-    request: Request, db: Session = Depends(get_db),
-    id: str = Form(""), codigo: str = Form(...), descricao: str = Form(...),
-    empresa_codigo: str = Form(""), vinculo_codigo: str = Form(""),
-    percentual: str = Form("0"), divisor: str = Form("1"),
-    verbas_base: str = Form(""), prioridade: str = Form("99"),
-    status: str = Form("Ativo"), vigencia_inicio: str = Form(""), vigencia_fim: str = Form(""),
-    fechar_anterior_id: str = Form(""),
-):
-    dados = dict(
-        codigo=codigo.strip(), descricao=descricao.strip(),
-        empresa_codigo=empresa_codigo or None, vinculo_codigo=vinculo_codigo or None,
-        percentual=float(percentual or 0), divisor=float(divisor or 1),
-        verbas_base=verbas_base.strip() or None, prioridade=int(prioridade or 99),
-        status=status, vigencia_fim=vigencia_fim or None,
-    )
-    if id.strip():
-        dados["vigencia_inicio"] = vigencia_inicio or None
-        db.execute(update(budget_encargos).where(budget_encargos.c.id == int(id)).values(**dados))
-        msg = "Encargo atualizado."
-    else:
-        dados["vigencia_inicio"] = vigencia_inicio or "2000-01-01"
-        dados["criado_por"] = _usuario(request)
-        if fechar_anterior_id.strip():
-            _fechar_vigencia(db, budget_encargos, int(fechar_anterior_id))
-            msg = "Nova vigência de encargo criada."
+async def budget_encargos_salvar(request: Request, db: Session = Depends(get_db)):
+    form = await request.form()
+    count = int(form.get("rows_count", 0))
+    usuario = _usuario(request)
+    salvos = 0
+    for i in range(count):
+        cod = (form.get(f"cod_{i}") or "").strip()
+        if not cod:
+            continue
+        id_val = form.get(f"id_{i}", "")
+        dados = dict(
+            codigo=cod, descricao=form.get(f"desc_{i}", cod),
+            empresa_codigo=form.get(f"emp_{i}") or None,
+            vinculo_codigo=form.get(f"vinc_{i}") or None,
+            percentual=float(form.get(f"pct_{i}") or 0),
+            divisor=float(form.get(f"div_{i}") or 1),
+            verbas_base=form.get(f"vbase_{i}") or None,
+            prioridade=int(form.get(f"pri_{i}") or 99),
+            status=form.get(f"status_{i}", "Ativo"), vigencia_fim=None,
+        )
+        if id_val.strip():
+            db.execute(update(budget_encargos).where(budget_encargos.c.id == int(id_val)).values(**dados))
         else:
-            msg = "Encargo cadastrado."
-        db.execute(insert(budget_encargos).values(**dados))
+            dados["vigencia_inicio"] = "2000-01-01"
+            dados["criado_por"] = usuario
+            db.execute(insert(budget_encargos).values(**dados))
+        salvos += 1
     db.commit()
-    return redirect_with_message("/folha/budget/encargos", success=msg)
+    return redirect_with_message("/folha/budget/encargos", success=f"{salvos} encargo(s) salvos.")
 
 @router.post("/folha/budget/encargos/{id}/excluir")
 def budget_encargos_excluir(id: int, db: Session = Depends(get_db)):

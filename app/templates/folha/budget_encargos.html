@@ -1,123 +1,94 @@
 {% extends "base.html" %}
 {% block header %}Budget — Encargos e Provisões{% endblock %}
-{% block subtitle %}FGTS, INSS patronal, férias, 13º e outros com vigência{% endblock %}
+{% block subtitle %}FGTS, INSS patronal, férias, 13º e outros{% endblock %}
 {% block content %}
 {% if success %}<div class="alert success">{{ success }}</div>{% endif %}
 {% if error %}<div class="alert error">{{ error }}</div>{% endif %}
 
-<div style="display:grid;grid-template-columns:360px 1fr;gap:1.5rem;align-items:start">
-  <div style="background:#fff;border:1px solid #e5e7eb;border-radius:10px;overflow:hidden">
-    <div style="padding:.85rem 1.2rem;border-bottom:1px solid #e5e7eb;background:#f9fafb;display:flex;justify-content:space-between;align-items:center">
-      <h3 id="form-title" style="margin:0;font-size:.95rem;font-weight:600">Novo Encargo</h3>
-      <span id="modo-badge" style="font-size:.72rem;font-weight:600;padding:.2rem .6rem;border-radius:999px;background:#dcfce7;color:#166534">NOVO</span>
-    </div>
-    <form method="post" action="/folha/budget/encargos" id="main-form" style="padding:1rem;display:flex;flex-direction:column;gap:.75rem">
-      <input type="hidden" name="id" id="f-id">
-      <input type="hidden" name="fechar_anterior_id" id="f-fechar-id">
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:.5rem">
-        <div><label style="font-size:.78rem;font-weight:600;color:#374151;display:block;margin-bottom:.25rem">Código *</label>
-          <input class="input" name="codigo" id="f-cod" placeholder="Ex: FGTS" required style="width:100%;box-sizing:border-box"></div>
-        <div><label style="font-size:.78rem;font-weight:600;color:#374151;display:block;margin-bottom:.25rem">Prioridade</label>
-          <input class="input" name="prioridade" id="f-pri" type="number" value="99" style="width:100%;box-sizing:border-box"></div>
-      </div>
-      <div><label style="font-size:.78rem;font-weight:600;color:#374151;display:block;margin-bottom:.25rem">Descrição *</label>
-        <input class="input" name="descricao" id="f-desc" placeholder="Ex: FGTS 8%" required style="width:100%;box-sizing:border-box"></div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:.5rem">
-        <div><label style="font-size:.78rem;font-weight:600;color:#374151;display:block;margin-bottom:.25rem">Empresa</label>
-          <select class="input" name="empresa_codigo" id="f-emp" style="width:100%;box-sizing:border-box">
-            <option value="">Todas</option>
-            {% for e in empresas %}<option value="{{ e.codigo }}">{{ e.codigo }} — {{ e.razao_social }}</option>{% endfor %}
-          </select></div>
-        <div><label style="font-size:.78rem;font-weight:600;color:#374151;display:block;margin-bottom:.25rem">Vínculo</label>
-          <select class="input" name="vinculo_codigo" id="f-vinc" style="width:100%;box-sizing:border-box">
-            <option value="">Todos</option>
-            {% for v in vinculos %}<option value="{{ v }}">{{ v }}</option>{% endfor %}
-          </select></div>
-      </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:.5rem">
-        <div><label style="font-size:.78rem;font-weight:600;color:#374151;display:block;margin-bottom:.25rem">Percentual</label>
-          <input class="input" name="percentual" id="f-pct" type="number" step="0.0001" value="0" style="width:100%;box-sizing:border-box"></div>
-        <div><label style="font-size:.78rem;font-weight:600;color:#374151;display:block;margin-bottom:.25rem">Divisor</label>
-          <input class="input" name="divisor" id="f-div" type="number" step="0.01" value="1" style="width:100%;box-sizing:border-box"></div>
-      </div>
-      <div><label style="font-size:.78rem;font-weight:600;color:#374151;display:block;margin-bottom:.25rem">Verbas base (códigos separados por vírgula)</label>
-        <input class="input" name="verbas_base" id="f-vbase" placeholder="Ex: SAL,PERI,ADIC25" style="width:100%;box-sizing:border-box"></div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:.5rem">
-        <div><label style="font-size:.78rem;font-weight:600;color:#374151;display:block;margin-bottom:.25rem">Vigência início</label>
-          <input class="input" name="vigencia_inicio" id="f-vi" type="date" style="width:100%;box-sizing:border-box"></div>
-        <div><label style="font-size:.78rem;font-weight:600;color:#374151;display:block;margin-bottom:.25rem">Vigência fim</label>
-          <input class="input" name="vigencia_fim" id="f-vf" type="date" style="width:100%;box-sizing:border-box"></div>
-      </div>
-      <div><label style="font-size:.78rem;font-weight:600;color:#374151;display:block;margin-bottom:.25rem">Status</label>
-        <select class="input" name="status" id="f-status" style="width:100%;box-sizing:border-box">
-          <option value="Ativo">Ativo</option><option value="Inativo">Inativo</option>
-        </select></div>
-      <div style="display:flex;gap:.5rem;padding-top:.25rem">
-        <button type="submit" style="flex:1;padding:.5rem;background:#dc2626;color:#fff;border:none;border-radius:6px;font-weight:600;cursor:pointer">💾 Salvar</button>
-        <button type="button" onclick="limpar()" style="padding:.5rem 1rem;border:1px solid #d1d5db;border-radius:6px;background:#fff;cursor:pointer">＋ Novo</button>
-      </div>
-    </form>
-  </div>
+<style>
+  .it{width:100%;padding:.3rem .45rem;border:1px solid #e5e7eb;border-radius:5px;font-size:.82rem;box-sizing:border-box;background:transparent}
+  .it:focus{outline:none;border-color:#dc2626;background:#fff}
+  .sel-sm{padding:.3rem .35rem;border:1px solid #e5e7eb;border-radius:5px;font-size:.82rem;background:transparent;width:100%}
+  .sel-sm:focus{outline:none;border-color:#dc2626}
+  .tbl th{background:#f9fafb;padding:.45rem .55rem;font-size:.66rem;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:.05em;border-bottom:2px solid #e5e7eb;white-space:nowrap;text-align:left}
+  .tbl td{padding:.35rem .45rem;border-bottom:1px solid #f3f4f6;vertical-align:middle}
+  .tbl tr:hover td{background:#fafafa}
+</style>
 
+<form method="post" action="/folha/budget/encargos">
+  <input type="hidden" name="rows_count" id="rows_count" value="{{ rows|length }}">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.75rem">
+    <span style="font-size:.82rem;color:#6b7280">{{ rows|length }} encargo(s)</span>
+    <div style="display:flex;gap:.5rem">
+      <button type="button" id="btn-add" style="padding:.45rem 1rem;border:1px solid #d1d5db;border-radius:6px;background:#fff;font-size:.85rem;cursor:pointer">＋ Adicionar</button>
+      <button type="submit" style="padding:.45rem 1.2rem;background:#dc2626;color:#fff;border:none;border-radius:6px;font-weight:600;cursor:pointer;font-size:.85rem">💾 Salvar tudo</button>
+    </div>
+  </div>
   <div style="background:#fff;border:1px solid #e5e7eb;border-radius:10px;overflow:auto">
-    <table style="width:100%;border-collapse:collapse;font-size:.82rem">
-      <thead><tr style="background:#f9fafb">
-        {% for h in ["Cód","Descrição","Empresa","Vínculo","Percentual","Divisor","Verbas base","Vigência","Status",""] %}
-        <th style="padding:.5rem .7rem;text-align:left;font-size:.68rem;font-weight:600;color:#6b7280;text-transform:uppercase;white-space:nowrap;border-bottom:1px solid #e5e7eb">{{ h }}</th>
-        {% endfor %}
+    <table class="tbl" style="width:100%;border-collapse:collapse;font-size:.82rem">
+      <thead><tr>
+        <th style="min-width:80px">Código</th>
+        <th style="min-width:160px">Descrição</th>
+        <th style="min-width:110px">Empresa</th>
+        <th style="min-width:110px">Vínculo</th>
+        <th style="width:80px">% (decimal)</th>
+        <th style="width:60px">Divisor</th>
+        <th style="min-width:160px">Verbas base</th>
+        <th style="width:60px">Prior.</th>
+        <th style="width:80px">Status</th>
+        <th style="width:36px"></th>
       </tr></thead>
-      <tbody>
-        {% for r in rows %}
-        <tr style="border-bottom:1px solid #f3f4f6">
-          <td style="padding:.5rem .7rem;font-weight:600">{{ r.codigo }}</td>
-          <td style="padding:.5rem .7rem">{{ r.descricao }}</td>
-          <td style="padding:.5rem .7rem;font-size:.78rem">{{ r.empresa_codigo or "Todas" }}</td>
-          <td style="padding:.5rem .7rem;font-size:.78rem">{{ r.vinculo_codigo or "Todos" }}</td>
-          <td style="padding:.5rem .7rem;text-align:right">{{ "%.2f%%"|format((r.percentual or 0)*100) }}</td>
-          <td style="padding:.5rem .7rem;text-align:right">{{ r.divisor or 1 }}</td>
-          <td style="padding:.5rem .7rem;font-size:.75rem;color:#6b7280">{{ r.verbas_base or "—" }}</td>
-          <td style="padding:.5rem .7rem;font-size:.73rem;color:#6b7280;white-space:nowrap">{{ r.vigencia_inicio or "" }}{% if r.vigencia_fim %}~{{ r.vigencia_fim }}{% endif %}</td>
-          <td style="padding:.5rem .7rem"><span style="font-size:.7rem;font-weight:600;padding:.15rem .5rem;border-radius:999px;background:{% if r.status=='Ativo' %}#dcfce7;color:#166534{% else %}#fee2e2;color:#991b1b{% endif %}">{{ r.status }}</span></td>
-          <td style="padding:.5rem .7rem">
-            <div style="display:flex;gap:.3rem">
-              <button type="button" onclick='abrirModal({{ r.id }},{{ (r.codigo ~ " — " ~ r.descricao)|tojson }},()=>editar({{ r.id }},{{ r.codigo|tojson }},{{ r.descricao|tojson }},{{ (r.empresa_codigo or "")|tojson }},{{ (r.vinculo_codigo or "")|tojson }},{{ r.percentual or 0 }},{{ r.divisor or 1 }},{{ (r.verbas_base or "")|tojson }},{{ r.prioridade or 99 }},{{ (r.vigencia_inicio or "")|tojson }},{{ (r.vigencia_fim or "")|tojson }},{{ r.status|tojson }}))') style="padding:.25rem .6rem;border:1px solid #d1d5db;border-radius:5px;font-size:.75rem;background:transparent;cursor:pointer">✏️</button>
-              <form method="post" action="/folha/budget/encargos/{{ r.id }}/excluir" style="margin:0" onsubmit="return confirm('Excluir {{ r.codigo }}?')">
-                <button type="submit" style="padding:.25rem .6rem;border:1px solid #fca5a5;border-radius:5px;font-size:.75rem;background:transparent;color:#dc2626;cursor:pointer">🗑️</button>
-              </form>
-            </div>
+      <tbody id="tbody">
+        {% for r in rows %}{% set i = loop.index0 %}
+        <tr>
+          <input type="hidden" name="id_{{ i }}" value="{{ r.id }}">
+          <td><input class="it" name="cod_{{ i }}" value="{{ r.codigo }}" required></td>
+          <td><input class="it" name="desc_{{ i }}" value="{{ r.descricao or '' }}"></td>
+          <td><select class="sel-sm" name="emp_{{ i }}">
+            <option value="">Todas</option>
+            {% for e in empresas %}<option value="{{ e.codigo }}" {% if r.empresa_codigo==e.codigo %}selected{% endif %}>{{ e.codigo }}</option>{% endfor %}
+          </select></td>
+          <td><select class="sel-sm" name="vinc_{{ i }}">
+            <option value="">Todos</option>
+            {% for v in vinculos %}<option value="{{ v }}" {% if r.vinculo_codigo==v %}selected{% endif %}>{{ v }}</option>{% endfor %}
+          </select></td>
+          <td><input class="it" name="pct_{{ i }}" type="number" step="0.0001" value="{{ r.percentual or 0 }}" style="text-align:right"></td>
+          <td><input class="it" name="div_{{ i }}" type="number" step="0.01" value="{{ r.divisor or 1 }}" style="text-align:right"></td>
+          <td><input class="it" name="vbase_{{ i }}" value="{{ r.verbas_base or '' }}" placeholder="SAL,PERI"></td>
+          <td><input class="it" name="pri_{{ i }}" type="number" value="{{ r.prioridade or 99 }}" style="text-align:right"></td>
+          <td><select class="sel-sm" name="status_{{ i }}"><option {% if r.status=='Ativo' %}selected{% endif %}>Ativo</option><option {% if r.status=='Inativo' %}selected{% endif %}>Inativo</option></select></td>
+          <td style="text-align:center">
+            <form method="post" action="/folha/budget/encargos/{{ r.id }}/excluir" style="margin:0" onsubmit="return confirm('Excluir?')">
+              <button type="submit" style="padding:.2rem .45rem;border:1px solid #fca5a5;border-radius:4px;font-size:.75rem;background:transparent;color:#dc2626;cursor:pointer">🗑️</button>
+            </form>
           </td>
         </tr>
-        {% else %}
-        <tr><td colspan="10" style="padding:1.5rem;text-align:center;color:#9ca3af;font-style:italic">Nenhum encargo cadastrado.</td></tr>
         {% endfor %}
       </tbody>
     </table>
   </div>
-</div>
+</form>
+
 <script>
-function limpar(){
-  ['f-id','f-cod','f-desc','f-vbase','f-vi','f-vf'].forEach(id=>document.getElementById(id).value='');
-  document.getElementById('f-emp').value='';document.getElementById('f-vinc').value='';
-  document.getElementById('f-pct').value='0';document.getElementById('f-div').value='1';
-  document.getElementById('f-pri').value='99';document.getElementById('f-status').value='Ativo';
-  document.getElementById('form-title').textContent='Novo Encargo';
-  document.getElementById('modo-badge').textContent='NOVO';
-  document.getElementById('modo-badge').style.cssText='font-size:.72rem;font-weight:600;padding:.2rem .6rem;border-radius:999px;background:#dcfce7;color:#166534';
-  document.getElementById('main-form').style.background='';
-}
-function editar(id,cod,desc,emp,vinc,pct,div,vbase,pri,vi,vf,status){
-  document.getElementById('f-id').value=id;document.getElementById('f-cod').value=cod;
-  document.getElementById('f-desc').value=desc;document.getElementById('f-emp').value=emp;
-  document.getElementById('f-vinc').value=vinc;document.getElementById('f-pct').value=pct;
-  document.getElementById('f-div').value=div;document.getElementById('f-vbase').value=vbase;
-  document.getElementById('f-pri').value=pri;document.getElementById('f-vi').value=vi;
-  document.getElementById('f-vf').value=vf;document.getElementById('f-status').value=status;
-  document.getElementById('form-title').textContent='Editar Encargo #'+id;
-  document.getElementById('modo-badge').textContent='EDITANDO';
-  document.getElementById('modo-badge').style.cssText='font-size:.72rem;font-weight:600;padding:.2rem .6rem;border-radius:999px;background:#fef9c3;color:#854d0e';
-  document.getElementById('main-form').style.background='#fffbeb';
-  document.getElementById('main-form').scrollIntoView({behavior:'smooth',block:'start'});
-}
+var _rc = {{ rows|length }};
+var empOpts = '<option value="">Todas</option>{% for e in empresas %}<option value="{{ e.codigo }}">{{ e.codigo }}</option>{% endfor %}'.replace(/\n/g,'');
+var vincOpts = '<option value="">Todos</option>{% for v in vinculos %}<option value="{{ v }}">{{ v }}</option>{% endfor %}'.replace(/\n/g,'');
+document.getElementById('btn-add').addEventListener('click', function(){
+  var i = _rc++;
+  var tr = document.createElement('tr');
+  tr.innerHTML = '<input type="hidden" name="id_'+i+'" value="">'
+    +'<td><input class="it" name="cod_'+i+'" placeholder="Ex: FGTS" required></td>'
+    +'<td><input class="it" name="desc_'+i+'" placeholder="Descrição"></td>'
+    +'<td><select class="sel-sm" name="emp_'+i+'">'+empOpts+'</select></td>'
+    +'<td><select class="sel-sm" name="vinc_'+i+'">'+vincOpts+'</select></td>'
+    +'<td><input class="it" name="pct_'+i+'" type="number" step="0.0001" value="0" style="text-align:right"></td>'
+    +'<td><input class="it" name="div_'+i+'" type="number" step="0.01" value="1" style="text-align:right"></td>'
+    +'<td><input class="it" name="vbase_'+i+'" placeholder="SAL,PERI"></td>'
+    +'<td><input class="it" name="pri_'+i+'" type="number" value="99" style="text-align:right"></td>'
+    +'<td><select class="sel-sm" name="status_'+i+'"><option>Ativo</option><option>Inativo</option></select></td>'
+    +'<td style="text-align:center"><button type="button" onclick="this.closest(\'tr\').remove()" style="padding:.2rem .45rem;border:1px solid #fca5a5;border-radius:4px;font-size:.75rem;background:transparent;color:#dc2626;cursor:pointer">🗑️</button></td>';
+  document.getElementById('tbody').appendChild(tr);
+  document.getElementById('rows_count').value = _rc;
+});
 </script>
-{% include "folha/_vigencia_modal.html" %}
 {% endblock %}
