@@ -1,9 +1,16 @@
 {% extends "base.html" %}
-{% block header %}Budget — Verbas{% endblock %}
-{% block subtitle %}Verbas e rubricas do budget{% endblock %}
+{% block header %}Budget — Parâmetros{% endblock %}
+{% block subtitle %}Configurações de cargos, vínculos, verbas, benefícios e encargos{% endblock %}
 {% block content %}
 {% if success %}<div class="alert success">{{ success }}</div>{% endif %}
 {% if error %}<div class="alert error">{{ error }}</div>{% endif %}
+
+<div style="display:flex;gap:.25rem;margin-bottom:1.25rem;border-bottom:2px solid #e5e7eb;padding-bottom:0">
+  {% set tabs=[("cargos","🪪 Cargos"),("vinculos","📋 Vínculos"),("verbas","📝 Verbas"),("beneficios","🎁 Benefícios"),("encargos","🏛️ Encargos")] %}
+  {% for slug,label in tabs %}
+  <a href="/folha/budget/{{ slug }}" style="padding:.5rem 1.1rem;font-size:.84rem;font-weight:600;border-radius:6px 6px 0 0;text-decoration:none;border:1px solid {% if slug=='verbas' %}#e5e7eb;border-bottom:2px solid #fff;color:#dc2626;background:#fff{% else %}transparent;border-bottom:none;color:#6b7280;background:transparent{% endif %}">{{ label }}</a>
+  {% endfor %}
+</div>
 
 <style>
   .it{width:100%;padding:.3rem .45rem;border:1px solid #e5e7eb;border-radius:5px;font-size:.82rem;box-sizing:border-box;background:transparent}
