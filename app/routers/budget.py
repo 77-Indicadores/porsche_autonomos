@@ -267,12 +267,17 @@ _cargos_novos_cols = [
     ("pode_he", "BOOLEAN DEFAULT 1"),
     ("pode_beneficios", "BOOLEAN DEFAULT 1"),
 ]
-with engine.connect() as _conn:
-    existing = [r[1] for r in _conn.execute(text("PRAGMA table_info(budget_cargos)")).fetchall()]
-    for col, coldef in _cargos_novos_cols:
-        if col not in existing:
-            _conn.execute(text(f"ALTER TABLE budget_cargos ADD COLUMN {col} {coldef}"))
-    _conn.commit()
+try:
+    with engine.connect() as _conn:
+        _rows = _conn.execute(text("PRAGMA table_info(budget_cargos)")).fetchall()
+        existing = [row[1] for row in _rows]
+        for col, coldef in _cargos_novos_cols:
+            if col not in existing:
+                _conn.execute(text(f"ALTER TABLE budget_cargos ADD COLUMN {col} {coldef}"))
+        _conn.commit()
+except Exception as _e:
+    import logging
+    logging.getLogger(__name__).warning(f"Migração budget_cargos: {_e}")
 
 # Cenários padrão
 def _seed_cenarios(db: Session):
