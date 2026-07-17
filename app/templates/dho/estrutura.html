@@ -1,144 +1,389 @@
 {% extends "base.html" %}
 
 {% block header %}Departamentos e Cargos{% endblock %}
-{% block subtitle %}Lista distinta — base cadastral + cadastros manuais{% endblock %}
+{% block subtitle %}Gerencie a estrutura organizacional{% endblock %}
 
 {% block header_action %}
 <form method="post" action="/dho/estrutura/sincronizar" style="display:inline;">
-  <button class="quick-action light">Sincronizar base cadastral</button>
+  <button class="quick-action light">🔄 Sincronizar base cadastral</button>
 </form>
 {% endblock %}
 
 {% block content %}
 
+<style>
+  .estrutura-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.5rem;
+    align-items: start;
+  }
+  @media (max-width: 900px) {
+    .estrutura-grid { grid-template-columns: 1fr; }
+  }
+
+  .estrutura-card {
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+    overflow: hidden;
+    box-shadow: 0 1px 4px rgba(0,0,0,.06);
+  }
+
+  .estrutura-card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: .85rem 1.2rem;
+    border-bottom: 1px solid #e5e7eb;
+    background: #f9fafb;
+  }
+  .estrutura-card-header h3 {
+    margin: 0;
+    font-size: .95rem;
+    font-weight: 600;
+    color: #111;
+  }
+
+  .modo-badge {
+    font-size: .72rem;
+    font-weight: 600;
+    padding: .2rem .6rem;
+    border-radius: 999px;
+    letter-spacing: .02em;
+    text-transform: uppercase;
+  }
+  .modo-novo  { background: #dcfce7; color: #166534; }
+  .modo-editar { background: #fef9c3; color: #854d0e; }
+
+  .estrutura-form {
+    padding: 1rem 1.2rem;
+    display: flex;
+    flex-direction: column;
+    gap: .75rem;
+    border-bottom: 1px solid #e5e7eb;
+    transition: background .2s;
+  }
+  .estrutura-form.editando {
+    background: #fffbeb;
+  }
+
+  .estrutura-form label {
+    font-size: .78rem;
+    font-weight: 600;
+    color: #374151;
+    margin-bottom: .2rem;
+    display: block;
+  }
+  .estrutura-form input,
+  .estrutura-form select {
+    width: 100%;
+    padding: .45rem .7rem;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    font-size: .875rem;
+    background: #fff;
+    transition: border-color .15s, box-shadow .15s;
+    box-sizing: border-box;
+  }
+  .estrutura-form input:focus,
+  .estrutura-form select:focus {
+    outline: none;
+    border-color: #6b7280;
+    box-shadow: 0 0 0 2px rgba(107,114,128,.15);
+  }
+
+  .form-row-2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: .75rem;
+  }
+
+  .form-actions {
+    display: flex;
+    gap: .5rem;
+    padding-top: .25rem;
+  }
+  .btn-salvar {
+    flex: 1;
+    padding: .5rem 1rem;
+    background: #dc2626;
+    color: #fff;
+    border: none;
+    border-radius: 6px;
+    font-size: .875rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background .15s;
+  }
+  .btn-salvar:hover { background: #b91c1c; }
+
+  .btn-novo {
+    padding: .5rem 1rem;
+    background: #fff;
+    color: #374151;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    font-size: .875rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background .15s, border-color .15s;
+    white-space: nowrap;
+  }
+  .btn-novo:hover { background: #f3f4f6; border-color: #9ca3af; }
+
+  .estrutura-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: .85rem;
+  }
+  .estrutura-table th {
+    padding: .55rem 1rem;
+    text-align: left;
+    font-size: .72rem;
+    font-weight: 600;
+    color: #6b7280;
+    text-transform: uppercase;
+    letter-spacing: .05em;
+    background: #f9fafb;
+    border-bottom: 1px solid #e5e7eb;
+  }
+  .estrutura-table td {
+    padding: .6rem 1rem;
+    border-bottom: 1px solid #f3f4f6;
+    color: #111;
+    vertical-align: middle;
+  }
+  .estrutura-table tr:last-child td { border-bottom: none; }
+  .estrutura-table tr:hover td { background: #fafafa; }
+
+  .estrutura-table td.vazio {
+    text-align: center;
+    color: #9ca3af;
+    padding: 1.5rem;
+    font-style: italic;
+  }
+
+  .pill-id {
+    display: inline-block;
+    background: #f3f4f6;
+    color: #6b7280;
+    font-size: .72rem;
+    font-weight: 600;
+    padding: .1rem .45rem;
+    border-radius: 4px;
+    font-family: monospace;
+  }
+
+  .badge-status {
+    display: inline-block;
+    font-size: .72rem;
+    font-weight: 600;
+    padding: .15rem .55rem;
+    border-radius: 999px;
+  }
+  .badge-ativo   { background: #dcfce7; color: #166534; }
+  .badge-inativo { background: #fee2e2; color: #991b1b; }
+
+  .row-actions {
+    display: flex;
+    gap: .35rem;
+    white-space: nowrap;
+  }
+  .btn-editar-row {
+    padding: .3rem .7rem;
+    background: transparent;
+    border: 1px solid #d1d5db;
+    border-radius: 5px;
+    font-size: .78rem;
+    color: #374151;
+    cursor: pointer;
+    transition: background .15s;
+  }
+  .btn-editar-row:hover { background: #f3f4f6; }
+  .btn-excluir-row {
+    padding: .3rem .7rem;
+    background: transparent;
+    border: 1px solid #fca5a5;
+    border-radius: 5px;
+    font-size: .78rem;
+    color: #dc2626;
+    cursor: pointer;
+    transition: background .15s;
+  }
+  .btn-excluir-row:hover { background: #fee2e2; }
+
+  @media (prefers-color-scheme: dark) {
+    .estrutura-card { background: #1f2937; border-color: #374151; }
+    .estrutura-card-header { background: #111827; border-color: #374151; }
+    .estrutura-card-header h3 { color: #f9fafb; }
+    .estrutura-form { }
+    .estrutura-form.editando { background: #2d2415; }
+    .estrutura-form label { color: #d1d5db; }
+    .estrutura-form input,
+    .estrutura-form select { background: #374151; border-color: #4b5563; color: #f9fafb; }
+    .estrutura-table th { background: #111827; color: #9ca3af; border-color: #374151; }
+    .estrutura-table td { color: #f9fafb; border-color: #1f2937; }
+    .estrutura-table tr:hover td { background: #374151; }
+    .btn-novo { background: #374151; color: #d1d5db; border-color: #4b5563; }
+    .btn-novo:hover { background: #4b5563; }
+    .pill-id { background: #374151; color: #9ca3af; }
+    .btn-editar-row { border-color: #4b5563; color: #d1d5db; }
+    .btn-editar-row:hover { background: #374151; }
+  }
+</style>
+
 {% if success %}
-<div class="alert alert-success">{{ success }}</div>
+<div class="alert success" style="margin-bottom:1rem">{{ success }}</div>
 {% endif %}
 {% if error %}
-<div class="alert alert-danger">{{ error }}</div>
+<div class="alert error" style="margin-bottom:1rem">{{ error }}</div>
 {% endif %}
 {% if erro_dataworld %}
-<div class="alert alert-warning">Base cadastral indisponível: {{ erro_dataworld }}</div>
+<div class="alert" style="margin-bottom:1rem;background:#fef9c3;color:#854d0e;padding:.75rem 1rem;border-radius:6px;">⚠️ Base cadastral indisponível: {{ erro_dataworld }}</div>
 {% endif %}
 
-<section class="exec-grid">
+<div class="estrutura-grid">
 
   {# ── DEPARTAMENTOS ──────────────────────────────────────────── #}
-  <article class="panel">
-    <div class="panel-head">
+  <div class="estrutura-card">
+    <div class="estrutura-card-header">
       <h3 id="dep-form-title">Novo Departamento</h3>
+      <span class="modo-badge modo-novo" id="dep-modo-badge">Novo</span>
     </div>
 
-    <form method="post" action="/dho/departamentos" id="form-dep" class="form-grid">
+    <form method="post" action="/dho/departamentos" id="form-dep" class="estrutura-form">
       <input type="hidden" name="id_departamento" id="id_departamento">
 
       <div>
-        <label class="label">Nome *</label>
-        <input class="input" name="nome_departamento" id="nome_departamento" required>
+        <label for="nome_departamento">Nome *</label>
+        <input name="nome_departamento" id="nome_departamento" placeholder="Ex: Recursos Humanos" required>
       </div>
 
       <div>
-        <label class="label">Status</label>
-        <select class="input" name="status" id="status_dep">
-          <option>Ativo</option>
-          <option>Inativo</option>
+        <label for="status_dep">Status</label>
+        <select name="status" id="status_dep">
+          <option value="Ativo">Ativo</option>
+          <option value="Inativo">Inativo</option>
         </select>
       </div>
 
-      <div class="ux-actions-row">
-        <button class="btn-primary" type="submit">Salvar</button>
-        <button class="btn-muted" type="button" onclick="limparDep()">Novo</button>
+      <div class="form-actions">
+        <button class="btn-salvar" type="submit">💾 Salvar</button>
+        <button class="btn-novo" type="button" onclick="limparDep()">＋ Novo</button>
       </div>
     </form>
 
-    <table class="table mt-4">
+    <table class="estrutura-table">
       <thead>
-        <tr><th>ID</th><th>Departamento</th><th>Status</th><th>Ações</th></tr>
+        <tr><th>ID</th><th>Departamento</th><th>Status</th><th></th></tr>
       </thead>
       <tbody>
         {% for d in departamentos %}
         <tr>
-          <td><span class="id-pill">{{ d.id_departamento }}</span></td>
+          <td><span class="pill-id">{{ d.id_departamento }}</span></td>
           <td>{{ d.nome_departamento }}</td>
-          <td><span class="badge">{{ d.status }}</span></td>
           <td>
-            <button class="btn-muted" type="button"
-              onclick="editarDep({{ d.id_departamento }}, {{ d.nome_departamento|tojson }}, {{ d.status|tojson }})">
-              Editar
-            </button>
+            <span class="badge-status {% if d.status == 'Ativo' %}badge-ativo{% else %}badge-inativo{% endif %}">
+              {{ d.status }}
+            </span>
+          </td>
+          <td>
+            <div class="row-actions">
+              <button class="btn-editar-row" type="button"
+                onclick="editarDep({{ d.id_departamento }}, {{ d.nome_departamento|tojson }}, {{ d.status|tojson }})">
+                ✏️ Editar
+              </button>
+              <form method="post" action="/dho/departamentos/{{ d.id_departamento }}/excluir" style="margin:0"
+                onsubmit="return confirm('Excluir departamento {{ d.nome_departamento }}?')">
+                <button class="btn-excluir-row" type="submit">🗑️ Excluir</button>
+              </form>
+            </div>
           </td>
         </tr>
         {% else %}
-        <tr><td colspan="4" class="empty">Nenhum departamento cadastrado.</td></tr>
+        <tr><td colspan="4" class="vazio">Nenhum departamento cadastrado.</td></tr>
         {% endfor %}
       </tbody>
     </table>
-  </article>
+  </div>
 
   {# ── CARGOS ─────────────────────────────────────────────────── #}
-  <article class="panel">
-    <div class="panel-head">
+  <div class="estrutura-card">
+    <div class="estrutura-card-header">
       <h3 id="cargo-form-title">Novo Cargo</h3>
+      <span class="modo-badge modo-novo" id="cargo-modo-badge">Novo</span>
     </div>
 
-    <form method="post" action="/dho/cargos" id="form-cargo" class="form-grid">
+    <form method="post" action="/dho/cargos" id="form-cargo" class="estrutura-form">
       <input type="hidden" name="id_cargo" id="id_cargo">
 
       <div>
-        <label class="label">Nome do cargo *</label>
-        <input class="input" name="nome_cargo" id="nome_cargo" required>
+        <label for="nome_cargo">Nome do cargo *</label>
+        <input name="nome_cargo" id="nome_cargo" placeholder="Ex: Analista de RH" required>
       </div>
 
-      <div>
-        <label class="label">Departamento</label>
-        <select class="input" name="id_departamento" id="id_departamento_cargo">
-          <option value="">— selecione —</option>
-          {% for d in departamentos %}
-          <option value="{{ d.id_departamento }}">{{ d.nome_departamento }}</option>
-          {% endfor %}
-        </select>
+      <div class="form-row-2">
+        <div>
+          <label for="id_departamento_cargo">Departamento</label>
+          <select name="id_departamento" id="id_departamento_cargo">
+            <option value="">— selecione —</option>
+            {% for d in departamentos %}
+            <option value="{{ d.id_departamento }}">{{ d.nome_departamento }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div>
+          <label for="status_cargo">Status</label>
+          <select name="status" id="status_cargo">
+            <option value="Ativo">Ativo</option>
+            <option value="Inativo">Inativo</option>
+          </select>
+        </div>
       </div>
 
-      <div>
-        <label class="label">Status</label>
-        <select class="input" name="status" id="status_cargo">
-          <option>Ativo</option>
-          <option>Inativo</option>
-        </select>
-      </div>
-
-      <div class="ux-actions-row">
-        <button class="btn-primary" type="submit">Salvar</button>
-        <button class="btn-muted" type="button" onclick="limparCargo()">Novo</button>
+      <div class="form-actions">
+        <button class="btn-salvar" type="submit">💾 Salvar</button>
+        <button class="btn-novo" type="button" onclick="limparCargo()">＋ Novo</button>
       </div>
     </form>
 
-    <table class="table mt-4">
+    <table class="estrutura-table">
       <thead>
-        <tr><th>ID</th><th>Cargo</th><th>Departamento</th><th>Status</th><th>Ações</th></tr>
+        <tr><th>ID</th><th>Cargo</th><th>Departamento</th><th>Status</th><th></th></tr>
       </thead>
       <tbody>
         {% for c in cargos %}
         <tr>
-          <td><span class="id-pill">{{ c.id_cargo }}</span></td>
+          <td><span class="pill-id">{{ c.id_cargo }}</span></td>
           <td>{{ c.nome_cargo }}</td>
           <td>{{ c.nome_departamento or "—" }}</td>
-          <td><span class="badge">{{ c.status }}</span></td>
           <td>
-            <button class="btn-muted" type="button"
-              onclick="editarCargo({{ c.id_cargo }}, {{ c.nome_cargo|tojson }}, {{ (c.id_departamento or '')|tojson }}, {{ c.status|tojson }})">
-              Editar
-            </button>
+            <span class="badge-status {% if c.status == 'Ativo' %}badge-ativo{% else %}badge-inativo{% endif %}">
+              {{ c.status }}
+            </span>
+          </td>
+          <td>
+            <div class="row-actions">
+              <button class="btn-editar-row" type="button"
+                onclick="editarCargo({{ c.id_cargo }}, {{ c.nome_cargo|tojson }}, {{ (c.id_departamento or '')|tojson }}, {{ c.status|tojson }})">
+                ✏️ Editar
+              </button>
+              <form method="post" action="/dho/cargos/{{ c.id_cargo }}/excluir" style="margin:0"
+                onsubmit="return confirm('Excluir cargo {{ c.nome_cargo }}?')">
+                <button class="btn-excluir-row" type="submit">🗑️ Excluir</button>
+              </form>
+            </div>
           </td>
         </tr>
         {% else %}
-        <tr><td colspan="5" class="empty">Nenhum cargo cadastrado.</td></tr>
+        <tr><td colspan="5" class="vazio">Nenhum cargo cadastrado.</td></tr>
         {% endfor %}
       </tbody>
     </table>
-  </article>
+  </div>
 
-</section>
+</div>
 
 <script>
 function limparDep() {
@@ -146,14 +391,22 @@ function limparDep() {
   document.getElementById('nome_departamento').value = '';
   document.getElementById('status_dep').value = 'Ativo';
   document.getElementById('dep-form-title').textContent = 'Novo Departamento';
-  window.scrollTo({top:0, behavior:'smooth'});
+  document.getElementById('dep-modo-badge').textContent = 'Novo';
+  document.getElementById('dep-modo-badge').className = 'modo-badge modo-novo';
+  document.getElementById('form-dep').classList.remove('editando');
+  document.getElementById('nome_departamento').focus();
 }
+
 function editarDep(id, nome, status) {
   document.getElementById('id_departamento').value = id;
   document.getElementById('nome_departamento').value = nome;
   document.getElementById('status_dep').value = status;
-  document.getElementById('dep-form-title').textContent = 'Editar Departamento';
-  window.scrollTo({top:0, behavior:'smooth'});
+  document.getElementById('dep-form-title').textContent = 'Editar Departamento #' + id;
+  document.getElementById('dep-modo-badge').textContent = 'Editando';
+  document.getElementById('dep-modo-badge').className = 'modo-badge modo-editar';
+  document.getElementById('form-dep').classList.add('editando');
+  document.getElementById('nome_departamento').focus();
+  document.getElementById('form-dep').scrollIntoView({behavior:'smooth', block:'start'});
 }
 
 function limparCargo() {
@@ -162,15 +415,23 @@ function limparCargo() {
   document.getElementById('id_departamento_cargo').value = '';
   document.getElementById('status_cargo').value = 'Ativo';
   document.getElementById('cargo-form-title').textContent = 'Novo Cargo';
-  window.scrollTo({top:0, behavior:'smooth'});
+  document.getElementById('cargo-modo-badge').textContent = 'Novo';
+  document.getElementById('cargo-modo-badge').className = 'modo-badge modo-novo';
+  document.getElementById('form-cargo').classList.remove('editando');
+  document.getElementById('nome_cargo').focus();
 }
+
 function editarCargo(id, nome, idDep, status) {
   document.getElementById('id_cargo').value = id;
   document.getElementById('nome_cargo').value = nome;
   document.getElementById('id_departamento_cargo').value = idDep;
   document.getElementById('status_cargo').value = status;
-  document.getElementById('cargo-form-title').textContent = 'Editar Cargo';
-  window.scrollTo({top:0, behavior:'smooth'});
+  document.getElementById('cargo-form-title').textContent = 'Editar Cargo #' + id;
+  document.getElementById('cargo-modo-badge').textContent = 'Editando';
+  document.getElementById('cargo-modo-badge').className = 'modo-badge modo-editar';
+  document.getElementById('form-cargo').classList.add('editando');
+  document.getElementById('nome_cargo').focus();
+  document.getElementById('form-cargo').scrollIntoView({behavior:'smooth', block:'start'});
 }
 </script>
 

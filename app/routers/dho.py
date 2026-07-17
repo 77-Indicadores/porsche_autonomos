@@ -782,6 +782,20 @@ def salvar_cargo(
     return redirect_with_message("/dho/estrutura", success=msg)
 
 
+@router.post("/dho/departamentos/{id_departamento}/excluir")
+def excluir_departamento(id_departamento: int, db: Session = Depends(get_db)):
+    db.execute(delete(dho_departamentos).where(dho_departamentos.c.id_departamento == id_departamento))
+    db.commit()
+    return redirect_with_message("/dho/estrutura", success="Departamento excluído.")
+
+
+@router.post("/dho/cargos/{id_cargo}/excluir")
+def excluir_cargo(id_cargo: int, db: Session = Depends(get_db)):
+    db.execute(delete(dho_cargos).where(dho_cargos.c.id_cargo == id_cargo))
+    db.commit()
+    return redirect_with_message("/dho/estrutura", success="Cargo excluído.")
+
+
 @router.get("/dho/vagas")
 def vagas(request: Request, q: str = "", db: Session = Depends(get_db)):
     query = (
