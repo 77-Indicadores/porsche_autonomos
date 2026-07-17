@@ -256,29 +256,40 @@ budget_resultado = Table(
 metadata_budget.create_all(engine)
 
 # Migração: adiciona colunas de vínculo ao budget_cargos se não existirem
-_cargos_novos_cols = [
-    ("tem_fgts", "BOOLEAN DEFAULT 1"),
-    ("tem_inss", "BOOLEAN DEFAULT 1"),
-    ("tem_d13", "BOOLEAN DEFAULT 1"),
-    ("tem_ferias", "BOOLEAN DEFAULT 1"),
-    ("tem_terca", "BOOLEAN DEFAULT 1"),
-    ("tem_aviso", "BOOLEAN DEFAULT 1"),
-    ("tem_plr", "BOOLEAN DEFAULT 0"),
-    ("pode_he", "BOOLEAN DEFAULT 1"),
-    ("pode_beneficios", "BOOLEAN DEFAULT 1"),
-]
 try:
     with engine.connect() as _conn:
         dialect = engine.dialect.name  # "sqlite" ou "postgresql"
         if dialect == "sqlite":
+            _cargos_novos_cols_sq = [
+                ("tem_fgts", "BOOLEAN DEFAULT 1"),
+                ("tem_inss", "BOOLEAN DEFAULT 1"),
+                ("tem_d13", "BOOLEAN DEFAULT 1"),
+                ("tem_ferias", "BOOLEAN DEFAULT 1"),
+                ("tem_terca", "BOOLEAN DEFAULT 1"),
+                ("tem_aviso", "BOOLEAN DEFAULT 1"),
+                ("tem_plr", "BOOLEAN DEFAULT 0"),
+                ("pode_he", "BOOLEAN DEFAULT 1"),
+                ("pode_beneficios", "BOOLEAN DEFAULT 1"),
+            ]
             _rows = _conn.execute(text("PRAGMA table_info(budget_cargos)")).fetchall()
             existing = [row[1] for row in _rows]
-            for col, coldef in _cargos_novos_cols:
+            for col, coldef in _cargos_novos_cols_sq:
                 if col not in existing:
                     _conn.execute(text(f"ALTER TABLE budget_cargos ADD COLUMN {col} {coldef}"))
         else:
-            # PostgreSQL: ADD COLUMN IF NOT EXISTS
-            for col, coldef in _cargos_novos_cols:
+            # PostgreSQL: usa TRUE/FALSE para BOOLEAN
+            _cargos_novos_cols_pg = [
+                ("tem_fgts", "BOOLEAN DEFAULT TRUE"),
+                ("tem_inss", "BOOLEAN DEFAULT TRUE"),
+                ("tem_d13", "BOOLEAN DEFAULT TRUE"),
+                ("tem_ferias", "BOOLEAN DEFAULT TRUE"),
+                ("tem_terca", "BOOLEAN DEFAULT TRUE"),
+                ("tem_aviso", "BOOLEAN DEFAULT TRUE"),
+                ("tem_plr", "BOOLEAN DEFAULT FALSE"),
+                ("pode_he", "BOOLEAN DEFAULT TRUE"),
+                ("pode_beneficios", "BOOLEAN DEFAULT TRUE"),
+            ]
+            for col, coldef in _cargos_novos_cols_pg:
                 _conn.execute(text(
                     f"ALTER TABLE budget_cargos ADD COLUMN IF NOT EXISTS {col} {coldef}"
                 ))
