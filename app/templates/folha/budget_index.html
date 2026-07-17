@@ -33,26 +33,14 @@
   <div class="budget-card"><div class="label">Exceções</div><div class="value">{{ qtd_excecoes }}</div></div>
 </div>
 
-<div class="section-title">Cenários</div>
-<div class="cenarios-list" style="margin-bottom:1.5rem">
-  {% for c in cenarios %}
-  <span class="cenario-pill {% if c.bloqueado %}bloqueado{% endif %}">
-    {{ c.nome }}{% if c.bloqueado %} 🔒{% endif %}
-  </span>
-  {% endfor %}
-</div>
-
 <div class="section-title">Processar Budget</div>
 <form method="post" action="/folha/budget/processar" style="display:flex;gap:.75rem;align-items:flex-end;flex-wrap:wrap;margin-bottom:2rem;background:#fff;border:1px solid #e5e7eb;border-radius:10px;padding:1.2rem">
   <div>
-    <label style="font-size:.78rem;font-weight:600;color:#374151;display:block;margin-bottom:.3rem">Cenário</label>
-    <select name="cenario" class="input" style="min-width:180px">
-      {% for c in cenarios %}<option>{{ c.nome }}</option>{% endfor %}
+    <label style="font-size:.78rem;font-weight:600;color:#374151;display:block;margin-bottom:.3rem">Competência</label>
+    <select name="competencia" class="input" style="min-width:160px" required>
+      <option value="">— selecione —</option>
+      {% for c in competencias_folha %}<option value="{{ c }}">{{ c }}</option>{% endfor %}
     </select>
-  </div>
-  <div>
-    <label style="font-size:.78rem;font-weight:600;color:#374151;display:block;margin-bottom:.3rem">Competência (YYYY-MM)</label>
-    <input name="competencia" class="input" placeholder="2026-01" style="width:140px">
   </div>
   <button class="btn-primary" type="submit" style="padding:.5rem 1.4rem;background:#dc2626;color:#fff;border:none;border-radius:6px;font-weight:600;cursor:pointer">
     ▶ Processar

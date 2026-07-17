@@ -653,10 +653,10 @@ def _processar_empregado(db: Session, funcionario: dict, rubricas: list[dict],
 
 @router.get("/folha/budget")
 def budget_index(request: Request, db: Session = Depends(get_db)):
-    cenarios = db.execute(
-        select(budget_cenarios).where(budget_cenarios.c.status == "Ativo")
-        .order_by(budget_cenarios.c.ordem)
-    ).mappings().all()
+    from app.routers.folha_pagamento import folha_funcionarios as ff
+    competencias_folha = db.execute(
+        select(ff.c.competencia).distinct().order_by(ff.c.competencia)
+    ).scalars().all()
     qtd_verbas = db.execute(
         select(text("count(*)")).select_from(budget_verbas)
     ).scalar() or 0
@@ -671,7 +671,7 @@ def budget_index(request: Request, db: Session = Depends(get_db)):
     ).scalar() or 0
     return templates.TemplateResponse("folha/budget_index.html", {
         "request": request,
-        "cenarios": cenarios,
+        "competencias_folha": competencias_folha,
         "qtd_verbas": qtd_verbas,
         "qtd_cargos": qtd_cargos,
         "qtd_empresas": qtd_empresas,
@@ -1082,45 +1082,100 @@ def budget_excecoes_excluir(id: int, db: Session = Depends(get_db)):
 # ROTAS — QUANTIDADES PROJETADAS
 # ─────────────────────────────────────────────────────────────
 
+PARAMETROS_QTD = ["he_50", "he_100", "noturno", "he_sobre_25", "dias_vr"]
+
 @router.get("/folha/budget/quantidades")
 def budget_quantidades_list(request: Request, db: Session = Depends(get_db)):
-    rows = db.execute(select(budget_quantidades).order_by(
-        budget_quantidades.c.cenario, budget_quantidades.c.competencia, budget_quantidades.c.parametro
-    )).mappings().all()
-    cenarios = db.execute(select(budget_cenarios.c.nome).order_by(budget_cenarios.c.ordem)).scalars().all()
-    empresas = db.execute(select(budget_empresas.c.codigo).order_by(budget_empresas.c.codigo)).scalars().all()
+    from app.routers.folha_pagamento import folha_funcionarios as ff
+
+    # Competências disponíveis na folha importada
+    competencias_folha = db.execute(
+        select(ff.c.competencia).distinct().order_by(ff.c.competencia)
+    ).scalars().all()
+
+    comp = request.query_params.get("comp", "")
+    cargos_folha = []
+    qtd_existentes: dict = {}  # (codigo_cargo, parametro) -> {id, quantidade}
+
+    if comp:
+        # Cargos distintos da folha para a competência selecionada
+        cargos_folha = db.execute(
+            select(ff.c.codigo_cargo, ff.c.cargo)
+            .where(ff.c.competencia == comp)
+            .where(ff.c.codigo_cargo.isnot(None))
+            .where(ff.c.codigo_cargo != "")
+            .distinct()
+            .order_by(ff.c.cargo)
+        ).mappings().all()
+
+        # Headcount por cargo
+        rows_hc = db.execute(
+            text("""SELECT codigo_cargo, COUNT(DISTINCT matricula) as hc
+                    FROM folha_funcionarios
+                    WHERE competencia=:comp AND codigo_cargo IS NOT NULL AND codigo_cargo!=''
+                    GROUP BY codigo_cargo"""),
+            {"comp": comp}
+        ).mappings().all()
+        headcount = {r["codigo_cargo"]: r["hc"] for r in rows_hc}
+
+        # Quantidades já salvas
+        rows_qtd = db.execute(
+            select(budget_quantidades)
+            .where(budget_quantidades.c.competencia == comp)
+            .where(budget_quantidades.c.cenario == "Direcionamento")
+        ).mappings().all()
+        for r in rows_qtd:
+            if r["codigo_cargo"]:
+                qtd_existentes[(r["codigo_cargo"], r["parametro"])] = {
+                    "id": r["id"], "quantidade": r["quantidade"] or 0
+                }
+
+        cargos_folha = [dict(c, hc=headcount.get(c["codigo_cargo"], 0)) for c in cargos_folha]
+
     return templates.TemplateResponse("folha/budget_quantidades.html", {
-        "request": request, "rows": rows, "cenarios": cenarios, "empresas": empresas,
-        "parametros": ["he_50", "he_100", "noturno", "he_sobre_25", "dias_vr"],
+        "request": request,
+        "competencias_folha": competencias_folha,
+        "comp": comp,
+        "cargos_folha": cargos_folha,
+        "qtd_existentes": qtd_existentes,
+        "parametros": PARAMETROS_QTD,
         "success": request.query_params.get("success"),
         "error": request.query_params.get("error"),
     })
 
 @router.post("/folha/budget/quantidades")
-def budget_quantidades_salvar(
-    request: Request, db: Session = Depends(get_db),
-    id: str = Form(""), cenario: str = Form(...), competencia: str = Form(...),
-    parametro: str = Form(...), quantidade: str = Form("0"),
-    empresa_codigo: str = Form(""), matricula: str = Form(""),
-    codigo_cargo: str = Form(""), cargo_grupo: str = Form(""),
-    centro_custo: str = Form(""), status: str = Form("Ativo"),
-):
-    dados = dict(
-        cenario=cenario, competencia=competencia, parametro=parametro,
-        quantidade=float(quantidade or 0),
-        empresa_codigo=empresa_codigo or None, matricula=matricula or None,
-        codigo_cargo=codigo_cargo or None, cargo_grupo=cargo_grupo or None,
-        centro_custo=centro_custo or None, status=status,
-    )
-    if id.strip():
-        db.execute(update(budget_quantidades).where(budget_quantidades.c.id == int(id)).values(**dados))
-        msg = "Quantidade atualizada."
-    else:
-        dados["criado_por"] = _usuario(request)
-        db.execute(insert(budget_quantidades).values(**dados))
-        msg = "Quantidade cadastrada."
+async def budget_quantidades_salvar(request: Request, db: Session = Depends(get_db)):
+    form = await request.form()
+    comp = form.get("competencia", "")
+    usuario = _usuario(request)
+    salvos = 0
+
+    for par in PARAMETROS_QTD:
+        # Cada cargo envia campos: qtd_{par}_{codigo_cargo} e id_{par}_{codigo_cargo}
+        for key in form.keys():
+            if not key.startswith(f"qtd_{par}_"):
+                continue
+            codigo_cargo = key[len(f"qtd_{par}_"):]
+            qtd_val = float(form.get(key) or 0)
+            id_val = form.get(f"id_{par}_{codigo_cargo}", "")
+            dados = dict(
+                cenario="Direcionamento", competencia=comp, parametro=par,
+                quantidade=qtd_val, codigo_cargo=codigo_cargo or None,
+                status="Ativo",
+            )
+            if id_val.strip():
+                db.execute(update(budget_quantidades).where(
+                    budget_quantidades.c.id == int(id_val)).values(**dados))
+            else:
+                dados["criado_por"] = usuario
+                db.execute(insert(budget_quantidades).values(**dados))
+            salvos += 1
+
     db.commit()
-    return redirect_with_message("/folha/budget/quantidades", success=msg)
+    return redirect_with_message(
+        f"/folha/budget/quantidades?comp={comp}",
+        success=f"{salvos} quantidade(s) salva(s) para {comp}."
+    )
 
 @router.post("/folha/budget/quantidades/{id}/excluir")
 def budget_quantidades_excluir(id: int, db: Session = Depends(get_db)):
@@ -1136,16 +1191,15 @@ def budget_quantidades_excluir(id: int, db: Session = Depends(get_db)):
 @router.post("/folha/budget/processar")
 def budget_processar(
     request: Request, db: Session = Depends(get_db),
-    cenario: str = Form("Budget Original"),
     competencia: str = Form(...),
     id_arquivo: str = Form(""),
 ):
     from app.routers.folha_pagamento import folha_arquivos, folha_funcionarios, folha_rubricas
+    cenario = "Direcionamento"
 
-    # Apaga resultados anteriores do mesmo cenário+competência para reprocessar
+    # Apaga resultados anteriores da mesma competência para reprocessar
     db.execute(
         delete(budget_resultado)
-        .where(budget_resultado.c.cenario == cenario)
         .where(budget_resultado.c.competencia == competencia)
     )
 
@@ -1192,24 +1246,18 @@ def budget_processar(
 @router.get("/folha/budget/resultado")
 def budget_resultado_view(
     request: Request, db: Session = Depends(get_db),
-    cenario: str = "", competencia: str = "",
-    empresa: str = "", matricula: str = "",
+    competencia: str = "", empresa: str = "", matricula: str = "",
 ):
-    from app.routers.folha_pagamento import folha_arquivos, folha_funcionarios
+    from app.routers.folha_pagamento import folha_funcionarios as ff
 
-    cenarios = db.execute(select(budget_cenarios.c.nome).order_by(budget_cenarios.c.ordem)).scalars().all()
     competencias = db.execute(
-        select(budget_resultado.c.competencia).distinct().order_by(budget_resultado.c.competencia)
+        select(ff.c.competencia).distinct().order_by(ff.c.competencia)
     ).scalars().all()
 
     linhas = []
     totais: dict[str, float] = {}
-    if cenario and competencia:
-        q = (
-            select(budget_resultado)
-            .where(budget_resultado.c.cenario == cenario)
-            .where(budget_resultado.c.competencia == competencia)
-        )
+    if competencia:
+        q = select(budget_resultado).where(budget_resultado.c.competencia == competencia)
         if empresa:
             q = q.where(budget_resultado.c.empresa_codigo == empresa)
         if matricula:
@@ -1222,8 +1270,8 @@ def budget_resultado_view(
 
     return templates.TemplateResponse("folha/budget_resultado.html", {
         "request": request, "linhas": linhas, "totais": totais,
-        "cenarios": cenarios, "competencias": competencias,
-        "sel_cenario": cenario, "sel_competencia": competencia,
+        "competencias": competencias,
+        "sel_competencia": competencia,
         "sel_empresa": empresa, "sel_matricula": matricula,
         "success": request.query_params.get("success"),
         "error": request.query_params.get("error"),

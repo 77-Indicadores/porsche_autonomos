@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 {% block header %}Budget — Resultado{% endblock %}
-{% block subtitle %}Custo projetado por empregado, verba, cenário e competência{% endblock %}
+{% block subtitle %}Custo projetado por empregado, verba e competência{% endblock %}
 
 {% block header_action %}
 <a href="/folha/budget" style="padding:.45rem 1rem;border:1px solid #d1d5db;border-radius:6px;font-size:.875rem;color:#374151;text-decoration:none">← Voltar</a>
@@ -25,15 +25,8 @@
 
 <form method="get" action="/folha/budget/resultado" class="filtros">
   <div>
-    <label>Cenário</label>
-    <select name="cenario" class="input" style="min-width:170px">
-      <option value="">— selecione —</option>
-      {% for c in cenarios %}<option value="{{ c }}" {% if c == sel_cenario %}selected{% endif %}>{{ c }}</option>{% endfor %}
-    </select>
-  </div>
-  <div>
     <label>Competência</label>
-    <select name="competencia" class="input" style="min-width:120px">
+    <select name="competencia" class="input" style="min-width:160px">
       <option value="">— selecione —</option>
       {% for c in competencias %}<option value="{{ c }}" {% if c == sel_competencia %}selected{% endif %}>{{ c }}</option>{% endfor %}
     </select>
@@ -95,12 +88,12 @@
     </tbody>
   </table>
 </div>
-{% elif sel_cenario and sel_competencia %}
+{% elif sel_competencia %}
 <div style="text-align:center;padding:3rem;color:#9ca3af;font-style:italic">
-  Nenhum resultado para {{ sel_cenario }} / {{ sel_competencia }}.
+  Nenhum resultado para {{ sel_competencia }}. Processe o budget primeiro.
   <br><a href="/folha/budget" style="color:#dc2626;text-decoration:none;font-weight:600">Processar budget →</a>
 </div>
 {% else %}
-<div style="text-align:center;padding:3rem;color:#9ca3af;font-style:italic">Selecione um cenário e competência para visualizar o resultado.</div>
+<div style="text-align:center;padding:3rem;color:#9ca3af;font-style:italic">Selecione uma competência para visualizar o resultado.</div>
 {% endif %}
 {% endblock %}
