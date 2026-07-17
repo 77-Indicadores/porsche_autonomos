@@ -805,15 +805,20 @@ def budget_cargos_list(request: Request, db: Session = Depends(get_db)):
     # Pessoas distintas da folha importada (por matrícula + competência mais recente)
     pessoas_folha = db.execute(
         text("""
-            SELECT ff.matricula, ff.nome, ff.codigo_cargo, ff.cargo,
-                   ff.salario, ff.horas_mes, ff.competencia,
-                   fa.empresa_nome as empresa,
+            SELECT ff.matricula,
+                   MAX(ff.nome) as nome,
+                   MAX(ff.codigo_cargo) as codigo_cargo,
+                   MAX(ff.cargo) as cargo,
+                   MAX(ff.salario) as salario,
+                   MAX(ff.horas_mes) as horas_mes,
+                   ff.competencia,
+                   MAX(fa.empresa_nome) as empresa,
                    MAX(ff.id_funcionario) as id_func
             FROM folha_funcionarios ff
             LEFT JOIN folha_arquivos fa ON fa.id_arquivo = ff.id_arquivo
             WHERE ff.matricula IS NOT NULL AND ff.matricula != ''
             GROUP BY ff.matricula, ff.competencia
-            ORDER BY ff.competencia, ff.nome
+            ORDER BY ff.competencia, MAX(ff.nome)
         """)
     ).mappings().all()
 
