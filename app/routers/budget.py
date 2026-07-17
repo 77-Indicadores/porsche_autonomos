@@ -88,11 +88,13 @@ budget_vinculos = Table(
 budget_cargos = Table(
     "budget_cargos", metadata_budget,
     Column("id", Integer, primary_key=True, autoincrement=True),
+    Column("competencia", String(20)),
     Column("codigo_cargo", String(40), nullable=False),
+    Column("matricula", String(40)),
+    Column("nome", String(200)),
     Column("descricao", String(200)),
-    Column("grupo", String(80)),
-    Column("area", String(80)),
-    Column("nivel", String(80)),
+    Column("salario", Float, default=0.0),
+    Column("tem_periculosidade", Boolean, default=False),
     Column("bate_ponto", Boolean, default=True),
     Column("pct_adicional_25", Float, default=0.0),
     Column("pct_he_sobre_25", Float, default=0.0),
@@ -270,6 +272,11 @@ try:
                 ("tem_plr", "BOOLEAN DEFAULT 0"),
                 ("pode_he", "BOOLEAN DEFAULT 1"),
                 ("pode_beneficios", "BOOLEAN DEFAULT 1"),
+                ("competencia", "VARCHAR(20)"),
+                ("matricula", "VARCHAR(40)"),
+                ("nome", "VARCHAR(200)"),
+                ("salario", "FLOAT DEFAULT 0"),
+                ("tem_periculosidade", "BOOLEAN DEFAULT 0"),
             ]
             _rows = _conn.execute(text("PRAGMA table_info(budget_cargos)")).fetchall()
             existing = [row[1] for row in _rows]
@@ -288,6 +295,11 @@ try:
                 ("tem_plr", "BOOLEAN DEFAULT FALSE"),
                 ("pode_he", "BOOLEAN DEFAULT TRUE"),
                 ("pode_beneficios", "BOOLEAN DEFAULT TRUE"),
+                ("competencia", "VARCHAR(20)"),
+                ("matricula", "VARCHAR(40)"),
+                ("nome", "VARCHAR(200)"),
+                ("salario", "FLOAT DEFAULT 0"),
+                ("tem_periculosidade", "BOOLEAN DEFAULT FALSE"),
             ]
             for col, coldef in _cargos_novos_cols_pg:
                 _conn.execute(text(
@@ -784,32 +796,59 @@ def budget_empresas_excluir(id: int, db: Session = Depends(get_db)):
 
 @router.get("/folha/budget/cargos")
 def budget_cargos_list(request: Request, db: Session = Depends(get_db)):
-    # Cargos distintos da folha importada
-    cargos_folha = db.execute(
-        text("SELECT DISTINCT codigo_cargo, cargo FROM folha_funcionarios "
-             "WHERE codigo_cargo IS NOT NULL AND codigo_cargo != '' ORDER BY cargo")
+    # Pessoas distintas da folha importada (por matrícula + competência mais recente)
+    pessoas_folha = db.execute(
+        text("""
+            SELECT ff.matricula, ff.nome, ff.codigo_cargo, ff.cargo,
+                   ff.salario, ff.competencia,
+                   fa.empresa_nome as empresa,
+                   MAX(ff.id_funcionario) as id_func
+            FROM folha_funcionarios ff
+            LEFT JOIN folha_arquivos fa ON fa.id_arquivo = ff.id_arquivo
+            WHERE ff.matricula IS NOT NULL AND ff.matricula != ''
+            GROUP BY ff.matricula, ff.competencia
+            ORDER BY ff.competencia, ff.nome
+        """)
     ).mappings().all()
 
-    # Parâmetros já cadastrados no budget, indexados por codigo_cargo
+    # Checa se alguma rubrica de periculosidade foi paga por matricula+competencia
+    perics = set()
+    try:
+        rows_peric = db.execute(text("""
+            SELECT DISTINCT ff.matricula, ff.competencia
+            FROM folha_rubricas fr
+            JOIN folha_funcionarios ff ON ff.id_funcionario = fr.id_funcionario
+            WHERE UPPER(fr.descricao) LIKE '%PERICULOSIDADE%'
+        """)).fetchall()
+        perics = {(r[0], r[1]) for r in rows_peric}
+    except Exception:
+        pass
+
+    # Parâmetros já cadastrados no budget, indexados por matricula+competencia
     params_existentes: dict = {}
     for r in db.execute(
         select(budget_cargos).where(budget_cargos.c.status == "Ativo")
-        .order_by(budget_cargos.c.vigencia_inicio)
     ).mappings().all():
-        params_existentes[r["codigo_cargo"]] = dict(r)
+        chave = (r["matricula"] or "", r.get("competencia") or "")
+        params_existentes[chave] = dict(r)
 
     # Mescla: base da folha + params cadastrados
     cargos = []
-    for c in cargos_folha:
-        p = params_existentes.get(c["codigo_cargo"], {})
+    for c in pessoas_folha:
+        chave = (c["matricula"] or "", c["competencia"] or "")
+        p = params_existentes.get(chave, {})
+        recebeu_peric = chave in perics
         cargos.append({
+            "competencia": c["competencia"] or "",
+            "empresa": c["empresa"] or "",
+            "matricula": c["matricula"],
+            "nome": p.get("nome") or c["nome"] or "",
             "codigo_cargo": c["codigo_cargo"],
             "nome_folha": c["cargo"],
             "id": p.get("id", ""),
-            "descricao": p.get("descricao", c["cargo"] or ""),
-            "grupo": p.get("grupo", ""),
-            "area": p.get("area", ""),
-            "nivel": p.get("nivel", ""),
+            "descricao": p.get("descricao") or c["cargo"] or "",
+            "salario": p.get("salario") or c["salario"] or 0.0,
+            "tem_periculosidade": p.get("tem_periculosidade", recebeu_peric),
             "bate_ponto": p.get("bate_ponto", True),
             "pct_adicional_25": p.get("pct_adicional_25", 0.0),
             "pct_he_sobre_25": p.get("pct_he_sobre_25", 0.0),
@@ -836,29 +875,35 @@ def budget_cargos_list(request: Request, db: Session = Depends(get_db)):
 async def budget_cargos_salvar(request: Request, db: Session = Depends(get_db)):
     form = await request.form()
     usuario = _usuario(request)
-    codigos = [k[4:] for k in form.keys() if k.startswith("cod_")]
+    # chave: "mat_{matricula}__{competencia}"
+    chaves = [k[4:] for k in form.keys() if k.startswith("mat_")]
     salvos = 0
-    for cod in codigos:
-        id_val = form.get(f"id_{cod}", "")
+    for chv in chaves:
+        id_val = form.get(f"id_{chv}", "")
+        mat = form.get(f"matricula_{chv}", chv)
+        comp = form.get(f"comp_{chv}", "")
+        cod = form.get(f"cod_{chv}", "")
         dados = dict(
+            competencia=comp,
+            matricula=mat,
+            nome=form.get(f"nome_{chv}", "") or "",
             codigo_cargo=cod,
-            descricao=form.get(f"desc_{cod}", "") or cod,
-            grupo=form.get(f"grupo_{cod}", "") or None,
-            area=form.get(f"area_{cod}", "") or None,
-            nivel=form.get(f"nivel_{cod}", "") or None,
-            bate_ponto=form.get(f"ponto_{cod}") == "1",
-            pct_adicional_25=float(form.get(f"p25_{cod}") or 0),
-            pct_he_sobre_25=float(form.get(f"he25_{cod}") or 0),
-            tem_fgts=form.get(f"fgts_{cod}") == "1",
-            tem_inss=form.get(f"inss_{cod}") == "1",
-            tem_d13=form.get(f"d13_{cod}") == "1",
-            tem_ferias=form.get(f"fer_{cod}") == "1",
-            tem_terca=form.get(f"t1_{cod}") == "1",
-            tem_aviso=form.get(f"avi_{cod}") == "1",
-            tem_plr=form.get(f"plr_{cod}") == "1",
-            pode_he=form.get(f"he_{cod}") == "1",
-            pode_beneficios=form.get(f"ben_{cod}") == "1",
-            status=form.get(f"status_{cod}", "Ativo"),
+            descricao=form.get(f"desc_{chv}", "") or cod,
+            salario=float(form.get(f"sal_{chv}") or 0),
+            tem_periculosidade=form.get(f"peric_{chv}") == "1",
+            bate_ponto=form.get(f"ponto_{chv}") == "1",
+            pct_adicional_25=float(form.get(f"p25_{chv}") or 0),
+            pct_he_sobre_25=float(form.get(f"he25_{chv}") or 0),
+            tem_fgts=form.get(f"fgts_{chv}") == "1",
+            tem_inss=form.get(f"inss_{chv}") == "1",
+            tem_d13=form.get(f"d13_{chv}") == "1",
+            tem_ferias=form.get(f"fer_{chv}") == "1",
+            tem_terca=form.get(f"t1_{chv}") == "1",
+            tem_aviso=form.get(f"avi_{chv}") == "1",
+            tem_plr=form.get(f"plr_{chv}") == "1",
+            pode_he=form.get(f"he_{chv}") == "1",
+            pode_beneficios=form.get(f"ben_{chv}") == "1",
+            status=form.get(f"status_{chv}", "Ativo"),
             vigencia_fim=None,
         )
         if id_val.strip():
@@ -870,7 +915,7 @@ async def budget_cargos_salvar(request: Request, db: Session = Depends(get_db)):
             db.execute(insert(budget_cargos).values(**dados))
         salvos += 1
     db.commit()
-    return redirect_with_message("/folha/budget/cargos", success=f"{salvos} cargo(s) salvos.")
+    return redirect_with_message("/folha/budget/cargos", success=f"{salvos} pessoa(s) salva(s).")
 
 @router.post("/folha/budget/cargos/{id}/excluir")
 def budget_cargos_excluir(id: int, db: Session = Depends(get_db)):

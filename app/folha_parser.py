@@ -39,7 +39,7 @@ RE_VINCULO = re.compile(
     r"^V\S+nculo:\s*(.*?)\s*CC:\s*(\S*)\s*Depto:\s*(\S*)\s*Horas\s+M\S+s:\s*([\d.,]*)$"
 )
 RE_CARGO = re.compile(
-    r"^Cargo:\s*(\d*)\s*([^\d].*?)\s*C\.B\.O:\s*(\S*)\s*Filial:\s*(\S*)\s*Sal\S+rio:\s*([\d.,]*)$"
+    r"^Cargo:\s*(\d*)\s*(.*?)\s+Filial:\s*(\S*)\s+Sal\S+rio:\s*([\d.,]*)$"
 )
 RE_TOTAIS = re.compile(
     r"^ND:\s*\S+\s+Proventos:\s*([\d.,]+)\s+Descontos:\s*([\d.,]+).*?L\S+quido:\s*([\d.,-]+)$"
@@ -257,10 +257,17 @@ def parse_folha_pdf(conteudo: bytes) -> FolhaExtraida:
                 m = RE_CARGO.match(texto)
                 if m:
                     funcionario.codigo_cargo = (m.group(1) or "").strip()
-                    funcionario.cargo = m.group(2).strip()
-                    funcionario.cbo = m.group(3).strip()
-                    funcionario.filial = m.group(4).strip()
-                    funcionario.salario = _parse_valor(m.group(5))
+                    # Remove CBO garbage glued to end of cargo name
+                    # e.g. "RELACIONAMENCT.BO. OP:L252105" → "RELACIONAMEN"
+                    # e.g. "MANUTENÇÃO C.B.O: 123456" → "MANUTENÇÃO"
+                    cargo_raw = m.group(2).strip()
+                    # CBO glued without space (CT.BO.) or with space (C.B.O:)
+                    cargo_raw = re.sub(r'C[\w.]*B[\w.]*O[\w.:]*\s+\S*\d{4,}\s*$', '', cargo_raw)
+                    cargo_raw = re.sub(r'\s+C\.B\.O[.:].*$', '', cargo_raw)
+                    funcionario.cargo = cargo_raw.strip()
+                    funcionario.cbo = ""
+                    funcionario.filial = m.group(3).strip()
+                    funcionario.salario = _parse_valor(m.group(4))
                     continue
 
                 m = RE_TOTAIS.match(texto)

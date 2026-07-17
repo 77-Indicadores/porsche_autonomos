@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 {% block header %}Budget — Parâmetros{% endblock %}
-{% block subtitle %}Todos os parâmetros por cargo em uma só tela{% endblock %}
+{% block subtitle %}Todos os parâmetros por pessoa em uma só tela{% endblock %}
 {% block content %}
 {% if success %}<div class="alert success">{{ success }}</div>{% endif %}
 {% if error %}<div class="alert error">{{ error }}</div>{% endif %}
@@ -8,27 +8,30 @@
 <style>
   .it{padding:.28rem .4rem;border:1px solid #e5e7eb;border-radius:4px;font-size:.78rem;box-sizing:border-box;background:transparent;width:100%}
   .it:focus{outline:none;border-color:#dc2626;background:#fff}
+  .it-num{text-align:right}
   .sel-sm{padding:.28rem .3rem;border:1px solid #e5e7eb;border-radius:4px;font-size:.78rem;background:transparent;width:100%}
   .sel-sm:focus{outline:none;border-color:#dc2626}
   .chk{width:15px;height:15px;cursor:pointer;accent-color:#dc2626}
-  .tbl th{background:#f9fafb;padding:.4rem .5rem;font-size:.62rem;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:.04em;border-bottom:2px solid #e5e7eb;white-space:nowrap;text-align:center}
+  .tbl{font-size:9px!important}
+  .tbl th{background:#f9fafb;padding:.3rem .4rem;font-size:9px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:.04em;border-bottom:2px solid #e5e7eb;white-space:nowrap;text-align:center}
   .tbl th.left{text-align:left}
-  .tbl td{padding:.3rem .4rem;border-bottom:1px solid #f3f4f6;vertical-align:middle;text-align:center}
+  .tbl td{padding:.2rem .35rem;border-bottom:1px solid #f3f4f6;vertical-align:middle;text-align:center;font-size:9px}
   .tbl td.left{text-align:left}
+  .it{font-size:9px!important}
+  .sel-sm{font-size:9px!important}
   .tbl tr:hover td{background:#fafafa}
   .badge-novo{font-size:.6rem;font-weight:700;padding:.1rem .35rem;border-radius:999px;background:#dcfce7;color:#166534}
   .badge-ok{font-size:.6rem;font-weight:700;padding:.1rem .35rem;border-radius:999px;background:#dbeafe;color:#1e40af}
-  .grp-sep{background:#f9fafb;padding:.25rem .5rem;font-size:.62rem;font-weight:700;color:#9ca3af;text-transform:uppercase;letter-spacing:.08em;border-bottom:1px solid #e5e7eb;border-top:2px solid #e5e7eb}
 </style>
 
 {% if not cargos %}
 <div style="background:#fff;border:1px solid #e5e7eb;border-radius:10px;padding:2.5rem;text-align:center;color:#9ca3af;font-style:italic">
-  Nenhuma folha importada ainda. Importe uma folha para ver os cargos.
+  Nenhuma folha importada ainda. Importe uma folha para ver os funcionários.
 </div>
 {% else %}
 <form method="post" action="/folha/budget/cargos">
   <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.6rem">
-    <span style="font-size:.82rem;color:#6b7280">{{ cargos|length }} cargo(s) da folha</span>
+    <span style="font-size:.82rem;color:#6b7280">{{ cargos|length }} pessoa(s) da folha</span>
     <button type="submit" style="padding:.45rem 1.4rem;background:#dc2626;color:#fff;border:none;border-radius:7px;font-weight:600;cursor:pointer;font-size:.85rem">💾 Salvar tudo</button>
   </div>
 
@@ -36,13 +39,15 @@
     <table class="tbl" style="width:100%;border-collapse:collapse;font-size:.78rem">
       <thead>
         <tr>
-          <th class="left" style="min-width:60px;position:sticky;left:0;z-index:2;background:#f9fafb">Cód.</th>
-          <th class="left" style="min-width:160px">Descrição</th>
-          <th style="min-width:90px">Grupo</th>
-          <th style="min-width:80px">Área</th>
-          <th style="min-width:70px">Nível</th>
-          <th style="width:52px" title="Bate Ponto">Ponto</th>
-          <th style="width:60px" title="% Adicional Noturno / Periculosidade 25%">%Adic</th>
+          <th class="left" style="min-width:65px;position:sticky;left:0;z-index:2;background:#f9fafb">Comp.</th>
+          <th class="left" style="min-width:130px">Empresa</th>
+          <th class="left" style="min-width:50px">Cód.</th>
+          <th class="left" style="min-width:160px">Nome</th>
+          <th class="left" style="min-width:140px">Descrição cargo</th>
+          <th style="min-width:90px" title="Salário base">Salário</th>
+          <th style="width:48px" title="Recebeu periculosidade">Peric.</th>
+          <th style="width:48px" title="Bate ponto">Ponto</th>
+          <th style="width:60px" title="% Adicional Noturno/Periculosidade">%Adic</th>
           <th style="width:60px" title="% HE sobre 25%">%HE</th>
           <th colspan="9" style="background:#fef3c7;color:#92400e;border-left:2px solid #fde68a;border-right:2px solid #fde68a">Encargos / Vínculos</th>
           <th style="width:70px">Status</th>
@@ -50,7 +55,7 @@
         </tr>
         <tr>
           <th class="left" style="position:sticky;left:0;z-index:2;background:#f9fafb"></th>
-          <th></th><th></th><th></th><th></th><th></th><th></th><th></th>
+          <th></th><th></th><th></th><th></th><th></th><th></th><th></th><th></th><th></th>
           <th style="width:38px;background:#fef9ee;border-left:2px solid #fde68a;font-size:.58rem">FGTS</th>
           <th style="width:38px;background:#fef9ee;font-size:.58rem">INSS</th>
           <th style="width:38px;background:#fef9ee;font-size:.58rem">13º</th>
@@ -65,23 +70,35 @@
       </thead>
       <tbody>
         {% for c in cargos %}
+        {% set chv = c.matricula ~ "__" ~ c.competencia %}
         <tr>
-          <input type="hidden" name="cod_{{ c.codigo_cargo }}" value="{{ c.codigo_cargo }}">
-          <input type="hidden" name="id_{{ c.codigo_cargo }}" value="{{ c.id }}">
-          <td class="left" style="font-weight:700;font-size:.75rem;position:sticky;left:0;background:#fff;z-index:1">
+          <input type="hidden" name="mat_{{ chv }}" value="{{ chv }}">
+          <input type="hidden" name="matricula_{{ chv }}" value="{{ c.matricula }}">
+          <input type="hidden" name="comp_{{ chv }}" value="{{ c.competencia }}">
+          <input type="hidden" name="cod_{{ chv }}" value="{{ c.codigo_cargo }}">
+          <input type="hidden" name="id_{{ chv }}" value="{{ c.id }}">
+
+          <td class="left" style="font-weight:600;position:sticky;left:0;background:#fff;z-index:1;white-space:nowrap">
+            {{ c.competencia }}
+          </td>
+          <td class="left" style="white-space:nowrap;overflow:hidden;max-width:130px;text-overflow:ellipsis" title="{{ c.empresa }}">{{ c.empresa }}</td>
+          <td class="left" style="font-weight:700;white-space:nowrap">
             {{ c.codigo_cargo }}
             <span class="{{ 'badge-ok' if c.cadastrado else 'badge-novo' }}">{{ 'OK' if c.cadastrado else 'NOVO' }}</span>
           </td>
-          <td class="left"><input class="it" name="desc_{{ c.codigo_cargo }}" value="{{ c.descricao or c.nome_folha }}"></td>
-          <td><input class="it" name="grupo_{{ c.codigo_cargo }}" value="{{ c.grupo or '' }}" placeholder="—"></td>
-          <td><input class="it" name="area_{{ c.codigo_cargo }}" value="{{ c.area or '' }}" placeholder="—"></td>
-          <td><input class="it" name="nivel_{{ c.codigo_cargo }}" value="{{ c.nivel or '' }}" placeholder="Jr/Pl/Sr"></td>
+          <td class="left"><input class="it" name="nome_{{ chv }}" value="{{ c.nome }}"></td>
+          <td class="left"><input class="it" name="desc_{{ chv }}" value="{{ c.descricao or c.nome_folha }}"></td>
+          <td><input class="it it-num" name="sal_{{ chv }}" type="number" step="0.01" min="0" value="{{ '%.2f'|format(c.salario or 0) }}"></td>
           <td>
-            <input type="hidden" name="ponto_{{ c.codigo_cargo }}" value="0">
-            <input type="checkbox" class="chk" name="ponto_{{ c.codigo_cargo }}" value="1" {% if c.bate_ponto %}checked{% endif %}>
+            <input type="hidden" name="peric_{{ chv }}" value="0">
+            <input type="checkbox" class="chk" name="peric_{{ chv }}" value="1" {% if c.tem_periculosidade %}checked{% endif %}>
           </td>
           <td>
-            <select class="sel-sm" name="p25_{{ c.codigo_cargo }}">
+            <input type="hidden" name="ponto_{{ chv }}" value="0">
+            <input type="checkbox" class="chk" name="ponto_{{ chv }}" value="1" {% if c.bate_ponto %}checked{% endif %}>
+          </td>
+          <td>
+            <select class="sel-sm" name="p25_{{ chv }}">
               <option value="0" {% if (c.pct_adicional_25 or 0)==0 %}selected{% endif %}>0%</option>
               <option value="0.25" {% if (c.pct_adicional_25 or 0)==0.25 %}selected{% endif %}>25%</option>
               <option value="0.30" {% if (c.pct_adicional_25 or 0)==0.30 %}selected{% endif %}>30%</option>
@@ -89,7 +106,7 @@
             </select>
           </td>
           <td>
-            <select class="sel-sm" name="he25_{{ c.codigo_cargo }}">
+            <select class="sel-sm" name="he25_{{ chv }}">
               <option value="0" {% if (c.pct_he_sobre_25 or 0)==0 %}selected{% endif %}>0%</option>
               <option value="0.25" {% if (c.pct_he_sobre_25 or 0)==0.25 %}selected{% endif %}>25%</option>
               <option value="0.50" {% if (c.pct_he_sobre_25 or 0)==0.50 %}selected{% endif %}>50%</option>
@@ -103,19 +120,19 @@
           ] %}
           {% for fn, val in chkflags %}
           <td style="background:#fef9ee;{% if loop.first %}border-left:2px solid #fde68a;{% endif %}{% if loop.last %}border-right:2px solid #fde68a;{% endif %}">
-            <input type="hidden" name="{{ fn }}_{{ c.codigo_cargo }}" value="0">
-            <input type="checkbox" class="chk" name="{{ fn }}_{{ c.codigo_cargo }}" value="1" {% if val %}checked{% endif %}>
+            <input type="hidden" name="{{ fn }}_{{ chv }}" value="0">
+            <input type="checkbox" class="chk" name="{{ fn }}_{{ chv }}" value="1" {% if val %}checked{% endif %}>
           </td>
           {% endfor %}
           <td>
-            <select class="sel-sm" name="status_{{ c.codigo_cargo }}">
+            <select class="sel-sm" name="status_{{ chv }}">
               <option {% if c.status=='Ativo' %}selected{% endif %}>Ativo</option>
               <option {% if c.status=='Inativo' %}selected{% endif %}>Inativo</option>
             </select>
           </td>
           <td>
             {% if c.id %}
-            <form method="post" action="/folha/budget/cargos/{{ c.id }}/excluir" style="margin:0" onsubmit="return confirm('Excluir {{ c.codigo_cargo }}?')">
+            <form method="post" action="/folha/budget/cargos/{{ c.id }}/excluir" style="margin:0" onsubmit="return confirm('Excluir {{ c.nome }}?')">
               <button type="submit" style="padding:.15rem .4rem;border:1px solid #fca5a5;border-radius:4px;font-size:.72rem;background:transparent;color:#dc2626;cursor:pointer">🗑️</button>
             </form>
             {% endif %}
