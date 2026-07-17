@@ -15,7 +15,7 @@ from __future__ import annotations
 from datetime import datetime
 from decimal import Decimal
 
-from fastapi import APIRouter, Depends, File, Request, UploadFile
+from fastapi import APIRouter, Depends, File, List, Request, UploadFile
 from fastapi.responses import RedirectResponse, Response
 from sqlalchemy import (
     Column,
@@ -263,114 +263,118 @@ def folha_home(
 @router.post("/folha/upload")
 async def folha_upload(
     request: Request,
-    arquivo: UploadFile = File(...),
+    arquivo: List[UploadFile] = File(...),
     db: Session = Depends(get_db),
 ):
     if not _is_admin(request):
         return RedirectResponse("/?sem_acesso=folha", status_code=303)
 
-    nome = arquivo.filename or "folha.pdf"
-    if not nome.lower().endswith(".pdf"):
-        return redirect_with_message("/folha", error="Envie um arquivo PDF.")
-
-    conteudo = await arquivo.read()
-    if not conteudo:
-        return redirect_with_message("/folha", error="Arquivo vazio.")
-
-    # Evita reprocessar o mesmo arquivo (mesmo nome).
-    ja_existe = db.execute(
-        select(folha_arquivos.c.id_arquivo).where(folha_arquivos.c.nome_arquivo == nome)
-    ).scalar()
-    if ja_existe:
-        return redirect_with_message(
-            "/folha", error=f"Já existe um arquivo importado com o nome '{nome}'. Exclua-o antes de reenviar."
-        )
-
-    try:
-        folha = parse_folha_pdf(conteudo)
-    except Exception as exc:  # noqa: BLE001 - queremos mostrar o erro na tela
-        return redirect_with_message("/folha", error=f"Falha ao ler o PDF: {exc}")
-
-    if not folha.funcionarios:
-        return redirect_with_message(
-            "/folha",
-            error="Nenhum funcionário identificado no PDF. Confirme se é um extrato mensal no modelo esperado.",
-        )
-
     usuario = getattr(request.state, "current_user", None) or {}
+    sucessos, erros = [], []
 
-    id_arquivo = db.execute(
-        insert(folha_arquivos).values(
-            nome_arquivo=nome,
-            empresa_codigo=folha.empresa_codigo,
-            empresa_nome=folha.empresa_nome,
-            cnpj=folha.cnpj,
-            competencia=folha.competencia_resumo,
-            tipo_calculo=", ".join(folha.tipos_calculo),
-            data_emissao=folha.data_emissao,
-            qtd_funcionarios=len(folha.funcionarios),
-            total_proventos=_f(folha.total_proventos),
-            total_descontos=_f(folha.total_descontos),
-            total_liquido=_f(folha.total_liquido),
-            conteudo_pdf=conteudo,
-            enviado_por=usuario.get("nome") or usuario.get("email") or "sistema",
-        )
-    ).inserted_primary_key[0]
+    for arq in arquivo:
+        nome = arq.filename or "folha.pdf"
+        if not nome.lower().endswith(".pdf"):
+            erros.append(f"'{nome}': não é PDF.")
+            continue
 
-    for fun in folha.funcionarios:
-        id_funcionario = db.execute(
-            insert(folha_funcionarios).values(
-                id_arquivo=id_arquivo,
-                pagina=fun.pagina,
-                competencia=fun.competencia,
-                matricula=fun.matricula,
-                nome=fun.nome,
-                cpf=fun.cpf,
-                situacao=fun.situacao,
-                data_admissao=fun.data_admissao,
-                vinculo=fun.vinculo,
-                centro_custo=fun.centro_custo,
-                departamento=fun.departamento,
-                horas_mes=_f(fun.horas_mes),
-                codigo_cargo=fun.codigo_cargo,
-                cargo=fun.cargo,
-                cbo=fun.cbo,
-                filial=fun.filial,
-                salario=_f(fun.salario),
-                total_proventos=_f(fun.total_proventos),
-                total_descontos=_f(fun.total_descontos),
-                liquido=_f(fun.liquido),
-                base_inss=_f(fun.base_inss),
-                base_fgts=_f(fun.base_fgts),
-                valor_fgts=_f(fun.valor_fgts),
-                base_irrf=_f(fun.base_irrf),
-                observacao=fun.observacao,
+        conteudo = await arq.read()
+        if not conteudo:
+            erros.append(f"'{nome}': arquivo vazio.")
+            continue
+
+        ja_existe = db.execute(
+            select(folha_arquivos.c.id_arquivo).where(folha_arquivos.c.nome_arquivo == nome)
+        ).scalar()
+        if ja_existe:
+            erros.append(f"'{nome}': já importado (exclua antes de reenviar).")
+            continue
+
+        try:
+            folha = parse_folha_pdf(conteudo)
+        except Exception as exc:
+            erros.append(f"'{nome}': falha ao ler PDF — {exc}")
+            continue
+
+        if not folha.funcionarios:
+            erros.append(f"'{nome}': nenhum funcionário identificado.")
+            continue
+
+        id_arquivo = db.execute(
+            insert(folha_arquivos).values(
+                nome_arquivo=nome,
+                empresa_codigo=folha.empresa_codigo,
+                empresa_nome=folha.empresa_nome,
+                cnpj=folha.cnpj,
+                competencia=folha.competencia_resumo,
+                tipo_calculo=", ".join(folha.tipos_calculo),
+                data_emissao=folha.data_emissao,
+                qtd_funcionarios=len(folha.funcionarios),
+                total_proventos=_f(folha.total_proventos),
+                total_descontos=_f(folha.total_descontos),
+                total_liquido=_f(folha.total_liquido),
+                conteudo_pdf=conteudo,
+                enviado_por=usuario.get("nome") or usuario.get("email") or "sistema",
             )
         ).inserted_primary_key[0]
 
-        if fun.rubricas:
-            db.execute(
-                insert(folha_rubricas),
-                [
-                    {
-                        "id_funcionario": id_funcionario,
-                        "id_arquivo": id_arquivo,
-                        "codigo": r.codigo,
-                        "descricao": r.descricao,
-                        "referencia": _f(r.referencia),
-                        "valor": _f(r.valor),
-                        "tipo": r.tipo,
-                    }
-                    for r in fun.rubricas
-                ],
-            )
+        for fun in folha.funcionarios:
+            id_funcionario = db.execute(
+                insert(folha_funcionarios).values(
+                    id_arquivo=id_arquivo,
+                    pagina=fun.pagina,
+                    competencia=fun.competencia,
+                    matricula=fun.matricula,
+                    nome=fun.nome,
+                    cpf=fun.cpf,
+                    situacao=fun.situacao,
+                    data_admissao=fun.data_admissao,
+                    vinculo=fun.vinculo,
+                    centro_custo=fun.centro_custo,
+                    departamento=fun.departamento,
+                    horas_mes=_f(fun.horas_mes),
+                    codigo_cargo=fun.codigo_cargo,
+                    cargo=fun.cargo,
+                    cbo=fun.cbo,
+                    filial=fun.filial,
+                    salario=_f(fun.salario),
+                    total_proventos=_f(fun.total_proventos),
+                    total_descontos=_f(fun.total_descontos),
+                    liquido=_f(fun.liquido),
+                    base_inss=_f(fun.base_inss),
+                    base_fgts=_f(fun.base_fgts),
+                    valor_fgts=_f(fun.valor_fgts),
+                    base_irrf=_f(fun.base_irrf),
+                    observacao=fun.observacao,
+                )
+            ).inserted_primary_key[0]
 
-    db.commit()
+            if fun.rubricas:
+                db.execute(
+                    insert(folha_rubricas),
+                    [
+                        {
+                            "id_funcionario": id_funcionario,
+                            "id_arquivo": id_arquivo,
+                            "codigo": r.codigo,
+                            "descricao": r.descricao,
+                            "referencia": _f(r.referencia),
+                            "valor": _f(r.valor),
+                            "tipo": r.tipo,
+                        }
+                        for r in fun.rubricas
+                    ],
+                )
 
-    return redirect_with_message(
-        "/folha",
-        success=f"'{nome}' importado: {len(folha.funcionarios)} funcionário(s), competência {folha.competencia_resumo}.",
-    )
+        db.commit()
+        sucessos.append(f"'{nome}': {len(folha.funcionarios)} funcionário(s), {folha.competencia_resumo}")
+
+    msg_ok = f"{len(sucessos)} arquivo(s) importado(s): " + " | ".join(sucessos) if sucessos else ""
+    msg_err = "Erros: " + " | ".join(erros) if erros else ""
+
+    if sucessos:
+        return redirect_with_message("/folha", success=msg_ok, error=msg_err or None)
+    return redirect_with_message("/folha", error=msg_err or "Nenhum arquivo processado.")
 
 
 # ============================================================
