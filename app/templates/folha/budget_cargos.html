@@ -1,147 +1,107 @@
 {% extends "base.html" %}
 {% block header %}Budget — Cargos{% endblock %}
-{% block subtitle %}Grupo, adicional 25% e controle de HE por vigência{% endblock %}
+{% block subtitle %}Parâmetros por cargo — base da folha importada{% endblock %}
 {% block content %}
 {% if success %}<div class="alert success">{{ success }}</div>{% endif %}
 {% if error %}<div class="alert error">{{ error }}</div>{% endif %}
 
-<div style="display:grid;grid-template-columns:400px 1fr;gap:1.5rem;align-items:start">
-  <div style="background:#fff;border:1px solid #e5e7eb;border-radius:10px;overflow:hidden">
-    <div style="padding:.85rem 1.2rem;border-bottom:1px solid #e5e7eb;background:#f9fafb;display:flex;justify-content:space-between;align-items:center">
-      <h3 id="form-title" style="margin:0;font-size:.95rem;font-weight:600">Novo Cargo</h3>
-      <span id="modo-badge" style="font-size:.72rem;font-weight:600;padding:.2rem .6rem;border-radius:999px;background:#dcfce7;color:#166534">NOVO</span>
-    </div>
-    <form method="post" action="/folha/budget/cargos" id="main-form" style="padding:1rem;display:flex;flex-direction:column;gap:.75rem">
-      <input type="hidden" name="id" id="f-id">
-      <input type="hidden" name="fechar_anterior_id" id="f-fechar-id">
-      {% if cargos_folha %}
-      <div>
-        <label style="font-size:.78rem;font-weight:600;color:#374151;display:block;margin-bottom:.25rem">Importar da folha</label>
-        <select id="sel-folha" onchange="importarDaFolha(this.value)" style="width:100%;box-sizing:border-box;padding:.45rem .75rem;border:1px solid #d1d5db;border-radius:6px;font-size:.85rem;background:#f0fdf4">
-          <option value="">— selecione um cargo da folha para pré-preencher —</option>
-          {% for c in cargos_folha %}<option value="{{ c.codigo }}|{{ c.nome }}">{{ c.codigo }} — {{ c.nome }}</option>{% endfor %}
-        </select>
-      </div>
-      <div style="border-top:1px solid #e5e7eb;padding-top:.5rem"></div>
-      {% endif %}
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:.5rem">
-        <div><label style="font-size:.78rem;font-weight:600;color:#374151;display:block;margin-bottom:.25rem">Código *</label>
-          <input class="input" name="codigo_cargo" id="f-cod" placeholder="Ex: 501" required style="width:100%;box-sizing:border-box"></div>
-        <div><label style="font-size:.78rem;font-weight:600;color:#374151;display:block;margin-bottom:.25rem">Nível</label>
-          <input class="input" name="nivel" id="f-nivel" placeholder="Jr / Pl / Sr" style="width:100%;box-sizing:border-box"></div>
-      </div>
-      <div><label style="font-size:.78rem;font-weight:600;color:#374151;display:block;margin-bottom:.25rem">Descrição</label>
-        <input class="input" name="descricao" id="f-desc" placeholder="Ex: Mecânico Competição Jr" style="width:100%;box-sizing:border-box"></div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:.5rem">
-        <div><label style="font-size:.78rem;font-weight:600;color:#374151;display:block;margin-bottom:.25rem">Grupo</label>
-          <input class="input" name="grupo" id="f-grupo" placeholder="Ex: Mecânico" style="width:100%;box-sizing:border-box"></div>
-        <div><label style="font-size:.78rem;font-weight:600;color:#374151;display:block;margin-bottom:.25rem">Área</label>
-          <input class="input" name="area" id="f-area" placeholder="Operacional / Adm" style="width:100%;box-sizing:border-box"></div>
-      </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:.5rem">
-        <div><label style="font-size:.78rem;font-weight:600;color:#374151;display:block;margin-bottom:.25rem">Bate Ponto</label>
-          <select class="input" name="bate_ponto" id="f-ponto" style="width:100%;box-sizing:border-box">
-            <option value="1">Sim</option><option value="0">Não</option>
-          </select></div>
-        <div><label style="font-size:.78rem;font-weight:600;color:#374151;display:block;margin-bottom:.25rem">% Adic. 25%</label>
-          <input class="input" name="pct_adicional_25" id="f-p25" type="number" step="0.01" value="0.25" style="width:100%;box-sizing:border-box"></div>
-        <div><label style="font-size:.78rem;font-weight:600;color:#374151;display:block;margin-bottom:.25rem">% HE s/ 25%</label>
-          <input class="input" name="pct_he_sobre_25" id="f-he25" type="number" step="0.01" value="0.25" style="width:100%;box-sizing:border-box"></div>
-      </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:.5rem">
-        <div><label style="font-size:.78rem;font-weight:600;color:#374151;display:block;margin-bottom:.25rem">Vigência início</label>
-          <input class="input" name="vigencia_inicio" id="f-vi" type="date" style="width:100%;box-sizing:border-box"></div>
-        <div><label style="font-size:.78rem;font-weight:600;color:#374151;display:block;margin-bottom:.25rem">Vigência fim</label>
-          <input class="input" name="vigencia_fim" id="f-vf" type="date" style="width:100%;box-sizing:border-box"></div>
-        <div><label style="font-size:.78rem;font-weight:600;color:#374151;display:block;margin-bottom:.25rem">Status</label>
-          <select class="input" name="status" id="f-status" style="width:100%;box-sizing:border-box">
-            <option value="Ativo">Ativo</option><option value="Inativo">Inativo</option>
-          </select></div>
-      </div>
-      <div style="display:flex;gap:.5rem;padding-top:.25rem">
-        <button type="submit" style="flex:1;padding:.5rem;background:#dc2626;color:#fff;border:none;border-radius:6px;font-weight:600;cursor:pointer">💾 Salvar</button>
-        <button type="button" onclick="limpar()" style="padding:.5rem 1rem;border:1px solid #d1d5db;border-radius:6px;background:#fff;cursor:pointer">＋ Novo</button>
-      </div>
-    </form>
+<style>
+  .cargos-table { width:100%; border-collapse:collapse; font-size:.83rem; }
+  .cargos-table th { background:#f9fafb; padding:.5rem .75rem; font-size:.67rem; font-weight:700; color:#6b7280; text-transform:uppercase; letter-spacing:.05em; border-bottom:2px solid #e5e7eb; white-space:nowrap; text-align:left; }
+  .cargos-table td { padding:.4rem .6rem; border-bottom:1px solid #f3f4f6; vertical-align:middle; }
+  .cargos-table tr:hover td { background:#fafafa; }
+  .cargos-table input[type=text] { width:100%; padding:.3rem .5rem; border:1px solid #e5e7eb; border-radius:5px; font-size:.82rem; box-sizing:border-box; background:transparent; }
+  .cargos-table input[type=text]:focus { outline:none; border-color:#dc2626; background:#fff; }
+  .cargos-table select.sel-sm { padding:.3rem .4rem; border:1px solid #e5e7eb; border-radius:5px; font-size:.82rem; background:transparent; }
+  .cargos-table select.sel-sm:focus { outline:none; border-color:#dc2626; }
+  .chk-cell { text-align:center; }
+  .chk-cell input[type=checkbox] { width:16px; height:16px; cursor:pointer; accent-color:#dc2626; }
+  .badge-novo { font-size:.65rem; font-weight:700; padding:.1rem .4rem; border-radius:999px; background:#dcfce7; color:#166534; }
+  .badge-ok  { font-size:.65rem; font-weight:700; padding:.1rem .4rem; border-radius:999px; background:#dbeafe; color:#1e40af; }
+</style>
+
+{% if not cargos %}
+<div style="background:#fff;border:1px solid #e5e7eb;border-radius:10px;padding:2.5rem;text-align:center;color:#9ca3af;font-style:italic">
+  Nenhuma folha importada ainda. Importe uma folha para ver os cargos.
+</div>
+{% else %}
+<form method="post" action="/folha/budget/cargos">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.75rem">
+    <span style="font-size:.82rem;color:#6b7280">{{ cargos|length }} cargo(s) encontrado(s) na folha</span>
+    <button type="submit" style="padding:.5rem 1.5rem;background:#dc2626;color:#fff;border:none;border-radius:7px;font-weight:600;cursor:pointer;font-size:.9rem">💾 Salvar tudo</button>
   </div>
 
   <div style="background:#fff;border:1px solid #e5e7eb;border-radius:10px;overflow:auto">
-    <table style="width:100%;border-collapse:collapse;font-size:.82rem">
-      <thead><tr style="background:#f9fafb">
-        {% for h in ["Código","Descrição","Grupo","Área","Ponto","Adic.25%","HE25%","Vigência","Status",""] %}
-        <th style="padding:.5rem .8rem;text-align:left;font-size:.7rem;font-weight:600;color:#6b7280;text-transform:uppercase;white-space:nowrap;border-bottom:1px solid #e5e7eb">{{ h }}</th>
-        {% endfor %}
-      </tr></thead>
+    <table class="cargos-table">
+      <thead>
+        <tr>
+          <th style="width:70px">Código</th>
+          <th style="min-width:180px">Descrição</th>
+          <th style="min-width:110px">Grupo</th>
+          <th style="min-width:110px">Área</th>
+          <th style="min-width:80px">Nível</th>
+          <th class="chk-cell" style="width:80px">Bate Ponto</th>
+          <th style="width:100px">% Adic. 25%</th>
+          <th style="width:100px">% HE s/25%</th>
+          <th style="width:90px">Status</th>
+          <th style="width:50px"></th>
+        </tr>
+      </thead>
       <tbody>
-        {% for r in rows %}
-        <tr style="border-bottom:1px solid #f3f4f6">
-          <td style="padding:.5rem .8rem;font-weight:600">{{ r.codigo_cargo }}</td>
-          <td style="padding:.5rem .8rem">{{ r.descricao or "—" }}</td>
-          <td style="padding:.5rem .8rem">{{ r.grupo or "—" }}</td>
-          <td style="padding:.5rem .8rem">{{ r.area or "—" }}</td>
-          <td style="padding:.5rem .8rem;text-align:center">{{ "✅" if r.bate_ponto else "❌" }}</td>
-          <td style="padding:.5rem .8rem;text-align:center">{{ "%.0f%%"|format((r.pct_adicional_25 or 0)*100) }}</td>
-          <td style="padding:.5rem .8rem;text-align:center">{{ "%.0f%%"|format((r.pct_he_sobre_25 or 0)*100) }}</td>
-          <td style="padding:.5rem .8rem;font-size:.75rem;color:#6b7280;white-space:nowrap">{{ r.vigencia_inicio or "" }}{% if r.vigencia_fim %}~{{ r.vigencia_fim }}{% endif %}</td>
-          <td style="padding:.5rem .8rem"><span style="font-size:.7rem;font-weight:600;padding:.15rem .5rem;border-radius:999px;background:{% if r.status=='Ativo' %}#dcfce7;color:#166534{% else %}#fee2e2;color:#991b1b{% endif %}">{{ r.status }}</span></td>
-          <td style="padding:.5rem .8rem">
-            <div style="display:flex;gap:.3rem">
-              <button type="button" onclick='abrirModal({{ r.id }},{{ (r.codigo_cargo ~ " — " ~ (r.descricao or ""))|tojson }},()=>editar({{ r.id }},{{ r.codigo_cargo|tojson }},{{ (r.descricao or "")|tojson }},{{ (r.grupo or "")|tojson }},{{ (r.area or "")|tojson }},{{ (r.nivel or "")|tojson }},{{ "1" if r.bate_ponto else "0" }},{{ r.pct_adicional_25 or 0 }},{{ r.pct_he_sobre_25 or 0 }},{{ (r.vigencia_inicio or "")|tojson }},{{ (r.vigencia_fim or "")|tojson }},{{ r.status|tojson }}))' style="padding:.25rem .6rem;border:1px solid #d1d5db;border-radius:5px;font-size:.75rem;background:transparent;cursor:pointer">✏️</button>
-              <form method="post" action="/folha/budget/cargos/{{ r.id }}/excluir" style="margin:0" onsubmit="return confirm('Excluir {{ r.codigo_cargo }}?')">
-                <button type="submit" style="padding:.25rem .6rem;border:1px solid #fca5a5;border-radius:5px;font-size:.75rem;background:transparent;color:#dc2626;cursor:pointer">🗑️</button>
-              </form>
-            </div>
+        {% for c in cargos %}
+        <tr>
+          <input type="hidden" name="cod_{{ c.codigo_cargo }}" value="{{ c.codigo_cargo }}">
+          <input type="hidden" name="id_{{ c.codigo_cargo }}" value="{{ c.id }}">
+          <td style="font-weight:700;font-size:.8rem;color:#374151">
+            {{ c.codigo_cargo }}
+            <span class="{{ 'badge-ok' if c.cadastrado else 'badge-novo' }}">{{ 'OK' if c.cadastrado else 'NOVO' }}</span>
+          </td>
+          <td><input type="text" name="desc_{{ c.codigo_cargo }}" value="{{ c.descricao or c.nome_folha }}"></td>
+          <td><input type="text" name="grupo_{{ c.codigo_cargo }}" value="{{ c.grupo or '' }}" placeholder="—"></td>
+          <td><input type="text" name="area_{{ c.codigo_cargo }}" value="{{ c.area or '' }}" placeholder="—"></td>
+          <td><input type="text" name="nivel_{{ c.codigo_cargo }}" value="{{ c.nivel or '' }}" placeholder="Jr/Pl/Sr"></td>
+          <td class="chk-cell">
+            <input type="hidden" name="ponto_{{ c.codigo_cargo }}" value="0">
+            <input type="checkbox" name="ponto_{{ c.codigo_cargo }}" value="1" {% if c.bate_ponto %}checked{% endif %}>
+          </td>
+          <td>
+            <select class="sel-sm" name="p25_{{ c.codigo_cargo }}" style="width:100%">
+              <option value="0" {% if (c.pct_adicional_25 or 0) == 0 %}selected{% endif %}>0%</option>
+              <option value="0.25" {% if (c.pct_adicional_25 or 0) == 0.25 %}selected{% endif %}>25%</option>
+              <option value="0.30" {% if (c.pct_adicional_25 or 0) == 0.30 %}selected{% endif %}>30%</option>
+              <option value="0.50" {% if (c.pct_adicional_25 or 0) == 0.50 %}selected{% endif %}>50%</option>
+            </select>
+          </td>
+          <td>
+            <select class="sel-sm" name="he25_{{ c.codigo_cargo }}" style="width:100%">
+              <option value="0" {% if (c.pct_he_sobre_25 or 0) == 0 %}selected{% endif %}>0%</option>
+              <option value="0.25" {% if (c.pct_he_sobre_25 or 0) == 0.25 %}selected{% endif %}>25%</option>
+              <option value="0.50" {% if (c.pct_he_sobre_25 or 0) == 0.50 %}selected{% endif %}>50%</option>
+              <option value="0.75" {% if (c.pct_he_sobre_25 or 0) == 0.75 %}selected{% endif %}>75%</option>
+            </select>
+          </td>
+          <td>
+            <select class="sel-sm" name="status_{{ c.codigo_cargo }}" style="width:100%">
+              <option value="Ativo" {% if c.status == 'Ativo' %}selected{% endif %}>Ativo</option>
+              <option value="Inativo" {% if c.status == 'Inativo' %}selected{% endif %}>Inativo</option>
+            </select>
+          </td>
+          <td style="text-align:center">
+            {% if c.id %}
+            <form method="post" action="/folha/budget/cargos/{{ c.id }}/excluir" style="margin:0" onsubmit="return confirm('Excluir {{ c.codigo_cargo }}?')">
+              <button type="submit" style="padding:.2rem .5rem;border:1px solid #fca5a5;border-radius:4px;font-size:.75rem;background:transparent;color:#dc2626;cursor:pointer">🗑️</button>
+            </form>
+            {% endif %}
           </td>
         </tr>
-        {% else %}
-        <tr><td colspan="10" style="padding:1.5rem;text-align:center;color:#9ca3af;font-style:italic">Nenhum cargo cadastrado.</td></tr>
         {% endfor %}
       </tbody>
     </table>
   </div>
-</div>
 
-<script>
-function importarDaFolha(val){
-  if(!val) return;
-  const [cod, nome] = val.split('|');
-  document.getElementById('f-cod').value = cod;
-  document.getElementById('f-desc').value = nome;
-  document.getElementById('f-cod').focus();
-}
-function limpar(){
-  const sel = document.getElementById('sel-folha');
-  if(sel) sel.value = '';
-  ['f-id','f-fechar-id','f-cod','f-desc','f-grupo','f-area','f-nivel','f-vi','f-vf'].forEach(id=>document.getElementById(id).value='');
-  document.getElementById('f-ponto').value='1';
-  document.getElementById('f-p25').value='0.25';
-  document.getElementById('f-he25').value='0.25';
-  document.getElementById('f-status').value='Ativo';
-  document.getElementById('form-title').textContent='Novo Cargo';
-  document.getElementById('modo-badge').textContent='NOVO';
-  document.getElementById('modo-badge').style.cssText='font-size:.72rem;font-weight:600;padding:.2rem .6rem;border-radius:999px;background:#dcfce7;color:#166534';
-  document.getElementById('main-form').style.background='';
-  document.getElementById('f-cod').focus();
-}
-function editar(id,cod,desc,grupo,area,nivel,ponto,p25,he25,vi,vf,status){
-  document.getElementById('f-id').value=id;
-  document.getElementById('f-cod').value=cod;
-  document.getElementById('f-desc').value=desc;
-  document.getElementById('f-grupo').value=grupo;
-  document.getElementById('f-area').value=area;
-  document.getElementById('f-nivel').value=nivel;
-  document.getElementById('f-ponto').value=ponto;
-  document.getElementById('f-p25').value=p25;
-  document.getElementById('f-he25').value=he25;
-  document.getElementById('f-vi').value=vi;
-  document.getElementById('f-vf').value=vf;
-  document.getElementById('f-status').value=status;
-  document.getElementById('form-title').textContent='Editar Cargo #'+id;
-  document.getElementById('modo-badge').textContent='EDITANDO';
-  document.getElementById('modo-badge').style.cssText='font-size:.72rem;font-weight:600;padding:.2rem .6rem;border-radius:999px;background:#fef9c3;color:#854d0e';
-  document.getElementById('main-form').style.background='#fffbeb';
-  document.getElementById('main-form').scrollIntoView({behavior:'smooth',block:'start'});
-}
-</script>
-{% include "folha/_vigencia_modal.html" %}
+  <div style="margin-top:.75rem;text-align:right">
+    <button type="submit" style="padding:.5rem 1.5rem;background:#dc2626;color:#fff;border:none;border-radius:7px;font-weight:600;cursor:pointer;font-size:.9rem">💾 Salvar tudo</button>
+  </div>
+</form>
+{% endif %}
 {% endblock %}

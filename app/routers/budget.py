@@ -731,51 +731,75 @@ def budget_empresas_excluir(id: int, db: Session = Depends(get_db)):
 
 @router.get("/folha/budget/cargos")
 def budget_cargos_list(request: Request, db: Session = Depends(get_db)):
-    from app.routers.folha_pagamento import folha_funcionarios as ff
-    rows = db.execute(select(budget_cargos).order_by(budget_cargos.c.codigo_cargo)).mappings().all()
+    # Cargos distintos da folha importada
     cargos_folha = db.execute(
-        text("SELECT DISTINCT codigo_cargo, cargo FROM folha_funcionarios WHERE codigo_cargo IS NOT NULL AND codigo_cargo != '' ORDER BY cargo")
-    ).fetchall()
+        text("SELECT DISTINCT codigo_cargo, cargo FROM folha_funcionarios "
+             "WHERE codigo_cargo IS NOT NULL AND codigo_cargo != '' ORDER BY cargo")
+    ).mappings().all()
+
+    # Parâmetros já cadastrados no budget, indexados por codigo_cargo
+    params_existentes: dict = {}
+    for r in db.execute(
+        select(budget_cargos).where(budget_cargos.c.status == "Ativo")
+        .order_by(budget_cargos.c.vigencia_inicio)
+    ).mappings().all():
+        params_existentes[r["codigo_cargo"]] = dict(r)
+
+    # Mescla: base da folha + params cadastrados
+    cargos = []
+    for c in cargos_folha:
+        p = params_existentes.get(c["codigo_cargo"], {})
+        cargos.append({
+            "codigo_cargo": c["codigo_cargo"],
+            "nome_folha": c["cargo"],
+            "id": p.get("id", ""),
+            "descricao": p.get("descricao", c["cargo"] or ""),
+            "grupo": p.get("grupo", ""),
+            "area": p.get("area", ""),
+            "nivel": p.get("nivel", ""),
+            "bate_ponto": p.get("bate_ponto", True),
+            "pct_adicional_25": p.get("pct_adicional_25", 0.0),
+            "pct_he_sobre_25": p.get("pct_he_sobre_25", 0.0),
+            "status": p.get("status", "Ativo"),
+            "cadastrado": bool(p),
+        })
+
     return templates.TemplateResponse("folha/budget_cargos.html", {
-        "request": request, "rows": rows,
-        "cargos_folha": [{"codigo": r[0], "nome": r[1]} for r in cargos_folha],
+        "request": request, "cargos": cargos,
         "success": request.query_params.get("success"),
         "error": request.query_params.get("error"),
     })
 
 @router.post("/folha/budget/cargos")
-def budget_cargos_salvar(
-    request: Request, db: Session = Depends(get_db),
-    id: str = Form(""), codigo_cargo: str = Form(...),
-    descricao: str = Form(""), grupo: str = Form(""), area: str = Form(""),
-    nivel: str = Form(""), bate_ponto: str = Form("1"),
-    pct_adicional_25: str = Form("0"), pct_he_sobre_25: str = Form("0"),
-    status: str = Form("Ativo"), vigencia_inicio: str = Form(""), vigencia_fim: str = Form(""),
-    fechar_anterior_id: str = Form(""),
-):
-    dados = dict(
-        codigo_cargo=codigo_cargo.strip(), descricao=descricao.strip(),
-        grupo=grupo.strip(), area=area.strip(), nivel=nivel.strip(),
-        bate_ponto=bate_ponto == "1",
-        pct_adicional_25=float(pct_adicional_25 or 0),
-        pct_he_sobre_25=float(pct_he_sobre_25 or 0),
-        status=status, vigencia_fim=vigencia_fim or None,
-    )
-    if id.strip():
-        dados["vigencia_inicio"] = vigencia_inicio or None
-        db.execute(update(budget_cargos).where(budget_cargos.c.id == int(id)).values(**dados))
-        msg = "Cargo atualizado."
-    else:
-        dados["vigencia_inicio"] = vigencia_inicio or "2000-01-01"
-        dados["criado_por"] = _usuario(request)
-        if fechar_anterior_id.strip():
-            _fechar_vigencia(db, budget_cargos, int(fechar_anterior_id))
-            msg = "Nova vigência de cargo criada."
+async def budget_cargos_salvar(request: Request, db: Session = Depends(get_db)):
+    form = await request.form()
+    usuario = _usuario(request)
+    codigos = [k[4:] for k in form.keys() if k.startswith("cod_")]
+    salvos = 0
+    for cod in codigos:
+        id_val = form.get(f"id_{cod}", "")
+        dados = dict(
+            codigo_cargo=cod,
+            descricao=form.get(f"desc_{cod}", "") or cod,
+            grupo=form.get(f"grupo_{cod}", "") or None,
+            area=form.get(f"area_{cod}", "") or None,
+            nivel=form.get(f"nivel_{cod}", "") or None,
+            bate_ponto=form.get(f"ponto_{cod}") == "1",
+            pct_adicional_25=float(form.get(f"p25_{cod}") or 0),
+            pct_he_sobre_25=float(form.get(f"he25_{cod}") or 0),
+            status=form.get(f"status_{cod}", "Ativo"),
+            vigencia_fim=None,
+        )
+        if id_val.strip():
+            db.execute(update(budget_cargos).where(
+                budget_cargos.c.id == int(id_val)).values(**dados))
         else:
-            msg = "Cargo cadastrado."
-        db.execute(insert(budget_cargos).values(**dados))
+            dados["vigencia_inicio"] = "2000-01-01"
+            dados["criado_por"] = usuario
+            db.execute(insert(budget_cargos).values(**dados))
+        salvos += 1
     db.commit()
-    return redirect_with_message("/folha/budget/cargos", success=msg)
+    return redirect_with_message("/folha/budget/cargos", success=f"{salvos} cargo(s) salvos.")
 
 @router.post("/folha/budget/cargos/{id}/excluir")
 def budget_cargos_excluir(id: int, db: Session = Depends(get_db)):
