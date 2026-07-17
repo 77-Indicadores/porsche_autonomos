@@ -1,0 +1,106 @@
+{% extends "base.html" %}
+{% block header %}Budget — Resultado{% endblock %}
+{% block subtitle %}Custo projetado por empregado, verba, cenário e competência{% endblock %}
+
+{% block header_action %}
+<a href="/folha/budget" style="padding:.45rem 1rem;border:1px solid #d1d5db;border-radius:6px;font-size:.875rem;color:#374151;text-decoration:none">← Voltar</a>
+{% endblock %}
+
+{% block content %}
+{% if success %}<div class="alert success">{{ success }}</div>{% endif %}
+{% if error %}<div class="alert error">{{ error }}</div>{% endif %}
+
+<style>
+  .filtros { display:flex;gap:.75rem;flex-wrap:wrap;align-items:flex-end;background:#fff;border:1px solid #e5e7eb;border-radius:10px;padding:1rem;margin-bottom:1.5rem; }
+  .filtros label { font-size:.78rem;font-weight:600;color:#374151;display:block;margin-bottom:.25rem; }
+  .totais-grid { display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:.75rem;margin-bottom:1.5rem; }
+  .total-card { background:#fff;border:1px solid #e5e7eb;border-radius:8px;padding:.9rem 1rem; }
+  .total-card .cat { font-size:.7rem;font-weight:600;color:#6b7280;text-transform:uppercase;letter-spacing:.05em; }
+  .total-card .val { font-size:1.1rem;font-weight:700;color:#111;margin-top:.2rem; }
+  @media(prefers-color-scheme:dark){
+    .filtros,.total-card{background:#1f2937;border-color:#374151}
+    .total-card .val{color:#f9fafb}
+  }
+</style>
+
+<form method="get" action="/folha/budget/resultado" class="filtros">
+  <div>
+    <label>Cenário</label>
+    <select name="cenario" class="input" style="min-width:170px">
+      <option value="">— selecione —</option>
+      {% for c in cenarios %}<option value="{{ c }}" {% if c == sel_cenario %}selected{% endif %}>{{ c }}</option>{% endfor %}
+    </select>
+  </div>
+  <div>
+    <label>Competência</label>
+    <select name="competencia" class="input" style="min-width:120px">
+      <option value="">— selecione —</option>
+      {% for c in competencias %}<option value="{{ c }}" {% if c == sel_competencia %}selected{% endif %}>{{ c }}</option>{% endfor %}
+    </select>
+  </div>
+  <div>
+    <label>Matrícula</label>
+    <input class="input" name="matricula" value="{{ sel_matricula }}" placeholder="Filtre por matrícula" style="width:140px">
+  </div>
+  <button type="submit" style="padding:.5rem 1.2rem;background:#dc2626;color:#fff;border:none;border-radius:6px;font-weight:600;cursor:pointer">🔍 Filtrar</button>
+</form>
+
+{% if totais %}
+<div class="totais-grid">
+  {% for cat, val in totais.items() %}
+  <div class="total-card">
+    <div class="cat">{{ cat }}</div>
+    <div class="val">R$ {{ "%.2f"|format(val) }}</div>
+  </div>
+  {% endfor %}
+  <div class="total-card" style="border-color:#dc2626">
+    <div class="cat" style="color:#dc2626">TOTAL GERAL</div>
+    <div class="val" style="color:#dc2626">R$ {{ "%.2f"|format(totais.values()|sum) }}</div>
+  </div>
+</div>
+{% endif %}
+
+{% if linhas %}
+<div style="background:#fff;border:1px solid #e5e7eb;border-radius:10px;overflow:auto">
+  <table style="width:100%;border-collapse:collapse;font-size:.82rem">
+    <thead><tr style="background:#f9fafb">
+      {% for h in ["Empregado","Matrícula","Cargo","Vínculo","CC","Verba","Categoria","Realizado","Budget","Origem"] %}
+      <th style="padding:.5rem .8rem;text-align:left;font-size:.68rem;font-weight:600;color:#6b7280;text-transform:uppercase;white-space:nowrap;border-bottom:1px solid #e5e7eb">{{ h }}</th>
+      {% endfor %}
+    </tr></thead>
+    <tbody>
+      {% set ns = namespace(emp_ant='') %}
+      {% for l in linhas %}
+      {% if l.nome_empregado != ns.emp_ant %}
+      {% set ns.emp_ant = l.nome_empregado %}
+      <tr style="background:#f9fafb">
+        <td colspan="10" style="padding:.4rem .8rem;font-weight:700;font-size:.82rem;color:#111;border-bottom:1px solid #e5e7eb">
+          {{ l.nome_empregado }} — {{ l.empresa_nome or l.empresa_codigo }} / {{ l.competencia }}
+        </td>
+      </tr>
+      {% endif %}
+      <tr style="border-bottom:1px solid #f3f4f6">
+        <td style="padding:.45rem .8rem;color:#6b7280;font-size:.78rem">{{ l.nome_empregado }}</td>
+        <td style="padding:.45rem .8rem;font-size:.78rem">{{ l.matricula }}</td>
+        <td style="padding:.45rem .8rem;font-size:.75rem;color:#6b7280">{{ l.cargo_nome or l.codigo_cargo or "—" }}</td>
+        <td style="padding:.45rem .8rem;font-size:.75rem;color:#6b7280">{{ l.vinculo or "—" }}</td>
+        <td style="padding:.45rem .8rem;font-size:.75rem;color:#6b7280">{{ l.centro_custo or "—" }}</td>
+        <td style="padding:.45rem .8rem;font-weight:600">{{ l.descricao_verba }}</td>
+        <td style="padding:.45rem .8rem"><span style="font-size:.7rem;padding:.15rem .5rem;border-radius:4px;background:#f3f4f6">{{ l.categoria_verba }}</span></td>
+        <td style="padding:.45rem .8rem;text-align:right;color:#6b7280">{{ "R$ %.2f"|format(l.valor_realizado) if l.valor_realizado is not none else "—" }}</td>
+        <td style="padding:.45rem .8rem;text-align:right;font-weight:600;color:#111">R$ {{ "%.2f"|format(l.valor_budget or 0) }}</td>
+        <td style="padding:.45rem .8rem;font-size:.72rem;color:#9ca3af">{{ l.origem_regra or "—" }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% elif sel_cenario and sel_competencia %}
+<div style="text-align:center;padding:3rem;color:#9ca3af;font-style:italic">
+  Nenhum resultado para {{ sel_cenario }} / {{ sel_competencia }}.
+  <br><a href="/folha/budget" style="color:#dc2626;text-decoration:none;font-weight:600">Processar budget →</a>
+</div>
+{% else %}
+<div style="text-align:center;padding:3rem;color:#9ca3af;font-style:italic">Selecione um cenário e competência para visualizar o resultado.</div>
+{% endif %}
+{% endblock %}

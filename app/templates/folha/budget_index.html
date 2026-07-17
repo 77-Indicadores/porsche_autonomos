@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+{% block header %}Budget de Pessoal{% endblock %}
+{% block subtitle %}Projeção de custos parametrizada por vigência{% endblock %}
+
+{% block content %}
+<style>
+  .budget-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(200px,1fr)); gap:1rem; margin-bottom:2rem; }
+  .budget-card { background:#fff; border:1px solid #e5e7eb; border-radius:10px; padding:1.2rem 1.4rem; box-shadow:0 1px 3px rgba(0,0,0,.06); }
+  .budget-card .label { font-size:.72rem; font-weight:600; color:#6b7280; text-transform:uppercase; letter-spacing:.05em; }
+  .budget-card .value { font-size:1.6rem; font-weight:700; color:#111; margin:.2rem 0; }
+  .nav-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(180px,1fr)); gap:.75rem; margin-bottom:2rem; }
+  .nav-item { background:#fff; border:1px solid #e5e7eb; border-radius:8px; padding:1rem; text-decoration:none; color:#111; display:flex; flex-direction:column; gap:.3rem; transition:box-shadow .15s, border-color .15s; }
+  .nav-item:hover { box-shadow:0 2px 8px rgba(0,0,0,.1); border-color:#9ca3af; }
+  .nav-item .icon { font-size:1.4rem; }
+  .nav-item .title { font-weight:600; font-size:.9rem; }
+  .nav-item .desc { font-size:.75rem; color:#6b7280; }
+  .cenarios-list { display:flex; gap:.5rem; flex-wrap:wrap; }
+  .cenario-pill { padding:.3rem .8rem; border-radius:999px; font-size:.78rem; font-weight:600; border:1px solid #e5e7eb; background:#f9fafb; color:#374151; }
+  .cenario-pill.bloqueado { background:#fef9c3; border-color:#fde68a; color:#92400e; }
+  .section-title { font-size:.8rem; font-weight:700; color:#6b7280; text-transform:uppercase; letter-spacing:.06em; margin:1.5rem 0 .6rem; }
+  @media(prefers-color-scheme:dark){
+    .budget-card,.nav-item{background:#1f2937;border-color:#374151;color:#f9fafb}
+    .budget-card .value{color:#f9fafb}
+    .nav-item .desc{color:#9ca3af}
+    .cenario-pill{background:#374151;border-color:#4b5563;color:#d1d5db}
+  }
+</style>
+
+<div class="budget-grid">
+  <div class="budget-card"><div class="label">Empresas</div><div class="value">{{ qtd_empresas }}</div></div>
+  <div class="budget-card"><div class="label">Cargos</div><div class="value">{{ qtd_cargos }}</div></div>
+  <div class="budget-card"><div class="label">Verbas</div><div class="value">{{ qtd_verbas }}</div></div>
+  <div class="budget-card"><div class="label">Exceções</div><div class="value">{{ qtd_excecoes }}</div></div>
+</div>
+
+<div class="section-title">Cenários</div>
+<div class="cenarios-list" style="margin-bottom:1.5rem">
+  {% for c in cenarios %}
+  <span class="cenario-pill {% if c.bloqueado %}bloqueado{% endif %}">
+    {{ c.nome }}{% if c.bloqueado %} 🔒{% endif %}
+  </span>
+  {% endfor %}
+</div>
+
+<div class="section-title">Processar Budget</div>
+<form method="post" action="/folha/budget/processar" style="display:flex;gap:.75rem;align-items:flex-end;flex-wrap:wrap;margin-bottom:2rem;background:#fff;border:1px solid #e5e7eb;border-radius:10px;padding:1.2rem">
+  <div>
+    <label style="font-size:.78rem;font-weight:600;color:#374151;display:block;margin-bottom:.3rem">Cenário</label>
+    <select name="cenario" class="input" style="min-width:180px">
+      {% for c in cenarios %}<option>{{ c.nome }}</option>{% endfor %}
+    </select>
+  </div>
+  <div>
+    <label style="font-size:.78rem;font-weight:600;color:#374151;display:block;margin-bottom:.3rem">Competência (YYYY-MM)</label>
+    <input name="competencia" class="input" placeholder="2026-01" style="width:140px">
+  </div>
+  <button class="btn-primary" type="submit" style="padding:.5rem 1.4rem;background:#dc2626;color:#fff;border:none;border-radius:6px;font-weight:600;cursor:pointer">
+    ▶ Processar
+  </button>
+  <a href="/folha/budget/resultado" style="padding:.5rem 1rem;border:1px solid #d1d5db;border-radius:6px;font-size:.875rem;color:#374151;text-decoration:none">Ver Resultado →</a>
+</form>
+
+<div class="section-title">Cadastros</div>
+<div class="nav-grid">
+  <a class="nav-item" href="/folha/budget/empresas"><span class="icon">🏢</span><span class="title">Empresas</span><span class="desc">CNPJ, código, vigência</span></a>
+  <a class="nav-item" href="/folha/budget/cargos"><span class="icon">🪪</span><span class="title">Cargos</span><span class="desc">Grupo, adicional 25%, HE</span></a>
+  <a class="nav-item" href="/folha/budget/vinculos"><span class="icon">📋</span><span class="title">Vínculos</span><span class="desc">FGTS, INSS, 13º, férias</span></a>
+  <a class="nav-item" href="/folha/budget/verbas"><span class="icon">📝</span><span class="title">Verbas</span><span class="desc">Percentuais e tipos de cálculo</span></a>
+  <a class="nav-item" href="/folha/budget/beneficios"><span class="icon">🎁</span><span class="title">Benefícios</span><span class="desc">VR, VA, saúde, seguro</span></a>
+  <a class="nav-item" href="/folha/budget/encargos"><span class="icon">🏛️</span><span class="title">Encargos</span><span class="desc">FGTS, INSS patronal, provisões</span></a>
+  <a class="nav-item" href="/folha/budget/excecoes"><span class="icon">⚠️</span><span class="title">Exceções</span><span class="desc">Regras individuais por matrícula</span></a>
+  <a class="nav-item" href="/folha/budget/quantidades"><span class="icon">📐</span><span class="title">Quantidades</span><span class="desc">HE, noturno, dias VR por competência</span></a>
+</div>
+{% endblock %}

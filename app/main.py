@@ -7,7 +7,7 @@ from starlette.responses import RedirectResponse
 
 from app.auth import SESSION_COOKIE, read_session_token
 from app.database import Base, engine, garantir_schema_usuarios, limpar_datas_vazias_sqlite
-from app.routers import alocacoes, auth, cadastros, dashboard, relatorios, usuarios, referencias_importacao, pesquisas, composicao_padrao, equipe_geral, dho, facilities, composicao_meta_equipe
+from app.routers import alocacoes, auth, cadastros, dashboard, relatorios, usuarios, referencias_importacao, pesquisas, composicao_padrao, equipe_geral, dho, facilities, composicao_meta_equipe, budget
 
 
 Base.metadata.create_all(bind=engine)
@@ -63,6 +63,7 @@ app.add_middleware(AuthMiddleware)
 
 app.include_router(dashboard.router)
 app.include_router(dho.router)
+app.include_router(budget.router)
 app.include_router(cadastros.router)
 app.include_router(equipe_geral.router)
 app.include_router(alocacoes.router)

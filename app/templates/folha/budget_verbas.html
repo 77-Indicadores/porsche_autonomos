@@ -1,0 +1,167 @@
+{% extends "base.html" %}
+{% block header %}Budget — Verbas{% endblock %}
+{% block subtitle %}Percentuais, bases de cálculo e incidências por vigência{% endblock %}
+{% block content %}
+{% if success %}<div class="alert success">{{ success }}</div>{% endif %}
+{% if error %}<div class="alert error">{{ error }}</div>{% endif %}
+
+<div style="display:grid;grid-template-columns:380px 1fr;gap:1.5rem;align-items:start">
+  <div style="background:#fff;border:1px solid #e5e7eb;border-radius:10px;overflow:hidden">
+    <div style="padding:.85rem 1.2rem;border-bottom:1px solid #e5e7eb;background:#f9fafb;display:flex;justify-content:space-between;align-items:center">
+      <h3 id="form-title" style="margin:0;font-size:.95rem;font-weight:600">Nova Verba</h3>
+      <span id="modo-badge" style="font-size:.72rem;font-weight:600;padding:.2rem .6rem;border-radius:999px;background:#dcfce7;color:#166534">NOVO</span>
+    </div>
+    <form method="post" action="/folha/budget/verbas" id="main-form" style="padding:1rem;display:flex;flex-direction:column;gap:.75rem">
+      <input type="hidden" name="id" id="f-id">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:.5rem">
+        <div><label style="font-size:.78rem;font-weight:600;color:#374151;display:block;margin-bottom:.25rem">Código *</label>
+          <input class="input" name="codigo" id="f-cod" placeholder="Ex: PERI" required style="width:100%;box-sizing:border-box"></div>
+        <div><label style="font-size:.78rem;font-weight:600;color:#374151;display:block;margin-bottom:.25rem">Categoria</label>
+          <select class="input" name="categoria" id="f-cat" style="width:100%;box-sizing:border-box">
+            <option value="remuneracao">Remuneração</option>
+            <option value="adicional">Adicional</option>
+            <option value="he">Hora Extra</option>
+            <option value="beneficio">Benefício</option>
+            <option value="provisao">Provisão</option>
+            <option value="encargo">Encargo</option>
+          </select></div>
+      </div>
+      <div><label style="font-size:.78rem;font-weight:600;color:#374151;display:block;margin-bottom:.25rem">Descrição *</label>
+        <input class="input" name="descricao" id="f-desc" placeholder="Ex: Periculosidade" required style="width:100%;box-sizing:border-box"></div>
+      <div><label style="font-size:.78rem;font-weight:600;color:#374151;display:block;margin-bottom:.25rem">Tipo de cálculo</label>
+        <select class="input" name="tipo_calculo" id="f-tipo" style="width:100%;box-sizing:border-box">
+          <option value="pct_salario">% sobre salário</option>
+          <option value="pct_sal_peri">% sobre salário + periculosidade</option>
+          <option value="fixo">Valor fixo</option>
+          <option value="qtd_x_sh">Quantidade × salário-hora</option>
+          <option value="unitario_x_qtd">Valor unitário × quantidade</option>
+          <option value="por_dependente">Por titular e dependente</option>
+        </select></div>
+      <div><label style="font-size:.78rem;font-weight:600;color:#374151;display:block;margin-bottom:.25rem">Base de cálculo (descrição)</label>
+        <input class="input" name="base_calculo" id="f-base" placeholder="Ex: salário + periculosidade" style="width:100%;box-sizing:border-box"></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:.5rem">
+        <div><label style="font-size:.78rem;font-weight:600;color:#374151;display:block;margin-bottom:.25rem">Percentual</label>
+          <input class="input" name="percentual" id="f-pct" type="number" step="0.0001" value="0" style="width:100%;box-sizing:border-box"></div>
+        <div><label style="font-size:.78rem;font-weight:600;color:#374151;display:block;margin-bottom:.25rem">Valor fixo</label>
+          <input class="input" name="valor_fixo" id="f-vfix" type="number" step="0.01" value="0" style="width:100%;box-sizing:border-box"></div>
+        <div><label style="font-size:.78rem;font-weight:600;color:#374151;display:block;margin-bottom:.25rem">Qtd. padrão</label>
+          <input class="input" name="quantidade_padrao" id="f-qtd" type="number" step="0.5" value="0" style="width:100%;box-sizing:border-box"></div>
+      </div>
+      <div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:6px;padding:.75rem;display:grid;grid-template-columns:1fr 1fr;gap:.4rem">
+        <label style="grid-column:1/-1;font-size:.72rem;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:.05em;margin-bottom:.2rem">Incidências</label>
+        <label style="display:flex;align-items:center;gap:.4rem;font-size:.82rem;cursor:pointer"><input type="checkbox" name="incide_inss" id="f-inss" value="1"> INSS</label>
+        <label style="display:flex;align-items:center;gap:.4rem;font-size:.82rem;cursor:pointer"><input type="checkbox" name="incide_fgts" id="f-fgts" value="1"> FGTS</label>
+        <label style="display:flex;align-items:center;gap:.4rem;font-size:.82rem;cursor:pointer"><input type="checkbox" name="incide_ferias" id="f-fer" value="1"> Férias</label>
+        <label style="display:flex;align-items:center;gap:.4rem;font-size:.82rem;cursor:pointer"><input type="checkbox" name="incide_decimo" id="f-13" value="1"> 13º</label>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:.5rem">
+        <div><label style="font-size:.78rem;font-weight:600;color:#374151;display:block;margin-bottom:.25rem">Empresa (vazio=todas)</label>
+          <input class="input" name="empresa_codigo" id="f-emp" placeholder="Código da empresa" style="width:100%;box-sizing:border-box"></div>
+        <div><label style="font-size:.78rem;font-weight:600;color:#374151;display:block;margin-bottom:.25rem">Vínculo (vazio=todos)</label>
+          <input class="input" name="vinculo_codigo" id="f-vinc" placeholder="Ex: Celetista" style="width:100%;box-sizing:border-box"></div>
+        <div><label style="font-size:.78rem;font-weight:600;color:#374151;display:block;margin-bottom:.25rem">Grupo cargo (vazio=todos)</label>
+          <input class="input" name="cargo_grupo" id="f-grp" placeholder="Ex: Mecânico" style="width:100%;box-sizing:border-box"></div>
+        <div><label style="font-size:.78rem;font-weight:600;color:#374151;display:block;margin-bottom:.25rem">Prioridade</label>
+          <input class="input" name="prioridade" id="f-pri" type="number" value="99" style="width:100%;box-sizing:border-box"></div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:.5rem">
+        <div><label style="font-size:.78rem;font-weight:600;color:#374151;display:block;margin-bottom:.25rem">Vigência início</label>
+          <input class="input" name="vigencia_inicio" id="f-vi" type="date" style="width:100%;box-sizing:border-box"></div>
+        <div><label style="font-size:.78rem;font-weight:600;color:#374151;display:block;margin-bottom:.25rem">Vigência fim</label>
+          <input class="input" name="vigencia_fim" id="f-vf" type="date" style="width:100%;box-sizing:border-box"></div>
+        <div><label style="font-size:.78rem;font-weight:600;color:#374151;display:block;margin-bottom:.25rem">Status</label>
+          <select class="input" name="status" id="f-status" style="width:100%;box-sizing:border-box">
+            <option value="Ativo">Ativo</option><option value="Inativo">Inativo</option>
+          </select></div>
+      </div>
+      <div style="display:flex;gap:.5rem;padding-top:.25rem">
+        <button type="submit" style="flex:1;padding:.5rem;background:#dc2626;color:#fff;border:none;border-radius:6px;font-weight:600;cursor:pointer">💾 Salvar</button>
+        <button type="button" onclick="limpar()" style="padding:.5rem 1rem;border:1px solid #d1d5db;border-radius:6px;background:#fff;cursor:pointer">＋ Novo</button>
+      </div>
+    </form>
+  </div>
+
+  <div style="background:#fff;border:1px solid #e5e7eb;border-radius:10px;overflow:auto">
+    <table style="width:100%;border-collapse:collapse;font-size:.82rem">
+      <thead><tr style="background:#f9fafb">
+        {% for h in ["Cód","Descrição","Categoria","Tipo Cálculo","Pct","V.Fixo","INSS","FGTS","Empresa","Vínculo","Vigência","Status",""] %}
+        <th style="padding:.5rem .7rem;text-align:left;font-size:.68rem;font-weight:600;color:#6b7280;text-transform:uppercase;white-space:nowrap;border-bottom:1px solid #e5e7eb">{{ h }}</th>
+        {% endfor %}
+      </tr></thead>
+      <tbody>
+        {% for r in rows %}
+        <tr style="border-bottom:1px solid #f3f4f6">
+          <td style="padding:.5rem .7rem;font-weight:600">{{ r.codigo }}</td>
+          <td style="padding:.5rem .7rem">{{ r.descricao }}</td>
+          <td style="padding:.5rem .7rem"><span style="font-size:.72rem;padding:.15rem .5rem;border-radius:4px;background:#f3f4f6">{{ r.categoria }}</span></td>
+          <td style="padding:.5rem .7rem;font-size:.78rem;color:#6b7280">{{ r.tipo_calculo }}</td>
+          <td style="padding:.5rem .7rem;text-align:right">{{ "%.2f%%"|format((r.percentual or 0)*100) }}</td>
+          <td style="padding:.5rem .7rem;text-align:right">{{ "R$ %.2f"|format(r.valor_fixo or 0) if (r.valor_fixo or 0) > 0 else "—" }}</td>
+          <td style="padding:.5rem .7rem;text-align:center">{{ "✅" if r.incide_inss else "—" }}</td>
+          <td style="padding:.5rem .7rem;text-align:center">{{ "✅" if r.incide_fgts else "—" }}</td>
+          <td style="padding:.5rem .7rem;font-size:.78rem">{{ r.empresa_codigo or "Todas" }}</td>
+          <td style="padding:.5rem .7rem;font-size:.78rem">{{ r.vinculo_codigo or "Todos" }}</td>
+          <td style="padding:.5rem .7rem;font-size:.73rem;color:#6b7280;white-space:nowrap">{{ r.vigencia_inicio or "" }}{% if r.vigencia_fim %}~{{ r.vigencia_fim }}{% endif %}</td>
+          <td style="padding:.5rem .7rem"><span style="font-size:.7rem;font-weight:600;padding:.15rem .5rem;border-radius:999px;background:{% if r.status=='Ativo' %}#dcfce7;color:#166534{% else %}#fee2e2;color:#991b1b{% endif %}">{{ r.status }}</span></td>
+          <td style="padding:.5rem .7rem">
+            <div style="display:flex;gap:.3rem">
+              <button type="button" onclick="editar({{ r.id }},{{ r.codigo|tojson }},{{ r.descricao|tojson }},{{ r.categoria|tojson }},{{ r.tipo_calculo|tojson }},{{ (r.base_calculo or '')|tojson }},{{ r.percentual or 0 }},{{ r.valor_fixo or 0 }},{{ r.quantidade_padrao or 0 }},{{ 1 if r.incide_inss else 0 }},{{ 1 if r.incide_fgts else 0 }},{{ 1 if r.incide_ferias else 0 }},{{ 1 if r.incide_decimo else 0 }},{{ (r.empresa_codigo or '')|tojson }},{{ (r.vinculo_codigo or '')|tojson }},{{ (r.cargo_grupo or '')|tojson }},{{ r.prioridade or 99 }},{{ (r.vigencia_inicio or '')|tojson }},{{ (r.vigencia_fim or '')|tojson }},{{ r.status|tojson }})" style="padding:.25rem .6rem;border:1px solid #d1d5db;border-radius:5px;font-size:.75rem;background:transparent;cursor:pointer">✏️</button>
+              <form method="post" action="/folha/budget/verbas/{{ r.id }}/excluir" style="margin:0" onsubmit="return confirm('Excluir {{ r.codigo }}?')">
+                <button type="submit" style="padding:.25rem .6rem;border:1px solid #fca5a5;border-radius:5px;font-size:.75rem;background:transparent;color:#dc2626;cursor:pointer">🗑️</button>
+              </form>
+            </div>
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="13" style="padding:1.5rem;text-align:center;color:#9ca3af;font-style:italic">Nenhuma verba cadastrada.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+function limpar(){
+  ['f-id','f-cod','f-desc','f-base','f-emp','f-vinc','f-grp','f-vi','f-vf'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('f-cat').value='adicional';
+  document.getElementById('f-tipo').value='pct_salario';
+  document.getElementById('f-pct').value='0';
+  document.getElementById('f-vfix').value='0';
+  document.getElementById('f-qtd').value='0';
+  document.getElementById('f-pri').value='99';
+  ['f-inss','f-fgts','f-fer','f-13'].forEach(id=>{document.getElementById(id).checked=false;});
+  document.getElementById('f-status').value='Ativo';
+  document.getElementById('form-title').textContent='Nova Verba';
+  document.getElementById('modo-badge').textContent='NOVO';
+  document.getElementById('modo-badge').style.cssText='font-size:.72rem;font-weight:600;padding:.2rem .6rem;border-radius:999px;background:#dcfce7;color:#166534';
+  document.getElementById('main-form').style.background='';
+}
+function editar(id,cod,desc,cat,tipo,base,pct,vfix,qtd,inss,fgts,fer,d13,emp,vinc,grp,pri,vi,vf,status){
+  document.getElementById('f-id').value=id;
+  document.getElementById('f-cod').value=cod;
+  document.getElementById('f-desc').value=desc;
+  document.getElementById('f-cat').value=cat;
+  document.getElementById('f-tipo').value=tipo;
+  document.getElementById('f-base').value=base;
+  document.getElementById('f-pct').value=pct;
+  document.getElementById('f-vfix').value=vfix;
+  document.getElementById('f-qtd').value=qtd;
+  document.getElementById('f-inss').checked=inss==1;
+  document.getElementById('f-fgts').checked=fgts==1;
+  document.getElementById('f-fer').checked=fer==1;
+  document.getElementById('f-13').checked=d13==1;
+  document.getElementById('f-emp').value=emp;
+  document.getElementById('f-vinc').value=vinc;
+  document.getElementById('f-grp').value=grp;
+  document.getElementById('f-pri').value=pri;
+  document.getElementById('f-vi').value=vi;
+  document.getElementById('f-vf').value=vf;
+  document.getElementById('f-status').value=status;
+  document.getElementById('form-title').textContent='Editar Verba #'+id;
+  document.getElementById('modo-badge').textContent='EDITANDO';
+  document.getElementById('modo-badge').style.cssText='font-size:.72rem;font-weight:600;padding:.2rem .6rem;border-radius:999px;background:#fef9c3;color:#854d0e';
+  document.getElementById('main-form').style.background='#fffbeb';
+  document.getElementById('main-form').scrollIntoView({behavior:'smooth',block:'start'});
+}
+</script>
+{% endblock %}

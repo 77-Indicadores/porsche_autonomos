@@ -50,6 +50,18 @@
       <div class="nav-section">
         <div class="nav-section-title">Folha de Pagamento</div>
         <a class="nav-link {% if request.url.path == '/folha' %}active{% endif %}" href="/folha">📄 Extratos importados</a>
+        <div class="nav-subsection-title">Budget</div>
+        <a class="nav-link {% if request.url.path == '/folha/budget' %}active{% endif %}" href="/folha/budget">📊 Visão Geral</a>
+        <a class="nav-link {% if request.url.path == '/folha/budget/resultado' %}active{% endif %}" href="/folha/budget/resultado">💰 Resultado</a>
+        <div class="nav-subsection-title">Cadastros</div>
+        <a class="nav-link {% if request.url.path == '/folha/budget/empresas' %}active{% endif %}" href="/folha/budget/empresas">🏢 Empresas</a>
+        <a class="nav-link {% if request.url.path == '/folha/budget/cargos' %}active{% endif %}" href="/folha/budget/cargos">🪪 Cargos</a>
+        <a class="nav-link {% if request.url.path == '/folha/budget/vinculos' %}active{% endif %}" href="/folha/budget/vinculos">📋 Vínculos</a>
+        <a class="nav-link {% if request.url.path == '/folha/budget/verbas' %}active{% endif %}" href="/folha/budget/verbas">📝 Verbas</a>
+        <a class="nav-link {% if request.url.path == '/folha/budget/beneficios' %}active{% endif %}" href="/folha/budget/beneficios">🎁 Benefícios</a>
+        <a class="nav-link {% if request.url.path == '/folha/budget/encargos' %}active{% endif %}" href="/folha/budget/encargos">🏛️ Encargos</a>
+        <a class="nav-link {% if request.url.path == '/folha/budget/excecoes' %}active{% endif %}" href="/folha/budget/excecoes">⚠️ Exceções</a>
+        <a class="nav-link {% if request.url.path == '/folha/budget/quantidades' %}active{% endif %}" href="/folha/budget/quantidades">📐 Quantidades</a>
       </div>
 
       {% elif request.url.path != '/' %}

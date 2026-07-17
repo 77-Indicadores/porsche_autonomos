@@ -1,0 +1,121 @@
+{% extends "base.html" %}
+{% block header %}Budget — Quantidades Projetadas{% endblock %}
+{% block subtitle %}HE, noturno, dias de VR por cenário e competência{% endblock %}
+{% block content %}
+{% if success %}<div class="alert success">{{ success }}</div>{% endif %}
+{% if error %}<div class="alert error">{{ error }}</div>{% endif %}
+
+<div style="display:grid;grid-template-columns:360px 1fr;gap:1.5rem;align-items:start">
+  <div style="background:#fff;border:1px solid #e5e7eb;border-radius:10px;overflow:hidden">
+    <div style="padding:.85rem 1.2rem;border-bottom:1px solid #e5e7eb;background:#f9fafb;display:flex;justify-content:space-between;align-items:center">
+      <h3 id="form-title" style="margin:0;font-size:.95rem;font-weight:600">Nova Quantidade</h3>
+      <span id="modo-badge" style="font-size:.72rem;font-weight:600;padding:.2rem .6rem;border-radius:999px;background:#dcfce7;color:#166534">NOVO</span>
+    </div>
+    <form method="post" action="/folha/budget/quantidades" id="main-form" style="padding:1rem;display:flex;flex-direction:column;gap:.75rem">
+      <input type="hidden" name="id" id="f-id">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:.5rem">
+        <div><label style="font-size:.78rem;font-weight:600;color:#374151;display:block;margin-bottom:.25rem">Cenário *</label>
+          <select class="input" name="cenario" id="f-cen" required style="width:100%;box-sizing:border-box">
+            {% for c in cenarios %}<option value="{{ c }}">{{ c }}</option>{% endfor %}
+          </select></div>
+        <div><label style="font-size:.78rem;font-weight:600;color:#374151;display:block;margin-bottom:.25rem">Competência * (YYYY-MM)</label>
+          <input class="input" name="competencia" id="f-comp" placeholder="2026-01" required style="width:100%;box-sizing:border-box"></div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:.5rem">
+        <div><label style="font-size:.78rem;font-weight:600;color:#374151;display:block;margin-bottom:.25rem">Parâmetro *</label>
+          <select class="input" name="parametro" id="f-par" required style="width:100%;box-sizing:border-box">
+            {% for p in parametros %}<option value="{{ p }}">{{ p }}</option>{% endfor %}
+          </select></div>
+        <div><label style="font-size:.78rem;font-weight:600;color:#374151;display:block;margin-bottom:.25rem">Quantidade *</label>
+          <input class="input" name="quantidade" id="f-qtd" type="number" step="0.5" value="0" required style="width:100%;box-sizing:border-box"></div>
+      </div>
+      <div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:6px;padding:.75rem">
+        <label style="font-size:.72rem;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:.05em;display:block;margin-bottom:.5rem">Escopo (vazio = geral)</label>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:.5rem">
+          <div><label style="font-size:.78rem;font-weight:600;color:#374151;display:block;margin-bottom:.25rem">Empresa</label>
+            <select class="input" name="empresa_codigo" id="f-emp" style="width:100%;box-sizing:border-box">
+              <option value="">Todas</option>
+              {% for e in empresas %}<option value="{{ e }}">{{ e }}</option>{% endfor %}
+            </select></div>
+          <div><label style="font-size:.78rem;font-weight:600;color:#374151;display:block;margin-bottom:.25rem">Matrícula</label>
+            <input class="input" name="matricula" id="f-mat" placeholder="Vazio=todas" style="width:100%;box-sizing:border-box"></div>
+          <div><label style="font-size:.78rem;font-weight:600;color:#374151;display:block;margin-bottom:.25rem">Código cargo</label>
+            <input class="input" name="codigo_cargo" id="f-car" placeholder="Vazio=todos" style="width:100%;box-sizing:border-box"></div>
+          <div><label style="font-size:.78rem;font-weight:600;color:#374151;display:block;margin-bottom:.25rem">Grupo cargo</label>
+            <input class="input" name="cargo_grupo" id="f-grp" placeholder="Vazio=todos" style="width:100%;box-sizing:border-box"></div>
+          <div><label style="font-size:.78rem;font-weight:600;color:#374151;display:block;margin-bottom:.25rem">Centro custo</label>
+            <input class="input" name="centro_custo" id="f-cc" placeholder="Vazio=todos" style="width:100%;box-sizing:border-box"></div>
+          <div><label style="font-size:.78rem;font-weight:600;color:#374151;display:block;margin-bottom:.25rem">Status</label>
+            <select class="input" name="status" id="f-status" style="width:100%;box-sizing:border-box">
+              <option value="Ativo">Ativo</option><option value="Inativo">Inativo</option>
+            </select></div>
+        </div>
+      </div>
+      <div style="display:flex;gap:.5rem;padding-top:.25rem">
+        <button type="submit" style="flex:1;padding:.5rem;background:#dc2626;color:#fff;border:none;border-radius:6px;font-weight:600;cursor:pointer">💾 Salvar</button>
+        <button type="button" onclick="limpar()" style="padding:.5rem 1rem;border:1px solid #d1d5db;border-radius:6px;background:#fff;cursor:pointer">＋ Novo</button>
+      </div>
+    </form>
+  </div>
+
+  <div style="background:#fff;border:1px solid #e5e7eb;border-radius:10px;overflow:auto">
+    <table style="width:100%;border-collapse:collapse;font-size:.82rem">
+      <thead><tr style="background:#f9fafb">
+        {% for h in ["Cenário","Competência","Parâmetro","Qtd","Empresa","Matrícula","Cargo","Grupo","CC","Status",""] %}
+        <th style="padding:.5rem .7rem;text-align:left;font-size:.68rem;font-weight:600;color:#6b7280;text-transform:uppercase;white-space:nowrap;border-bottom:1px solid #e5e7eb">{{ h }}</th>
+        {% endfor %}
+      </tr></thead>
+      <tbody>
+        {% for r in rows %}
+        <tr style="border-bottom:1px solid #f3f4f6">
+          <td style="padding:.5rem .7rem;font-size:.78rem">{{ r.cenario }}</td>
+          <td style="padding:.5rem .7rem;font-weight:600">{{ r.competencia }}</td>
+          <td style="padding:.5rem .7rem"><span style="font-size:.75rem;padding:.15rem .5rem;border-radius:4px;background:#f3f4f6">{{ r.parametro }}</span></td>
+          <td style="padding:.5rem .7rem;text-align:right;font-weight:600">{{ r.quantidade }}</td>
+          <td style="padding:.5rem .7rem;font-size:.78rem">{{ r.empresa_codigo or "—" }}</td>
+          <td style="padding:.5rem .7rem;font-size:.78rem">{{ r.matricula or "—" }}</td>
+          <td style="padding:.5rem .7rem;font-size:.78rem">{{ r.codigo_cargo or "—" }}</td>
+          <td style="padding:.5rem .7rem;font-size:.78rem">{{ r.cargo_grupo or "—" }}</td>
+          <td style="padding:.5rem .7rem;font-size:.78rem">{{ r.centro_custo or "—" }}</td>
+          <td style="padding:.5rem .7rem"><span style="font-size:.7rem;font-weight:600;padding:.15rem .5rem;border-radius:999px;background:{% if r.status=='Ativo' %}#dcfce7;color:#166534{% else %}#fee2e2;color:#991b1b{% endif %}">{{ r.status }}</span></td>
+          <td style="padding:.5rem .7rem">
+            <div style="display:flex;gap:.3rem">
+              <button type="button" onclick="editar({{ r.id }},{{ r.cenario|tojson }},{{ r.competencia|tojson }},{{ r.parametro|tojson }},{{ r.quantidade or 0 }},{{ (r.empresa_codigo or '')|tojson }},{{ (r.matricula or '')|tojson }},{{ (r.codigo_cargo or '')|tojson }},{{ (r.cargo_grupo or '')|tojson }},{{ (r.centro_custo or '')|tojson }},{{ r.status|tojson }})" style="padding:.25rem .6rem;border:1px solid #d1d5db;border-radius:5px;font-size:.75rem;background:transparent;cursor:pointer">✏️</button>
+              <form method="post" action="/folha/budget/quantidades/{{ r.id }}/excluir" style="margin:0" onsubmit="return confirm('Excluir?')">
+                <button type="submit" style="padding:.25rem .6rem;border:1px solid #fca5a5;border-radius:5px;font-size:.75rem;background:transparent;color:#dc2626;cursor:pointer">🗑️</button>
+              </form>
+            </div>
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="11" style="padding:1.5rem;text-align:center;color:#9ca3af;font-style:italic">Nenhuma quantidade cadastrada.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+<script>
+function limpar(){
+  ['f-id','f-comp','f-mat','f-car','f-grp','f-cc'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('f-emp').value='';document.getElementById('f-qtd').value='0';
+  document.getElementById('f-status').value='Ativo';
+  document.getElementById('form-title').textContent='Nova Quantidade';
+  document.getElementById('modo-badge').textContent='NOVO';
+  document.getElementById('modo-badge').style.cssText='font-size:.72rem;font-weight:600;padding:.2rem .6rem;border-radius:999px;background:#dcfce7;color:#166534';
+  document.getElementById('main-form').style.background='';
+}
+function editar(id,cen,comp,par,qtd,emp,mat,car,grp,cc,status){
+  document.getElementById('f-id').value=id;document.getElementById('f-cen').value=cen;
+  document.getElementById('f-comp').value=comp;document.getElementById('f-par').value=par;
+  document.getElementById('f-qtd').value=qtd;document.getElementById('f-emp').value=emp;
+  document.getElementById('f-mat').value=mat;document.getElementById('f-car').value=car;
+  document.getElementById('f-grp').value=grp;document.getElementById('f-cc').value=cc;
+  document.getElementById('f-status').value=status;
+  document.getElementById('form-title').textContent='Editar Quantidade #'+id;
+  document.getElementById('modo-badge').textContent='EDITANDO';
+  document.getElementById('modo-badge').style.cssText='font-size:.72rem;font-weight:600;padding:.2rem .6rem;border-radius:999px;background:#fef9c3;color:#854d0e';
+  document.getElementById('main-form').style.background='#fffbeb';
+  document.getElementById('main-form').scrollIntoView({behavior:'smooth',block:'start'});
+}
+</script>
+{% endblock %}
