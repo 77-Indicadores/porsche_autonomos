@@ -1,0 +1,117 @@
+{% extends "base.html" %}
+{% block header %}Budget — Níveis de Cargo{% endblock %}
+{% block subtitle %}Agrupamento oficial dos cargos para regras e cálculo{% endblock %}
+
+{% block content %}
+{% if success %}<div class="alert success">{{ success }}</div>{% endif %}
+{% if error %}<div class="alert error">{{ error }}</div>{% endif %}
+
+<style>
+  .toolbar{background:#fff;border:1px solid #e5e7eb;border-radius:8px;padding:.85rem;margin-bottom:1rem;display:flex;gap:.6rem;align-items:end;flex-wrap:wrap}
+  .toolbar label{display:block;font-size:.7rem;font-weight:700;color:#6b7280;text-transform:uppercase;margin-bottom:.2rem}
+  .toolbar input{width:280px;max-width:72vw;border:1px solid #d1d5db;border-radius:6px;padding:.48rem .55rem;font-size:.84rem}
+  .btn{padding:.5rem .9rem;border:1px solid #d1d5db;border-radius:6px;background:#fff;color:#374151;text-decoration:none;font-weight:700;font-size:.82rem;cursor:pointer}
+  .btn-red{background:#dc2626;border-color:#dc2626;color:#fff}
+  .wrap{background:#fff;border:1px solid #e5e7eb;border-radius:10px;overflow:auto}
+  table{width:100%;border-collapse:collapse;font-size:.78rem}
+  th{background:#f9fafb;padding:.45rem .5rem;font-size:.66rem;color:#6b7280;text-transform:uppercase;letter-spacing:.04em;border-bottom:2px solid #e5e7eb;text-align:left;white-space:nowrap}
+  td{padding:.35rem .45rem;border-bottom:1px solid #f3f4f6;vertical-align:middle}
+  input,select{width:100%;box-sizing:border-box;border:1px solid #d1d5db;border-radius:5px;padding:.34rem .42rem;font-size:.78rem;background:#fff}
+  .chk{width:16px;height:16px;accent-color:#dc2626}
+  .num{max-width:82px;text-align:right}
+  .muted{font-size:.78rem;color:#6b7280;margin:.35rem 0 .8rem}
+</style>
+
+<form class="toolbar" method="get" action="/folha/budget/cargos-niveis">
+  <div>
+    <label>Buscar cargo</label>
+    <input name="q" value="{{ busca }}" placeholder="Ex.: estagiário, mecânico, gerente">
+  </div>
+  <button class="btn btn-red" type="submit">Filtrar</button>
+  <a class="btn" href="/folha/budget/cargos-niveis">Limpar</a>
+</form>
+
+<form method="post" action="/folha/budget/cargos-niveis">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.55rem;gap:.75rem;flex-wrap:wrap">
+    <div class="muted">{{ rows|length }} cargo(s) cadastrado(s). A primeira linha cria um novo cargo.</div>
+    <button class="btn btn-red" type="submit">Salvar níveis</button>
+  </div>
+
+  <div class="wrap">
+    <table>
+      <thead>
+        <tr>
+          <th style="min-width:230px">Cargo</th>
+          <th style="min-width:130px">Nível 1</th>
+          <th style="min-width:130px">Nível 2</th>
+          <th style="min-width:130px">Nível 3</th>
+          <th style="width:70px">Peric.</th>
+          <th style="width:70px">Ponto</th>
+          <th style="width:90px">% Adic.</th>
+          <th style="width:90px">% HE 25</th>
+          <th style="width:70px">HE</th>
+          <th style="width:90px">Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <input type="hidden" name="row_id" value="novo_1">
+          <td><input name="cargo_novo_1" placeholder="Novo cargo"></td>
+          <td><input name="nivel1_novo_1"></td>
+          <td><input name="nivel2_novo_1"></td>
+          <td><input name="nivel3_novo_1" placeholder="Bate Ponto / Não Bate Ponto"></td>
+          <td style="text-align:center">
+            <input type="hidden" name="peric_novo_1" value="0">
+            <input class="chk" type="checkbox" name="peric_novo_1" value="1">
+          </td>
+          <td style="text-align:center">
+            <input type="hidden" name="bate_ponto_novo_1" value="0">
+            <input class="chk" type="checkbox" name="bate_ponto_novo_1" value="1" checked>
+          </td>
+          <td><input class="num" name="pct25_novo_1" type="number" step="0.01" value="0" placeholder="25"></td>
+          <td><input class="num" name="pcthe_novo_1" type="number" step="0.01" value="0" placeholder="25"></td>
+          <td style="text-align:center">
+            <input type="hidden" name="pode_he_novo_1" value="0">
+            <input class="chk" type="checkbox" name="pode_he_novo_1" value="1" checked>
+          </td>
+          <td>
+            <select name="status_novo_1">
+              <option>Ativo</option>
+              <option>Inativo</option>
+            </select>
+          </td>
+        </tr>
+        {% for r in rows %}
+        <tr>
+          <input type="hidden" name="row_id" value="{{ r.id }}">
+          <td><input name="cargo_{{ r.id }}" value="{{ r.cargo }}"></td>
+          <td><input name="nivel1_{{ r.id }}" value="{{ r.nivel1 or '' }}"></td>
+          <td><input name="nivel2_{{ r.id }}" value="{{ r.nivel2 or '' }}"></td>
+          <td><input name="nivel3_{{ r.id }}" value="{{ r.nivel3 or '' }}"></td>
+          <td style="text-align:center">
+            <input type="hidden" name="peric_{{ r.id }}" value="0">
+            <input class="chk" type="checkbox" name="peric_{{ r.id }}" value="1" {% if r.tem_periculosidade %}checked{% endif %}>
+          </td>
+          <td style="text-align:center">
+            <input type="hidden" name="bate_ponto_{{ r.id }}" value="0">
+            <input class="chk" type="checkbox" name="bate_ponto_{{ r.id }}" value="1" {% if r.bate_ponto %}checked{% endif %}>
+          </td>
+          <td><input class="num" name="pct25_{{ r.id }}" type="number" step="0.01" value="{{ pct_input(r.pct_adicional_25) }}"></td>
+          <td><input class="num" name="pcthe_{{ r.id }}" type="number" step="0.01" value="{{ pct_input(r.pct_he_sobre_25) }}"></td>
+          <td style="text-align:center">
+            <input type="hidden" name="pode_he_{{ r.id }}" value="0">
+            <input class="chk" type="checkbox" name="pode_he_{{ r.id }}" value="1" {% if r.pode_he %}checked{% endif %}>
+          </td>
+          <td>
+            <select name="status_{{ r.id }}">
+              <option {% if r.status == 'Ativo' %}selected{% endif %}>Ativo</option>
+              <option {% if r.status == 'Inativo' %}selected{% endif %}>Inativo</option>
+            </select>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</form>
+{% endblock %}

@@ -28,9 +28,8 @@
 
 <div class="budget-grid">
   <div class="budget-card"><div class="label">Empresas</div><div class="value">{{ qtd_empresas }}</div></div>
-  <div class="budget-card"><div class="label">Cargos</div><div class="value">{{ qtd_cargos }}</div></div>
-  <div class="budget-card"><div class="label">Verbas</div><div class="value">{{ qtd_verbas }}</div></div>
-  <div class="budget-card"><div class="label">Exceções</div><div class="value">{{ qtd_excecoes }}</div></div>
+  <div class="budget-card"><div class="label">Regras</div><div class="value">{{ qtd_regras }}</div></div>
+  <div class="budget-card"><div class="label">Níveis de Cargo</div><div class="value">{{ qtd_cargos_niveis }}</div></div>
 </div>
 
 <div class="section-title">Processar Budget</div>
@@ -50,13 +49,8 @@
 
 <div class="section-title">Cadastros</div>
 <div class="nav-grid">
-  <a class="nav-item" href="/folha/budget/empresas"><span class="icon">🏢</span><span class="title">Empresas</span><span class="desc">CNPJ, código, vigência</span></a>
-  <a class="nav-item" href="/folha/budget/cargos"><span class="icon">🪪</span><span class="title">Cargos</span><span class="desc">Grupo, adicional 25%, HE</span></a>
-  <a class="nav-item" href="/folha/budget/vinculos"><span class="icon">📋</span><span class="title">Vínculos</span><span class="desc">FGTS, INSS, 13º, férias</span></a>
-  <a class="nav-item" href="/folha/budget/verbas"><span class="icon">📝</span><span class="title">Verbas</span><span class="desc">Percentuais e tipos de cálculo</span></a>
-  <a class="nav-item" href="/folha/budget/beneficios"><span class="icon">🎁</span><span class="title">Benefícios</span><span class="desc">VR, VA, saúde, seguro</span></a>
-  <a class="nav-item" href="/folha/budget/encargos"><span class="icon">🏛️</span><span class="title">Encargos</span><span class="desc">FGTS, INSS patronal, provisões</span></a>
-  <a class="nav-item" href="/folha/budget/excecoes"><span class="icon">⚠️</span><span class="title">Exceções</span><span class="desc">Regras individuais por matrícula</span></a>
-  <a class="nav-item" href="/folha/budget/quantidades"><span class="icon">📐</span><span class="title">Quantidades</span><span class="desc">HE, noturno, dias VR por competência</span></a>
+  <a class="nav-item" href="/folha/budget/regras"><span class="icon">📏</span><span class="title">Regras</span><span class="desc">Valores, quantidades, vigências e exceções</span></a>
+  <a class="nav-item" href="/folha/budget/cargos-niveis"><span class="icon">🧩</span><span class="title">Níveis de Cargo</span><span class="desc">Agrupamento e padrões por cargo</span></a>
+  <a class="nav-item" href="/folha/budget/resultado"><span class="icon">💰</span><span class="title">Resultado</span><span class="desc">Conferir cálculo por competência e pessoa</span></a>
 </div>
 {% endblock %}

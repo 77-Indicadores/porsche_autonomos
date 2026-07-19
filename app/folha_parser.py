@@ -42,7 +42,7 @@ RE_CARGO = re.compile(
     r"^Cargo:\s*(\d*)\s*(.*?)\s+Filial:\s*(\S*)\s+Sal\S+rio:\s*([\d.,]*)$"
 )
 RE_TOTAIS = re.compile(
-    r"^ND:\s*\S+\s+Proventos:\s*([\d.,]+)\s+Descontos:\s*([\d.,]+).*?L\S+quido:\s*([\d.,-]+)$"
+    r"^ND:\s*(\d+)\s+Proventos:\s*([\d.,]+)\s+Descontos:\s*([\d.,]+).*?L\S+quido:\s*([\d.,-]+)$"
 )
 RE_BASES = re.compile(
     r"^NF:\s*\S+\s+Base\s+INSS:\s*([\d.,]+)\s*Excedente\s+INSS:\s*([\d.,]+)\s+"
@@ -86,6 +86,7 @@ class FuncionarioExtraido:
     cbo: str = ""
     filial: str = ""
     salario: Decimal | None = None
+    nd: int = 0
     total_proventos: Decimal | None = None
     total_descontos: Decimal | None = None
     liquido: Decimal | None = None
@@ -276,9 +277,10 @@ def parse_folha_pdf(conteudo: bytes) -> FolhaExtraida:
                     # Um funcionário pode ter mais de um cálculo no mesmo bloco
                     # (folha + adiantamento/férias), cada um com sua linha "ND".
                     # Acumulamos para bater com o Total Geral do extrato.
-                    prov = _parse_valor(m.group(1)) or Decimal(0)
-                    desc = _parse_valor(m.group(2)) or Decimal(0)
-                    liq = _parse_valor(m.group(3)) or Decimal(0)
+                    funcionario.nd = max(funcionario.nd or 0, int(m.group(1) or 0))
+                    prov = _parse_valor(m.group(2)) or Decimal(0)
+                    desc = _parse_valor(m.group(3)) or Decimal(0)
+                    liq = _parse_valor(m.group(4)) or Decimal(0)
                     funcionario.total_proventos = (funcionario.total_proventos or Decimal(0)) + prov
                     funcionario.total_descontos = (funcionario.total_descontos or Decimal(0)) + desc
                     funcionario.liquido = (funcionario.liquido or Decimal(0)) + liq

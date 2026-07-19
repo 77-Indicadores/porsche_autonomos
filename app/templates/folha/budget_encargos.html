@@ -38,7 +38,7 @@
         <th style="min-width:160px">Descrição</th>
         <th style="min-width:110px">Empresa</th>
         <th style="min-width:110px">Vínculo</th>
-        <th style="width:80px">% (decimal)</th>
+        <th style="width:80px">%</th>
         <th style="width:60px">Divisor</th>
         <th style="min-width:160px">Verbas base</th>
         <th style="width:60px">Prior.</th>
@@ -59,7 +59,7 @@
             <option value="">Todos</option>
             {% for v in vinculos %}<option value="{{ v }}" {% if r.vinculo_codigo==v %}selected{% endif %}>{{ v }}</option>{% endfor %}
           </select></td>
-          <td><input class="it" name="pct_{{ i }}" type="number" step="0.0001" value="{{ r.percentual or 0 }}" style="text-align:right"></td>
+          <td><input class="it" name="pct_{{ i }}" type="number" step="0.01" value="{{ pct_input(r.percentual) }}" placeholder="8" style="text-align:right"></td>
           <td><input class="it" name="div_{{ i }}" type="number" step="0.01" value="{{ r.divisor or 1 }}" style="text-align:right"></td>
           <td><input class="it" name="vbase_{{ i }}" value="{{ r.verbas_base or '' }}" placeholder="SAL,PERI"></td>
           <td><input class="it" name="pri_{{ i }}" type="number" value="{{ r.prioridade or 99 }}" style="text-align:right"></td>
@@ -88,7 +88,7 @@ document.getElementById('btn-add').addEventListener('click', function(){
     +'<td><input class="it" name="desc_'+i+'" placeholder="Descrição"></td>'
     +'<td><select class="sel-sm" name="emp_'+i+'">'+empOpts+'</select></td>'
     +'<td><select class="sel-sm" name="vinc_'+i+'">'+vincOpts+'</select></td>'
-    +'<td><input class="it" name="pct_'+i+'" type="number" step="0.0001" value="0" style="text-align:right"></td>'
+    +'<td><input class="it" name="pct_'+i+'" type="number" step="0.01" value="0" placeholder="8" style="text-align:right"></td>'
     +'<td><input class="it" name="div_'+i+'" type="number" step="0.01" value="1" style="text-align:right"></td>'
     +'<td><input class="it" name="vbase_'+i+'" placeholder="SAL,PERI"></td>'
     +'<td><input class="it" name="pri_'+i+'" type="number" value="99" style="text-align:right"></td>'

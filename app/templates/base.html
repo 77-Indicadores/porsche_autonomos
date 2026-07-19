@@ -54,9 +54,8 @@
         <a class="nav-link {% if request.url.path == '/folha/budget' %}active{% endif %}" href="/folha/budget">📊 Visão Geral</a>
         <a class="nav-link {% if request.url.path == '/folha/budget/resultado' %}active{% endif %}" href="/folha/budget/resultado">💰 Resultado</a>
         <div class="nav-subsection-title">Cadastros</div>
-        <a class="nav-link {% if request.url.path.startswith('/folha/budget/cargos') or request.url.path.startswith('/folha/budget/vinculos') or request.url.path.startswith('/folha/budget/verbas') or request.url.path.startswith('/folha/budget/beneficios') or request.url.path.startswith('/folha/budget/encargos') %}active{% endif %}" href="/folha/budget/cargos">🪪 Parâmetros</a>
-        <a class="nav-link {% if request.url.path == '/folha/budget/excecoes' %}active{% endif %}" href="/folha/budget/excecoes">⚠️ Exceções</a>
-        <a class="nav-link {% if request.url.path == '/folha/budget/quantidades' %}active{% endif %}" href="/folha/budget/quantidades">📐 Quantidades</a>
+        <a class="nav-link {% if request.url.path.startswith('/folha/budget/regras') %}active{% endif %}" href="/folha/budget/regras">📏 Regras</a>
+        <a class="nav-link {% if request.url.path.startswith('/folha/budget/cargos-niveis') %}active{% endif %}" href="/folha/budget/cargos-niveis">🧩 Níveis de Cargo</a>
       </div>
 
       {% elif request.url.path != '/' %}

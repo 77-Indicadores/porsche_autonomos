@@ -89,6 +89,7 @@ folha_funcionarios = Table(
     Column("cbo", String(30)),
     Column("filial", String(30)),
     Column("salario", Float),
+    Column("nd", Integer, default=0),
     Column("total_proventos", Float),
     Column("total_descontos", Float),
     Column("liquido", Float),
@@ -123,6 +124,9 @@ def _garantir_schema_folha():
         if "pagina" not in colunas:
             with engine.begin() as conn:
                 conn.execute(text("ALTER TABLE folha_funcionarios ADD COLUMN pagina INTEGER"))
+        if "nd" not in colunas:
+            with engine.begin() as conn:
+                conn.execute(text("ALTER TABLE folha_funcionarios ADD COLUMN nd INTEGER DEFAULT 0"))
 
 
 _garantir_schema_folha()
@@ -340,6 +344,7 @@ async def folha_upload(
                     cbo=fun.cbo,
                     filial=fun.filial,
                     salario=_f(fun.salario),
+                    nd=fun.nd,
                     total_proventos=_f(fun.total_proventos),
                     total_descontos=_f(fun.total_descontos),
                     liquido=_f(fun.liquido),

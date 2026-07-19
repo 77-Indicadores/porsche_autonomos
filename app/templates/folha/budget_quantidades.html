@@ -11,23 +11,49 @@
   .qtd-table input[type=number] { width:70px; padding:.3rem .4rem; border:1px solid #d1d5db; border-radius:5px; font-size:.82rem; text-align:right; }
   .qtd-table input[type=number]:focus { outline:none; border-color:#dc2626; }
   .hc-badge { display:inline-block; padding:.1rem .45rem; background:#dbeafe; color:#1e40af; border-radius:999px; font-size:.7rem; font-weight:600; }
+  .filter-bar{background:#fff;border:1px solid #e5e7eb;border-radius:10px;padding:1rem 1.2rem;margin-bottom:1.5rem;display:grid;grid-template-columns:minmax(120px,160px) minmax(180px,1fr) minmax(180px,1fr) auto auto;gap:.75rem;align-items:end}
+  .filter-field label{font-size:.78rem;font-weight:600;color:#374151;display:block;margin-bottom:.3rem}
+  .filter-field select{width:100%;padding:.45rem .5rem;border:1px solid #d1d5db;border-radius:6px;font-size:.85rem;background:#fff}
+  .filter-btn{padding:.5rem 1rem;border:1px solid #d1d5db;border-radius:6px;font-size:.85rem;font-weight:600;text-decoration:none;cursor:pointer;white-space:nowrap;text-align:center}
+  .filter-primary{background:#dc2626;border-color:#dc2626;color:#fff}
+  .filter-clear{background:#fff;color:#374151}
+  @media(max-width:900px){.filter-bar{grid-template-columns:1fr 1fr}.filter-btn{width:100%}}
 </style>
 
-<!-- Seletor de competência -->
-<div style="background:#fff;border:1px solid #e5e7eb;border-radius:10px;padding:1rem 1.2rem;margin-bottom:1.5rem;display:flex;gap:1rem;align-items:flex-end;flex-wrap:wrap">
-  <div>
-    <label style="font-size:.78rem;font-weight:600;color:#374151;display:block;margin-bottom:.3rem">Competência</label>
-    <select id="sel-comp" class="input" style="min-width:160px" onchange="irParaComp()">
+<form method="get" action="/folha/budget/quantidades" class="filter-bar">
+  <div class="filter-field">
+    <label>Competência</label>
+    <select name="comp" required>
       <option value="">— selecione —</option>
       {% for c in competencias_folha %}
       <option value="{{ c }}" {% if c == comp %}selected{% endif %}>{{ c }}</option>
       {% endfor %}
     </select>
   </div>
+  <div class="filter-field">
+    <label>Empresa</label>
+    <select name="empresa">
+      <option value="">Todas</option>
+      {% for item in empresas %}
+      <option value="{{ item }}" {% if filtros.empresa == item %}selected{% endif %}>{{ item }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div class="filter-field">
+    <label>Cargo</label>
+    <select name="cargo">
+      <option value="">Todos</option>
+      {% for item in cargos_opcoes %}
+      <option value="{{ item }}" {% if filtros.cargo == item %}selected{% endif %}>{{ item }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <button type="submit" class="filter-btn filter-primary">Filtrar</button>
+  <a href="/folha/budget/quantidades" class="filter-btn filter-clear">Limpar</a>
   {% if not competencias_folha %}
   <p style="color:#9ca3af;font-size:.85rem;margin:0">Nenhuma folha importada ainda. Importe uma folha primeiro.</p>
   {% endif %}
-</div>
+</form>
 
 {% if comp and cargos_folha %}
 <form method="post" action="/folha/budget/quantidades">
@@ -54,9 +80,12 @@
           {% for p in parametros %}
           {% set key = (c.codigo_cargo, p) %}
           {% set existente = qtd_existentes.get(key, {}) %}
+          {% set valor_salvo = existente.get('quantidade', 0) %}
+          {% set valor_padrao = qtd_padrao.get(key, 0) %}
+          {% set valor_qtd = valor_salvo if valor_salvo else valor_padrao %}
           <td style="text-align:center">
             <input type="hidden" name="id_{{ p }}_{{ c.codigo_cargo }}" value="{{ existente.get('id', '') }}">
-            <input type="number" name="qtd_{{ p }}_{{ c.codigo_cargo }}" value="{{ existente.get('quantidade', 0) }}" step="0.5" min="0">
+            <input type="number" name="qtd_{{ p }}_{{ c.codigo_cargo }}" value="{{ valor_qtd }}" step="0.01" min="0">
           </td>
           {% endfor %}
         </tr>
@@ -80,11 +109,4 @@
   Selecione uma competência para ver e preencher as quantidades por cargo.
 </div>
 {% endif %}
-
-<script>
-function irParaComp(){
-  const v = document.getElementById('sel-comp').value;
-  if(v) window.location = '/folha/budget/quantidades?comp=' + v;
-}
-</script>
 {% endblock %}

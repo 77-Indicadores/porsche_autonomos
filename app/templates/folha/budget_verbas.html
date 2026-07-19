@@ -65,7 +65,7 @@
             <option {% if r.tipo_calculo==t %}selected{% endif %}>{{ t }}</option>
             {% endfor %}
           </select></td>
-          <td><input class="it" name="pct_{{ i }}" type="number" step="0.0001" value="{{ r.percentual or 0 }}" style="text-align:right"></td>
+          <td><input class="it" name="pct_{{ i }}" type="number" step="0.01" value="{{ pct_input(r.percentual) }}" placeholder="25" style="text-align:right"></td>
           <td><input class="it" name="vfx_{{ i }}" type="number" step="0.01" value="{{ r.valor_fixo or 0 }}" style="text-align:right"></td>
           {% set chkmap = [("inss",r.incide_inss),("fgts",r.incide_fgts),("fer",r.incide_ferias),("d13",r.incide_decimo_terceiro)] %}
           {% for fn,val in chkmap %}
@@ -101,7 +101,7 @@ document.getElementById('btn-add').addEventListener('click', function(){
     +'<td><select class="sel-sm" name="cat_'+i+'">'+catOpts+'</select></td>'
     +'<td><input class="it" name="desc_'+i+'" placeholder="Descrição"></td>'
     +'<td><select class="sel-sm" name="tipo_'+i+'">'+tipoOpts+'</select></td>'
-    +'<td><input class="it" name="pct_'+i+'" type="number" step="0.0001" value="0" style="text-align:right"></td>'
+    +'<td><input class="it" name="pct_'+i+'" type="number" step="0.01" value="0" placeholder="25" style="text-align:right"></td>'
     +'<td><input class="it" name="vfx_'+i+'" type="number" step="0.01" value="0" style="text-align:right"></td>'
     + chkCells
     +'<td><input class="it" name="pri_'+i+'" type="number" value="99" style="text-align:right"></td>'

@@ -18,15 +18,55 @@
   .tbl td{padding:.2rem .35rem;border-bottom:1px solid #f3f4f6;vertical-align:middle;text-align:center;font-size:9px}
   .tbl td.left{text-align:left}
   .it{font-size:9px!important}
+  .dep-input{min-width:48px;width:48px;padding-left:.2rem;padding-right:.2rem;text-align:center}
   .sel-sm{font-size:9px!important}
   .tbl tr:hover td{background:#fafafa}
   .badge-novo{font-size:.6rem;font-weight:700;padding:.1rem .35rem;border-radius:999px;background:#dcfce7;color:#166534}
   .badge-ok{font-size:.6rem;font-weight:700;padding:.1rem .35rem;border-radius:999px;background:#dbeafe;color:#1e40af}
+  .filter-bar{background:#fff;border:1px solid #e5e7eb;border-radius:8px;padding:.75rem;margin-bottom:.75rem;display:grid;grid-template-columns:minmax(120px,160px) minmax(180px,1fr) minmax(180px,1fr) auto auto;gap:.6rem;align-items:end}
+  .filter-field label{display:block;font-size:.68rem;font-weight:700;color:#6b7280;text-transform:uppercase;margin-bottom:.2rem}
+  .filter-field select{width:100%;padding:.42rem .45rem;border:1px solid #d1d5db;border-radius:6px;font-size:.8rem;background:#fff}
+  .filter-btn{padding:.48rem .9rem;border:1px solid #d1d5db;border-radius:6px;font-size:.82rem;font-weight:600;text-decoration:none;cursor:pointer;white-space:nowrap}
+  .filter-primary{background:#dc2626;border-color:#dc2626;color:#fff}
+  .filter-clear{background:#fff;color:#374151}
+  @media(max-width:900px){.filter-bar{grid-template-columns:1fr 1fr}.filter-btn{width:100%;text-align:center}}
 </style>
+
+<form method="get" action="/folha/budget/cargos" class="filter-bar">
+  <div class="filter-field">
+    <label>Competência</label>
+    <select name="competencia">
+      <option value="">Todas</option>
+      {% for item in competencias %}
+      <option value="{{ item }}" {% if filtros.competencia == item %}selected{% endif %}>{{ item }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div class="filter-field">
+    <label>Empresa</label>
+    <select name="empresa">
+      <option value="">Todas</option>
+      {% for item in empresas %}
+      <option value="{{ item }}" {% if filtros.empresa == item %}selected{% endif %}>{{ item }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div class="filter-field">
+    <label>Cargo</label>
+    <select name="cargo">
+      <option value="">Todos</option>
+      {% for item in cargos_opcoes %}
+      <option value="{{ item }}" {% if filtros.cargo == item %}selected{% endif %}>{{ item }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <button type="submit" class="filter-btn filter-primary">Filtrar</button>
+  <a href="/folha/budget/cargos" class="filter-btn filter-clear">Limpar</a>
+</form>
 
 {% if not cargos %}
 <div style="background:#fff;border:1px solid #e5e7eb;border-radius:10px;padding:2.5rem;text-align:center;color:#9ca3af;font-style:italic">
-  Nenhuma folha importada ainda. Importe uma folha para ver os funcionários.
+  Nenhuma pessoa encontrada para os filtros selecionados.
 </div>
 {% else %}
 <form method="post" action="/folha/budget/cargos">
@@ -46,8 +86,7 @@
           <th class="left" style="min-width:140px">Descrição cargo</th>
           <th style="min-width:90px" title="Salário base">Salário</th>
           <th style="width:45px" title="Carga horária mensal">Hrs/mês</th>
-          <th style="width:38px" title="Número de dependentes">Dep.</th>
-          <th style="width:48px" title="Recebeu periculosidade">Peric.</th>
+          <th style="width:58px;min-width:58px" title="Número de dependentes">Dep.</th>
           <th style="width:48px" title="Bate ponto">Ponto</th>
           <th style="width:60px" title="% Adicional Noturno/Periculosidade">%Adic</th>
           <th style="width:60px" title="% HE sobre 25%">%HE</th>
@@ -92,11 +131,7 @@
           <td class="left"><input class="it" name="desc_{{ chv }}" value="{{ c.descricao or c.nome_folha }}"></td>
           <td><input class="it it-num" name="sal_{{ chv }}" type="number" step="0.01" min="0" value="{{ '%.2f'|format(c.salario or 0) }}"></td>
           <td><input class="it it-num" name="hrs_{{ chv }}" type="number" step="1" min="0" value="{{ (c.horas_mes or 200)|int }}"></td>
-          <td><input class="it it-num" name="dep_{{ chv }}" type="number" step="1" min="0" value="{{ c.dependentes or 0 }}"></td>
-          <td>
-            <input type="hidden" name="peric_{{ chv }}" value="0">
-            <input type="checkbox" class="chk" name="peric_{{ chv }}" value="1" {% if c.tem_periculosidade %}checked{% endif %}>
-          </td>
+          <td><input class="it it-num dep-input" name="dep_{{ chv }}" type="number" step="1" min="0" value="{{ c.dependentes or 0 }}"></td>
           <td>
             <input type="hidden" name="ponto_{{ chv }}" value="0">
             <input type="checkbox" class="chk" name="ponto_{{ chv }}" value="1" {% if c.bate_ponto %}checked{% endif %}>

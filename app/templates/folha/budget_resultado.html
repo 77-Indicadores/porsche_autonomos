@@ -17,6 +17,7 @@
   .total-card { background:#fff;border:1px solid #e5e7eb;border-radius:8px;padding:.9rem 1rem; }
   .total-card .cat { font-size:.7rem;font-weight:600;color:#6b7280;text-transform:uppercase;letter-spacing:.05em; }
   .total-card .val { font-size:1.1rem;font-weight:700;color:#111;margin-top:.2rem; }
+  .origem-calculo { min-width:280px;max-width:430px;white-space:normal;line-height:1.25;color:#6b7280; }
   @media(prefers-color-scheme:dark){
     .filtros,.total-card{background:#1f2937;border-color:#374151}
     .total-card .val{color:#f9fafb}
@@ -82,7 +83,7 @@
         <td style="padding:.45rem .8rem"><span style="font-size:.7rem;padding:.15rem .5rem;border-radius:4px;background:#f3f4f6">{{ l.categoria_verba }}</span></td>
         <td style="padding:.45rem .8rem;text-align:right;color:#6b7280">{{ "R$ %.2f"|format(l.valor_realizado) if l.valor_realizado is not none else "—" }}</td>
         <td style="padding:.45rem .8rem;text-align:right;font-weight:600;color:#111">R$ {{ "%.2f"|format(l.valor_budget or 0) }}</td>
-        <td style="padding:.45rem .8rem;font-size:.72rem;color:#9ca3af">{{ l.origem_regra or "—" }}</td>
+        <td class="origem-calculo" style="padding:.45rem .8rem;font-size:.72rem" title="{{ l.origem_regra or '' }}">{{ l.origem_regra or "—" }}</td>
       </tr>
       {% endfor %}
     </tbody>

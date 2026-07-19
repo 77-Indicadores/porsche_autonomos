@@ -1,0 +1,602 @@
+{% extends "base.html" %}
+{% block header %}Budget — Regras{% endblock %}
+{% block subtitle %}Valores, quantidades e percentuais com vigência{% endblock %}
+
+{% block content %}
+{% if success %}<div class="alert success">{{ success }}</div>{% endif %}
+{% if error %}<div class="alert error">{{ error }}</div>{% endif %}
+
+<style>
+  .rule-toolbar{background:#fff;border:1px solid #e5e7eb;border-radius:8px;padding:.9rem;margin-bottom:1rem;display:grid;grid-template-columns:minmax(140px,180px) minmax(180px,220px) minmax(240px,1fr) auto;gap:.75rem;align-items:end}
+  .rule-toolbar label{display:block;font-size:.7rem;font-weight:700;color:#6b7280;text-transform:uppercase;margin-bottom:.22rem}
+  .rule-toolbar select{width:100%;padding:.45rem .5rem;border:1px solid #d1d5db;border-radius:6px;font-size:.82rem;background:#fff;box-sizing:border-box}
+  .rule-actions{display:flex;gap:.5rem;align-items:center;justify-content:flex-end}
+  .btn-red{padding:.52rem 1rem;background:#dc2626;color:#fff;border:none;border-radius:6px;font-weight:700;cursor:pointer;white-space:nowrap}
+  .btn-light{padding:.5rem .9rem;border:1px solid #d1d5db;border-radius:6px;background:#fff;color:#374151;text-decoration:none;font-weight:600;font-size:.83rem;cursor:pointer;white-space:nowrap}
+  .btn-icon{padding:.26rem .48rem;border:1px solid #d1d5db;border-radius:5px;background:#fff;color:#374151;font-size:.74rem;font-weight:700;cursor:pointer}
+  .btn-danger{border-color:#fca5a5;color:#dc2626}
+  .btn-expand{width:22px;height:22px;padding:0;border:1px solid #d1d5db;border-radius:5px;background:#fff;color:#374151;font-size:.82rem;font-weight:800;line-height:1;cursor:pointer}
+  .code-cell{display:flex;align-items:center;gap:.45rem;min-width:0}
+  .tbl-wrap{background:#fff;border:1px solid #e5e7eb;border-radius:10px;overflow:auto}
+  .rules{width:100%;min-width:1600px;border-collapse:collapse;font-size:.78rem;table-layout:fixed}
+  .rules th{background:#f9fafb;padding:.45rem .55rem;font-size:.66rem;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:.04em;border-bottom:2px solid #e5e7eb;white-space:nowrap;text-align:left}
+  .rules td{padding:.42rem .55rem;border-bottom:1px solid #f3f4f6;vertical-align:middle;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .rules th,.rules td{box-sizing:border-box}
+  .rules tr:hover td{background:#fafafa}
+  .rules tr.rule-detail-row td{background:#fbfdff;border-bottom:1px solid #e5e7eb;white-space:normal;overflow:visible;text-overflow:clip}
+  .rules tr.rule-detail-row:hover td{background:#fbfdff}
+  .num{text-align:right;font-variant-numeric:tabular-nums}
+  .rules th.num{text-align:right}
+  .rules th.col-status,.rules td.col-status{text-align:center}
+  .rules th.col-acoes,.rules td.col-acoes{text-align:center}
+  .col-codigo{width:120px}
+  .col-descricao{width:300px}
+  .col-categoria{width:120px}
+  .col-tipo{width:130px}
+  .col-valor{width:110px}
+  .col-qtd{width:80px}
+  .col-pct{width:90px}
+  .col-condicao{width:260px}
+  .col-vigencia{width:190px}
+  .col-status{width:90px}
+  .col-acoes{width:110px}
+  .hint{font-size:.76rem;color:#6b7280;margin:.4rem 0 1rem}
+  .pill{font-size:.67rem;font-weight:700;border-radius:999px;padding:.14rem .45rem;background:#eef2ff;color:#3730a3;white-space:nowrap}
+  .detail-panel{padding:.75rem .9rem;border-left:3px solid #dc2626;background:#fff;border-radius:6px;display:flex;gap:.65rem;align-items:flex-start}
+  .detail-title{font-size:.68rem;font-weight:800;color:#6b7280;text-transform:uppercase;letter-spacing:.04em;min-width:90px;padding-top:.1rem}
+  .detail-list{display:flex;flex-wrap:wrap;gap:.4rem}
+  .detail-action{margin-left:auto;flex-shrink:0}
+  .detail-pill{font-size:.74rem;border:1px solid #e5e7eb;border-radius:999px;padding:.22rem .55rem;background:#f9fafb;color:#374151}
+  .empty{color:#9ca3af}
+  .modal{display:none;position:fixed;inset:0;background:rgba(15,23,42,.48);z-index:9000;align-items:center;justify-content:center;padding:1rem}
+  .modal-card{background:#fff;border-radius:10px;width:min(760px,96vw);box-shadow:0 24px 70px rgba(0,0,0,.28);overflow:hidden}
+  .modal-head{padding:1rem 1.2rem;border-bottom:1px solid #e5e7eb;display:flex;justify-content:space-between;align-items:center}
+  .modal-head h3{margin:0;font-size:1rem}
+  .modal-body{padding:1rem 1.2rem;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:.75rem}
+  .field label{display:block;font-size:.68rem;font-weight:700;color:#6b7280;text-transform:uppercase;margin-bottom:.2rem}
+  .field input,.field select,.field textarea{width:100%;box-sizing:border-box;border:1px solid #d1d5db;border-radius:6px;padding:.45rem .5rem;font-size:.84rem;background:#fff}
+  .field textarea{min-height:68px;resize:vertical}
+  .field.wide{grid-column:span 2}
+  .field.full{grid-column:1 / -1}
+  .condition-row{display:grid;grid-template-columns:1fr auto;gap:.35rem}
+  .condition-panel{display:none;margin-top:.4rem;border:1px solid #d1d5db;border-radius:8px;background:#fff;box-shadow:0 12px 34px rgba(15,23,42,.16);overflow:hidden}
+  .condition-panel.open{display:block}
+  .condition-search{border:0!important;border-bottom:1px solid #e5e7eb!important;border-radius:0!important}
+  .condition-list{max-height:190px;overflow:auto}
+  .condition-option{width:100%;display:block;text-align:left;background:#fff;border:0;border-bottom:1px solid #f3f4f6;padding:.45rem .55rem;font-size:.8rem;cursor:pointer;color:#111}
+  .condition-option:hover{background:#f9fafb}
+  .condition-empty{padding:.65rem;color:#9ca3af;font-size:.8rem}
+  .conditions-box{grid-column:1 / -1;border:1px solid #e5e7eb;border-radius:8px;padding:.8rem;background:#fff}
+  .conditions-head{display:flex;justify-content:space-between;gap:.5rem;align-items:center;margin-bottom:.6rem}
+  .conditions-title{font-size:.72rem;font-weight:800;color:#6b7280;text-transform:uppercase;letter-spacing:.04em}
+  .conditions-grid{display:grid;grid-template-columns:1fr 1fr 1.4fr auto;gap:.55rem;align-items:end}
+  .condition-chip{display:flex;justify-content:space-between;align-items:center;gap:.6rem;border:1px solid #e5e7eb;border-radius:6px;padding:.45rem .55rem;margin-top:.45rem;background:#f9fafb;font-size:.8rem}
+  .condition-chip.selected{border-color:#dc2626;background:#fff5f5}
+  .condition-chip span{min-width:0;overflow:hidden;text-overflow:ellipsis}
+  .condition-actions{display:flex;align-items:center;gap:.45rem;flex-shrink:0}
+  .condition-edit{border:1px solid #d1d5db!important;border-radius:5px!important;background:#fff!important;color:#374151!important;padding:.18rem .45rem!important;font-size:.72rem!important;font-weight:700!important}
+  .condition-remove{border:0;background:transparent;color:#dc2626;font-weight:800;cursor:pointer}
+  .apply-box{grid-column:1 / -1;background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;padding:.8rem;display:grid;grid-template-columns:1.4fr minmax(160px,220px);gap:.75rem;align-items:end}
+  .modal-foot{padding:1rem 1.2rem;border-top:1px solid #e5e7eb;display:flex;justify-content:flex-end;gap:.55rem}
+  @media(max-width:850px){.rule-toolbar{grid-template-columns:1fr}.rule-actions{justify-content:flex-start}.modal-body{grid-template-columns:1fr}.field.wide,.apply-box{grid-column:1}.apply-box{grid-template-columns:1fr}}
+</style>
+
+<form method="get" action="/folha/budget/regras" class="rule-toolbar">
+  <div>
+    <label>Categoria</label>
+    <select name="categoria" onchange="this.form.submit()">
+      <option value="">Todas</option>
+      {% for c in categorias %}
+      <option value="{{ c }}" {% if categoria_sel == c %}selected{% endif %}>{{ c }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div>
+    <label>Vigência</label>
+    <select name="vigencia" onchange="this.form.submit()">
+      <option value="" {% if not vigencia_sel %}selected{% endif %}>Todas</option>
+      <option value="ativa" {% if vigencia_sel == "ativa" %}selected{% endif %}>Ativas</option>
+      <option value="encerrada" {% if vigencia_sel == "encerrada" %}selected{% endif %}>Encerradas</option>
+    </select>
+  </div>
+  <div>
+    <label>Uso</label>
+    <div class="hint" style="margin:.48rem 0 0">Clique em Editar na linha e escolha se mantém a vigência ou cria uma nova.</div>
+  </div>
+  <div class="rule-actions">
+    <button type="submit" class="btn-light">Filtrar</button>
+    <a class="btn-light" href="/folha/budget/regras">Limpar</a>
+    <button type="button" class="btn-red" onclick="abrirNova()">Adicionar regra</button>
+  </div>
+</form>
+
+<div class="hint">
+  Pré-assinalado: os padrões atuais já estão cadastrados. Exemplo: para mudar VA de 313 para 400, clique em Editar na linha VA e escolha a vigência no popup.
+</div>
+
+<div class="tbl-wrap">
+  <table class="rules">
+    <colgroup>
+      <col class="col-codigo">
+      <col class="col-descricao">
+      <col class="col-categoria">
+      <col class="col-tipo">
+      <col class="col-valor">
+      <col class="col-qtd">
+      <col class="col-pct">
+      <col class="col-condicao">
+      <col class="col-vigencia">
+      <col class="col-status">
+      <col class="col-acoes">
+    </colgroup>
+    <thead>
+      <tr>
+        <th class="col-codigo">Código</th>
+        <th class="col-descricao">Descrição</th>
+        <th class="col-categoria">Categoria</th>
+        <th class="col-tipo">Tipo</th>
+        <th class="col-valor num">Valor</th>
+        <th class="col-qtd num">Qtd.</th>
+        <th class="col-pct num">%</th>
+        <th class="col-condicao">Condição</th>
+        <th class="col-vigencia">Vigência</th>
+        <th class="col-status">Status</th>
+        <th class="col-acoes">Ações</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for r in rows %}
+      <tr class="rule-main-row">
+        <td class="col-codigo" title="{{ r.codigo }}">
+          <div class="code-cell">
+            <button type="button" class="btn-expand" id="expander-{{ r.id }}" onclick="toggleExcecoes('{{ r.id }}')" aria-expanded="false" aria-controls="detail-{{ r.id }}">+</button>
+            <strong>{{ r.codigo }}</strong>
+          </div>
+        </td>
+        <td class="col-descricao" title="{{ r.descricao }}">{{ r.descricao }}</td>
+        <td class="col-categoria" title="{{ r.categoria or '—' }}">{{ r.categoria or "—" }}</td>
+        <td class="col-tipo" title="{{ r.tipo_calculo or '—' }}">{{ r.tipo_calculo or "—" }}</td>
+        <td class="col-valor num">R$ {{ "%.2f"|format(r.valor or 0) }}</td>
+        <td class="col-qtd num">{{ "%.2f"|format(r.quantidade or 0) }}</td>
+        <td class="col-pct num">{{ fmt_pct(r.percentual) }}</td>
+        <td class="col-condicao" title="{{ r.condicoes_resumo }}">
+          {% if r.condicoes_resumo %}
+            {{ r.condicoes_resumo }}
+          {% else %}—{% endif %}
+        </td>
+        <td class="col-vigencia"><span class="pill">{{ r.vigencia_label or "" }}</span></td>
+        <td class="col-status">{{ r.status }}</td>
+        <td class="col-acoes">
+          <button type="button" class="btn-icon" id="edit-rule-{{ r.id }}" onclick='editarRegra({{ {
+            "id": r.id,
+            "codigo": r.codigo,
+            "descricao": r.descricao,
+            "categoria": r.categoria or "",
+            "tipo": r.tipo_calculo or "valor_fixo",
+            "valor": r.valor or 0,
+            "quantidade": r.quantidade or 0,
+            "percentual": r.percentual or 0,
+            "aplicacao": r.aplicacao or "calcular",
+            "matriculas": r.matriculas or "",
+            "condicao_campo": r.condicao_campo or "",
+            "condicao_operador": r.condicao_operador or "contem",
+            "condicao_valor": r.condicao_valor or "",
+            "condicoes_json": r.condicoes_json or "",
+            "empresa": r.empresa_contem or "",
+            "nivel1": r.nivel1 or "",
+            "cargo": r.codigo_cargo or "",
+            "vinculo": r.vinculo_codigo or "",
+            "prioridade": r.prioridade or 99,
+            "status": r.status or "Ativo"
+          }|tojson }} )'>Editar</button>
+          <form method="post" action="/folha/budget/regras/{{ r.id }}/excluir" style="display:inline" onsubmit="return confirm('Excluir regra {{ r.codigo }}?')">
+            <button type="submit" class="btn-icon btn-danger">X</button>
+          </form>
+        </td>
+      </tr>
+      <tr class="rule-detail-row" id="detail-{{ r.id }}" hidden>
+        <td colspan="11">
+          <div class="detail-panel">
+            <div class="detail-title">Exceções</div>
+            <div class="detail-list">
+              {% if r.excecoes_detalhes %}
+                {% for detalhe in r.excecoes_detalhes %}
+                  <span class="detail-pill">{{ detalhe }}</span>
+                {% endfor %}
+              {% else %}
+                <span class="detail-pill">Sem exceção salva: regra geral</span>
+              {% endif %}
+            </div>
+            <div class="detail-action">
+              <button type="button" class="btn-light" onclick="document.getElementById('edit-rule-{{ r.id }}').click()">Editar regra</button>
+            </div>
+          </div>
+        </td>
+      </tr>
+      {% else %}
+      <tr><td colspan="11" class="empty" style="text-align:center;padding:2rem">Nenhuma regra encontrada.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<div class="modal" id="modal-regra">
+  <form method="post" action="/folha/budget/regras" class="modal-card">
+    <input type="hidden" name="rows_count" value="1">
+    <input type="hidden" name="id" id="f-id">
+    <input type="hidden" name="aplicacao" id="f-aplicacao">
+    <input type="hidden" name="matriculas" id="f-matriculas">
+    <input type="hidden" name="empresa" id="f-empresa">
+    <input type="hidden" name="nivel1" id="f-nivel1">
+    <input type="hidden" name="cargo" id="f-cargo">
+    <input type="hidden" name="vinculo" id="f-vinculo">
+    <input type="hidden" name="prioridade" id="f-prioridade">
+    <input type="hidden" name="condicao_campo" id="f-condicao-campo-hidden">
+    <input type="hidden" name="condicao_operador" id="f-condicao-operador-hidden">
+    <input type="hidden" name="condicao_valor" id="f-condicao-valor-hidden">
+    <input type="hidden" name="condicoes_json" id="f-condicoes-json">
+    <div class="modal-head">
+      <h3 id="modal-title">Editar regra</h3>
+      <button type="button" class="btn-icon" onclick="fecharModal()">X</button>
+    </div>
+    <div class="modal-body">
+      <div class="field">
+        <label>Código</label>
+        <input name="codigo" id="f-codigo" required>
+      </div>
+      <div class="field wide">
+        <label>Descrição</label>
+        <input name="descricao" id="f-descricao" required>
+      </div>
+      <div class="field">
+        <label>Categoria</label>
+        <input name="categoria" id="f-categoria">
+      </div>
+      <div class="field">
+        <label>Tipo</label>
+        <select name="tipo" id="f-tipo">
+          {% for t in ["valor_fixo","unitario_x_qtd","por_dependente","percentual","quantidade"] %}
+          <option value="{{ t }}">{{ t }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="field">
+        <label>Status</label>
+        <select name="status" id="f-status">
+          <option>Ativo</option>
+          <option>Inativo</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Valor</label>
+        <input name="valor" id="f-valor" type="number" step="0.01">
+      </div>
+      <div class="field">
+        <label>Quantidade</label>
+        <input name="quantidade" id="f-quantidade" type="number" step="0.01">
+      </div>
+      <div class="field">
+        <label>Percentual (%)</label>
+        <input id="f-percentual-view" type="number" step="0.01">
+        <input name="percentual" id="f-percentual" type="hidden">
+      </div>
+      <div class="conditions-box">
+        <div class="conditions-head">
+          <div class="conditions-title">Condições da regra</div>
+          <button type="button" class="btn-light" id="btn-condicao-salvar" onclick="adicionarCondicao()">Salvar condição</button>
+        </div>
+        <div class="conditions-grid">
+          <div class="field">
+            <label>Campo</label>
+            <select id="f-condicao-campo">
+              <option value="">Sem condição</option>
+              <option value="matricula">Matrícula</option>
+              <option value="nome">Nome</option>
+              <option value="cargo">Cargo</option>
+              <option value="nivel1">Nível</option>
+              <option value="empresa">Empresa</option>
+              <option value="centro_custo">Centro de custo</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>Operador</label>
+            <select id="f-condicao-operador">
+              <option value="contem">Contém</option>
+              <option value="nao_contem">Não contém</option>
+              <option value="igual">É igual</option>
+              <option value="diferente">É diferente</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>Valor</label>
+            <div class="condition-row">
+              <input id="f-condicao-valor" placeholder="Ex.: 1016">
+              <button type="button" class="btn-light" onclick="toggleCondicaoPanel()">Buscar</button>
+            </div>
+            <div class="condition-panel" id="condicao-panel">
+              <input class="condition-search" id="condicao-search" placeholder="Pesquisar na lista..." oninput="atualizarSugestoesCondicao()">
+              <div class="condition-list" id="condicao-list"></div>
+            </div>
+          </div>
+          <div></div>
+        </div>
+        <div id="condicoes-lista"></div>
+      </div>
+      <div class="apply-box">
+        <div class="field">
+          <label>Aplicar alteração</label>
+          <select name="modo_aplicacao" id="f-modo">
+            <option value="sobrescrever">Manter vigência atual</option>
+            <option value="nova_vigencia" selected>Criar nova vigência (nova linha)</option>
+            <option value="retroagir">Retroagir / alterar toda a base</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Competência início</label>
+          <input type="month" name="competencia_aplicacao" id="f-competencia" value="{{ competencia_padrao }}">
+        </div>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button type="button" class="btn-light" onclick="fecharModal()">Cancelar</button>
+      <button type="submit" class="btn-red">Salvar</button>
+    </div>
+  </form>
+</div>
+
+<script>
+const condicaoOpcoes = {{ condicao_opcoes|tojson }};
+let condicoesRegra = [];
+let condicaoEditandoIdx = null;
+
+function setVal(id, value) {
+  document.getElementById(id).value = value == null ? '' : value;
+}
+
+function toggleExcecoes(id) {
+  const row = document.getElementById('detail-' + id);
+  const btn = document.getElementById('expander-' + id);
+  if (!row || !btn) return;
+  const abrir = row.hasAttribute('hidden');
+  if (abrir) {
+    row.removeAttribute('hidden');
+    btn.textContent = '-';
+    btn.setAttribute('aria-expanded', 'true');
+  } else {
+    row.setAttribute('hidden', '');
+    btn.textContent = '+';
+    btn.setAttribute('aria-expanded', 'false');
+  }
+}
+
+function formatPercentualTela(valor) {
+  const numero = Number(valor || 0) * 100;
+  return String(Math.round(numero * 10000) / 10000);
+}
+
+function atualizarPercentualReal() {
+  const tela = Number(document.getElementById('f-percentual-view').value || 0);
+  setVal('f-percentual', String(tela));
+}
+
+function atualizarSugestoesCondicao() {
+  const campo = document.getElementById('f-condicao-campo').value;
+  const lista = document.getElementById('condicao-list');
+  const busca = (document.getElementById('condicao-search').value || '').toLowerCase();
+  const opcoes = condicaoOpcoes[campo] || [];
+  const filtradas = opcoes
+    .filter((valor) => String(valor).toLowerCase().includes(busca))
+    .slice(0, 120);
+  lista.innerHTML = '';
+  if (!campo) {
+    lista.innerHTML = '<div class="condition-empty">Escolha um campo da condição primeiro.</div>';
+    return;
+  }
+  if (!filtradas.length) {
+    lista.innerHTML = '<div class="condition-empty">Nenhuma opção encontrada. Você ainda pode digitar livremente.</div>';
+    return;
+  }
+  filtradas.forEach((valor) => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'condition-option';
+    btn.textContent = valor;
+    btn.onclick = () => selecionarCondicaoValor(valor);
+    lista.appendChild(btn);
+  });
+}
+
+function selecionarCondicaoValor(valor) {
+  setVal('f-condicao-valor', valor);
+  document.getElementById('condicao-panel').classList.remove('open');
+}
+
+function toggleCondicaoPanel() {
+  const panel = document.getElementById('condicao-panel');
+  panel.classList.toggle('open');
+  if (panel.classList.contains('open')) {
+    setVal('condicao-search', '');
+    atualizarSugestoesCondicao();
+    document.getElementById('condicao-search').focus();
+  }
+}
+
+function rotuloOperador(op) {
+  return {
+    contem: 'contém',
+    nao_contem: 'não contém',
+    igual: 'é igual',
+    diferente: 'é diferente'
+  }[op] || op || 'contém';
+}
+
+function renderCondicoes() {
+  const lista = document.getElementById('condicoes-lista');
+  lista.innerHTML = '';
+  if (!condicoesRegra.length) {
+    lista.innerHTML = '<div class="condition-empty">Nenhuma condição salva neste bloco.</div>';
+  } else {
+    condicoesRegra.forEach((c, idx) => {
+      const item = document.createElement('div');
+      item.className = 'condition-chip' + (idx === condicaoEditandoIdx ? ' selected' : '');
+      item.innerHTML = `
+        <span>${c.campo} ${rotuloOperador(c.operador)} ${c.valor}</span>
+        <div class="condition-actions">
+          <button type="button" class="condition-edit" onclick="editarCondicao(${idx})">Editar</button>
+          <button type="button" class="condition-remove" onclick="removerCondicao(${idx})">X</button>
+        </div>`;
+      lista.appendChild(item);
+    });
+  }
+  document.getElementById('btn-condicao-salvar').textContent = condicaoEditandoIdx === null ? 'Salvar condição' : 'Atualizar condição';
+  sincronizarCondicoes();
+}
+
+function sincronizarCondicoes() {
+  setVal('f-condicoes-json', JSON.stringify(condicoesRegra));
+  const primeira = condicoesRegra[0] || {campo: '', operador: '', valor: ''};
+  setVal('f-condicao-campo-hidden', primeira.campo || '');
+  setVal('f-condicao-operador-hidden', primeira.operador || '');
+  setVal('f-condicao-valor-hidden', primeira.valor || '');
+}
+
+function adicionarCondicao() {
+  const campo = document.getElementById('f-condicao-campo').value;
+  const operador = document.getElementById('f-condicao-operador').value || 'contem';
+  const valor = (document.getElementById('f-condicao-valor').value || '').trim();
+  if (!campo || !valor) return;
+  if (condicaoEditandoIdx === null) {
+    condicoesRegra.push({campo, operador, valor});
+  } else {
+    condicoesRegra[condicaoEditandoIdx] = {campo, operador, valor};
+    condicaoEditandoIdx = null;
+  }
+  setVal('f-condicao-valor', '');
+  setVal('condicao-search', '');
+  document.getElementById('condicao-panel').classList.remove('open');
+  renderCondicoes();
+}
+
+function editarCondicao(idx) {
+  const c = condicoesRegra[idx];
+  if (!c) return;
+  condicaoEditandoIdx = idx;
+  setVal('f-condicao-campo', c.campo || '');
+  setVal('f-condicao-operador', c.operador || 'contem');
+  setVal('f-condicao-valor', c.valor || '');
+  setVal('condicao-search', '');
+  document.getElementById('condicao-panel').classList.remove('open');
+  atualizarSugestoesCondicao();
+  renderCondicoes();
+}
+
+function removerCondicao(idx) {
+  condicoesRegra.splice(idx, 1);
+  if (condicaoEditandoIdx === idx) {
+    condicaoEditandoIdx = null;
+    setVal('f-condicao-valor', '');
+  } else if (condicaoEditandoIdx !== null && idx < condicaoEditandoIdx) {
+    condicaoEditandoIdx -= 1;
+  }
+  renderCondicoes();
+}
+
+function carregarCondicoes(r) {
+  condicoesRegra = [];
+  condicaoEditandoIdx = null;
+  if (r.condicoes_json) {
+    try {
+      const parsed = JSON.parse(r.condicoes_json);
+      if (Array.isArray(parsed)) {
+        condicoesRegra = parsed.filter((c) => c && c.campo && c.valor);
+      }
+    } catch (e) {
+      condicoesRegra = [];
+    }
+  }
+  if (!condicoesRegra.length && r.condicao_campo && r.condicao_valor) {
+    condicoesRegra = [{
+      campo: r.condicao_campo,
+      operador: r.condicao_operador || 'contem',
+      valor: r.condicao_valor,
+    }];
+  }
+  renderCondicoes();
+}
+
+function editarRegra(r) {
+  document.getElementById('modal-title').textContent = 'Editar regra ' + (r.codigo || '');
+  setVal('f-id', r.id || '');
+  setVal('f-codigo', r.codigo || '');
+  setVal('f-descricao', r.descricao || '');
+  setVal('f-categoria', r.categoria || '');
+  setVal('f-tipo', r.tipo || 'valor_fixo');
+  setVal('f-valor', r.valor || 0);
+  setVal('f-quantidade', r.quantidade || 0);
+  setVal('f-percentual-view', formatPercentualTela(r.percentual || 0));
+  atualizarPercentualReal();
+  setVal('f-aplicacao', r.aplicacao || 'calcular');
+  setVal('f-matriculas', r.matriculas || '');
+  setVal('f-condicao-campo', r.condicao_campo || '');
+  setVal('f-condicao-operador', r.condicao_operador || 'contem');
+  setVal('f-condicao-valor', '');
+  carregarCondicoes(r);
+  atualizarSugestoesCondicao();
+  setVal('f-empresa', r.empresa || '');
+  setVal('f-nivel1', r.nivel1 || '');
+  setVal('f-cargo', r.cargo || '');
+  setVal('f-vinculo', r.vinculo || '');
+  setVal('f-prioridade', r.prioridade || 99);
+  setVal('f-status', r.status || 'Ativo');
+  setVal('f-modo', 'nova_vigencia');
+  document.getElementById('modal-regra').style.display = 'flex';
+}
+
+function abrirNova() {
+  editarRegra({
+    id: '',
+    codigo: '',
+    descricao: '',
+    categoria: 'beneficio',
+    tipo: 'valor_fixo',
+    valor: 0,
+    quantidade: 0,
+    percentual: 0,
+    aplicacao: 'calcular',
+    matriculas: '',
+    condicao_campo: '',
+    condicao_operador: 'contem',
+    condicao_valor: '',
+    condicoes_json: '',
+    empresa: '',
+    nivel1: '',
+    cargo: '',
+    vinculo: '',
+    prioridade: 99,
+    status: 'Ativo'
+  });
+  document.getElementById('modal-title').textContent = 'Adicionar regra';
+}
+
+function fecharModal() {
+  document.getElementById('modal-regra').style.display = 'none';
+  document.getElementById('condicao-panel').classList.remove('open');
+}
+
+document.getElementById('modal-regra').addEventListener('click', function(e) {
+  if (e.target === this) fecharModal();
+});
+
+document.getElementById('f-condicao-campo').addEventListener('change', function() {
+  setVal('f-condicao-valor', '');
+  setVal('condicao-search', '');
+  atualizarSugestoesCondicao();
+});
+
+document.getElementById('f-percentual-view').addEventListener('input', atualizarPercentualReal);
+document.querySelector('#modal-regra form').addEventListener('submit', function() {
+  atualizarPercentualReal();
+  sincronizarCondicoes();
+});
+</script>
+{% endblock %}
