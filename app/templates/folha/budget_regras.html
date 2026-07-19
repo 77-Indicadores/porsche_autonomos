@@ -160,16 +160,16 @@
         <td class="col-descricao" title="{{ r.descricao }}">{{ r.descricao }}</td>
         <td class="col-categoria" title="{{ r.categoria or '—' }}">{{ r.categoria or "—" }}</td>
         <td class="col-tipo" title="{{ r.tipo_calculo or '—' }}">{{ r.tipo_calculo or "—" }}</td>
-        <td class="col-valor num">{% if r.is_synthetic_group %}—{% else %}R$ {{ "%.2f"|format(r.valor or 0) }}{% endif %}</td>
-        <td class="col-qtd num">{% if r.is_synthetic_group %}—{% else %}{{ "%.2f"|format(r.quantidade or 0) }}{% endif %}</td>
-        <td class="col-pct num">{% if r.is_synthetic_group %}—{% else %}{{ fmt_pct(r.percentual) }}{% endif %}</td>
+        <td class="col-valor num">R$ {{ "%.2f"|format(r.valor or 0) }}</td>
+        <td class="col-qtd num">{{ "%.2f"|format(r.quantidade or 0) }}</td>
+        <td class="col-pct num">{{ fmt_pct(r.percentual) }}</td>
         <td class="col-condicao" title="{{ r.condicoes_resumo }}">
           {% if r.condicoes_resumo %}
             {{ r.condicoes_resumo }}
           {% else %}—{% endif %}
         </td>
-        <td class="col-vigencia">{% if r.is_synthetic_group %}—{% else %}<span class="pill">{{ r.vigencia_label or "" }}</span>{% endif %}</td>
-        <td class="col-status">{{ r.status or "—" }}</td>
+        <td class="col-vigencia"><span class="pill">{{ r.vigencia_label or "" }}</span></td>
+        <td class="col-status">{{ r.status }}</td>
         <td class="col-acoes">
           <button type="button" class="btn-icon" id="edit-rule-{{ r.id }}" onclick='editarRegra({{ r.modal_payload|tojson }})'>Editar</button>
           {% if not r.is_group %}
