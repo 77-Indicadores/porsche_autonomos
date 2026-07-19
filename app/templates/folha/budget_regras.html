@@ -47,6 +47,10 @@
   .detail-list{display:flex;flex-wrap:wrap;gap:.4rem}
   .detail-action{margin-left:auto;flex-shrink:0}
   .detail-pill{font-size:.74rem;border:1px solid #e5e7eb;border-radius:999px;padding:.22rem .55rem;background:#f9fafb;color:#374151}
+  .subrules{width:100%;border-collapse:collapse;font-size:.76rem}
+  .subrules th{background:#f9fafb;border-bottom:1px solid #e5e7eb;padding:.35rem .45rem;font-size:.62rem;color:#6b7280;text-transform:uppercase;text-align:left}
+  .subrules td{border-bottom:1px solid #f3f4f6;padding:.38rem .45rem;white-space:normal}
+  .subrules .num{text-align:right;white-space:nowrap}
   .empty{color:#9ca3af}
   .modal{display:none;position:fixed;inset:0;background:rgba(15,23,42,.48);z-index:9000;align-items:center;justify-content:center;padding:1rem}
   .modal-card{background:#fff;border-radius:10px;width:min(760px,96vw);box-shadow:0 24px 70px rgba(0,0,0,.28);overflow:hidden}
@@ -167,50 +171,75 @@
         <td class="col-vigencia"><span class="pill">{{ r.vigencia_label or "" }}</span></td>
         <td class="col-status">{{ r.status }}</td>
         <td class="col-acoes">
-          <button type="button" class="btn-icon" id="edit-rule-{{ r.id }}" onclick='editarRegra({{ {
-            "id": r.id,
-            "codigo": r.codigo,
-            "descricao": r.descricao,
-            "categoria": r.categoria or "",
-            "tipo": r.tipo_calculo or "valor_fixo",
-            "valor": r.valor or 0,
-            "quantidade": r.quantidade or 0,
-            "percentual": r.percentual or 0,
-            "aplicacao": r.aplicacao or "calcular",
-            "matriculas": r.matriculas or "",
-            "condicao_campo": r.condicao_campo or "",
-            "condicao_operador": r.condicao_operador or "contem",
-            "condicao_valor": r.condicao_valor or "",
-            "condicoes_json": r.condicoes_json or "",
-            "empresa": r.empresa_contem or "",
-            "nivel1": r.nivel1 or "",
-            "cargo": r.codigo_cargo or "",
-            "vinculo": r.vinculo_codigo or "",
-            "prioridade": r.prioridade or 99,
-            "status": r.status or "Ativo"
-          }|tojson }} )'>Editar</button>
-          <form method="post" action="/folha/budget/regras/{{ r.id }}/excluir" style="display:inline" onsubmit="return confirm('Excluir regra {{ r.codigo }}?')">
+          <button type="button" class="btn-icon" id="edit-rule-{{ r.id }}" onclick='editarRegra({{ r.modal_payload|tojson }})'>Editar</button>
+          {% if not r.is_group %}
+          <form method="post" action="/folha/budget/regras/{{ r.children[0].id }}/excluir" style="display:inline" onsubmit="return confirm('Excluir regra {{ r.codigo }}?')">
             <button type="submit" class="btn-icon btn-danger">X</button>
           </form>
+          {% endif %}
         </td>
       </tr>
       <tr class="rule-detail-row" id="detail-{{ r.id }}" hidden>
         <td colspan="11">
-          <div class="detail-panel">
-            <div class="detail-title">Exceções</div>
-            <div class="detail-list">
-              {% if r.excecoes_detalhes %}
-                {% for detalhe in r.excecoes_detalhes %}
-                  <span class="detail-pill">{{ detalhe }}</span>
+          {% if r.children_count > 1 %}
+            <table class="subrules">
+              <thead>
+                <tr>
+                  <th>Variação</th>
+                  <th class="num">Valor</th>
+                  <th class="num">Qtd.</th>
+                  <th class="num">%</th>
+                  <th>Condição / categoria</th>
+                  <th>Vigência</th>
+                  <th>Status</th>
+                  <th>Ações</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for child in r.children %}
+                <tr>
+                  <td><strong>{{ child.descricao }}</strong></td>
+                  <td class="num">R$ {{ "%.2f"|format(child.valor or 0) }}</td>
+                  <td class="num">{{ "%.2f"|format(child.quantidade or 0) }}</td>
+                  <td class="num">{{ fmt_pct(child.percentual) }}</td>
+                  <td>
+                    {% if child.excecoes_detalhes %}
+                      {% for detalhe in child.excecoes_detalhes %}
+                        <span class="detail-pill">{{ detalhe }}</span>
+                      {% endfor %}
+                    {% else %}
+                      <span class="detail-pill">Sem condição</span>
+                    {% endif %}
+                  </td>
+                  <td><span class="pill">{{ child.vigencia_label or "" }}</span></td>
+                  <td>{{ child.status }}</td>
+                  <td>
+                    <button type="button" class="btn-icon" onclick='editarRegra({{ child.modal_payload|tojson }})'>Editar</button>
+                    <form method="post" action="/folha/budget/regras/{{ child.id }}/excluir" style="display:inline" onsubmit="return confirm('Excluir esta variação de {{ child.codigo }}?')">
+                      <button type="submit" class="btn-icon btn-danger">X</button>
+                    </form>
+                  </td>
+                </tr>
                 {% endfor %}
-              {% else %}
-                <span class="detail-pill">Sem condição salva</span>
-              {% endif %}
+              </tbody>
+            </table>
+          {% else %}
+            <div class="detail-panel">
+              <div class="detail-title">Condições</div>
+              <div class="detail-list">
+                {% if r.children[0].excecoes_detalhes %}
+                  {% for detalhe in r.children[0].excecoes_detalhes %}
+                    <span class="detail-pill">{{ detalhe }}</span>
+                  {% endfor %}
+                {% else %}
+                  <span class="detail-pill">Sem condição salva</span>
+                {% endif %}
+              </div>
+              <div class="detail-action">
+                <button type="button" class="btn-light" onclick="document.getElementById('edit-rule-{{ r.id }}').click()">Editar regra</button>
+              </div>
             </div>
-            <div class="detail-action">
-              <button type="button" class="btn-light" onclick="document.getElementById('edit-rule-{{ r.id }}').click()">Editar regra</button>
-            </div>
-          </div>
+          {% endif %}
         </td>
       </tr>
       {% else %}

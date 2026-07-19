@@ -1057,6 +1057,43 @@ def _detalhes_excecoes_regra(row) -> list[str]:
     return detalhes
 
 
+def _regra_modal_payload(row) -> dict[str, Any]:
+    return {
+        "id": row.get("id"),
+        "codigo": row.get("codigo"),
+        "descricao": row.get("descricao"),
+        "categoria": row.get("categoria") or "",
+        "tipo": row.get("tipo_calculo") or "valor_fixo",
+        "valor": row.get("valor") or 0,
+        "quantidade": row.get("quantidade") or 0,
+        "percentual": row.get("percentual") or 0,
+        "aplicacao": row.get("aplicacao") or "calcular",
+        "matriculas": row.get("matriculas") or "",
+        "condicao_campo": row.get("condicao_campo") or "",
+        "condicao_operador": row.get("condicao_operador") or "contem",
+        "condicao_valor": row.get("condicao_valor") or "",
+        "condicoes_json": row.get("condicoes_json") or "",
+        "empresa": row.get("empresa_contem") or "",
+        "nivel1": row.get("nivel1") or "",
+        "cargo": row.get("codigo_cargo") or "",
+        "vinculo": row.get("vinculo_codigo") or "",
+        "prioridade": row.get("prioridade") or 99,
+        "status": row.get("status") or "Ativo",
+    }
+
+
+def _regra_tem_recorte(row) -> bool:
+    return bool(
+        _condicoes_da_regra(row)
+        or str(row.get("matriculas") or "").strip()
+        or str(row.get("empresa_contem") or "").strip()
+        or str(row.get("nivel1") or "").strip()
+        or str(row.get("codigo_cargo") or "").strip()
+        or str(row.get("vinculo_codigo") or "").strip()
+        or (row.get("aplicacao") or "calcular") != "calcular"
+    )
+
+
 def _condicao_regra_ok(row, contexto: dict[str, str]) -> bool:
     condicoes = _condicoes_da_regra(row)
     if not condicoes:
@@ -1710,7 +1747,7 @@ def budget_regras_list(request: Request, db: Session = Depends(get_db)):
     rows_raw = db.execute(
         q.order_by(budget_regras.c.categoria, budget_regras.c.codigo, budget_regras.c.prioridade)
     ).mappings().all()
-    rows = []
+    itens = []
     for row in rows_raw:
         item = dict(row)
         item["vigencia_status"] = _status_vigencia_regra(item)
@@ -1722,7 +1759,27 @@ def budget_regras_list(request: Request, db: Session = Depends(get_db)):
         item["vigencia_label"] = _fmt_vigencia_regra(item)
         item["condicoes_resumo"] = _resumo_condicoes(item)
         item["excecoes_detalhes"] = _detalhes_excecoes_regra(item)
-        rows.append(item)
+        item["modal_payload"] = _regra_modal_payload(item)
+        item["tem_recorte"] = _regra_tem_recorte(item)
+        itens.append(item)
+    grupos: dict[tuple[str, str], list[dict[str, Any]]] = {}
+    for item in itens:
+        grupos.setdefault((item.get("categoria") or "", item.get("codigo") or ""), []).append(item)
+
+    rows = []
+    for (_categoria, _codigo), filhos in grupos.items():
+        filhos = sorted(filhos, key=lambda r: (int(r.get("prioridade") or 99), int(r.get("id") or 0)))
+        principal = next((r for r in filhos if not r["tem_recorte"]), filhos[0])
+        grupo = dict(principal)
+        grupo["id"] = f"grp-{principal['codigo']}"
+        grupo["children"] = filhos
+        grupo["children_count"] = len(filhos)
+        grupo["is_group"] = len(filhos) > 1
+        grupo["modal_payload"] = _regra_modal_payload(principal)
+        grupo["condicoes_resumo"] = f"{len(filhos)} variações" if len(filhos) > 1 else principal["condicoes_resumo"]
+        grupo["excecoes_detalhes"] = []
+        rows.append(grupo)
+    rows.sort(key=lambda r: (r.get("categoria") or "", r.get("codigo") or "", int(r.get("prioridade") or 99)))
     categorias = db.execute(
         select(budget_regras.c.categoria).distinct().order_by(budget_regras.c.categoria)
     ).scalars().all()
