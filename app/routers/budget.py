@@ -1094,6 +1094,24 @@ def _regra_tem_recorte(row) -> bool:
     )
 
 
+def _descricao_grupo_regra(codigo: str | None, filhos: list[dict[str, Any]]) -> str:
+    descricoes = [str(f.get("descricao") or "").strip() for f in filhos if str(f.get("descricao") or "").strip()]
+    if not descricoes:
+        return codigo or ""
+    partes = [d.split(" - ", 1)[0].strip() for d in descricoes]
+    if partes and len(set(partes)) == 1:
+        return partes[0]
+    tokens_por_descricao = [parte.split() for parte in partes if parte]
+    prefixo: list[str] = []
+    for palavras in zip(*tokens_por_descricao):
+        if len(set(palavras)) != 1:
+            break
+        prefixo.append(palavras[0])
+    if len(prefixo) >= 2:
+        return " ".join(prefixo)
+    return descricoes[0]
+
+
 def _condicao_regra_ok(row, contexto: dict[str, str]) -> bool:
     condicoes = _condicoes_da_regra(row)
     if not condicoes:
@@ -1769,12 +1787,21 @@ def budget_regras_list(request: Request, db: Session = Depends(get_db)):
     rows = []
     for (_categoria, _codigo), filhos in grupos.items():
         filhos = sorted(filhos, key=lambda r: (int(r.get("prioridade") or 99), int(r.get("id") or 0)))
-        principal = next((r for r in filhos if not r["tem_recorte"]), filhos[0])
+        principal_sem_recorte = next((r for r in filhos if not r["tem_recorte"]), None)
+        principal = principal_sem_recorte or filhos[0]
         grupo = dict(principal)
         grupo["id"] = f"grp-{principal['codigo']}"
         grupo["children"] = filhos
         grupo["children_count"] = len(filhos)
         grupo["is_group"] = len(filhos) > 1
+        grupo["is_synthetic_group"] = len(filhos) > 1 and principal_sem_recorte is None
+        if grupo["is_synthetic_group"]:
+            grupo["descricao"] = _descricao_grupo_regra(grupo.get("codigo"), filhos)
+            grupo["valor"] = None
+            grupo["quantidade"] = None
+            grupo["percentual"] = None
+            grupo["vigencia_label"] = ""
+            grupo["status"] = ""
         grupo["modal_payload"] = _regra_modal_payload(principal)
         grupo["condicoes_resumo"] = f"{len(filhos)} variações" if len(filhos) > 1 else principal["condicoes_resumo"]
         grupo["excecoes_detalhes"] = []
