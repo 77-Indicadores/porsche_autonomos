@@ -2017,8 +2017,8 @@ async def budget_cargos_niveis_salvar(request: Request, db: Session = Depends(ge
         cargo = (form.get(f"cargo_{sid}") or "").strip()
         if not cargo:
             continue
-        ponto = (form.get(f"nivel3_{sid}") or "").strip() or "Bate Ponto"
-        bate_ponto = _normalizar_cargo(ponto) == "BATE PONTO"
+        bate_ponto = form.get(f"bate_ponto_{sid}") == "1"
+        ponto = "Bate Ponto" if bate_ponto else "Não Bate Ponto"
         dados = dict(
             cargo=cargo,
             cargo_normalizado=_normalizar_cargo(cargo),

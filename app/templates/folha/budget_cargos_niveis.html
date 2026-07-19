@@ -44,7 +44,7 @@
           <th style="min-width:230px">Cargo</th>
           <th style="min-width:130px">Nível 1</th>
           <th style="min-width:130px">Nível 2</th>
-          <th style="min-width:130px">Ponto</th>
+          <th style="width:70px">Ponto</th>
           <th style="width:70px">Peric.</th>
           <th style="width:90px">% Adic.</th>
           <th style="width:90px">% HE 25</th>
@@ -58,7 +58,10 @@
           <td><input name="cargo_novo_1" placeholder="Novo cargo"></td>
           <td><input name="nivel1_novo_1"></td>
           <td><input name="nivel2_novo_1"></td>
-          <td><input name="nivel3_novo_1" value="Bate Ponto" placeholder="Bate Ponto / Não Bate Ponto"></td>
+          <td style="text-align:center">
+            <input type="hidden" name="bate_ponto_novo_1" value="0">
+            <input class="chk" type="checkbox" name="bate_ponto_novo_1" value="1" checked>
+          </td>
           <td style="text-align:center">
             <input type="hidden" name="peric_novo_1" value="0">
             <input class="chk" type="checkbox" name="peric_novo_1" value="1">
@@ -82,7 +85,10 @@
           <td><input name="cargo_{{ r.id }}" value="{{ r.cargo }}"></td>
           <td><input name="nivel1_{{ r.id }}" value="{{ r.nivel1 or '' }}"></td>
           <td><input name="nivel2_{{ r.id }}" value="{{ r.nivel2 or '' }}"></td>
-          <td><input name="nivel3_{{ r.id }}" value="{{ r.nivel3 or ('Bate Ponto' if r.bate_ponto else 'Não Bate Ponto') }}"></td>
+          <td style="text-align:center">
+            <input type="hidden" name="bate_ponto_{{ r.id }}" value="0">
+            <input class="chk" type="checkbox" name="bate_ponto_{{ r.id }}" value="1" {% if r.bate_ponto %}checked{% endif %}>
+          </td>
           <td style="text-align:center">
             <input type="hidden" name="peric_{{ r.id }}" value="0">
             <input class="chk" type="checkbox" name="peric_{{ r.id }}" value="1" {% if r.tem_periculosidade %}checked{% endif %}>
