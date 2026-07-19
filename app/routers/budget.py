@@ -1057,7 +1057,41 @@ def _detalhes_excecoes_regra(row) -> list[str]:
     return detalhes
 
 
+def _condicoes_editor_regra(row) -> list[dict[str, str]]:
+    condicoes = _condicoes_da_regra(row)
+    vistas = {
+        (
+            _normalizar_cargo(c.get("campo")),
+            _normalizar_cargo(c.get("operador") or "contem"),
+            _normalizar_cargo(c.get("valor")),
+        )
+        for c in condicoes
+    }
+
+    def adicionar(campo: str, operador: str, valor: str | None):
+        valor_txt = str(valor or "").strip()
+        if not valor_txt:
+            return
+        chave = (_normalizar_cargo(campo), _normalizar_cargo(operador), _normalizar_cargo(valor_txt))
+        if chave in vistas:
+            return
+        condicoes.append({"campo": campo, "operador": operador, "valor": valor_txt})
+        vistas.add(chave)
+
+    matriculas = str(row.get("matriculas") or "").strip()
+    for matricula in re.split(r"[,;|\s]+", matriculas):
+        adicionar("matricula", "contem", matricula)
+
+    adicionar("empresa", "contem", row.get("empresa_contem"))
+    adicionar("nivel1", "igual", row.get("nivel1"))
+    adicionar("cargo", "igual", row.get("codigo_cargo"))
+    adicionar("vinculo", "igual", row.get("vinculo_codigo"))
+    return condicoes
+
+
 def _regra_modal_payload(row) -> dict[str, Any]:
+    condicoes_editor = _condicoes_editor_regra(row)
+    primeira_condicao = condicoes_editor[0] if condicoes_editor else {}
     return {
         "id": row.get("id"),
         "codigo": row.get("codigo"),
@@ -1069,10 +1103,10 @@ def _regra_modal_payload(row) -> dict[str, Any]:
         "percentual": row.get("percentual") or 0,
         "aplicacao": row.get("aplicacao") or "calcular",
         "matriculas": row.get("matriculas") or "",
-        "condicao_campo": row.get("condicao_campo") or "",
-        "condicao_operador": row.get("condicao_operador") or "contem",
-        "condicao_valor": row.get("condicao_valor") or "",
-        "condicoes_json": row.get("condicoes_json") or "",
+        "condicao_campo": primeira_condicao.get("campo") or "",
+        "condicao_operador": primeira_condicao.get("operador") or "contem",
+        "condicao_valor": primeira_condicao.get("valor") or "",
+        "condicoes_json": json.dumps(condicoes_editor, ensure_ascii=False) if condicoes_editor else "",
         "empresa": row.get("empresa_contem") or "",
         "nivel1": row.get("nivel1") or "",
         "cargo": row.get("codigo_cargo") or "",
