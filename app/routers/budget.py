@@ -2017,17 +2017,19 @@ async def budget_cargos_niveis_salvar(request: Request, db: Session = Depends(ge
         cargo = (form.get(f"cargo_{sid}") or "").strip()
         if not cargo:
             continue
+        ponto = (form.get(f"nivel3_{sid}") or "").strip() or "Bate Ponto"
+        bate_ponto = _normalizar_cargo(ponto) == "BATE PONTO"
         dados = dict(
             cargo=cargo,
             cargo_normalizado=_normalizar_cargo(cargo),
             nivel1=(form.get(f"nivel1_{sid}") or "").strip(),
             nivel2=(form.get(f"nivel2_{sid}") or "").strip(),
-            nivel3=(form.get(f"nivel3_{sid}") or "").strip(),
+            nivel3=ponto,
             tem_periculosidade=form.get(f"peric_{sid}") == "1",
-            bate_ponto=form.get(f"bate_ponto_{sid}") == "1",
+            bate_ponto=bate_ponto,
             pct_adicional_25=_parse_pct_form(form.get(f"pct25_{sid}") or 0),
             pct_he_sobre_25=_parse_pct_form(form.get(f"pcthe_{sid}") or 0),
-            pode_he=form.get(f"pode_he_{sid}") == "1",
+            pode_he=bate_ponto and form.get(f"pode_he_{sid}") == "1",
             status=form.get(f"status_{sid}") or "Ativo",
         )
         if sid.startswith("novo"):
