@@ -605,8 +605,6 @@ def _seed_regras_budget(db: Session):
         dict(codigo="HE25", descricao="HE sobre Adicional 25%", categoria="he", tipo_calculo="percentual", percentual=0.25),
         dict(codigo="HE50", descricao="Hora Extra 50%", categoria="he", tipo_calculo="percentual", percentual=1.50),
         dict(codigo="HE100", descricao="Hora Extra 100%", categoria="he", tipo_calculo="percentual", percentual=2.00),
-        dict(codigo="APOIO_ETAPA", descricao="Apoiador Etapa - lista padrão", categoria="adicional", tipo_calculo="percentual", percentual=0.15, aplicacao="somente_recebe", matriculas="167,322,330,482", prioridade=10),
-        dict(codigo="APOIO_ETAPA", descricao="Apoiador Etapa - José até 12/2025", categoria="adicional", tipo_calculo="percentual", percentual=0.15, aplicacao="somente_recebe", matriculas="523", prioridade=10, vigencia_fim="2025-12-31"),
         dict(codigo="PREMIO_PIRES", descricao="Prêmio PIRES", categoria="adicional", tipo_calculo="percentual", percentual=0.20, empresa_contem="PIRES", prioridade=20),
 
         # Benefícios fixos
@@ -662,11 +660,10 @@ def _seed_regras_budget(db: Session):
         regra.setdefault("vigencia_inicio", "2000-01-01")
         regra.setdefault("criado_por", "seed")
         db.execute(insert(budget_regras).values(**regra))
-    db.execute(update(budget_regras).where(
+    db.execute(delete(budget_regras).where(
         budget_regras.c.codigo == "APOIO_ETAPA",
         budget_regras.c.criado_por == "seed",
-        budget_regras.c.matriculas.is_(None),
-    ).values(status="Inativo"))
+    ))
     db.commit()
 
 
