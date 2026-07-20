@@ -2787,11 +2787,26 @@ def budget_processar(
 def budget_resultado_view(
     request: Request, db: Session = Depends(get_db),
     competencia: str = "", empresa: str = "", matricula: str = "",
+    nome: str = "", cc: str = "",
 ):
     from app.routers.folha_pagamento import folha_funcionarios as ff
 
     competencias = db.execute(
         select(ff.c.competencia).distinct().order_by(ff.c.competencia)
+    ).scalars().all()
+    empresas_resultado = db.execute(
+        select(budget_resultado.c.empresa_codigo, budget_resultado.c.empresa_nome)
+        .where(budget_resultado.c.empresa_codigo.isnot(None))
+        .where(budget_resultado.c.empresa_codigo != "")
+        .distinct()
+        .order_by(budget_resultado.c.empresa_nome, budget_resultado.c.empresa_codigo)
+    ).all()
+    centros_custo = db.execute(
+        select(budget_resultado.c.centro_custo)
+        .where(budget_resultado.c.centro_custo.isnot(None))
+        .where(budget_resultado.c.centro_custo != "")
+        .distinct()
+        .order_by(budget_resultado.c.centro_custo)
     ).scalars().all()
 
     linhas = []
@@ -2802,6 +2817,10 @@ def budget_resultado_view(
             q = q.where(budget_resultado.c.empresa_codigo == empresa)
         if matricula:
             q = q.where(budget_resultado.c.matricula == matricula)
+        if nome:
+            q = q.where(budget_resultado.c.nome_empregado.ilike(f"%{nome.strip()}%"))
+        if cc:
+            q = q.where(budget_resultado.c.centro_custo == cc)
         q = q.order_by(budget_resultado.c.nome_empregado, budget_resultado.c.categoria_verba)
         linhas = db.execute(q).mappings().all()
         for l in linhas:
@@ -2811,8 +2830,11 @@ def budget_resultado_view(
     return templates.TemplateResponse("folha/budget_resultado.html", {
         "request": request, "linhas": linhas, "totais": totais,
         "competencias": competencias,
+        "empresas_resultado": empresas_resultado,
+        "centros_custo": centros_custo,
         "sel_competencia": competencia,
         "sel_empresa": empresa, "sel_matricula": matricula,
+        "sel_nome": nome, "sel_cc": cc,
         "success": request.query_params.get("success"),
         "error": request.query_params.get("error"),
     })

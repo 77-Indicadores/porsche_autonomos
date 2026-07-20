@@ -13,6 +13,7 @@
 <style>
   .filtros { display:flex;gap:.75rem;flex-wrap:wrap;align-items:flex-end;background:#fff;border:1px solid #e5e7eb;border-radius:10px;padding:1rem;margin-bottom:1.5rem; }
   .filtros label { font-size:.78rem;font-weight:600;color:#374151;display:block;margin-bottom:.25rem; }
+  .filtros .input { border:1px solid #d1d5db;border-radius:6px;padding:.48rem .55rem;background:#fff;box-sizing:border-box; }
   .totais-grid { display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:.75rem;margin-bottom:1.5rem; }
   .total-card { background:#fff;border:1px solid #e5e7eb;border-radius:8px;padding:.9rem 1rem; }
   .total-card .cat { font-size:.7rem;font-weight:600;color:#6b7280;text-transform:uppercase;letter-spacing:.05em; }
@@ -36,7 +37,30 @@
     <label>Matrícula</label>
     <input class="input" name="matricula" value="{{ sel_matricula }}" placeholder="Filtre por matrícula" style="width:140px">
   </div>
+  <div>
+    <label>Nome</label>
+    <input class="input" name="nome" value="{{ sel_nome }}" placeholder="Filtre por nome" style="width:230px">
+  </div>
+  <div>
+    <label>Empresa</label>
+    <select name="empresa" class="input" style="min-width:230px">
+      <option value="">Todas</option>
+      {% for cod, nome in empresas_resultado %}
+      <option value="{{ cod }}" {% if cod == sel_empresa %}selected{% endif %}>{{ nome or cod }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div>
+    <label>CC</label>
+    <select name="cc" class="input" style="min-width:140px">
+      <option value="">Todos</option>
+      {% for centro in centros_custo %}
+      <option value="{{ centro }}" {% if centro == sel_cc %}selected{% endif %}>{{ centro }}</option>
+      {% endfor %}
+    </select>
+  </div>
   <button type="submit" style="padding:.5rem 1.2rem;background:#dc2626;color:#fff;border:none;border-radius:6px;font-weight:600;cursor:pointer">🔍 Filtrar</button>
+  <a href="/folha/budget/resultado" style="padding:.5rem 1rem;border:1px solid #d1d5db;border-radius:6px;font-size:.875rem;color:#374151;text-decoration:none">Limpar</a>
 </form>
 
 {% if totais %}
