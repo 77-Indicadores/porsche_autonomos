@@ -634,6 +634,7 @@ def _seed_regras_budget(db: Session):
         dict(codigo="PROV_1T", descricao="Provisão 1/3 Férias", categoria="provisao", tipo_calculo="percentual", percentual=1 / 36),
         dict(codigo="PROV_13", descricao="Provisão 13º Salário", categoria="provisao", tipo_calculo="percentual", percentual=1 / 12),
         dict(codigo="PROV_AVI", descricao="Provisão Aviso Prévio", categoria="provisao", tipo_calculo="percentual", percentual=1 / 12),
+        dict(codigo="GRRF", descricao="GRRF", categoria="provisao", tipo_calculo="percentual", percentual=0.40),
         dict(codigo="PROV_PLR", descricao="Provisão PLR", categoria="provisao", tipo_calculo="percentual", percentual=1 / 12),
         dict(codigo="FGTS", descricao="FGTS", categoria="encargo", tipo_calculo="percentual", percentual=0.08),
         dict(codigo="INSS_PAT", descricao="INSS Patronal", categoria="encargo", tipo_calculo="percentual", percentual=0.268),
@@ -1643,6 +1644,7 @@ def _processar_empregado(db: Session, funcionario: dict, rubricas: list[dict],
         ("PROV_AVI", "Provisão Aviso Prévio", tem_aviso, 1 / 12),
         ("PROV_PLR", "Provisão PLR", tem_plr, 1 / 12),
     ]
+    valores_provisao: dict[str, float] = {}
     for cod, desc, elegivel, fator in provisoes_map:
         if not elegivel:
             continue
@@ -1656,8 +1658,17 @@ def _processar_empregado(db: Session, funcionario: dict, rubricas: list[dict],
             f = float(enc["percentual"] if enc else fator)
             fonte_prov = f"Encargo #{enc['id']}" if enc else "Padrão"
         val = base_rem * f
+        valores_provisao[cod] = val
         linha(cod, desc, "provisao", None, val,
               f"{fonte_prov}: {_fmt_moeda(base_rem)} x {_fmt_pct(f)} = {_fmt_moeda(val)}")
+
+    grrf_bloqueada, _ = bloqueado("GRRF")
+    base_grrf = valores_provisao.get("PROV_AVI", 0.0)
+    if base_grrf and not grrf_bloqueada:
+        pct_grrf, fonte_grrf = regra_percentual("GRRF", 0.40)
+        val_grrf = base_grrf * pct_grrf
+        linha("GRRF", "GRRF", "provisao", None, val_grrf,
+              f"{fonte_grrf}: Provisão Aviso Prévio {_fmt_moeda(base_grrf)} x {_fmt_pct(pct_grrf)} = {_fmt_moeda(val_grrf)}")
 
     # ── ENCARGOS (FGTS, INSS Patronal) ───────────────────────
     encargos_map = [
