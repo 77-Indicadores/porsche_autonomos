@@ -1401,7 +1401,7 @@ def _processar_empregado(db: Session, funcionario: dict, rubricas: list[dict],
     tem_terco = False if estagiario else (cargo_bd["tem_terca"] if cargo_bd and cargo_bd.get("tem_terca") is not None else (vinculo_bd["tem_um_terco"] if vinculo_bd else True))
     tem_aviso = False if estagiario else (cargo_bd["tem_aviso"] if cargo_bd and cargo_bd.get("tem_aviso") is not None else (vinculo_bd["tem_aviso_previo"] if vinculo_bd else True))
     tem_plr = False if estagiario else (cargo_bd["tem_plr"] if cargo_bd and cargo_bd.get("tem_plr") is not None else (vinculo_bd["tem_plr"] if vinculo_bd else True))
-    base_encargos = peri_budget
+    base_encargos = base_rem
 
     # ── ADICIONAL 25% ─────────────────────────────────────────
     pct_25 = float(cargo_bd["pct_adicional_25"] if cargo_bd else 0)
