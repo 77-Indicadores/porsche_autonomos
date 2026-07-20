@@ -1730,6 +1730,13 @@ def budget_index(request: Request, db: Session = Depends(get_db)):
     qtd_excecoes = db.execute(
         select(text("count(*)")).select_from(budget_excecoes)
     ).scalar() or 0
+    qtd_horas_rows = db.execute(
+        select(budget_regras.c.codigo, budget_regras.c.quantidade)
+        .where(budget_regras.c.codigo.in_(["QTD_NOTURNO", "QTD_HE50", "QTD_HE100", "QTD_HE25"]))
+        .where(budget_regras.c.status == "Ativo")
+        .where((budget_regras.c.vigencia_fim.is_(None)) | (budget_regras.c.vigencia_fim == ""))
+    ).all()
+    qtd_horas = {codigo: float(quantidade or 0) for codigo, quantidade in qtd_horas_rows}
     return templates.TemplateResponse("folha/budget_index.html", {
         "request": request,
         "competencias_folha": competencias_folha,
@@ -1739,6 +1746,7 @@ def budget_index(request: Request, db: Session = Depends(get_db)):
         "qtd_regras": qtd_regras,
         "qtd_cargos_niveis": qtd_cargos_niveis,
         "qtd_excecoes": qtd_excecoes,
+        "qtd_horas": qtd_horas,
     })
 
 
