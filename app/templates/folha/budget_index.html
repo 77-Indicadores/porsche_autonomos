@@ -1,56 +1,125 @@
 {% extends "base.html" %}
-{% block header %}Budget de Pessoal{% endblock %}
-{% block subtitle %}Projeção de custos parametrizada por vigência{% endblock %}
+{% block header %}Budget — Visão Geral{% endblock %}
+{% block subtitle %}Mapa de verbas, exceções e memória de cálculo{% endblock %}
 
 {% block content %}
 <style>
-  .budget-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(200px,1fr)); gap:1rem; margin-bottom:2rem; }
-  .budget-card { background:#fff; border:1px solid #e5e7eb; border-radius:10px; padding:1.2rem 1.4rem; box-shadow:0 1px 3px rgba(0,0,0,.06); }
-  .budget-card .label { font-size:.72rem; font-weight:600; color:#6b7280; text-transform:uppercase; letter-spacing:.05em; }
-  .budget-card .value { font-size:1.6rem; font-weight:700; color:#111; margin:.2rem 0; }
-  .nav-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(180px,1fr)); gap:.75rem; margin-bottom:2rem; }
-  .nav-item { background:#fff; border:1px solid #e5e7eb; border-radius:8px; padding:1rem; text-decoration:none; color:#111; display:flex; flex-direction:column; gap:.3rem; transition:box-shadow .15s, border-color .15s; }
-  .nav-item:hover { box-shadow:0 2px 8px rgba(0,0,0,.1); border-color:#9ca3af; }
-  .nav-item .icon { font-size:1.4rem; }
-  .nav-item .title { font-weight:600; font-size:.9rem; }
-  .nav-item .desc { font-size:.75rem; color:#6b7280; }
-  .cenarios-list { display:flex; gap:.5rem; flex-wrap:wrap; }
-  .cenario-pill { padding:.3rem .8rem; border-radius:999px; font-size:.78rem; font-weight:600; border:1px solid #e5e7eb; background:#f9fafb; color:#374151; }
-  .cenario-pill.bloqueado { background:#fef9c3; border-color:#fde68a; color:#92400e; }
-  .section-title { font-size:.8rem; font-weight:700; color:#6b7280; text-transform:uppercase; letter-spacing:.06em; margin:1.5rem 0 .6rem; }
-  @media(prefers-color-scheme:dark){
-    .budget-card,.nav-item{background:#1f2937;border-color:#374151;color:#f9fafb}
-    .budget-card .value{color:#f9fafb}
-    .nav-item .desc{color:#9ca3af}
-    .cenario-pill{background:#374151;border-color:#4b5563;color:#d1d5db}
-  }
+  .budget-shell{display:flex;flex-direction:column;gap:1rem}
+  .budget-toolbar{display:flex;justify-content:space-between;align-items:flex-end;gap:1rem;flex-wrap:wrap;background:#fff;border:1px solid #e5e7eb;border-radius:10px;padding:1rem}
+  .budget-toolbar form{display:flex;gap:.7rem;align-items:flex-end;flex-wrap:wrap;margin:0}
+  .budget-toolbar label{display:block;font-size:.72rem;font-weight:800;color:#6b7280;text-transform:uppercase;margin-bottom:.25rem}
+  .budget-toolbar select{min-width:150px;border:1px solid #d1d5db;border-radius:6px;padding:.48rem .55rem;background:#fff}
+  .btn-red{background:#dc2626;color:#fff;border:1px solid #dc2626;border-radius:6px;padding:.5rem 1rem;font-weight:800;text-decoration:none;cursor:pointer}
+  .btn-light{background:#fff;color:#374151;border:1px solid #d1d5db;border-radius:6px;padding:.5rem 1rem;font-weight:800;text-decoration:none}
+  .quick-stats{display:flex;gap:.6rem;flex-wrap:wrap}
+  .stat{min-width:110px;background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;padding:.55rem .7rem}
+  .stat span{display:block;font-size:.64rem;font-weight:800;color:#6b7280;text-transform:uppercase;letter-spacing:.04em}
+  .stat strong{display:block;font-size:1.15rem;color:#111;margin-top:.15rem}
+  .map-board{background:#0b0b0d;color:#fff;border-radius:12px;padding:1.15rem;border:1px solid #27272a;box-shadow:0 16px 40px rgba(0,0,0,.18);overflow:hidden}
+  .map-head{display:flex;justify-content:space-between;gap:1rem;align-items:flex-start;border-bottom:1px solid #34363b;padding-bottom:1rem;margin-bottom:.8rem}
+  .brandline{display:flex;gap:.75rem;align-items:flex-start}
+  .mark{width:5px;height:58px;background:#d5001c;box-shadow:9px 0 0 #c9a227;flex:0 0 5px}
+  .kicker{font-size:.68rem;color:#c9a227;font-weight:900;letter-spacing:.18em;text-transform:uppercase}
+  .map-title{font-size:1.65rem;line-height:1;margin:.25rem 0 .35rem;letter-spacing:-.03em}
+  .map-title b{color:#d5001c}
+  .map-subtitle{font-size:.82rem;color:#a8abb2;margin:0}
+  .headnote{text-align:right;border:1px solid #34363b;border-radius:8px;padding:.7rem .85rem;background:rgba(255,255,255,.04);min-width:235px}
+  .headnote strong{display:block;color:#c9a227;font-size:.72rem;text-transform:uppercase}
+  .headnote span{font-size:.72rem;color:#a8abb2;line-height:1.35}
+  .legend{display:flex;justify-content:space-between;gap:1rem;align-items:center;margin-bottom:.85rem;flex-wrap:wrap}
+  .legend-left{display:flex;gap:.45rem;flex-wrap:wrap}
+  .tag{font-size:.64rem;font-weight:900;text-transform:uppercase;padding:.25rem .55rem;border-radius:999px;border:1px solid}
+  .pay{color:#ff5368;border-color:#7b2631;background:#d5001c18}.benefit{color:#e2c764;border-color:#66561f;background:#c9a22718}.charge{color:#9ad5ff;border-color:#294b64;background:#2d91d218}.provision{color:#d3b5ff;border-color:#503b6e;background:#834fd218}
+  .status-note{font-size:.68rem;color:#777b82}
+  .rule-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:.7rem}
+  .rule-card{background:linear-gradient(145deg,#202126,#16171a);border:1px solid #34363b;border-radius:8px;padding:.85rem;position:relative;display:flex;flex-direction:column;min-height:180px;overflow:hidden}
+  .rule-card:after{content:"";position:absolute;right:0;top:0;width:42px;height:3px;background:#c9a227}.rule-card.red:after{background:#d5001c}
+  .rule-top{display:flex;gap:.65rem;align-items:center;margin-bottom:.65rem}
+  .ico{width:38px;height:38px;border-radius:7px;background:#2a2b30;border:1px solid #3b3d43;display:grid;place-items:center;font-size:1.3rem;flex:0 0 38px}
+  .rule-name{font-size:.92rem;line-height:1.05;font-weight:900;margin:0}.rule-type{font-size:.62rem;color:#c9a227;text-transform:uppercase;letter-spacing:.08em;margin-top:.18rem}
+  .formula{font-size:.78rem;line-height:1.35;color:#f0f0f2;background:#0d0e10;border-left:2px solid #d5001c;padding:.55rem .6rem;border-radius:4px;margin-bottom:.6rem}
+  .rule{font-size:.72rem;line-height:1.35;color:#a8abb2;margin:0}
+  .exception{margin-top:auto;padding-top:.65rem;border-top:1px solid #303238;font-size:.7rem;line-height:1.35;color:#e3c96c}
+  .exception b{color:#ff6275}
+  .below-actions{display:flex;gap:.6rem;flex-wrap:wrap;margin-top:1rem}
+  @media(max-width:860px){.map-head{flex-direction:column}.headnote{text-align:left;width:100%}.budget-toolbar{align-items:stretch}.quick-stats{width:100%}.stat{flex:1}.map-board{padding:.85rem}}
 </style>
 
-<div class="budget-grid">
-  <div class="budget-card"><div class="label">Empresas</div><div class="value">{{ qtd_empresas }}</div></div>
-  <div class="budget-card"><div class="label">Regras</div><div class="value">{{ qtd_regras }}</div></div>
-  <div class="budget-card"><div class="label">Níveis de Cargo</div><div class="value">{{ qtd_cargos_niveis }}</div></div>
-</div>
-
-<div class="section-title">Processar Budget</div>
-<form method="post" action="/folha/budget/processar" style="display:flex;gap:.75rem;align-items:flex-end;flex-wrap:wrap;margin-bottom:2rem;background:#fff;border:1px solid #e5e7eb;border-radius:10px;padding:1.2rem">
-  <div>
-    <label style="font-size:.78rem;font-weight:600;color:#374151;display:block;margin-bottom:.3rem">Competência</label>
-    <select name="competencia" class="input" style="min-width:160px" required>
-      <option value="">— selecione —</option>
-      {% for c in competencias_folha %}<option value="{{ c }}">{{ c }}</option>{% endfor %}
-    </select>
+<div class="budget-shell">
+  <div class="budget-toolbar">
+    <form method="post" action="/folha/budget/processar">
+      <div>
+        <label>Competência</label>
+        <select name="competencia" required>
+          <option value="">Selecione</option>
+          {% for c in competencias_folha %}<option value="{{ c }}">{{ c }}</option>{% endfor %}
+        </select>
+      </div>
+      <button class="btn-red" type="submit">Processar budget</button>
+      <a class="btn-light" href="/folha/budget/resultado">Ver resultado</a>
+    </form>
+    <div class="quick-stats">
+      <div class="stat"><span>Empresas</span><strong>{{ qtd_empresas }}</strong></div>
+      <div class="stat"><span>Regras</span><strong>{{ qtd_regras }}</strong></div>
+      <div class="stat"><span>Níveis</span><strong>{{ qtd_cargos_niveis }}</strong></div>
+    </div>
   </div>
-  <button class="btn-primary" type="submit" style="padding:.5rem 1.4rem;background:#dc2626;color:#fff;border:none;border-radius:6px;font-weight:600;cursor:pointer">
-    ▶ Processar
-  </button>
-  <a href="/folha/budget/resultado" style="padding:.5rem 1rem;border:1px solid #d1d5db;border-radius:6px;font-size:.875rem;color:#374151;text-decoration:none">Ver Resultado →</a>
-</form>
 
-<div class="section-title">Cadastros</div>
-<div class="nav-grid">
-  <a class="nav-item" href="/folha/budget/regras"><span class="icon">📏</span><span class="title">Regras</span><span class="desc">Valores, quantidades, vigências e exceções</span></a>
-  <a class="nav-item" href="/folha/budget/cargos-niveis"><span class="icon">🧩</span><span class="title">Níveis de Cargo</span><span class="desc">Agrupamento e padrões por cargo</span></a>
-  <a class="nav-item" href="/folha/budget/resultado"><span class="icon">💰</span><span class="title">Resultado</span><span class="desc">Conferir cálculo por competência e pessoa</span></a>
+  <section class="map-board">
+    <div class="map-head">
+      <div class="brandline">
+        <div class="mark"></div>
+        <div>
+          <div class="kicker">Porsche Cup • Budget de pessoal</div>
+          <h2 class="map-title">Mapa de <b>verbas</b> & exceções</h2>
+          <p class="map-subtitle">Memória rápida para parametrização, cálculo e conferência mensal.</p>
+        </div>
+      </div>
+      <div class="headnote">
+        <strong>Regra-mestra</strong>
+        <span>Salário hora = (salário ÷ horas mensais) × (1 + % periculosidade)</span>
+      </div>
+    </div>
+
+    <div class="legend">
+      <div class="legend-left">
+        <span class="tag pay">Remuneração</span>
+        <span class="tag benefit">Benefício</span>
+        <span class="tag charge">Encargo</span>
+        <span class="tag provision">Provisão</span>
+      </div>
+      <div class="status-note">Competência mensal • regras com vigência</div>
+    </div>
+
+    <div class="rule-grid">
+      <article class="rule-card red"><div class="rule-top"><div class="ico">💰</div><div><h3 class="rule-name">Salário</h3><div class="rule-type">Remuneração</div></div></div><div class="formula">Valor cadastrado na folha da competência</div><p class="rule">Base principal para cálculo das demais verbas.</p><div class="exception"><b>Validar:</b> reajustes e movimentações por competência.</div></article>
+      <article class="rule-card red"><div class="rule-top"><div class="ico">🌙</div><div><h3 class="rule-name">Adicional Noturno</h3><div class="rule-type">Remuneração</div></div></div><div class="formula">Salário hora × qtd × 35%</div><p class="rule">Quantidade parametrizada por competência.</p><div class="exception"><b>Zera:</b> estagiário e quem não bate ponto.</div></article>
+      <article class="rule-card red"><div class="rule-top"><div class="ico">⏱️</div><div><h3 class="rule-name">Hora Extra 50%</h3><div class="rule-type">Remuneração</div></div></div><div class="formula">Salário hora × horas × 1,5</div><p class="rule">Quantidade de horas parametrizada por competência.</p><div class="exception"><b>Zera:</b> estagiário e cargo sem controle de ponto.</div></article>
+      <article class="rule-card red"><div class="rule-top"><div class="ico">⚡</div><div><h3 class="rule-name">Adicional 25%</h3><div class="rule-type">Remuneração</div></div></div><div class="formula">(Salário + peric.) × % do nível</div><p class="rule">Percentual vem do nível do cargo ou da regra vigente.</p><div class="exception"><b>Validar:</b> cargos elegíveis e exceções por pessoa.</div></article>
+
+      <article class="rule-card"><div class="rule-top"><div class="ico">🛡️</div><div><h3 class="rule-name">Seguro de Vida</h3><div class="rule-type">Benefício</div></div></div><div class="formula">Valor fixo por empresa + nível</div><p class="rule">DENER, GT3 e PIRES possuem regras próprias para Diretor e Geral.</p><div class="exception"><b>Recorte:</b> empresa e nível do cargo.</div></article>
+      <article class="rule-card"><div class="rule-top"><div class="ico">🛒</div><div><h3 class="rule-name">Vale Alimentação</h3><div class="rule-type">Benefício</div></div></div><div class="formula">Valor fixo mensal</div><p class="rule">Regra atual parametrizada na central de regras.</p><div class="exception"><b>Validar:</b> vínculo, afastamento e vigência.</div></article>
+      <article class="rule-card"><div class="rule-top"><div class="ico">⛽</div><div><h3 class="rule-name">Vale Combustível</h3><div class="rule-type">Benefício</div></div></div><div class="formula">Valor fixo mensal</div><p class="rule">Aplicado aos empregados elegíveis conforme regra.</p><div class="exception"><b>Validar:</b> elegibilidade e substituição por VT.</div></article>
+      <article class="rule-card"><div class="rule-top"><div class="ico">🍽️</div><div><h3 class="rule-name">Vale Refeição</h3><div class="rule-type">Benefício</div></div></div><div class="formula">Valor diário × dias de VR</div><p class="rule">Dias podem vir das quantidades projetadas.</p><div class="exception"><b>Ajustar:</b> férias, faltas e afastamentos.</div></article>
+      <article class="rule-card"><div class="rule-top"><div class="ico">🦷</div><div><h3 class="rule-name">Assist. Odontológica</h3><div class="rule-type">Benefício</div></div></div><div class="formula">Valor × (1 + dependentes)</div><p class="rule">Considera titular mais dependentes preenchidos na folha.</p><div class="exception"><b>Dependente nulo:</b> tratar como zero.</div></article>
+      <article class="rule-card"><div class="rule-top"><div class="ico">🏥</div><div><h3 class="rule-name">Assistência Médica</h3><div class="rule-type">Benefício</div></div></div><div class="formula">Faixa do cargo × vidas</div><p class="rule">Diretor, Gerente, Supervisor, Coordenadores e Geral possuem valores próprios.</p><div class="exception"><b>Recorte:</b> nível do cargo e dependentes.</div></article>
+
+      <article class="rule-card"><div class="rule-top"><div class="ico">🏛️</div><div><h3 class="rule-name">FGTS</h3><div class="rule-type">Encargo</div></div></div><div class="formula">Base encargos × 8%</div><p class="rule">Base = salário + periculosidade + adicionais, HE, noturno, prêmio e etapa.</p><div class="exception"><b>Zera:</b> estagiário.</div></article>
+      <article class="rule-card"><div class="rule-top"><div class="ico">🧾</div><div><h3 class="rule-name">INSS Patronal</h3><div class="rule-type">Encargo</div></div></div><div class="formula">Base encargos × 26,8%</div><p class="rule">Usa a mesma base de encargos calculada para FGTS.</p><div class="exception"><b>Zera:</b> estagiário e empresa PIRES.</div></article>
+
+      <article class="rule-card"><div class="rule-top"><div class="ico">🏖️</div><div><h3 class="rule-name">Provisão Férias</h3><div class="rule-type">Provisão</div></div></div><div class="formula">(Salário + peric.) ÷ 12</div><p class="rule">Férias para CLT e recesso para estagiário.</p><div class="exception"><b>Estagiário:</b> sem periculosidade na base.</div></article>
+      <article class="rule-card"><div class="rule-top"><div class="ico">🌴</div><div><h3 class="rule-name">1/3 de Férias</h3><div class="rule-type">Provisão</div></div></div><div class="formula">Base remuneração × 2,78%</div><p class="rule">Equivale a 1/3 sobre a provisão de férias.</p><div class="exception"><b>Zera:</b> estagiário.</div></article>
+      <article class="rule-card"><div class="rule-top"><div class="ico">🎁</div><div><h3 class="rule-name">Provisão 13º</h3><div class="rule-type">Provisão</div></div></div><div class="formula">(Salário + peric.) ÷ 12</div><p class="rule">Constituição mensal da remuneração de referência.</p><div class="exception"><b>Zera:</b> estagiário.</div></article>
+      <article class="rule-card"><div class="rule-top"><div class="ico">📢</div><div><h3 class="rule-name">Provisão Aviso</h3><div class="rule-type">Provisão</div></div></div><div class="formula">(Salário + peric.) ÷ 12</div><p class="rule">Reserva mensal aplicada aos empregados elegíveis.</p><div class="exception"><b>Zera:</b> estagiário.</div></article>
+      <article class="rule-card"><div class="rule-top"><div class="ico">🚦</div><div><h3 class="rule-name">GRRF</h3><div class="rule-type">Provisão</div></div></div><div class="formula">Provisão Aviso Prévio × 40%</div><p class="rule">Calcula sobre a verba PROV_AVI apurada para o empregado.</p><div class="exception"><b>Zera:</b> quando aviso prévio não calcula.</div></article>
+      <article class="rule-card"><div class="rule-top"><div class="ico">🏆</div><div><h3 class="rule-name">Provisão PLR</h3><div class="rule-type">Provisão</div></div></div><div class="formula">(Salário + peric.) ÷ 12</div><p class="rule">Apropriação mensal de 1/12 quando elegível.</p><div class="exception"><b>Zera:</b> estagiário.</div></article>
+    </div>
+  </section>
+
+  <div class="below-actions">
+    <a class="btn-red" href="/folha/budget/regras">Editar regras</a>
+    <a class="btn-light" href="/folha/budget/cargos-niveis">Níveis de cargo</a>
+    <a class="btn-light" href="/folha/budget/resultado">Conferir resultado</a>
+  </div>
 </div>
 {% endblock %}
