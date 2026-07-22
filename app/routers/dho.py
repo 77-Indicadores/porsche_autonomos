@@ -1044,6 +1044,7 @@ def carregar_pessoas_interno(db: Session):
         return [
             {
                 "nome": r["nome"],
+                "nome_exibicao": r["nome"],
                 "matricula": r["matricula"] or "",
                 "email": r["email"] or "",
                 "cargo": r["nome_cargo"] or "",
