@@ -2766,8 +2766,14 @@ def budget_processar(
 ):
     from app.routers.folha_pagamento import folha_arquivos, folha_funcionarios, folha_rubricas
     cenario = "Direcionamento"
+    ajax = request.headers.get("x-requested-with") == "budget-fetch"
     competencias = [c.strip() for c in competencia if c and c.strip()]
     if not competencias:
+        if ajax:
+            return JSONResponse(
+                {"ok": False, "message": "Selecione pelo menos uma competência para processar."},
+                status_code=400,
+            )
         return redirect_with_message(
             "/folha/budget",
             error="Selecione pelo menos uma competência para processar."
@@ -2818,20 +2824,32 @@ def budget_processar(
 
     if not processadas:
         db.rollback()
+        mensagem = f"Nenhum funcionário encontrado para: {', '.join(sem_folha)}."
+        if ajax:
+            return JSONResponse({"ok": False, "message": mensagem}, status_code=404)
         return redirect_with_message(
             "/folha/budget/resultado",
-            error=f"Nenhum funcionário encontrado para: {', '.join(sem_folha)}."
+            error=mensagem
         )
 
     db.commit()
     detalhe_sem_folha = f" Sem folha: {', '.join(sem_folha)}." if sem_folha else ""
+    mensagem = (
+        f"Budget processado: {len(processadas)} competência(s), "
+        f"{total_funcionarios} empregado(s), {total_linhas} linha(s) — "
+        f"{cenario} / {', '.join(processadas)}.{detalhe_sem_folha}"
+    )
+    if ajax:
+        return JSONResponse({
+            "ok": True,
+            "message": mensagem,
+            "competencias": processadas,
+            "funcionarios": total_funcionarios,
+            "linhas": total_linhas,
+        })
     return redirect_with_message(
         "/folha/budget/resultado",
-        success=(
-            f"Budget processado: {len(processadas)} competência(s), "
-            f"{total_funcionarios} empregado(s), {total_linhas} linha(s) — "
-            f"{cenario} / {', '.join(processadas)}.{detalhe_sem_folha}"
-        )
+        success=mensagem
     )
 
 
