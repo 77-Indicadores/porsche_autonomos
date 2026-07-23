@@ -39,6 +39,15 @@
       </select>
     </div>
 
+    <div>
+      <label class="label">Estabilidade</label>
+      <select class="input" name="estabilidade">
+        <option value="">Todas</option>
+        <option value="estavel" {% if estabilidade == 'estavel' %}selected{% endif %}>✅ Equipe estável</option>
+        <option value="nao_estavel" {% if estabilidade == 'nao_estavel' %}selected{% endif %}>🔄 Teve troca</option>
+      </select>
+    </div>
+
     <div class="ux-actions-row">
       <button class="btn-primary">Filtrar equipes</button>
     </div>

@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% block header %}Export{% endblock %}
+{% block subtitle %}Exporte as tabelas da base de dados em Excel{% endblock %}
+
+{% block content %}
+<style>
+.panel{background:#fff;border:1px solid #e5e7eb;border-radius:10px;padding:1.4rem 1.6rem;max-width:680px}
+.panel h3{margin:0 0 .8rem;font-size:.95rem;font-weight:700;color:#111827}
+.check-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:8px;margin-bottom:1.2rem}
+.check-item{display:flex;align-items:center;gap:8px;font-size:.85rem;color:#374151;cursor:pointer}
+.check-item input{accent-color:#dc2626;width:16px;height:16px;cursor:pointer}
+.btn-primary{padding:.55rem 1.4rem;background:#dc2626;color:#fff;border:none;border-radius:7px;font-weight:700;font-size:.9rem;cursor:pointer}
+.btn-outline{padding:.45rem 1rem;background:#fff;color:#374151;border:1px solid #d1d5db;border-radius:7px;font-size:.82rem;cursor:pointer}
+.hint{font-size:.78rem;color:#6b7280;margin:.4rem 0 1rem}
+</style>
+
+<div class="panel">
+  <h3>📤 Selecione as tabelas para exportar</h3>
+  <p class="hint">Cada tabela vira uma aba no arquivo Excel gerado.</p>
+
+  <form id="exportForm" method="get" action="/export/download">
+    <div class="check-grid">
+      {% for chave, label in tabelas %}
+      <label class="check-item">
+        <input type="checkbox" name="_tab_{{ chave }}" value="{{ chave }}" checked>
+        {{ label }}
+      </label>
+      {% endfor %}
+    </div>
+
+    <div style="display:flex;gap:10px;align-items:center;margin-bottom:.5rem">
+      <button type="button" class="btn-outline" onclick="toggleAll(true)">Marcar todas</button>
+      <button type="button" class="btn-outline" onclick="toggleAll(false)">Desmarcar todas</button>
+    </div>
+
+    <button type="submit" class="btn-primary">⬇️ Baixar Excel</button>
+    <input type="hidden" name="tabelas_sel" id="tabelas_sel_input">
+  </form>
+</div>
+
+<script>
+function toggleAll(val) {
+  document.querySelectorAll('#exportForm input[type=checkbox]').forEach(c => c.checked = val);
+}
+
+document.getElementById('exportForm').addEventListener('submit', function(e) {
+  const checked = Array.from(document.querySelectorAll('#exportForm input[type=checkbox]:checked'))
+    .map(c => c.value);
+  document.getElementById('tabelas_sel_input').value = checked.join(',');
+  // remove individual checkboxes from query string
+  document.querySelectorAll('#exportForm input[type=checkbox]').forEach(c => c.disabled = true);
+});
+</script>
+{% endblock %}

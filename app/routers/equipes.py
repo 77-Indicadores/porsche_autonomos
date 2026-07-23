@@ -130,6 +130,7 @@ def equipes(
     request: Request,
     id_etapa: str = "",
     id_prova: str = "",
+    estabilidade: str = "",
     db: Session = Depends(get_db),
 ):
     id_etapa_int = int(id_etapa) if str(id_etapa or "").strip() else None
@@ -277,6 +278,11 @@ def equipes(
 
     equipes = list(equipes_map.values())
 
+    if estabilidade == "estavel":
+        equipes = [e for e in equipes if not e["teve_troca"]]
+    elif estabilidade == "nao_estavel":
+        equipes = [e for e in equipes if e["teve_troca"]]
+
     return templates.TemplateResponse(
         "equipes/index.html",
         {
@@ -286,5 +292,6 @@ def equipes(
             "categorias": categorias,
             "id_etapa": id_etapa_int,
             "id_prova": id_prova_int,
+            "estabilidade": estabilidade,
         },
     )

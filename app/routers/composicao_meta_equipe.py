@@ -1,4 +1,4 @@
-"""Planejamento de equipe por etapa — tudo em uma tela."""
+"""Planejamento de equipe por etapa — tudo em uma tela. v2"""
 
 from __future__ import annotations
 
@@ -45,6 +45,17 @@ def _garantir_tabela():
             """))
 
 _garantir_tabela()
+
+
+def _migrar_tabela():
+    """Adiciona colunas que podem estar faltando em tabelas criadas antes de alterações."""
+    with engine.begin() as conn:
+        try:
+            conn.execute(text("SELECT data_inclusao FROM planejamento_equipe_etapa LIMIT 1"))
+        except Exception:
+            conn.execute(text("ALTER TABLE planejamento_equipe_etapa ADD COLUMN data_inclusao VARCHAR(20)"))
+
+_migrar_tabela()
 
 
 # ─── página única ─────────────────────────────────────────────────────
