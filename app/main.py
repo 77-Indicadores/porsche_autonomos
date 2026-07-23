@@ -330,6 +330,20 @@ app.include_router(facilities.router)
 app.include_router(composicao_meta_equipe.router)
 
 # ============================================================
+# Router Autônomo Sede
+# ============================================================
+try:
+    import importlib
+    autonomo_sede_runtime = importlib.import_module("app.routers.autonomo_sede")
+    app.include_router(autonomo_sede_runtime.router)
+    print("OK - Rota /autonomo-sede registrada.")
+except Exception as exc:
+    import traceback
+    print("ERRO AO REGISTRAR /autonomo-sede")
+    print(exc)
+    print(traceback.format_exc())
+
+# ============================================================
 # Router Folha de Pagamento
 # ============================================================
 try:

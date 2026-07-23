@@ -1,0 +1,169 @@
+{% extends "base.html" %}
+{% block header %}Autônomo Sede{% endblock %}
+{% block subtitle %}Lançamento de custos de serviço prestado à sede{% endblock %}
+
+{% block content %}
+{% if success %}<div class="alert success">{{ success }}</div>{% endif %}
+{% if error %}<div class="alert error">{{ error }}</div>{% endif %}
+
+<style>
+  .sede-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-bottom:18px}
+  @media(max-width:900px){.sede-grid{grid-template-columns:1fr}}
+  .panel{background:#fff;border:1px solid #e5e7eb;border-radius:10px;padding:1.2rem 1.4rem}
+  .panel h3{margin:0 0 .8rem;font-size:.95rem;font-weight:700;color:#111827}
+  .label{display:block;font-size:.78rem;font-weight:600;color:#374151;margin-bottom:.25rem}
+  .input{width:100%;padding:.42rem .6rem;border:1px solid #d1d5db;border-radius:6px;font-size:.85rem;box-sizing:border-box}
+  .input:focus{outline:none;border-color:#dc2626}
+  .btn-primary{padding:.5rem 1.4rem;background:#dc2626;color:#fff;border:none;border-radius:7px;font-weight:600;cursor:pointer;font-size:.85rem}
+  .btn-danger{padding:.2rem .5rem;background:transparent;border:1px solid #fca5a5;color:#dc2626;border-radius:5px;font-size:.75rem;cursor:pointer}
+  .sede-tbl{width:100%;border-collapse:collapse;font-size:.82rem}
+  .sede-tbl th{background:#f9fafb;padding:.4rem .6rem;text-align:left;font-size:.75rem;font-weight:700;color:#6b7280;text-transform:uppercase;border-bottom:2px solid #e5e7eb;white-space:nowrap}
+  .sede-tbl td{padding:.35rem .6rem;border-bottom:1px solid #f3f4f6;vertical-align:middle}
+  .sede-tbl td.num{text-align:right;font-variant-numeric:tabular-nums}
+  .sede-tbl tr:hover td{background:#fafafa}
+  .kpi-box{display:flex;gap:14px;margin-bottom:14px;flex-wrap:wrap}
+  .kpi{background:#fff;border:1px solid #e5e7eb;border-radius:8px;padding:.6rem 1rem;min-width:140px}
+  .kpi span{font-size:.7rem;color:#6b7280;display:block}
+  .kpi strong{font-size:1.1rem;color:#111}
+  .upload-hint{font-size:.72rem;color:#6b7280;margin-top:.3rem}
+</style>
+
+<div class="kpi-box">
+  <div class="kpi">
+    <span>Total lançado</span>
+    <strong>R$ {{ "%.2f"|format(total) | replace(".", ",") }}</strong>
+  </div>
+  <div class="kpi">
+    <span>Registros</span>
+    <strong>{{ lancamentos|length }}</strong>
+  </div>
+</div>
+
+<div class="sede-grid">
+  <!-- Formulário manual -->
+  <div class="panel">
+    <h3>➕ Novo lançamento manual</h3>
+    <form method="post" action="/autonomo-sede/novo">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
+        <div>
+          <label class="label">ID do Autônomo</label>
+          <input class="input" name="id_autonomo" placeholder="Ex: 1042">
+        </div>
+        <div>
+          <label class="label">Competência</label>
+          <input class="input" name="competencia" placeholder="Ex: 2026-07">
+        </div>
+      </div>
+      <div style="margin-bottom:10px">
+        <label class="label">Nome do Autônomo</label>
+        <input class="input" name="nome_autonomo" placeholder="Nome completo">
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
+        <div>
+          <label class="label">Motivo</label>
+          <select class="input" name="motivo">
+            <option value="">Selecione...</option>
+            {% for m in motivos %}
+            <option value="{{ m }}">{{ m }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div>
+          <label class="label">Valor (R$)</label>
+          <input class="input" name="valor" type="number" step="0.01" min="0" placeholder="0,00">
+        </div>
+      </div>
+      <div style="margin-bottom:12px">
+        <label class="label">Observação</label>
+        <input class="input" name="observacao" placeholder="Opcional">
+      </div>
+      <button class="btn-primary" type="submit">💾 Salvar</button>
+    </form>
+  </div>
+
+  <!-- Upload CSV/Excel -->
+  <div class="panel">
+    <h3>📤 Importar via planilha</h3>
+    <form method="post" action="/autonomo-sede/upload" enctype="multipart/form-data">
+      <div style="margin-bottom:12px">
+        <label class="label">Arquivo CSV ou Excel (.xlsx)</label>
+        <input class="input" type="file" name="arquivo" accept=".csv,.xlsx,.xls" required>
+        <p class="upload-hint">
+          Colunas esperadas (em qualquer ordem): <b>id_autonomo, nome_autonomo, motivo, valor, competencia, observacao</b><br>
+          Aceita vírgula como separador decimal. Linhas sem ID e sem nome são ignoradas.
+        </p>
+      </div>
+      <button class="btn-primary" type="submit">📥 Importar</button>
+    </form>
+
+    <hr style="margin:1.2rem 0;border:none;border-top:1px solid #e5e7eb">
+    <h3 style="margin-bottom:.6rem">🔍 Filtrar por competência</h3>
+    <form method="get" action="/autonomo-sede" style="display:flex;gap:8px;align-items:flex-end">
+      <div style="flex:1">
+        <label class="label">Competência</label>
+        <select class="input" name="competencia">
+          <option value="">Todas</option>
+          {% for c in competencias %}
+          <option value="{{ c }}" {% if c == filtro_competencia %}selected{% endif %}>{{ c }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <button class="btn-primary" type="submit">Filtrar</button>
+      {% if filtro_competencia %}
+      <a href="/autonomo-sede" style="padding:.5rem .8rem;border:1px solid #d1d5db;border-radius:7px;font-size:.82rem;color:#374151;text-decoration:none">Limpar</a>
+      {% endif %}
+    </form>
+  </div>
+</div>
+
+<!-- Tabela de lançamentos -->
+<div class="panel" style="overflow-x:auto">
+  {% if lancamentos %}
+  <table class="sede-tbl">
+    <thead>
+      <tr>
+        <th>Competência</th>
+        <th>ID</th>
+        <th>Nome</th>
+        <th>Motivo</th>
+        <th class="num">Valor</th>
+        <th>Observação</th>
+        <th>Criado em</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for l in lancamentos %}
+      <tr>
+        <td>{{ l.competencia or '-' }}</td>
+        <td>{{ l.id_autonomo or '-' }}</td>
+        <td>{{ l.nome_autonomo or '-' }}</td>
+        <td>{{ l.motivo or '-' }}</td>
+        <td class="num">R$ {{ "%.2f"|format(l.valor or 0) | replace(".", ",") }}</td>
+        <td style="color:#6b7280;font-size:.78rem">{{ l.observacao or '' }}</td>
+        <td style="font-size:.75rem;color:#9ca3af;white-space:nowrap">{{ l.criado_em }}</td>
+        <td>
+          <form method="post" action="/autonomo-sede/{{ l.id }}/excluir" style="margin:0"
+                onsubmit="return confirm('Excluir este lançamento?')">
+            <button class="btn-danger" type="submit">🗑️</button>
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+    <tfoot>
+      <tr>
+        <td colspan="4" style="text-align:right;font-weight:700;font-size:.82rem;padding:.4rem .6rem;border-top:2px solid #e5e7eb">Total</td>
+        <td class="num" style="font-weight:700;border-top:2px solid #e5e7eb">R$ {{ "%.2f"|format(total) | replace(".", ",") }}</td>
+        <td colspan="3" style="border-top:2px solid #e5e7eb"></td>
+      </tr>
+    </tfoot>
+  </table>
+  {% else %}
+  <p style="color:#9ca3af;font-style:italic;text-align:center;padding:2rem">
+    Nenhum lançamento encontrado. Use o formulário acima para registrar.
+  </p>
+  {% endif %}
+</div>
+
+{% endblock %}

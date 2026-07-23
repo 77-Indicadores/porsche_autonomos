@@ -1,208 +1,95 @@
 {% extends "base.html" %}
-
-{% block header %}Composição Meta Equipe{% endblock %}
-{% block subtitle %}Controle da meta de equipe por etapa, categoria, quantidade de pessoas e valor.{% endblock %}
-
-{% block header_action %}
-<button type="button" class="quick-action primary" onclick="novoCadastro()">+ Nova regra</button>
-{% endblock %}
+{% block header %}Planejamento de Equipe por Etapa{% endblock %}
+{% block subtitle %}Selecione uma etapa para baixar o modelo, preencher e importar o planejamento.{% endblock %}
 
 {% block content %}
+{% if success %}<div class="alert success">{{ success }}</div>{% endif %}
+{% if error %}<div class="alert error">{{ error }}</div>{% endif %}
 
-<section class="panel mb-6">
-  <div class="panel-head">
-    <h3>Nova / editar composição meta equipe</h3>
-  </div>
+<style>
+  .etapa-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 16px;
+    margin-top: 12px;
+  }
+  .etapa-card {
+    background: #fff;
+    border: 2px solid #e5e7eb;
+    border-radius: 12px;
+    padding: 1.1rem 1.2rem;
+    cursor: pointer;
+    text-decoration: none;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    transition: box-shadow .15s, border-color .15s;
+  }
+  .etapa-card:hover { box-shadow: 0 4px 16px #0001; border-color: #dc2626; }
+  .etapa-card.com-plano {
+    border-color: #16a34a;
+    background: #f0fdf4;
+  }
+  .etapa-card .tag-temporada {
+    font-size: .68rem;
+    font-weight: 700;
+    color: #6b7280;
+    text-transform: uppercase;
+    letter-spacing: .06em;
+  }
+  .etapa-card .nome { font-size: .95rem; font-weight: 700; color: #111827; }
+  .etapa-card .local { font-size: .78rem; color: #6b7280; }
+  .etapa-card .badge-plano {
+    margin-top: 6px;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: .72rem;
+    font-weight: 700;
+    padding: .18rem .6rem;
+    border-radius: 999px;
+  }
+  .badge-plano.ok { background: #dcfce7; color: #166534; }
+  .badge-plano.vazio { background: #f3f4f6; color: #9ca3af; }
+  .datas { font-size: .75rem; color: #9ca3af; }
+  .status-etapa { font-size: .68rem; font-weight: 600; padding: .1rem .4rem; border-radius: 6px; display: inline-block; margin-top: 2px; }
+  .status-Planejada { background: #dbeafe; color: #1e40af; }
+  .status-Em\ andamento { background: #fef9c3; color: #854d0e; }
+  .status-Concluida { background: #dcfce7; color: #166534; }
+</style>
 
-  <form method="post" action="/composicao-meta-equipe" class="form-grid" id="form_composicao_meta">
-    <input type="hidden" name="id_meta" id="id_meta">
+{% if not etapas %}
+<div style="background:#fff;border:1px solid #e5e7eb;border-radius:10px;padding:3rem;text-align:center;color:#9ca3af;font-style:italic">
+  Nenhuma etapa cadastrada. Acesse <a href="/etapas">Etapas</a> para criar.
+</div>
+{% else %}
+<p style="font-size:.82rem;color:#6b7280;margin-bottom:4px">
+  <span style="display:inline-block;width:12px;height:12px;background:#16a34a;border-radius:3px;margin-right:5px;vertical-align:middle"></span> Verde = já tem planejamento importado &nbsp;|&nbsp;
+  <span style="display:inline-block;width:12px;height:12px;background:#e5e7eb;border-radius:3px;margin-right:5px;vertical-align:middle"></span> Cinza = sem planejamento
+</p>
 
-    <div>
-      <label class="label">Etapa</label>
-      <select class="input" name="id_etapa" id="id_etapa" required>
-        <option value="">Selecione</option>
-        {% for e in etapas %}
-          <option value="{{ e.id_etapa }}">{{ e.temporada }} - {{ e.nome_etapa }}</option>
-        {% endfor %}
-      </select>
-    </div>
-
-    <div>
-      <label class="label">Categoria</label>
-      <select class="input" name="id_prova" id="id_prova" required>
-        <option value="">Selecione</option>
-        {% for p in provas %}
-          <option value="{{ p.id_prova }}" data-etapa="{{ p.id_etapa }}">{{ p.nome_prova }}</option>
-        {% endfor %}
-      </select>
-    </div>
-
-    <div>
-      <label class="label">Quantidade de pessoas</label>
-      <select class="input" name="qtd_pessoas" id="qtd_pessoas" required>
-        {% for q in qtd_options %}
-          <option value="{{ q }}">{{ q|string|replace(".", ",") }}</option>
-        {% endfor %}
-      </select>
-    </div>
-
-    <div>
-      <label class="label">Valor</label>
-      <input class="input" name="valor" id="valor" placeholder="12000,00">
-    </div>
-
-    <div class="span-3 ux-actions-row">
-      <button class="btn-primary" id="btn_salvar_meta">Salvar composição meta equipe</button>
-      <button type="button" class="btn-secondary" onclick="novoCadastro()">Limpar</button>
-    </div>
-  </form>
-</section>
-
-<section class="panel mb-6">
-  <div class="panel-head">
-    <h3>Filtros</h3>
-  </div>
-
-  <form method="get" class="form-grid">
-    <div>
-      <label class="label">Etapa</label>
-      <select class="input" name="id_etapa">
-        <option value="">Todas</option>
-        {% for e in etapas %}
-          <option value="{{ e.id_etapa }}" {% if filtros.id_etapa|string == e.id_etapa|string %}selected{% endif %}>
-            {{ e.temporada }} - {{ e.nome_etapa }}
-          </option>
-        {% endfor %}
-      </select>
-    </div>
-
-    <div>
-      <label class="label">Categoria</label>
-      <select class="input" name="id_prova">
-        <option value="">Todas</option>
-        {% for p in provas %}
-          <option value="{{ p.id_prova }}" {% if filtros.id_prova|string == p.id_prova|string %}selected{% endif %}>
-            {{ p.nome_prova }}
-          </option>
-        {% endfor %}
-      </select>
-    </div>
-
-    <div class="ux-actions-row">
-      <button class="btn-secondary">Filtrar</button>
-      <a class="btn-muted" href="/composicao-meta-equipe">Limpar</a>
-    </div>
-  </form>
-</section>
-
-<section class="panel mb-6">
-  <div class="grid gap-3 md:grid-cols-3">
-    <div class="kpi-card">
-      <span>Total de regras</span>
-      <strong>{{ items|length }}</strong>
-    </div>
-
-    <div class="kpi-card">
-      <span>Quantidade de pessoas</span>
-      <strong>{{ total_qtd }}</strong>
-    </div>
-
-    <div class="kpi-card">
-      <span>Valor</span>
-      <strong>{{ total_valor }}</strong>
-    </div>
-  </div>
-</section>
-
-<section class="panel">
-  <div class="panel-head">
-    <h3>Regras cadastradas</h3>
-  </div>
-
-  <div class="overflow-x-auto">
-    <table class="table">
-      <thead>
-        <tr>
-          <th>ID</th>
-          <th>Etapa</th>
-          <th>Categoria</th>
-          <th>Quantidade de pessoas</th>
-          <th>Valor</th>
-          <th>Ações</th>
-        </tr>
-      </thead>
-
-      <tbody>
-        {% for item in items %}
-        <tr>
-          <td><span class="id-pill">{{ item.id_meta }}</span></td>
-          <td>{{ item.nome_etapa }}</td>
-          <td>{{ item.nome_prova }}</td>
-          <td class="font-bold">{{ item.qtd_formatada }}</td>
-          <td class="font-bold">{{ item.valor_formatado }}</td>
-          <td class="actions">
-            <button
-              class="btn-muted"
-              type="button"
-              onclick="editarMeta(this)"
-              data-id_meta="{{ item.id_meta }}"
-              data-id_etapa="{{ item.id_etapa }}"
-              data-id_prova="{{ item.id_prova }}"
-              data-qtd_pessoas="{{ item.qtd_pessoas }}"
-              data-valor="{{ item.valor or '' }}"
-            >Editar</button>
-
-            <form method="post" action="/composicao-meta-equipe/{{ item.id_meta }}/excluir" onsubmit="return confirm('Excluir esta regra?');">
-              <button class="btn-danger">Excluir</button>
-            </form>
-          </td>
-        </tr>
-        {% else %}
-        <tr>
-          <td colspan="6" class="empty">Nenhuma composição meta equipe cadastrada.</td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
-  </div>
-</section>
-
-<script>
-function setValue(id, value) {
-  const el = document.getElementById(id);
-  if (el) el.value = value || "";
-}
-
-function editarMeta(btn) {
-  const d = btn.dataset || {};
-  setValue("id_meta", d.id_meta);
-  setValue("id_etapa", d.id_etapa);
-  setValue("id_prova", d.id_prova);
-  setValue("qtd_pessoas", d.qtd_pessoas);
-  setValue("valor", d.valor);
-
-  const titulo = document.querySelector(".panel-head h3");
-  if (titulo) titulo.innerText = "Editar composição meta equipe #" + d.id_meta;
-
-  const botao = document.getElementById("btn_salvar_meta");
-  if (botao) botao.innerText = "Salvar alterações";
-
-  window.scrollTo({ top: 0, behavior: "smooth" });
-}
-
-function novoCadastro() {
-  const form = document.getElementById("form_composicao_meta");
-  if (form) form.reset();
-  setValue("id_meta", "");
-
-  const titulo = document.querySelector(".panel-head h3");
-  if (titulo) titulo.innerText = "Nova / editar composição meta equipe";
-
-  const botao = document.getElementById("btn_salvar_meta");
-  if (botao) botao.innerText = "Salvar composição meta equipe";
-
-  window.scrollTo({ top: 0, behavior: "smooth" });
-}
-</script>
+<div class="etapa-grid">
+  {% for e in etapas %}
+  {% set qtd = etapas_com_plano.get(e.id_etapa, 0) %}
+  <a href="/composicao-meta-equipe/{{ e.id_etapa }}" class="etapa-card {% if qtd %}com-plano{% endif %}">
+    <span class="tag-temporada">Temporada {{ e.temporada }}</span>
+    <span class="nome">{{ e.nome_etapa }}</span>
+    {% if e.local %}<span class="local">📍 {{ e.local }}</span>{% endif %}
+    {% if e.data_inicio %}
+    <span class="datas">
+      {{ e.data_inicio.strftime('%d/%m/%Y') if e.data_inicio else '' }}
+      {% if e.data_fim %} → {{ e.data_fim.strftime('%d/%m/%Y') }}{% endif %}
+    </span>
+    {% endif %}
+    <span class="status-etapa status-{{ e.status_etapa }}">{{ e.status_etapa }}</span>
+    {% if qtd %}
+    <span class="badge-plano ok">✅ {{ qtd }} autônomo(s) planejado(s)</span>
+    {% else %}
+    <span class="badge-plano vazio">📋 Sem planejamento</span>
+    {% endif %}
+  </a>
+  {% endfor %}
+</div>
+{% endif %}
 
 {% endblock %}

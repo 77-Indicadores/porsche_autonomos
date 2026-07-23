@@ -1,0 +1,145 @@
+{% extends "base.html" %}
+{% block header %}Planejamento — {{ etapa.nome_etapa }}{% endblock %}
+{% block subtitle %}Temporada {{ etapa.temporada }}{% if etapa.local %} · {{ etapa.local }}{% endif %}{% endblock %}
+
+{% block content %}
+{% if success %}<div class="alert success">{{ success }}</div>{% endif %}
+{% if error %}<div class="alert error">{{ error }}</div>{% endif %}
+
+<style>
+  .plan-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; margin-bottom: 18px; }
+  @media(max-width:860px){ .plan-grid { grid-template-columns: 1fr; } }
+  .panel { background:#fff; border:1px solid #e5e7eb; border-radius:10px; padding:1.1rem 1.3rem; }
+  .panel h3 { margin:0 0 .8rem; font-size:.93rem; font-weight:700; color:#111827; }
+  .label { display:block; font-size:.78rem; font-weight:600; color:#374151; margin-bottom:.25rem; }
+  .input { width:100%; padding:.42rem .6rem; border:1px solid #d1d5db; border-radius:6px; font-size:.85rem; box-sizing:border-box; }
+  .input:focus { outline:none; border-color:#dc2626; }
+  .btn-primary { padding:.5rem 1.4rem; background:#dc2626; color:#fff; border:none; border-radius:7px; font-weight:600; cursor:pointer; font-size:.85rem; text-decoration:none; display:inline-block; }
+  .btn-secondary { padding:.5rem 1rem; background:#fff; color:#374151; border:1px solid #d1d5db; border-radius:7px; font-weight:600; cursor:pointer; font-size:.85rem; text-decoration:none; display:inline-block; }
+  .btn-danger { padding:.2rem .5rem; background:transparent; border:1px solid #fca5a5; color:#dc2626; border-radius:5px; font-size:.75rem; cursor:pointer; }
+  .plan-tbl { width:100%; border-collapse:collapse; font-size:.82rem; }
+  .plan-tbl th { background:#f9fafb; padding:.4rem .6rem; text-align:left; font-size:.75rem; font-weight:700; color:#6b7280; text-transform:uppercase; border-bottom:2px solid #e5e7eb; white-space:nowrap; }
+  .plan-tbl td { padding:.35rem .6rem; border-bottom:1px solid #f3f4f6; vertical-align:middle; }
+  .plan-tbl td.num { text-align:right; font-variant-numeric:tabular-nums; font-weight:600; }
+  .plan-tbl tr:hover td { background:#fafafa; }
+  .kpi-row { display:flex; gap:12px; margin-bottom:14px; flex-wrap:wrap; }
+  .kpi { background:#fff; border:1px solid #e5e7eb; border-radius:8px; padding:.55rem .9rem; min-width:130px; }
+  .kpi span { font-size:.7rem; color:#6b7280; display:block; }
+  .kpi strong { font-size:1.05rem; color:#111; }
+  .upload-hint { font-size:.72rem; color:#6b7280; margin-top:.3rem; line-height:1.5; }
+</style>
+
+<div style="margin-bottom:12px">
+  <a href="/composicao-meta-equipe" class="btn-secondary">← Voltar às etapas</a>
+</div>
+
+<div class="kpi-row">
+  <div class="kpi">
+    <span>Autônomos planejados</span>
+    <strong>{{ linhas|length }}</strong>
+  </div>
+  <div class="kpi">
+    <span>Total previsto</span>
+    <strong>R$ {{ "%.2f"|format(total)|replace(".", "X")|replace(",", ".")|replace("X", ",") }}</strong>
+  </div>
+  {% if etapa.data_inicio %}
+  <div class="kpi">
+    <span>Data da etapa</span>
+    <strong>{{ etapa.data_inicio.strftime('%d/%m/%Y') }}</strong>
+  </div>
+  {% endif %}
+</div>
+
+<div class="plan-grid">
+  <!-- Exportar modelo -->
+  <div class="panel">
+    <h3>📥 Baixar modelo Excel</h3>
+    <p style="font-size:.82rem;color:#6b7280;margin:.3rem 0 .9rem">
+      O modelo já vem com todos os autônomos <strong>ativos</strong> pré-preenchidos.
+      Preencha a coluna <strong>Valor</strong> e, opcionalmente, <strong>Observação</strong>.
+    </p>
+    <a class="btn-primary" href="/composicao-meta-equipe/{{ etapa.id_etapa }}/modelo">
+      ⬇️ Baixar modelo (.xlsx)
+    </a>
+  </div>
+
+  <!-- Upload -->
+  <div class="panel">
+    <h3>📤 Importar planejamento</h3>
+    <form method="post" action="/composicao-meta-equipe/{{ etapa.id_etapa }}/upload" enctype="multipart/form-data">
+      <div style="margin-bottom:10px">
+        <label class="label">Arquivo Excel preenchido (.xlsx)</label>
+        <input class="input" type="file" name="arquivo" accept=".xlsx,.xls" required>
+      </div>
+      <div style="margin-bottom:12px">
+        <label style="display:flex;align-items:center;gap:8px;font-size:.82rem;cursor:pointer">
+          <input type="checkbox" name="substituir" value="sim">
+          Substituir planejamento existente desta etapa
+        </label>
+        <p class="upload-hint">Se marcado, apaga os dados anteriores e insere os novos. Se desmarcado, adiciona.</p>
+      </div>
+      <button class="btn-primary" type="submit">📥 Importar</button>
+    </form>
+  </div>
+</div>
+
+<!-- Tabela do planejamento -->
+<div class="panel" style="overflow-x:auto">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.7rem">
+    <h3 style="margin:0">Planejamento carregado</h3>
+    {% if linhas %}
+    <form method="post" action="/composicao-meta-equipe/{{ etapa.id_etapa }}/limpar"
+          onsubmit="return confirm('Limpar todo o planejamento desta etapa?')">
+      <button class="btn-danger" type="submit" style="padding:.35rem .8rem;font-size:.78rem">🗑️ Limpar tudo</button>
+    </form>
+    {% endif %}
+  </div>
+
+  {% if linhas %}
+  <table class="plan-tbl">
+    <thead>
+      <tr>
+        <th>ID</th>
+        <th>Nome</th>
+        <th>Cargo / Especialidade</th>
+        <th class="num">Valor previsto</th>
+        <th>Observação</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for l in linhas %}
+      <tr>
+        <td style="color:#9ca3af;font-size:.78rem">{{ l.id_autonomo or '-' }}</td>
+        <td style="font-weight:600">{{ l.nome_autonomo }}</td>
+        <td style="color:#6b7280">{{ l.cargo or '-' }}</td>
+        <td class="num">R$ {{ "%.2f"|format(l.valor or 0)|replace(".", "X")|replace(",", ".")|replace("X", ",") }}</td>
+        <td style="font-size:.78rem;color:#6b7280">{{ l.observacao or '' }}</td>
+        <td>
+          <form method="post" action="/composicao-meta-equipe/linha/{{ l.id }}/excluir"
+                onsubmit="return confirm('Remover este autônomo do planejamento?')">
+            <input type="hidden" name="id_etapa" value="{{ etapa.id_etapa }}">
+            <button class="btn-danger" type="submit">🗑️</button>
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+    <tfoot>
+      <tr>
+        <td colspan="3" style="text-align:right;font-weight:700;font-size:.82rem;padding:.4rem .6rem;border-top:2px solid #e5e7eb">Total</td>
+        <td class="num" style="font-weight:700;border-top:2px solid #e5e7eb">
+          R$ {{ "%.2f"|format(total)|replace(".", "X")|replace(",", ".")|replace("X", ",") }}
+        </td>
+        <td colspan="2" style="border-top:2px solid #e5e7eb"></td>
+      </tr>
+    </tfoot>
+  </table>
+  {% else %}
+  <p style="color:#9ca3af;font-style:italic;text-align:center;padding:2rem">
+    Nenhum autônomo planejado. Baixe o modelo, preencha e importe.
+  </p>
+  {% endif %}
+</div>
+
+{% endblock %}
