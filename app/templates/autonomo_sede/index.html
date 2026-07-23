@@ -14,7 +14,8 @@
   .label{display:block;font-size:.78rem;font-weight:600;color:#374151;margin-bottom:.25rem}
   .input{width:100%;padding:.42rem .6rem;border:1px solid #d1d5db;border-radius:6px;font-size:.85rem;box-sizing:border-box}
   .input:focus{outline:none;border-color:#dc2626}
-  .btn-primary{padding:.5rem 1.4rem;background:#dc2626;color:#fff;border:none;border-radius:7px;font-weight:600;cursor:pointer;font-size:.85rem}
+  .btn-primary{padding:.5rem 1.4rem;background:#dc2626;color:#fff;border:none;border-radius:7px;font-weight:600;cursor:pointer;font-size:.85rem;text-decoration:none;display:inline-block}
+  .btn-secondary{padding:.5rem 1rem;background:#fff;color:#374151;border:1px solid #d1d5db;border-radius:7px;font-weight:600;font-size:.85rem;text-decoration:none;display:inline-block;cursor:pointer}
   .btn-danger{padding:.2rem .5rem;background:transparent;border:1px solid #fca5a5;color:#dc2626;border-radius:5px;font-size:.75rem;cursor:pointer}
   .sede-tbl{width:100%;border-collapse:collapse;font-size:.82rem}
   .sede-tbl th{background:#f9fafb;padding:.4rem .6rem;text-align:left;font-size:.75rem;font-weight:700;color:#6b7280;text-transform:uppercase;border-bottom:2px solid #e5e7eb;white-space:nowrap}
@@ -25,13 +26,14 @@
   .kpi{background:#fff;border:1px solid #e5e7eb;border-radius:8px;padding:.6rem 1rem;min-width:140px}
   .kpi span{font-size:.7rem;color:#6b7280;display:block}
   .kpi strong{font-size:1.1rem;color:#111}
-  .upload-hint{font-size:.72rem;color:#6b7280;margin-top:.3rem}
+  .upload-hint{font-size:.72rem;color:#6b7280;margin-top:.3rem;line-height:1.5}
+  .divider{border:none;border-top:1px solid #e5e7eb;margin:1.1rem 0}
 </style>
 
 <div class="kpi-box">
   <div class="kpi">
     <span>Total lançado</span>
-    <strong>R$ {{ "%.2f"|format(total) | replace(".", ",") }}</strong>
+    <strong>R$ {{ "%.2f"|format(total)|replace(".", "X")|replace(",", ".")|replace("X", ",") }}</strong>
   </div>
   <div class="kpi">
     <span>Registros</span>
@@ -81,37 +83,28 @@
     </form>
   </div>
 
-  <!-- Upload CSV/Excel -->
+  <!-- Upload + Modelo -->
   <div class="panel">
-    <h3>📤 Importar via planilha</h3>
+    <h3>⬇️ Baixar modelo Excel</h3>
+    <p style="font-size:.82rem;color:#6b7280;margin:.2rem 0 .9rem">
+      O modelo já vem com todos os autônomos <strong>ativos</strong> pré-preenchidos (ID e Nome).
+      Preencha Motivo, Valor, Competência e Observação.
+    </p>
+    <a class="btn-primary" href="/autonomo-sede/modelo">⬇️ Baixar modelo (.xlsx)</a>
+
+    <hr class="divider">
+
+    <h3>📤 Importar planilha preenchida</h3>
     <form method="post" action="/autonomo-sede/upload" enctype="multipart/form-data">
       <div style="margin-bottom:12px">
         <label class="label">Arquivo CSV ou Excel (.xlsx)</label>
         <input class="input" type="file" name="arquivo" accept=".csv,.xlsx,.xls" required>
         <p class="upload-hint">
-          Colunas esperadas (em qualquer ordem): <b>id_autonomo, nome_autonomo, motivo, valor, competencia, observacao</b><br>
-          Aceita vírgula como separador decimal. Linhas sem ID e sem nome são ignoradas.
+          Colunas esperadas: <b>id_autonomo, nome_autonomo, motivo, valor, competencia, observacao</b><br>
+          Linhas sem ID e sem nome são ignoradas.
         </p>
       </div>
       <button class="btn-primary" type="submit">📥 Importar</button>
-    </form>
-
-    <hr style="margin:1.2rem 0;border:none;border-top:1px solid #e5e7eb">
-    <h3 style="margin-bottom:.6rem">🔍 Filtrar por competência</h3>
-    <form method="get" action="/autonomo-sede" style="display:flex;gap:8px;align-items:flex-end">
-      <div style="flex:1">
-        <label class="label">Competência</label>
-        <select class="input" name="competencia">
-          <option value="">Todas</option>
-          {% for c in competencias %}
-          <option value="{{ c }}" {% if c == filtro_competencia %}selected{% endif %}>{{ c }}</option>
-          {% endfor %}
-        </select>
-      </div>
-      <button class="btn-primary" type="submit">Filtrar</button>
-      {% if filtro_competencia %}
-      <a href="/autonomo-sede" style="padding:.5rem .8rem;border:1px solid #d1d5db;border-radius:7px;font-size:.82rem;color:#374151;text-decoration:none">Limpar</a>
-      {% endif %}
     </form>
   </div>
 </div>
@@ -139,7 +132,7 @@
         <td>{{ l.id_autonomo or '-' }}</td>
         <td>{{ l.nome_autonomo or '-' }}</td>
         <td>{{ l.motivo or '-' }}</td>
-        <td class="num">R$ {{ "%.2f"|format(l.valor or 0) | replace(".", ",") }}</td>
+        <td class="num">R$ {{ "%.2f"|format(l.valor or 0)|replace(".", "X")|replace(",", ".")|replace("X", ",") }}</td>
         <td style="color:#6b7280;font-size:.78rem">{{ l.observacao or '' }}</td>
         <td style="font-size:.75rem;color:#9ca3af;white-space:nowrap">{{ l.criado_em }}</td>
         <td>
@@ -154,14 +147,14 @@
     <tfoot>
       <tr>
         <td colspan="4" style="text-align:right;font-weight:700;font-size:.82rem;padding:.4rem .6rem;border-top:2px solid #e5e7eb">Total</td>
-        <td class="num" style="font-weight:700;border-top:2px solid #e5e7eb">R$ {{ "%.2f"|format(total) | replace(".", ",") }}</td>
+        <td class="num" style="font-weight:700;border-top:2px solid #e5e7eb">R$ {{ "%.2f"|format(total)|replace(".", "X")|replace(",", ".")|replace("X", ",") }}</td>
         <td colspan="3" style="border-top:2px solid #e5e7eb"></td>
       </tr>
     </tfoot>
   </table>
   {% else %}
   <p style="color:#9ca3af;font-style:italic;text-align:center;padding:2rem">
-    Nenhum lançamento encontrado. Use o formulário acima para registrar.
+    Nenhum lançamento encontrado. Use o formulário ou importe uma planilha.
   </p>
   {% endif %}
 </div>

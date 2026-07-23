@@ -7,11 +7,12 @@ from datetime import datetime
 from decimal import Decimal, InvalidOperation
 
 from fastapi import APIRouter, Depends, File, Form, Request, UploadFile
-from fastapi.responses import RedirectResponse
+from fastapi.responses import RedirectResponse, StreamingResponse
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from app.database import get_db, engine
+from app.models import DimAutonomo
 from app.template_config import templates
 from app.utils import redirect_with_message
 
@@ -216,6 +217,69 @@ def _inserir_linha(db: Session, row: dict) -> bool:
         VALUES (:id_a, :nome, :motivo, :valor, :comp, :obs)
     """), {"id_a": id_a, "nome": nome, "motivo": motivo, "valor": valor, "comp": comp, "obs": obs})
     return True
+
+
+# ─── modelo Excel ────────────────────────────────────────────────────
+@router.get("/autonomo-sede/modelo")
+def sede_modelo(db: Session = Depends(get_db)):
+    import openpyxl
+    from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+
+    autonomos = (
+        db.query(DimAutonomo)
+        .filter(DimAutonomo.status_autonomo == "Ativo")
+        .order_by(DimAutonomo.nome_autonomo)
+        .all()
+    )
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Autônomo Sede"
+
+    ws["A1"] = "Modelo — Autônomo Sede"
+    ws["A1"].font = Font(bold=True, size=13)
+    ws["A2"] = "Preencha: Motivo, Valor, Competência e Observação. Não altere ID e Nome."
+    ws["A2"].font = Font(italic=True, color="888888", size=9)
+    ws.merge_cells("A1:F1")
+    ws.merge_cells("A2:F2")
+
+    headers = ["ID Autônomo", "Nome", "Motivo", "Valor (R$)", "Competência", "Observação"]
+    red = PatternFill("solid", fgColor="DC2626")
+    hfont = Font(bold=True, color="FFFFFF", size=10)
+    thin = Side(style="thin", color="D1D5DB")
+    border = Border(left=thin, right=thin, top=thin, bottom=thin)
+
+    for col, h in enumerate(headers, 1):
+        cell = ws.cell(row=4, column=col, value=h)
+        cell.fill = red
+        cell.font = hfont
+        cell.alignment = Alignment(horizontal="center", vertical="center")
+        cell.border = border
+
+    alt = PatternFill("solid", fgColor="F9FAFB")
+    for i, a in enumerate(autonomos):
+        row = 5 + i
+        fill = alt if i % 2 == 0 else PatternFill("solid", fgColor="FFFFFF")
+        for col, v in enumerate([a.id_autonomo, a.nome_autonomo, "", "", "", ""], 1):
+            cell = ws.cell(row=row, column=col, value=v)
+            cell.fill = fill
+            cell.border = border
+            cell.font = Font(size=9)
+            if col == 1:
+                cell.alignment = Alignment(horizontal="center")
+
+    for col, w in enumerate([14, 40, 28, 16, 14, 40], 1):
+        ws.column_dimensions[ws.cell(row=4, column=col).column_letter].width = w
+    ws.freeze_panes = "A5"
+
+    buf = io.BytesIO()
+    wb.save(buf)
+    buf.seek(0)
+    return StreamingResponse(
+        buf,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": 'attachment; filename="modelo_autonomo_sede.xlsx"'},
+    )
 
 
 # ─── excluir ─────────────────────────────────────────────────────────
