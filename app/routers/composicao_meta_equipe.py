@@ -1,4 +1,4 @@
-"""Planejamento de equipe por etapa — modelo Excel + upload de carga."""
+"""Planejamento de equipe por etapa — tudo em uma tela."""
 
 from __future__ import annotations
 
@@ -18,7 +18,6 @@ from app.utils import redirect_with_message
 router = APIRouter(tags=["composicao_meta_equipe"])
 
 
-# ─── migração automática ─────────────────────────────────────────────
 def _garantir_tabela():
     with engine.begin() as conn:
         dialect = conn.dialect.name
@@ -29,11 +28,8 @@ def _garantir_tabela():
                     id_etapa INTEGER,
                     id_autonomo INTEGER,
                     nome_autonomo VARCHAR(200),
-                    cargo VARCHAR(200),
-                    valor FLOAT DEFAULT 0,
-                    observacao TEXT,
-                    criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    atualizado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                    data_inclusao VARCHAR(20),
+                    criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )
             """))
         else:
@@ -43,75 +39,64 @@ def _garantir_tabela():
                     id_etapa INTEGER,
                     id_autonomo INTEGER,
                     nome_autonomo VARCHAR(200),
-                    cargo VARCHAR(200),
-                    valor FLOAT DEFAULT 0,
-                    observacao TEXT,
-                    criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    atualizado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                    data_inclusao VARCHAR(20),
+                    criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )
             """))
 
 _garantir_tabela()
 
 
-# ─── página principal ─────────────────────────────────────────────────
+# ─── página única ─────────────────────────────────────────────────────
 @router.get("/composicao-meta-equipe")
-def index(request: Request, db: Session = Depends(get_db)):
+def index(request: Request, etapa_sel: str = "", db: Session = Depends(get_db)):
     etapas = (
         db.query(DimEtapa)
         .order_by(DimEtapa.temporada.desc(), DimEtapa.data_inicio.asc())
         .all()
     )
 
-    # quais etapas já têm planejamento carregado
-    rows_com_plano = db.execute(
-        text("SELECT DISTINCT id_etapa, COUNT(*) as qtd FROM planejamento_equipe_etapa GROUP BY id_etapa")
+    contagem = db.execute(
+        text("SELECT id_etapa, COUNT(*) as qtd FROM planejamento_equipe_etapa GROUP BY id_etapa")
     ).mappings().all()
-    etapas_com_plano = {r["id_etapa"]: r["qtd"] for r in rows_com_plano}
+    etapas_com_plano = {r["id_etapa"]: r["qtd"] for r in contagem}
+
+    # tabela inferior — filtrada pela etapa selecionada
+    linhas = []
+    total = 0
+    if etapa_sel:
+        linhas = db.execute(
+            text("""
+                SELECT id, id_etapa, id_autonomo, nome_autonomo, data_inclusao, criado_em
+                FROM planejamento_equipe_etapa
+                WHERE id_etapa = :eid
+                ORDER BY nome_autonomo
+            """), {"eid": int(etapa_sel)}
+        ).mappings().all()
+        total = len(linhas)
+
+    etapa_nome = ""
+    if etapa_sel:
+        e = db.get(DimEtapa, int(etapa_sel))
+        etapa_nome = e.nome_etapa if e else ""
 
     return templates.TemplateResponse("composicao_meta_equipe/index.html", {
         "request": request,
         "etapas": etapas,
         "etapas_com_plano": etapas_com_plano,
-        **_flash(request),
-    })
-
-
-# ─── detalhe de uma etapa ─────────────────────────────────────────────
-@router.get("/composicao-meta-equipe/{id_etapa}")
-def detalhe(id_etapa: int, request: Request, db: Session = Depends(get_db)):
-    etapa = db.get(DimEtapa, id_etapa)
-    if not etapa:
-        return redirect_with_message("/composicao-meta-equipe", error="Etapa não encontrada.")
-
-    linhas = db.execute(
-        text("""
-            SELECT id, id_autonomo, nome_autonomo, cargo, valor, observacao, criado_em
-            FROM planejamento_equipe_etapa
-            WHERE id_etapa = :eid
-            ORDER BY nome_autonomo
-        """), {"eid": id_etapa}
-    ).mappings().all()
-
-    total = sum(float(r["valor"] or 0) for r in linhas)
-
-    return templates.TemplateResponse("composicao_meta_equipe/detalhe.html", {
-        "request": request,
-        "etapa": etapa,
+        "etapa_sel": etapa_sel,
+        "etapa_nome": etapa_nome,
         "linhas": linhas,
         "total": total,
         **_flash(request),
     })
 
 
-# ─── exportar modelo Excel ────────────────────────────────────────────
-@router.get("/composicao-meta-equipe/{id_etapa}/modelo")
-def exportar_modelo(id_etapa: int, db: Session = Depends(get_db)):
+# ─── modelo Excel ─────────────────────────────────────────────────────
+@router.get("/composicao-meta-equipe/modelo")
+def exportar_modelo(db: Session = Depends(get_db)):
     import openpyxl
     from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
-
-    etapa = db.get(DimEtapa, id_etapa)
-    nome_etapa = etapa.nome_etapa if etapa else f"Etapa {id_etapa}"
 
     autonomos = (
         db.query(DimAutonomo)
@@ -124,41 +109,32 @@ def exportar_modelo(id_etapa: int, db: Session = Depends(get_db)):
     ws = wb.active
     ws.title = "Planejamento"
 
-    # instrução no topo
-    ws["A1"] = f"Planejamento de Equipe — {nome_etapa}"
+    ws["A1"] = "Modelo — Planejamento de Equipe"
     ws["A1"].font = Font(bold=True, size=13)
-    ws["A2"] = "Preencha: Valor e Observação. Não altere as colunas ID e Nome. Salve e importe."
+    ws["A2"] = "Não altere as colunas ID e Nome. Salve e importe na tela de Composição Meta Equipe."
     ws["A2"].font = Font(italic=True, color="888888", size=9)
-    ws.merge_cells("A1:F1")
-    ws.merge_cells("A2:F2")
+    ws.merge_cells("A1:C1")
+    ws.merge_cells("A2:C2")
 
-    # cabeçalho
-    headers = ["ID Autônomo", "Nome", "Cargo", "Valor (R$)", "Observação"]
-    header_fill = PatternFill("solid", fgColor="DC2626")
-    header_font = Font(bold=True, color="FFFFFF", size=10)
+    headers = ["ID Autônomo", "Nome", "Data Inclusão"]
+    red = PatternFill("solid", fgColor="DC2626")
+    hfont = Font(bold=True, color="FFFFFF", size=10)
     thin = Side(style="thin", color="D1D5DB")
     border = Border(left=thin, right=thin, top=thin, bottom=thin)
 
     for col, h in enumerate(headers, 1):
         cell = ws.cell(row=4, column=col, value=h)
-        cell.fill = header_fill
-        cell.font = header_font
+        cell.fill = red
+        cell.font = hfont
         cell.alignment = Alignment(horizontal="center", vertical="center")
         cell.border = border
 
-    # autônomos ativos pré-preenchidos
-    alt_fill = PatternFill("solid", fgColor="F9FAFB")
+    alt = PatternFill("solid", fgColor="F9FAFB")
     for i, a in enumerate(autonomos):
         row = 5 + i
-        fill = alt_fill if i % 2 == 0 else PatternFill("solid", fgColor="FFFFFF")
-        values = [
-            a.id_autonomo,
-            a.nome_autonomo,
-            a.especialidade or "",
-            "",   # Valor — usuário preenche
-            "",   # Observação — usuário preenche
-        ]
-        for col, v in enumerate(values, 1):
+        fill = alt if i % 2 == 0 else PatternFill("solid", fgColor="FFFFFF")
+        data_str = a.data_inclusao.strftime("%d/%m/%Y") if a.data_inclusao else ""
+        for col, v in enumerate([a.id_autonomo, a.nome_autonomo, data_str], 1):
             cell = ws.cell(row=row, column=col, value=v)
             cell.fill = fill
             cell.border = border
@@ -166,19 +142,84 @@ def exportar_modelo(id_etapa: int, db: Session = Depends(get_db)):
             if col == 1:
                 cell.alignment = Alignment(horizontal="center")
 
-    # larguras
-    widths = [14, 40, 28, 16, 40]
-    for col, w in enumerate(widths, 1):
+    for col, w in enumerate([14, 42, 18], 1):
         ws.column_dimensions[ws.cell(row=4, column=col).column_letter].width = w
-
-    # linha de instruções bloqueada ao topo
     ws.freeze_panes = "A5"
 
     buf = io.BytesIO()
     wb.save(buf)
     buf.seek(0)
+    return StreamingResponse(
+        buf,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": 'attachment; filename="modelo_planejamento_equipe.xlsx"'},
+    )
 
-    safe = nome_etapa.replace(" ", "_").replace("/", "-")
+
+# ─── exportar tabela filtrada ─────────────────────────────────────────
+@router.get("/composicao-meta-equipe/exportar")
+def exportar_tabela(etapa_sel: str = "", db: Session = Depends(get_db)):
+    import openpyxl
+    from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+
+    params: dict = {}
+    where = "WHERE 1=1"
+    etapa_nome = "Todas as etapas"
+    if etapa_sel:
+        where += " AND p.id_etapa = :eid"
+        params["eid"] = int(etapa_sel)
+        e = db.get(DimEtapa, int(etapa_sel))
+        etapa_nome = e.nome_etapa if e else etapa_sel
+
+    linhas = db.execute(
+        text(f"""
+            SELECT p.id_etapa, e.nome_etapa, p.id_autonomo, p.nome_autonomo, p.data_inclusao, p.criado_em
+            FROM planejamento_equipe_etapa p
+            LEFT JOIN dim_etapas e ON e.id_etapa = p.id_etapa
+            {where}
+            ORDER BY e.temporada, e.data_inicio, p.nome_autonomo
+        """), params
+    ).mappings().all()
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Planejamento"
+
+    ws["A1"] = f"Planejamento de Equipe — {etapa_nome}"
+    ws["A1"].font = Font(bold=True, size=13)
+    ws.merge_cells("A1:E1")
+
+    headers = ["Etapa", "ID Autônomo", "Nome", "Data Inclusão", "Importado em"]
+    red = PatternFill("solid", fgColor="DC2626")
+    hfont = Font(bold=True, color="FFFFFF", size=10)
+    thin = Side(style="thin", color="D1D5DB")
+    border = Border(left=thin, right=thin, top=thin, bottom=thin)
+
+    for col, h in enumerate(headers, 1):
+        cell = ws.cell(row=3, column=col, value=h)
+        cell.fill = red
+        cell.font = hfont
+        cell.alignment = Alignment(horizontal="center")
+        cell.border = border
+
+    alt = PatternFill("solid", fgColor="F9FAFB")
+    for i, r in enumerate(linhas):
+        row = 4 + i
+        fill = alt if i % 2 == 0 else PatternFill("solid", fgColor="FFFFFF")
+        values = [r["nome_etapa"], r["id_autonomo"], r["nome_autonomo"], r["data_inclusao"], str(r["criado_em"] or "")]
+        for col, v in enumerate(values, 1):
+            cell = ws.cell(row=row, column=col, value=v)
+            cell.fill = fill
+            cell.border = border
+            cell.font = Font(size=9)
+
+    for col, w in enumerate([32, 12, 40, 16, 20], 1):
+        ws.column_dimensions[ws.cell(row=3, column=col).column_letter].width = w
+
+    buf = io.BytesIO()
+    wb.save(buf)
+    buf.seek(0)
+    safe = etapa_nome.replace(" ", "_").replace("/", "-")
     return StreamingResponse(
         buf,
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
@@ -186,12 +227,13 @@ def exportar_modelo(id_etapa: int, db: Session = Depends(get_db)):
     )
 
 
-# ─── upload / carga ───────────────────────────────────────────────────
-@router.post("/composicao-meta-equipe/{id_etapa}/upload")
+# ─── upload ───────────────────────────────────────────────────────────
+@router.post("/composicao-meta-equipe/upload")
 async def upload_planejamento(
-    id_etapa: int,
-    arquivo: UploadFile = File(...),
+    request: Request,
+    id_etapa: str = Form(...),
     substituir: str = Form("nao"),
+    arquivo: UploadFile = File(...),
     db: Session = Depends(get_db),
 ):
     import openpyxl
@@ -201,107 +243,82 @@ async def upload_planejamento(
         wb = openpyxl.load_workbook(io.BytesIO(conteudo), data_only=True)
         ws = wb.active
     except Exception as exc:
-        return redirect_with_message(
-            f"/composicao-meta-equipe/{id_etapa}", error=f"Erro ao ler arquivo: {exc}"
-        )
+        return redirect_with_message(f"/composicao-meta-equipe?etapa_sel={id_etapa}", error=f"Erro ao ler arquivo: {exc}")
 
-    # detecta cabeçalho (linha com "ID Autônomo")
+    # detecta linha do cabeçalho
     header_row = None
     for row in ws.iter_rows(min_row=1, max_row=10):
         for cell in row:
-            if str(cell.value or "").strip().lower() in ("id autônomo", "id autonomo", "id_autonomo"):
+            v = str(cell.value or "").strip().lower()
+            if v in ("id autônomo", "id autonomo", "id_autonomo"):
                 header_row = cell.row
                 break
         if header_row:
             break
 
     if not header_row:
-        return redirect_with_message(
-            f"/composicao-meta-equipe/{id_etapa}", error="Cabeçalho não encontrado. Use o modelo exportado."
-        )
+        return redirect_with_message(f"/composicao-meta-equipe?etapa_sel={id_etapa}", error="Cabeçalho não encontrado. Use o modelo exportado.")
 
     headers = [str(ws.cell(row=header_row, column=c).value or "").strip().lower()
                for c in range(1, ws.max_column + 1)]
 
-    def col(name):
-        for alt in [name, name.replace(" ", "_"), name.replace("ã", "a").replace("ç", "c")]:
+    def col_idx(keywords):
+        for kw in keywords:
             for i, h in enumerate(headers):
-                if alt in h:
+                if kw in h:
                     return i + 1
         return None
 
-    c_id = col("id")
-    c_nome = col("nome")
-    c_cargo = col("cargo")
-    c_valor = col("valor")
-    c_obs = col("observa")
+    c_id   = col_idx(["id"])
+    c_nome = col_idx(["nome"])
+    c_data = col_idx(["data", "admis", "inclus"])
 
     if substituir == "sim":
-        db.execute(text("DELETE FROM planejamento_equipe_etapa WHERE id_etapa = :eid"), {"eid": id_etapa})
+        db.execute(text("DELETE FROM planejamento_equipe_etapa WHERE id_etapa = :eid"), {"eid": int(id_etapa)})
 
-    ok = 0
-    skip = 0
+    ok = skip = 0
     for row in ws.iter_rows(min_row=header_row + 1, values_only=True):
-        id_a = row[c_id - 1] if c_id else None
-        nome = str(row[c_nome - 1] or "").strip() if c_nome else ""
-        cargo = str(row[c_cargo - 1] or "").strip() if c_cargo else ""
-        valor_raw = row[c_valor - 1] if c_valor else None
-        obs = str(row[c_obs - 1] or "").strip() if c_obs else ""
+        id_a  = row[c_id - 1]   if c_id   else None
+        nome  = str(row[c_nome - 1] or "").strip() if c_nome else ""
+        data  = str(row[c_data - 1] or "").strip() if c_data else ""
 
         if not id_a and not nome:
             skip += 1
             continue
 
-        valor = _parse_valor(str(valor_raw or "0"))
-
         db.execute(text("""
-            INSERT INTO planejamento_equipe_etapa
-                (id_etapa, id_autonomo, nome_autonomo, cargo, valor, observacao, criado_em, atualizado_em)
-            VALUES (:eid, :id_a, :nome, :cargo, :valor, :obs, :now, :now)
+            INSERT INTO planejamento_equipe_etapa (id_etapa, id_autonomo, nome_autonomo, data_inclusao, criado_em)
+            VALUES (:eid, :id_a, :nome, :data, :now)
         """), {
-            "eid": id_etapa,
+            "eid":  int(id_etapa),
             "id_a": int(id_a) if id_a else None,
             "nome": nome,
-            "cargo": cargo,
-            "valor": valor,
-            "obs": obs,
-            "now": datetime.utcnow(),
+            "data": data,
+            "now":  datetime.utcnow(),
         })
         ok += 1
 
     db.commit()
-    msg = f"{ok} autônomo(s) importado(s) para o planejamento."
+    msg = f"{ok} autônomo(s) importado(s) com sucesso."
     if skip:
         msg += f" {skip} linha(s) em branco ignorada(s)."
-    return redirect_with_message(f"/composicao-meta-equipe/{id_etapa}", success=msg)
+    return redirect_with_message(f"/composicao-meta-equipe?etapa_sel={id_etapa}", success=msg)
 
 
-# ─── excluir linha individual ─────────────────────────────────────────
+# ─── excluir linha ────────────────────────────────────────────────────
 @router.post("/composicao-meta-equipe/linha/{linha_id}/excluir")
-def excluir_linha(linha_id: int, id_etapa: int = Form(...), db: Session = Depends(get_db)):
+def excluir_linha(linha_id: int, etapa_sel: str = Form(""), db: Session = Depends(get_db)):
     db.execute(text("DELETE FROM planejamento_equipe_etapa WHERE id = :id"), {"id": linha_id})
     db.commit()
-    return redirect_with_message(f"/composicao-meta-equipe/{id_etapa}", success="Linha removida.")
+    return redirect_with_message(f"/composicao-meta-equipe?etapa_sel={etapa_sel}", success="Linha removida.")
 
 
-# ─── limpar planejamento de etapa ─────────────────────────────────────
-@router.post("/composicao-meta-equipe/{id_etapa}/limpar")
-def limpar_planejamento(id_etapa: int, db: Session = Depends(get_db)):
-    db.execute(text("DELETE FROM planejamento_equipe_etapa WHERE id_etapa = :eid"), {"eid": id_etapa})
+# ─── limpar etapa ─────────────────────────────────────────────────────
+@router.post("/composicao-meta-equipe/limpar")
+def limpar(id_etapa: str = Form(...), db: Session = Depends(get_db)):
+    db.execute(text("DELETE FROM planejamento_equipe_etapa WHERE id_etapa = :eid"), {"eid": int(id_etapa)})
     db.commit()
-    return redirect_with_message(f"/composicao-meta-equipe/{id_etapa}", success="Planejamento limpo.")
-
-
-def _parse_valor(s: str) -> float:
-    s = s.strip().replace("R$", "").replace(" ", "")
-    if "," in s and "." in s:
-        s = s.replace(".", "").replace(",", ".")
-    elif "," in s:
-        s = s.replace(",", ".")
-    try:
-        return float(s)
-    except ValueError:
-        return 0.0
+    return redirect_with_message(f"/composicao-meta-equipe?etapa_sel={id_etapa}", success="Planejamento desta etapa limpo.")
 
 
 def _flash(request: Request) -> dict:
