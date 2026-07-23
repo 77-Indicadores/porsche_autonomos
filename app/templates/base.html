@@ -62,7 +62,6 @@
       <div class="nav-section">
         <div class="nav-section-title">Autônomos</div>
         <a class="nav-link {% if request.url.path == '/autonomos/dashboard' %}active{% endif %}" href="/autonomos/dashboard">📊 Visão Geral</a>
-        <a class="nav-link {% if request.url.path.startswith('/autonomo-sede') %}active{% endif %}" href="/autonomo-sede">🏢 Autônomo Sede</a>
       </div>
 
       <div class="nav-section">
@@ -76,6 +75,7 @@
         <a class="nav-link {% if request.url.path.startswith('/pilotos') %}active{% endif %}" href="/pilotos">👨‍✈️ Piloto</a>
         <a class="nav-link {% if request.url.path == '/autonomos' %}active{% endif %}" href="/autonomos">🧰 Autônomo</a>
         <a class="nav-link {% if request.url.path.startswith('/equipe-geral') %}active{% endif %}" href="/equipe-geral">👥 Cadastrar Equipe</a>
+        <a class="nav-link {% if request.url.path.startswith('/autonomo-sede') %}active{% endif %}" href="/autonomo-sede">🏢 Autônomo Sede</a>
       </div>
 
       <div class="nav-section">
