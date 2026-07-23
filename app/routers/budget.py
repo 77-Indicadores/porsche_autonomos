@@ -2753,51 +2753,77 @@ def budget_quantidades_excluir(id: int, db: Session = Depends(get_db)):
 @router.post("/folha/budget/processar")
 def budget_processar(
     request: Request, db: Session = Depends(get_db),
-    competencia: str = Form(...),
+    competencia: list[str] = Form(...),
     id_arquivo: str = Form(""),
 ):
     from app.routers.folha_pagamento import folha_arquivos, folha_funcionarios, folha_rubricas
     cenario = "Direcionamento"
-
-    # Apaga resultados anteriores da mesma competência para reprocessar
-    db.execute(
-        delete(budget_resultado)
-        .where(budget_resultado.c.competencia == competencia)
-    )
-
-    # Busca funcionários da folha
-    q = (
-        select(folha_funcionarios, folha_arquivos.c.empresa_nome,
-               folha_arquivos.c.empresa_codigo, folha_arquivos.c.cnpj)
-        .join(folha_arquivos, folha_funcionarios.c.id_arquivo == folha_arquivos.c.id_arquivo)
-        .where(folha_funcionarios.c.competencia == competencia)
-    )
-    if id_arquivo.strip():
-        q = q.where(folha_funcionarios.c.id_arquivo == int(id_arquivo))
-
-    funcionarios = db.execute(q).mappings().all()
-    if not funcionarios:
+    competencias = [c.strip() for c in competencia if c and c.strip()]
+    if not competencias:
         return redirect_with_message(
-            "/folha/budget/resultado",
-            error=f"Nenhum funcionário encontrado para competência {competencia}."
+            "/folha/budget",
+            error="Selecione pelo menos uma competência para processar."
         )
 
     usuario = _usuario(request)
-    total = 0
-    for fun in funcionarios:
-        rubricas = db.execute(
-            select(folha_rubricas)
-            .where(folha_rubricas.c.id_funcionario == fun["id_funcionario"])
-        ).mappings().all()
-        linhas = _processar_empregado(db, dict(fun), list(rubricas), competencia, cenario, usuario)
-        if linhas:
-            db.execute(insert(budget_resultado), linhas)
-            total += len(linhas)
+    total_funcionarios = 0
+    total_linhas = 0
+    processadas: list[str] = []
+    sem_folha: list[str] = []
+
+    for competencia_atual in competencias:
+        # Apaga resultados anteriores da mesma competência para reprocessar
+        db.execute(
+            delete(budget_resultado)
+            .where(budget_resultado.c.competencia == competencia_atual)
+        )
+
+        # Busca funcionários da folha
+        q = (
+            select(folha_funcionarios, folha_arquivos.c.empresa_nome,
+                   folha_arquivos.c.empresa_codigo, folha_arquivos.c.cnpj)
+            .join(folha_arquivos, folha_funcionarios.c.id_arquivo == folha_arquivos.c.id_arquivo)
+            .where(folha_funcionarios.c.competencia == competencia_atual)
+        )
+        if id_arquivo.strip():
+            q = q.where(folha_funcionarios.c.id_arquivo == int(id_arquivo))
+
+        funcionarios = db.execute(q).mappings().all()
+        if not funcionarios:
+            sem_folha.append(competencia_atual)
+            continue
+
+        total = 0
+        for fun in funcionarios:
+            rubricas = db.execute(
+                select(folha_rubricas)
+                .where(folha_rubricas.c.id_funcionario == fun["id_funcionario"])
+            ).mappings().all()
+            linhas = _processar_empregado(db, dict(fun), list(rubricas), competencia_atual, cenario, usuario)
+            if linhas:
+                db.execute(insert(budget_resultado), linhas)
+                total += len(linhas)
+
+        total_funcionarios += len(funcionarios)
+        total_linhas += total
+        processadas.append(competencia_atual)
+
+    if not processadas:
+        db.rollback()
+        return redirect_with_message(
+            "/folha/budget/resultado",
+            error=f"Nenhum funcionário encontrado para: {', '.join(sem_folha)}."
+        )
 
     db.commit()
+    detalhe_sem_folha = f" Sem folha: {', '.join(sem_folha)}." if sem_folha else ""
     return redirect_with_message(
         "/folha/budget/resultado",
-        success=f"Budget processado: {len(funcionarios)} empregado(s), {total} linha(s) — {cenario} / {competencia}."
+        success=(
+            f"Budget processado: {len(processadas)} competência(s), "
+            f"{total_funcionarios} empregado(s), {total_linhas} linha(s) — "
+            f"{cenario} / {', '.join(processadas)}.{detalhe_sem_folha}"
+        )
     )
 
 
