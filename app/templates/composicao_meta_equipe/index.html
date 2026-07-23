@@ -1,73 +1,99 @@
 {% extends "base.html" %}
 {% block header %}Planejamento de Equipe{% endblock %}
-{% block subtitle %}Baixe o modelo, preencha e importe. Os cards atualizam automaticamente.{% endblock %}
+{% block subtitle %}Importe o planejamento por etapa e filtre a tabela abaixo.{% endblock %}
 
 {% block content %}
 {% if success %}<div class="alert success">{{ success }}</div>{% endif %}
 {% if error %}<div class="alert error">{{ error }}</div>{% endif %}
 
 <style>
-/* ── barra de ações ── */
-.topbar{display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;margin-bottom:18px;background:#fff;border:1px solid #e5e7eb;border-radius:10px;padding:.9rem 1.1rem}
-.topbar label{font-size:.75rem;font-weight:700;color:#374151;display:block;margin-bottom:.25rem}
-.topbar select,.topbar input[type=file]{padding:.4rem .55rem;border:1px solid #d1d5db;border-radius:6px;font-size:.83rem;background:#fff}
-.topbar select:focus,.topbar input[type=file]:focus{outline:none;border-color:#dc2626}
-.btn-red{padding:.45rem 1.1rem;background:#dc2626;color:#fff;border:none;border-radius:7px;font-weight:600;cursor:pointer;font-size:.82rem;text-decoration:none;display:inline-block;white-space:nowrap}
-.btn-outline{padding:.45rem 1rem;background:#fff;color:#374151;border:1px solid #d1d5db;border-radius:7px;font-weight:600;font-size:.82rem;text-decoration:none;display:inline-block;white-space:nowrap;cursor:pointer}
-.btn-sm-red{padding:.2rem .55rem;background:transparent;border:1px solid #fca5a5;color:#dc2626;border-radius:5px;font-size:.73rem;cursor:pointer}
-/* ── cards ── */
-.etapa-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px;margin-bottom:20px}
-.ecard{background:#fff;border:2px solid #e5e7eb;border-radius:11px;padding:.9rem 1rem;cursor:pointer;transition:box-shadow .12s,border-color .12s;text-decoration:none;display:flex;flex-direction:column;gap:4px}
-.ecard:hover{box-shadow:0 3px 14px #0001;border-color:#dc2626}
-.ecard.ativo{border-color:#dc2626;box-shadow:0 0 0 3px #fecaca}
+.btn-red{padding:.45rem 1.1rem;background:#dc2626;color:#fff;border:none;border-radius:7px;font-weight:600;cursor:pointer;font-size:.82rem;text-decoration:none;display:inline-block}
+.btn-outline{padding:.42rem .9rem;background:#fff;color:#374151;border:1px solid #d1d5db;border-radius:7px;font-weight:600;font-size:.82rem;cursor:pointer;text-decoration:none;display:inline-block}
+.btn-sm{padding:.28rem .7rem;background:#dc2626;color:#fff;border:none;border-radius:6px;font-weight:600;font-size:.75rem;cursor:pointer;width:100%;margin-top:6px}
+.btn-sm-outline{padding:.25rem .6rem;background:#fff;color:#dc2626;border:1px solid #fca5a5;border-radius:5px;font-size:.72rem;cursor:pointer}
+
+/* cards */
+.etapa-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:14px;margin:14px 0 22px}
+.ecard{background:#fff;border:2px solid #e5e7eb;border-radius:11px;padding:.85rem 1rem;display:flex;flex-direction:column;gap:5px}
 .ecard.com-plano{border-color:#16a34a;background:#f0fdf4}
-.ecard.com-plano.ativo{border-color:#15803d;box-shadow:0 0 0 3px #bbf7d0}
-.ecard .temporada{font-size:.65rem;font-weight:700;color:#9ca3af;text-transform:uppercase;letter-spacing:.05em}
-.ecard .nome{font-size:.88rem;font-weight:700;color:#111827}
-.ecard .local{font-size:.74rem;color:#6b7280}
-.ecard .badge{margin-top:5px;font-size:.68rem;font-weight:700;padding:.15rem .5rem;border-radius:999px;display:inline-block}
+.ecard .temporada{font-size:.63rem;font-weight:700;color:#9ca3af;text-transform:uppercase;letter-spacing:.05em}
+.ecard .nome{font-size:.87rem;font-weight:700;color:#111827}
+.ecard .local{font-size:.73rem;color:#6b7280}
+.badge{font-size:.67rem;font-weight:700;padding:.13rem .45rem;border-radius:999px;display:inline-block}
 .badge-ok{background:#dcfce7;color:#166534}
 .badge-vazio{background:#f3f4f6;color:#9ca3af}
-.status-pill{font-size:.64rem;font-weight:600;padding:.08rem .35rem;border-radius:5px;display:inline-block;margin-top:2px}
+.status-pill{font-size:.63rem;font-weight:600;padding:.07rem .33rem;border-radius:5px;display:inline-block}
 .s-Planejada{background:#dbeafe;color:#1e40af}
 .s-Em\ andamento{background:#fef9c3;color:#854d0e}
 .s-Concluida{background:#dcfce7;color:#166534}
-/* ── tabela ── */
-.panel{background:#fff;border:1px solid #e5e7eb;border-radius:10px;padding:1rem 1.2rem}
+.upload-area{margin-top:8px;border-top:1px solid #e5e7eb;padding-top:8px}
+.upload-area input[type=file]{font-size:.72rem;width:100%;margin-bottom:4px}
+
+/* tabela */
+.panel{background:#fff;border:1px solid #e5e7eb;border-radius:10px;padding:1rem 1.2rem;overflow-x:auto}
+.filterbar{display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;margin-bottom:14px}
+.filterbar label{font-size:.74rem;font-weight:700;color:#374151;display:block;margin-bottom:.2rem}
+.filterbar select{padding:.38rem .55rem;border:1px solid #d1d5db;border-radius:6px;font-size:.82rem}
 .tbl{width:100%;border-collapse:collapse;font-size:.82rem}
-.tbl th{background:#f9fafb;padding:.38rem .6rem;text-align:left;font-size:.72rem;font-weight:700;color:#6b7280;text-transform:uppercase;border-bottom:2px solid #e5e7eb;white-space:nowrap}
+.tbl th{background:#f9fafb;padding:.38rem .6rem;text-align:left;font-size:.71rem;font-weight:700;color:#6b7280;text-transform:uppercase;border-bottom:2px solid #e5e7eb;white-space:nowrap}
 .tbl td{padding:.32rem .6rem;border-bottom:1px solid #f3f4f6;vertical-align:middle}
 .tbl tr:hover td{background:#fafafa}
-.sep{border:none;border-top:1px solid #e5e7eb;margin:.9rem 0}
 </style>
 
-<!-- ── BARRA SUPERIOR ── -->
-<div class="topbar">
+<!-- ── TOPO: só exportar modelo ── -->
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+  <span style="font-size:.82rem;color:#6b7280">{{ etapas|length }} etapa(s) cadastrada(s)</span>
+  <a class="btn-outline" href="/composicao-meta-equipe/modelo">⬇️ Exportar modelo Excel</a>
+</div>
 
-  <!-- Filtro / seleção de etapa -->
-  <div>
-    <label>Etapa</label>
-    <select id="sel_etapa" onchange="filtrarEtapa(this.value)" style="min-width:200px">
-      <option value="">Todas as etapas</option>
-      {% for e in etapas %}
-      <option value="{{ e.id_etapa }}" {% if etapa_sel|string == e.id_etapa|string %}selected{% endif %}>
-        {{ e.temporada }} — {{ e.nome_etapa }}
-      </option>
-      {% endfor %}
-    </select>
+<!-- ── CARDS ── -->
+{% if not etapas %}
+<p style="color:#9ca3af;font-style:italic;margin-top:12px">Nenhuma etapa cadastrada. Acesse <a href="/etapas">Etapas</a>.</p>
+{% else %}
+<div class="etapa-grid">
+  {% for e in etapas %}
+  {% set qtd = etapas_com_plano.get(e.id_etapa, 0) %}
+  <div class="ecard {% if qtd %}com-plano{% endif %}">
+    <span class="temporada">Temporada {{ e.temporada }}</span>
+    <span class="nome">{{ e.nome_etapa }}</span>
+    {% if e.local %}<span class="local">📍 {{ e.local }}</span>{% endif %}
+    <span class="status-pill s-{{ e.status_etapa }}">{{ e.status_etapa }}</span>
+    {% if qtd %}
+    <span class="badge badge-ok">✅ {{ qtd }} autônomo(s) planejado(s)</span>
+    {% else %}
+    <span class="badge badge-vazio">📋 Sem planejamento</span>
+    {% endif %}
+
+    <!-- upload dentro do card -->
+    <div class="upload-area">
+      <form method="post" action="/composicao-meta-equipe/upload" enctype="multipart/form-data">
+        <input type="hidden" name="id_etapa" value="{{ e.id_etapa }}">
+        <input type="file" name="arquivo" accept=".xlsx,.xls" required>
+        <label style="display:flex;align-items:center;gap:5px;font-size:.7rem;cursor:pointer;margin-bottom:4px">
+          <input type="checkbox" name="substituir" value="sim"> Substituir existente
+        </label>
+        <button class="btn-sm" type="submit">📥 Importar</button>
+      </form>
+      {% if qtd %}
+      <form method="post" action="/composicao-meta-equipe/limpar"
+            onsubmit="return confirm('Limpar planejamento de {{ e.nome_etapa }}?')" style="margin-top:4px">
+        <input type="hidden" name="id_etapa" value="{{ e.id_etapa }}">
+        <button class="btn-sm-outline" type="submit" style="width:100%">🗑️ Limpar</button>
+      </form>
+      {% endif %}
+    </div>
   </div>
+  {% endfor %}
+</div>
+{% endif %}
 
-  <!-- Baixar modelo -->
-  <a class="btn-outline" href="/composicao-meta-equipe/modelo">⬇️ Baixar modelo Excel</a>
-
-  <!-- Upload inline -->
-  <form method="post" action="/composicao-meta-equipe/upload" enctype="multipart/form-data"
-        style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap">
-    <input type="hidden" name="id_etapa" id="upload_id_etapa" value="{{ etapa_sel or '' }}">
+<!-- ── FILTROS + TABELA ── -->
+<div class="panel">
+  <div class="filterbar">
     <div>
-      <label>Etapa do upload</label>
-      <select name="id_etapa" id="upload_etapa_sel" onchange="document.getElementById('upload_id_etapa').value=this.value" style="min-width:180px">
-        <option value="">Selecione a etapa...</option>
+      <label>Etapa</label>
+      <select name="etapa_sel" onchange="filtrar(this)" id="f_etapa">
+        <option value="">Todas</option>
         {% for e in etapas %}
         <option value="{{ e.id_etapa }}" {% if etapa_sel|string == e.id_etapa|string %}selected{% endif %}>
           {{ e.temporada }} — {{ e.nome_etapa }}
@@ -76,63 +102,25 @@
       </select>
     </div>
     <div>
-      <label>Planilha preenchida (.xlsx)</label>
-      <input type="file" name="arquivo" accept=".xlsx,.xls" required>
+      <label>Temporada</label>
+      <select onchange="filtrarTemp(this)" id="f_temp">
+        <option value="">Todas</option>
+        {% for t in temporadas %}
+        <option value="{{ t }}" {% if temp_sel == t %}selected{% endif %}>{{ t }}</option>
+        {% endfor %}
+      </select>
     </div>
-    <label style="display:flex;align-items:center;gap:5px;font-size:.78rem;cursor:pointer;align-self:flex-end;padding-bottom:.45rem">
-      <input type="checkbox" name="substituir" value="sim"> Substituir existente
-    </label>
-    <button class="btn-red" type="submit" style="align-self:flex-end">📥 Importar</button>
-  </form>
-
-  <!-- Exportar tabela -->
-  <a class="btn-outline" href="/composicao-meta-equipe/exportar?etapa_sel={{ etapa_sel }}" style="align-self:flex-end">
-    📤 Exportar tabela
-  </a>
-</div>
-
-<!-- ── CARDS DE ETAPAS ── -->
-{% if not etapas %}
-<p style="color:#9ca3af;font-style:italic">Nenhuma etapa cadastrada. Acesse <a href="/etapas">Etapas</a> para criar.</p>
-{% else %}
-<div class="etapa-grid">
-  {% for e in etapas %}
-  {% set qtd = etapas_com_plano.get(e.id_etapa, 0) %}
-  {% set sel = etapa_sel|string == e.id_etapa|string %}
-  <div class="ecard {% if qtd %}com-plano{% endif %} {% if sel %}ativo{% endif %}"
-       onclick="filtrarEtapa('{{ e.id_etapa }}')">
-    <span class="temporada">Temporada {{ e.temporada }}</span>
-    <span class="nome">{{ e.nome_etapa }}</span>
-    {% if e.local %}<span class="local">📍 {{ e.local }}</span>{% endif %}
-    <span class="status-pill s-{{ e.status_etapa }}">{{ e.status_etapa }}</span>
-    {% if qtd %}
-    <span class="badge badge-ok">✅ {{ qtd }} autônomo(s)</span>
-    {% else %}
-    <span class="badge badge-vazio">📋 Sem planejamento</span>
-    {% endif %}
-  </div>
-  {% endfor %}
-</div>
-{% endif %}
-
-<!-- ── TABELA INFERIOR ── -->
-{% if etapa_sel %}
-<div class="panel" style="overflow-x:auto">
-  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.7rem;flex-wrap:wrap;gap:8px">
-    <strong style="font-size:.9rem">{{ etapa_nome }} — {{ total }} autônomo(s) planejado(s)</strong>
     {% if linhas %}
-    <form method="post" action="/composicao-meta-equipe/limpar"
-          onsubmit="return confirm('Limpar todo o planejamento desta etapa?')" style="margin:0">
-      <input type="hidden" name="id_etapa" value="{{ etapa_sel }}">
-      <button class="btn-sm-red" type="submit" style="padding:.3rem .8rem">🗑️ Limpar tudo</button>
-    </form>
+    <a class="btn-outline" href="/composicao-meta-equipe/exportar?etapa_sel={{ etapa_sel }}&temp_sel={{ temp_sel }}">📤 Exportar tabela</a>
     {% endif %}
+    <span style="font-size:.78rem;color:#6b7280;align-self:flex-end">{{ linhas|length }} registro(s)</span>
   </div>
 
   {% if linhas %}
   <table class="tbl">
     <thead>
       <tr>
+        <th>Etapa</th>
         <th>ID</th>
         <th>Nome</th>
         <th>Data Inclusão</th>
@@ -143,15 +131,17 @@
     <tbody>
       {% for l in linhas %}
       <tr>
+        <td style="color:#6b7280;font-size:.78rem">{{ l.nome_etapa or '-' }}</td>
         <td style="color:#9ca3af;font-size:.78rem">{{ l.id_autonomo or '-' }}</td>
         <td style="font-weight:600">{{ l.nome_autonomo }}</td>
         <td>{{ l.data_inclusao or '-' }}</td>
-        <td style="font-size:.75rem;color:#9ca3af;white-space:nowrap">{{ l.criado_em }}</td>
+        <td style="font-size:.74rem;color:#9ca3af;white-space:nowrap">{{ l.criado_em }}</td>
         <td>
           <form method="post" action="/composicao-meta-equipe/linha/{{ l.id }}/excluir"
                 onsubmit="return confirm('Remover?')" style="margin:0">
             <input type="hidden" name="etapa_sel" value="{{ etapa_sel }}">
-            <button class="btn-sm-red" type="submit">🗑️</button>
+            <input type="hidden" name="temp_sel" value="{{ temp_sel }}">
+            <button class="btn-sm-outline" type="submit">🗑️</button>
           </form>
         </td>
       </tr>
@@ -160,37 +150,24 @@
   </table>
   {% else %}
   <p style="color:#9ca3af;font-style:italic;text-align:center;padding:1.5rem">
-    Nenhum autônomo planejado para esta etapa. Importe a planilha acima.
+    {% if etapa_sel or temp_sel %}Nenhum registro para o filtro selecionado.{% else %}Importe uma planilha em algum card acima para ver os dados aqui.{% endif %}
   </p>
   {% endif %}
 </div>
-{% else %}
-<div style="background:#fff;border:1px solid #e5e7eb;border-radius:10px;padding:2rem;text-align:center;color:#9ca3af;font-style:italic">
-  Selecione uma etapa acima (ou clique em um card) para ver o planejamento.
-</div>
-{% endif %}
 
 <script>
-function filtrarEtapa(id) {
+function filtrar(sel) {
   const url = new URL(window.location.href);
-  if (id) {
-    url.searchParams.set('etapa_sel', id);
-  } else {
-    url.searchParams.delete('etapa_sel');
-  }
+  url.searchParams.set('etapa_sel', sel.value);
+  url.searchParams.delete('temp_sel');
   window.location.href = url.toString();
 }
-
-// sincroniza select da barra com o select de upload
-document.addEventListener('DOMContentLoaded', function () {
-  const selFiltro = document.getElementById('sel_etapa');
-  const selUpload = document.getElementById('upload_etapa_sel');
-  if (selFiltro && selUpload) {
-    selFiltro.addEventListener('change', function () {
-      selUpload.value = this.value;
-    });
-  }
-});
+function filtrarTemp(sel) {
+  const url = new URL(window.location.href);
+  url.searchParams.set('temp_sel', sel.value);
+  url.searchParams.delete('etapa_sel');
+  window.location.href = url.toString();
+}
 </script>
 
 {% endblock %}

@@ -49,45 +49,49 @@ _garantir_tabela()
 
 # ─── página única ─────────────────────────────────────────────────────
 @router.get("/composicao-meta-equipe")
-def index(request: Request, etapa_sel: str = "", db: Session = Depends(get_db)):
+def index(request: Request, etapa_sel: str = "", temp_sel: str = "", db: Session = Depends(get_db)):
     etapas = (
         db.query(DimEtapa)
         .order_by(DimEtapa.temporada.desc(), DimEtapa.data_inicio.asc())
         .all()
     )
 
+    temporadas = sorted({e.temporada for e in etapas}, reverse=True)
+
     contagem = db.execute(
         text("SELECT id_etapa, COUNT(*) as qtd FROM planejamento_equipe_etapa GROUP BY id_etapa")
     ).mappings().all()
     etapas_com_plano = {r["id_etapa"]: r["qtd"] for r in contagem}
 
-    # tabela inferior — filtrada pela etapa selecionada
-    linhas = []
-    total = 0
+    # tabela inferior com filtros
+    where = "WHERE 1=1"
+    params: dict = {}
     if etapa_sel:
-        linhas = db.execute(
-            text("""
-                SELECT id, id_etapa, id_autonomo, nome_autonomo, data_inclusao, criado_em
-                FROM planejamento_equipe_etapa
-                WHERE id_etapa = :eid
-                ORDER BY nome_autonomo
-            """), {"eid": int(etapa_sel)}
-        ).mappings().all()
-        total = len(linhas)
+        where += " AND p.id_etapa = :eid"
+        params["eid"] = int(etapa_sel)
+    if temp_sel:
+        where += " AND e.temporada = :temp"
+        params["temp"] = temp_sel
 
-    etapa_nome = ""
-    if etapa_sel:
-        e = db.get(DimEtapa, int(etapa_sel))
-        etapa_nome = e.nome_etapa if e else ""
+    linhas = db.execute(
+        text(f"""
+            SELECT p.id, p.id_etapa, e.nome_etapa, p.id_autonomo,
+                   p.nome_autonomo, p.data_inclusao, p.criado_em
+            FROM planejamento_equipe_etapa p
+            LEFT JOIN dim_etapas e ON e.id_etapa = p.id_etapa
+            {where}
+            ORDER BY e.temporada DESC, e.data_inicio, p.nome_autonomo
+        """), params
+    ).mappings().all()
 
     return templates.TemplateResponse("composicao_meta_equipe/index.html", {
         "request": request,
         "etapas": etapas,
+        "temporadas": temporadas,
         "etapas_com_plano": etapas_com_plano,
         "etapa_sel": etapa_sel,
-        "etapa_nome": etapa_nome,
+        "temp_sel": temp_sel,
         "linhas": linhas,
-        "total": total,
         **_flash(request),
     })
 
@@ -158,7 +162,7 @@ def exportar_modelo(db: Session = Depends(get_db)):
 
 # ─── exportar tabela filtrada ─────────────────────────────────────────
 @router.get("/composicao-meta-equipe/exportar")
-def exportar_tabela(etapa_sel: str = "", db: Session = Depends(get_db)):
+def exportar_tabela(etapa_sel: str = "", temp_sel: str = "", db: Session = Depends(get_db)):
     import openpyxl
     from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 
@@ -170,6 +174,10 @@ def exportar_tabela(etapa_sel: str = "", db: Session = Depends(get_db)):
         params["eid"] = int(etapa_sel)
         e = db.get(DimEtapa, int(etapa_sel))
         etapa_nome = e.nome_etapa if e else etapa_sel
+    if temp_sel:
+        where += " AND e.temporada = :temp"
+        params["temp"] = temp_sel
+        etapa_nome = f"Temporada {temp_sel}"
 
     linhas = db.execute(
         text(f"""
@@ -307,10 +315,11 @@ async def upload_planejamento(
 
 # ─── excluir linha ────────────────────────────────────────────────────
 @router.post("/composicao-meta-equipe/linha/{linha_id}/excluir")
-def excluir_linha(linha_id: int, etapa_sel: str = Form(""), db: Session = Depends(get_db)):
+def excluir_linha(linha_id: int, etapa_sel: str = Form(""), temp_sel: str = Form(""), db: Session = Depends(get_db)):
     db.execute(text("DELETE FROM planejamento_equipe_etapa WHERE id = :id"), {"id": linha_id})
     db.commit()
-    return redirect_with_message(f"/composicao-meta-equipe?etapa_sel={etapa_sel}", success="Linha removida.")
+    qs = f"etapa_sel={etapa_sel}&temp_sel={temp_sel}"
+    return redirect_with_message(f"/composicao-meta-equipe?{qs}", success="Linha removida.")
 
 
 # ─── limpar etapa ─────────────────────────────────────────────────────
