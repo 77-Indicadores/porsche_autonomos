@@ -2750,6 +2750,14 @@ def budget_quantidades_excluir(id: int, db: Session = Depends(get_db)):
 # ROTA — PROCESSAMENTO DO BUDGET
 # ─────────────────────────────────────────────────────────────
 
+@router.get("/folha/budget/processar")
+def budget_processar_get():
+    return redirect_with_message(
+        "/folha/budget",
+        error="Selecione uma ou mais competências e clique em Processar selecionadas."
+    )
+
+
 @router.post("/folha/budget/processar")
 def budget_processar(
     request: Request, db: Session = Depends(get_db),
