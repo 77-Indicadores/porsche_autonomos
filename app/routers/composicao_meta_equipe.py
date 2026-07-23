@@ -49,11 +49,22 @@ _garantir_tabela()
 
 def _migrar_tabela():
     """Adiciona colunas que podem estar faltando em tabelas criadas antes de alterações."""
-    with engine.begin() as conn:
-        try:
-            conn.execute(text("SELECT data_inclusao FROM planejamento_equipe_etapa LIMIT 1"))
-        except Exception:
-            conn.execute(text("ALTER TABLE planejamento_equipe_etapa ADD COLUMN data_inclusao VARCHAR(20)"))
+    with engine.connect() as conn:
+        dialect = conn.dialect.name
+        if dialect == "postgresql":
+            conn.execute(text("""
+                ALTER TABLE planejamento_equipe_etapa
+                ADD COLUMN IF NOT EXISTS data_inclusao VARCHAR(20)
+            """))
+            conn.commit()
+        else:
+            # SQLite: testa primeiro, pois não suporta ADD COLUMN IF NOT EXISTS
+            try:
+                conn.execute(text("SELECT data_inclusao FROM planejamento_equipe_etapa LIMIT 1"))
+            except Exception:
+                conn.rollback()
+                conn.execute(text("ALTER TABLE planejamento_equipe_etapa ADD COLUMN data_inclusao VARCHAR(20)"))
+                conn.commit()
 
 _migrar_tabela()
 
