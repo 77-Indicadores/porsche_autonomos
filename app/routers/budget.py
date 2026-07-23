@@ -2754,7 +2754,7 @@ def budget_quantidades_excluir(id: int, db: Session = Depends(get_db)):
 def budget_processar_get():
     return redirect_with_message(
         "/folha/budget",
-        error="Selecione uma ou mais competências e clique em Processar selecionadas."
+        error="Selecione uma competência e clique em Processar budget."
     )
 
 

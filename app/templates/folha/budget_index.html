@@ -9,13 +9,6 @@
   .budget-toolbar form{display:flex;gap:.7rem;align-items:flex-end;flex-wrap:wrap;margin:0}
   .budget-toolbar label{display:block;font-size:.72rem;font-weight:800;color:#6b7280;text-transform:uppercase;margin-bottom:.25rem}
   .budget-toolbar select{min-width:150px;border:1px solid #d1d5db;border-radius:6px;padding:.48rem .55rem;background:#fff}
-  .budget-toolbar select[multiple]{min-width:170px;height:122px;padding:.35rem}
-  .budget-progress{flex-basis:100%;display:none;border:1px solid #fecaca;background:#fff7f7;border-radius:8px;padding:.65rem .8rem;color:#7f1d1d;font-size:.78rem;font-weight:700}
-  .budget-progress.is-active{display:block}
-  .budget-progress-list{display:flex;gap:.4rem;flex-wrap:wrap;margin-top:.45rem}
-  .budget-progress-chip{border:1px solid #fecaca;background:#fff;border-radius:999px;padding:.2rem .5rem;color:#991b1b}
-  .budget-progress-chip.done{border-color:#bbf7d0;color:#166534;background:#f0fdf4}
-  .budget-progress-chip.error{border-color:#fecaca;color:#991b1b;background:#fef2f2}
   .btn-red{background:#dc2626;color:#fff;border:1px solid #dc2626;border-radius:6px;padding:.5rem 1rem;font-weight:800;text-decoration:none;cursor:pointer}
   .btn-light{background:#fff;color:#374151;border:1px solid #d1d5db;border-radius:6px;padding:.5rem 1rem;font-weight:800;text-decoration:none}
   .quick-stats{display:flex;gap:.6rem;flex-wrap:wrap}
@@ -55,16 +48,16 @@
 
 <div class="budget-shell">
   <div class="budget-toolbar">
-    <form id="budget-process-form" method="post" action="/folha/budget/processar">
+    <form method="post" action="/folha/budget/processar">
       <div>
         <label>Competência</label>
-        <select name="competencia" multiple required>
+        <select name="competencia" required>
+          <option value="">Selecione</option>
           {% for c in competencias_folha %}<option value="{{ c }}">{{ c }}</option>{% endfor %}
         </select>
       </div>
-      <button class="btn-red" type="submit">Processar selecionadas</button>
+      <button class="btn-red" type="submit">Processar budget</button>
       <a class="btn-light" href="/folha/budget/resultado">Ver resultado</a>
-      <div id="budget-process-progress" class="budget-progress" aria-live="polite"></div>
     </form>
     <div class="quick-stats">
       <div class="stat"><span>Empresas</span><strong>{{ qtd_empresas }}</strong></div>
@@ -134,56 +127,4 @@
     <a class="btn-light" href="/folha/budget/resultado">Conferir resultado</a>
   </div>
 </div>
-<script>
-  (function(){
-    const form = document.getElementById('budget-process-form');
-    if (!form) return;
-    const select = form.querySelector('select[name="competencia"]');
-    const button = form.querySelector('button[type="submit"]');
-    const progress = document.getElementById('budget-process-progress');
-
-    function renderProgress(text, items){
-      progress.classList.add('is-active');
-      progress.innerHTML = '<div>' + text + '</div>' +
-        '<div class="budget-progress-list">' + items.map(function(item){
-          return '<span class="budget-progress-chip ' + (item.status || '') + '">' + item.label + '</span>';
-        }).join('') + '</div>';
-    }
-
-    form.addEventListener('submit', async function(event){
-      const competencias = Array.from(select.selectedOptions).map(function(option){ return option.value; });
-      if (competencias.length <= 1) return;
-
-      event.preventDefault();
-      button.disabled = true;
-      const estados = competencias.map(function(label){ return { label: label, status: '' }; });
-
-      try {
-        for (let i = 0; i < competencias.length; i += 1) {
-          renderProgress('Processando ' + (i + 1) + ' de ' + competencias.length + '...', estados);
-          const data = new FormData();
-          data.append('competencia', competencias[i]);
-          const response = await fetch(form.action, {
-            method: 'POST',
-            body: data,
-            headers: { 'X-Requested-With': 'budget-fetch' }
-          });
-          const payload = await response.json().catch(function(){ return {}; });
-          if (!response.ok || !payload.ok) {
-            estados[i].status = 'error';
-            renderProgress(payload.message || ('Falha ao processar ' + competencias[i]), estados);
-            button.disabled = false;
-            return;
-          }
-          estados[i].status = 'done';
-        }
-        renderProgress('Tudo processado. Abrindo o resultado...', estados);
-        window.location.href = '/folha/budget/resultado?success=' + encodeURIComponent('Budget processado para ' + competencias.length + ' competência(s).');
-      } catch (error) {
-        renderProgress('Não consegui concluir o processamento. Tente novamente em menos competências.', estados);
-        button.disabled = false;
-      }
-    });
-  })();
-</script>
 {% endblock %}
