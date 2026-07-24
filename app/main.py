@@ -346,6 +346,21 @@ except Exception as exc:
     print(traceback.format_exc())
 
 # ============================================================
+# Router Atestados Médicos (deve vir ANTES de folha_pagamento
+# para que /folha/atestados não seja capturado por /folha/{id_arquivo})
+# ============================================================
+try:
+    import importlib
+    atestados_runtime = importlib.import_module("app.routers.atestados")
+    app.include_router(atestados_runtime.router)
+    print("OK - Rota /folha/atestados registrada.")
+except Exception as exc:
+    import traceback
+    print("ERRO AO REGISTRAR /folha/atestados")
+    print(exc)
+    print(traceback.format_exc())
+
+# ============================================================
 # Router Folha de Pagamento
 # ============================================================
 try:
@@ -356,19 +371,5 @@ try:
 except Exception as exc:
     import traceback
     print("ERRO AO REGISTRAR /folha")
-    print(exc)
-    print(traceback.format_exc())
-
-# ============================================================
-# Router Atestados Médicos
-# ============================================================
-try:
-    import importlib
-    atestados_runtime = importlib.import_module("app.routers.atestados")
-    app.include_router(atestados_runtime.router)
-    print("OK - Rota /folha/atestados registrada.")
-except Exception as exc:
-    import traceback
-    print("ERRO AO REGISTRAR /folha/atestados")
     print(exc)
     print(traceback.format_exc())
