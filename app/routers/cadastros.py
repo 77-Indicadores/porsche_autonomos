@@ -443,12 +443,13 @@ def cargos_autonomos(request: Request, db: Session = Depends(get_db)):
 def salvar_cargo_autonomo(
     request: Request,
     id_cargo_autonomo: str = Form(""),
-    current_id_cargo_autonomo: str = "",
+    current_id_cargo_autonomo: str = Form(""),
     nome_cargo: str = Form(...),
     descricao: str = Form(""),
     status: str = Form("Ativo"),
     db: Session = Depends(get_db),
 ):
+    # fallback: lê da query string se não vier no body (compatibilidade)
     current_id_cargo_autonomo = (current_id_cargo_autonomo or request.query_params.get("current_id_cargo_autonomo", "")).strip()
     cargo = db.get(DimCargoAutonomo, int(current_id_cargo_autonomo or id_cargo_autonomo)) if (current_id_cargo_autonomo or id_cargo_autonomo) else DimCargoAutonomo()
     try:

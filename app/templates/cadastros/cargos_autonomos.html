@@ -33,7 +33,8 @@ function novoCadastro() {
     <button class="btn-muted" type="button" onclick="limparCargo()">Novo</button>
   </div>
 
-  <form method="post" class="form-grid">
+  <form method="post" action="/cargos-autonomos" class="form-grid">
+    <input type="hidden" name="current_id_cargo_autonomo" id="hidden_cargo_id" value="">
 
     <div>
       <label class="label">Nome do cargo</label>
@@ -111,14 +112,9 @@ function editarCargo(btn) {
   document.getElementById("nome_cargo").value = btn.dataset.nome || "";
   document.getElementById("status").value = btn.dataset.status || "Ativo";
   document.getElementById("descricao").value = btn.dataset.descricao || "";
+  document.getElementById("hidden_cargo_id").value = btn.dataset.id || "";
   document.getElementById("form-title").innerText = "Editar cargo";
   document.getElementById("btn-salvar").innerText = "Atualizar cargo";
-
-  const form = document.querySelector("form[method='post']");
-  if (form && btn.dataset.id) {
-    form.action = "/cargos-autonomos?" + "current_id_cargo_autonomo=" + encodeURIComponent(btn.dataset.id);
-  }
-
   window.scrollTo({ top: 0, behavior: "smooth" });
 }
 
@@ -126,6 +122,7 @@ function limparCargo() {
   document.getElementById("nome_cargo").value = "";
   document.getElementById("status").value = "Ativo";
   document.getElementById("descricao").value = "";
+  document.getElementById("hidden_cargo_id").value = "";
   document.getElementById("form-title").innerText = "Novo cargo";
   document.getElementById("btn-salvar").innerText = "Salvar cargo";
 }
