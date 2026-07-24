@@ -46,7 +46,7 @@
 
     <div>
       <label class="label">Tipo da vaga</label>
-      <select class="input" name="tipo_vaga" id="tipo_vaga">
+      <select class="input" name="tipo_vaga" id="tipo_vaga" required>
         {% for t in tipos_vaga %}
           <option>{{ t }}</option>
         {% endfor %}
@@ -55,7 +55,7 @@
 
     <div>
       <label class="label">Motivo substituição</label>
-      <select class="input" name="motivo_substituicao" id="motivo_substituicao">
+      <select class="input" name="motivo_substituicao" id="motivo_substituicao" required>
         {% for m in motivos_substituicao %}
           <option value="{{ m }}">{{ m if m else "Não se aplica" }}</option>
         {% endfor %}
@@ -64,7 +64,7 @@
 
     <div>
       <label class="label">Sexo</label>
-      <select class="input" name="sexo" id="sexo">
+      <select class="input" name="sexo" id="sexo" required>
         {% for s in sexos %}
           <option>{{ s }}</option>
         {% endfor %}
@@ -73,12 +73,12 @@
 
     <div>
       <label class="label">Quantidade</label>
-      <input class="input" type="number" min="1" name="qtd_vagas" id="qtd_vagas" value="1">
+      <input class="input" type="number" min="1" name="qtd_vagas" id="qtd_vagas" value="1" required>
     </div>
 
     <div>
       <label class="label">Status</label>
-      <select class="input" name="status" id="status">
+      <select class="input" name="status" id="status" required>
         {% for s in status_vaga %}
           <option>{{ s }}</option>
         {% endfor %}
@@ -87,7 +87,7 @@
 
     <div>
       <label class="label">Tipo de recrutamento</label>
-      <select class="input" name="tipo_recrutamento" id="tipo_recrutamento">
+      <select class="input" name="tipo_recrutamento" id="tipo_recrutamento" required>
         {% for t in tipos_recrutamento %}
           <option>{{ t }}</option>
         {% endfor %}
@@ -96,17 +96,17 @@
 
     <div>
       <label class="label">Responsável</label>
-      <input class="input" name="responsavel" id="responsavel">
+      <input class="input" name="responsavel" id="responsavel" required>
     </div>
 
     <div>
       <label class="label">Data abertura</label>
-      <input class="input" name="data_abertura" id="data_abertura" placeholder="dd/mm/aaaa">
+      <input class="input" name="data_abertura" id="data_abertura" placeholder="dd/mm/aaaa" required>
     </div>
 
     <div>
       <label class="label">Data conclusão</label>
-      <input class="input" name="data_conclusao" id="data_conclusao" placeholder="dd/mm/aaaa">
+      <input class="input" name="data_conclusao" id="data_conclusao" placeholder="dd/mm/aaaa" required>
     </div>
 
     <div class="span-3">

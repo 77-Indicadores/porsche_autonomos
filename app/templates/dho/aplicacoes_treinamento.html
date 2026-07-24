@@ -39,7 +39,7 @@
 
     <div>
       <label class="label">Tipo pessoa</label>
-      <select class="input" name="tipo_pessoa" id="tipo_pessoa">
+      <select class="input" name="tipo_pessoa" id="tipo_pessoa" required>
         <option>Autônomo</option>
         <option>Colaborador</option>
         <option>Terceiro</option>
@@ -102,17 +102,17 @@
 
     <div>
       <label class="label">Data treinamento</label>
-      <input class="input" name="data_treinamento" id="data_treinamento" placeholder="dd/mm/aaaa">
+      <input class="input" name="data_treinamento" id="data_treinamento" placeholder="dd/mm/aaaa" required>
     </div>
 
     <div>
       <label class="label">Carga horária</label>
-      <input class="input" name="carga_horaria" id="carga_horaria" placeholder="Ex.: 2">
+      <input class="input" name="carga_horaria" id="carga_horaria" placeholder="Ex.: 2" required>
     </div>
 
     <div>
       <label class="label">Status</label>
-      <select class="input" name="status" id="status">
+      <select class="input" name="status" id="status" required>
         {% for s in status_aplicacao %}
           <option>{{ s }}</option>
         {% endfor %}
