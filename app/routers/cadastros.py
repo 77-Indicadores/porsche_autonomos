@@ -191,7 +191,7 @@ def autonomos(request: Request, q: str = "", db: Session = Depends(get_db)):
 def salvar_autonomo(
     request: Request,
     id_autonomo: str = Form(""),
-    current_id_autonomo: str = "",
+    current_id_autonomo: str = Form(""),
     nome_autonomo: str = Form(...),
     cpf: str = Form(""),
     telefone: str = Form(""),

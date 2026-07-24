@@ -43,7 +43,8 @@ function novoCadastro() {
     <h3>Novo / editar autonomo</h3>
   </div>
 
-  <form method="post" class="form-grid" enctype="multipart/form-data">
+  <form method="post" action="/autonomos" class="form-grid" enctype="multipart/form-data">
+    <input type="hidden" name="current_id_autonomo" id="current_id_autonomo" value="">
     <input type="hidden" name="foto_url" id="foto_url">
 
     <div class="span-3">
@@ -186,6 +187,9 @@ function editarAutonomo(btn) {
     if (el) el.value = data[k] || "";
   });
 
+  // ID viaja no hidden field, não na query string
+  document.getElementById("current_id_autonomo").value = data.current_id_autonomo || data.id_autonomo || "";
+
   const preview = document.getElementById("preview_foto_autonomo");
   if (data.foto_url) {
     preview.src = data.foto_url;
@@ -194,12 +198,6 @@ function editarAutonomo(btn) {
     preview.src = "";
     preview.style.display = "none";
   }
-
-  const form = document.querySelector("form[method='post']");
-  if (form && data.id_autonomo) {
-    form.action = "/autonomos?" + "current_id_autonomo=" + encodeURIComponent(data.id_autonomo);
-  }
-
 
   window.scrollTo({ top: 0, behavior: "smooth" });
 }
