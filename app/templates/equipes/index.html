@@ -41,11 +41,17 @@
 
     <div>
       <label class="label">Estabilidade</label>
-      <select class="input" name="estabilidade">
-        <option value="">Todas</option>
-        <option value="estavel" {% if estabilidade == 'estavel' %}selected{% endif %}>✅ Equipe estável</option>
-        <option value="nao_estavel" {% if estabilidade == 'nao_estavel' %}selected{% endif %}>🔄 Teve troca</option>
-      </select>
+      <div style="display:flex;gap:10px;align-items:center;padding-top:4px">
+        <label style="display:flex;align-items:center;gap:5px;font-size:.85rem;cursor:pointer">
+          <input type="radio" name="estabilidade" value="" {% if not estabilidade %}checked{% endif %} onchange="this.form.submit()"> Todas
+        </label>
+        <label style="display:flex;align-items:center;gap:5px;font-size:.85rem;cursor:pointer">
+          <input type="radio" name="estabilidade" value="estavel" {% if estabilidade == 'estavel' %}checked{% endif %} onchange="this.form.submit()"> ✅ Estável
+        </label>
+        <label style="display:flex;align-items:center;gap:5px;font-size:.85rem;cursor:pointer">
+          <input type="radio" name="estabilidade" value="nao_estavel" {% if estabilidade == 'nao_estavel' %}checked{% endif %} onchange="this.form.submit()"> 🔄 Teve troca
+        </label>
+      </div>
     </div>
 
     <div class="ux-actions-row">
