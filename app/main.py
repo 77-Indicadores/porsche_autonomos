@@ -358,3 +358,17 @@ except Exception as exc:
     print("ERRO AO REGISTRAR /folha")
     print(exc)
     print(traceback.format_exc())
+
+# ============================================================
+# Router Atestados Médicos
+# ============================================================
+try:
+    import importlib
+    atestados_runtime = importlib.import_module("app.routers.atestados")
+    app.include_router(atestados_runtime.router)
+    print("OK - Rota /folha/atestados registrada.")
+except Exception as exc:
+    import traceback
+    print("ERRO AO REGISTRAR /folha/atestados")
+    print(exc)
+    print(traceback.format_exc())

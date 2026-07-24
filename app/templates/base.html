@@ -56,6 +56,8 @@
         <div class="nav-subsection-title">Cadastros</div>
         <a class="nav-link {% if request.url.path.startswith('/folha/budget/regras') %}active{% endif %}" href="/folha/budget/regras">📏 Regras</a>
         <a class="nav-link {% if request.url.path.startswith('/folha/budget/cargos-niveis') %}active{% endif %}" href="/folha/budget/cargos-niveis">🧩 Níveis de Cargo</a>
+        <div class="nav-subsection-title">Saúde</div>
+        <a class="nav-link {% if request.url.path.startswith('/folha/atestados') %}active{% endif %}" href="/folha/atestados">🏥 Atestados Médicos</a>
       </div>
 
       {% elif request.url.path != '/' %}

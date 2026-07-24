@@ -1,0 +1,239 @@
+{% extends "base.html" %}
+
+{% block header %}Atestados Médicos{% endblock %}
+{% block subtitle %}Registro e controle de atestados de colaboradores{% endblock %}
+
+{% block header_action %}
+<a class="quick-action light" href="/folha/atestados/modelo">⬇ Modelo Excel</a>
+{% endblock %}
+
+{% block content %}
+
+{% if success %}
+<div class="alert alert-success mb-6">{{ success }}</div>
+{% endif %}
+{% if error %}
+<div class="alert alert-error mb-6">{{ error }}</div>
+{% endif %}
+
+<!-- Pesquisa -->
+<section class="panel mb-6">
+  <form method="get" class="flex gap-3">
+    <input class="input" name="q" placeholder="Pesquisar por colaborador, empresa, departamento ou tipo" value="{{ q }}">
+    <button class="btn-secondary">Pesquisar</button>
+  </form>
+</section>
+
+<!-- Importar Excel -->
+<section class="panel mb-6">
+  <div class="panel-head">
+    <h3>Importar planilha</h3>
+  </div>
+  <form method="post" action="/folha/atestados/importar" enctype="multipart/form-data" class="flex gap-3 items-center">
+    <input class="input" type="file" name="arquivo" accept=".xlsx" required style="max-width:340px">
+    <button class="btn-primary">Importar</button>
+    <a class="btn-muted" href="/folha/atestados/modelo">⬇ Baixar modelo</a>
+  </form>
+  <p class="text-sm text-zinc-500 mt-3">
+    Campos obrigatórios: Data do Atestado, Data de Entrega, Empresa, Departamento, Nome do Colaborador, Tipo de Atestado.<br>
+    Duplicatas (mesma data + colaborador + tipo) são ignoradas automaticamente.
+  </p>
+</section>
+
+<!-- Formulário manual -->
+<section class="panel mb-6">
+  <div class="panel-head">
+    <h3 id="form-titulo">Novo atestado</h3>
+  </div>
+
+  <form method="post" action="/folha/atestados" class="form-grid" id="form-atestado">
+    <input type="hidden" name="id_atestado" id="id_atestado">
+
+    <div>
+      <label class="label">Data do Atestado *</label>
+      <input class="input" name="data_atestado" id="data_atestado" placeholder="dd/mm/aaaa" required>
+    </div>
+
+    <div>
+      <label class="label">Data de Entrega *</label>
+      <input class="input" name="data_entrega" id="data_entrega" placeholder="dd/mm/aaaa" required>
+    </div>
+
+    <div>
+      <label class="label">Tipo de Atestado *</label>
+      <select class="input" name="tipo_atestado" id="tipo_atestado" required>
+        <option value="">Selecione</option>
+        {% for t in tipos_atestado %}
+          <option value="{{ t }}">{{ t }}</option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div>
+      <label class="label">Empresa *</label>
+      <input class="input" name="empresa" id="empresa" required>
+    </div>
+
+    <div>
+      <label class="label">Departamento *</label>
+      <input class="input" name="departamento" id="departamento" required>
+    </div>
+
+    <div>
+      <label class="label">Matrícula</label>
+      <input class="input" name="matricula" id="matricula">
+    </div>
+
+    <div>
+      <label class="label">Nome do Colaborador *</label>
+      <input class="input" name="nome_colaborador" id="nome_colaborador" required>
+    </div>
+
+    <div>
+      <label class="label">Cargo</label>
+      <input class="input" name="cargo" id="cargo">
+    </div>
+
+    <div>
+      <label class="label">Nome do Médico / CRM</label>
+      <input class="input" name="medico_crm" id="medico_crm">
+    </div>
+
+    <div>
+      <label class="label">Data Início Afastamento</label>
+      <input class="input" name="data_inicio_afastamento" id="data_inicio_afastamento" placeholder="dd/mm/aaaa">
+    </div>
+
+    <div>
+      <label class="label">Data Fim Afastamento</label>
+      <input class="input" name="data_fim_afastamento" id="data_fim_afastamento" placeholder="dd/mm/aaaa">
+    </div>
+
+    <div>
+      <label class="label">CID</label>
+      <input class="input" name="cid" id="cid">
+    </div>
+
+    <div class="span-3">
+      <label class="label">Observações</label>
+      <textarea class="input" name="observacoes" id="observacoes"></textarea>
+    </div>
+
+    <div class="span-3 ux-actions-row">
+      <button class="btn-primary" id="btn-salvar">Salvar atestado</button>
+      <button type="button" class="btn-muted" onclick="limparForm()">Limpar</button>
+    </div>
+  </form>
+</section>
+
+<!-- Tabela -->
+<section class="panel">
+  <div class="panel-head">
+    <h3>Atestados registrados</h3>
+    <span class="text-sm text-zinc-500">{{ items|length }} registro(s)</span>
+  </div>
+
+  <div style="overflow-x:auto">
+    <table class="table" style="min-width:1200px">
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Data Atestado</th>
+          <th>Data Entrega</th>
+          <th>Empresa</th>
+          <th>Departamento</th>
+          <th>Matrícula</th>
+          <th>Colaborador</th>
+          <th>Cargo</th>
+          <th>Início Afastamento</th>
+          <th>Fim Afastamento</th>
+          <th>CID</th>
+          <th>Médico / CRM</th>
+          <th>Tipo</th>
+          <th>Observações</th>
+          <th>Ações</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for i in items %}
+        <tr>
+          <td><span class="id-pill">{{ i.id }}</span></td>
+          <td>{{ i.data_atestado or "-" }}</td>
+          <td>{{ i.data_entrega or "-" }}</td>
+          <td>{{ i.empresa or "-" }}</td>
+          <td>{{ i.departamento or "-" }}</td>
+          <td>{{ i.matricula or "-" }}</td>
+          <td class="font-bold">{{ i.nome_colaborador }}</td>
+          <td>{{ i.cargo or "-" }}</td>
+          <td>{{ i.data_inicio_afastamento or "-" }}</td>
+          <td>{{ i.data_fim_afastamento or "-" }}</td>
+          <td>{{ i.cid or "-" }}</td>
+          <td>{{ i.medico_crm or "-" }}</td>
+          <td><span class="badge">{{ i.tipo_atestado }}</span></td>
+          <td style="max-width:220px;white-space:normal;font-size:.8rem">{{ i.observacoes or "-" }}</td>
+          <td class="actions">
+            <button
+              class="btn-muted"
+              type="button"
+              onclick="editarAtestado(this)"
+              data-id="{{ i.id }}"
+              data-fill='{{ {
+                "data_atestado": i.data_atestado or "",
+                "data_entrega": i.data_entrega or "",
+                "empresa": i.empresa or "",
+                "departamento": i.departamento or "",
+                "matricula": i.matricula or "",
+                "nome_colaborador": i.nome_colaborador or "",
+                "cargo": i.cargo or "",
+                "data_inicio_afastamento": i.data_inicio_afastamento or "",
+                "data_fim_afastamento": i.data_fim_afastamento or "",
+                "cid": i.cid or "",
+                "medico_crm": i.medico_crm or "",
+                "tipo_atestado": i.tipo_atestado or "",
+                "observacoes": i.observacoes or ""
+              } | tojson }}'
+            >Editar</button>
+            <form method="post" action="/folha/atestados/{{ i.id }}/excluir" onsubmit="return confirm('Excluir este atestado?')">
+              <button class="btn-danger" type="submit">Excluir</button>
+            </form>
+          </td>
+        </tr>
+        {% else %}
+        <tr>
+          <td colspan="15" class="empty">Nenhum atestado registrado.</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<script>
+function editarAtestado(btn) {
+  document.getElementById("id_atestado").value = btn.dataset.id || "";
+
+  let data = {};
+  try { data = JSON.parse(btn.dataset.fill || "{}"); } catch(e) {}
+
+  const campos = ["data_atestado","data_entrega","empresa","departamento","matricula",
+    "nome_colaborador","cargo","data_inicio_afastamento","data_fim_afastamento",
+    "cid","medico_crm","tipo_atestado","observacoes"];
+  campos.forEach(k => {
+    const el = document.getElementById(k);
+    if (el) el.value = data[k] != null ? data[k] : "";
+  });
+
+  document.getElementById("form-titulo").innerText = "Editar atestado";
+  document.getElementById("btn-salvar").innerText = "Atualizar atestado";
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+function limparForm() {
+  document.getElementById("id_atestado").value = "";
+  document.getElementById("form-atestado").reset();
+  document.getElementById("form-titulo").innerText = "Novo atestado";
+  document.getElementById("btn-salvar").innerText = "Salvar atestado";
+}
+</script>
+
+{% endblock %}
