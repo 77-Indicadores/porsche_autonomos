@@ -168,8 +168,17 @@ async def sede_upload(
             import openpyxl
             wb = openpyxl.load_workbook(io.BytesIO(conteudo), data_only=True)
             ws = wb.active
-            headers = [str(c.value or "").strip().lower() for c in next(ws.iter_rows(min_row=1, max_row=1))]
-            for row in ws.iter_rows(min_row=2, values_only=True):
+            # detecta a linha de cabeçalho: primeira linha que contém "id" na coluna A
+            header_row = 1
+            for r in ws.iter_rows(min_row=1, max_row=10):
+                val = str(r[0].value or "").strip().lower()
+                if "id" in val:
+                    header_row = r[0].row
+                    break
+            headers = [str(c.value or "").strip().lower() for c in ws[header_row]]
+            for row in ws.iter_rows(min_row=header_row + 1, values_only=True):
+                if all(v is None for v in row):
+                    continue
                 row_dict = {headers[i]: (str(v) if v is not None else "") for i, v in enumerate(row)}
                 ok = _inserir_linha(db, row_dict)
                 if ok:
@@ -207,6 +216,10 @@ def _inserir_linha(db: Session, row: dict) -> bool:
     valor_str = _get("valor")
     comp = _get("competencia", "competência")
     obs = _get("observacao", "observação")
+
+    # normaliza competência: "2026-05-01 00:00:00" → "2026-05"
+    if comp and len(comp) >= 7 and comp[4] == "-":
+        comp = comp[:7]
 
     valor = _parse_valor(valor_str)
     if not id_a and not nome:
