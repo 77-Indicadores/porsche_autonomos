@@ -533,6 +533,14 @@ def fmt_num(value):
         return str(value or "")
 
 
+def fmt_data(value):
+    """Converte yyyy-mm-dd para dd/mm/yyyy; retorna o valor original em outros formatos."""
+    s = str(value or "").strip()
+    if len(s) == 10 and s[4] == "-" and s[7] == "-":
+        return f"{s[8:10]}/{s[5:7]}/{s[0:4]}"
+    return s or "-"
+
+
 def to_float(value):
     value = str(value or "").strip().replace(",", ".")
     if not value:
@@ -1418,6 +1426,7 @@ def aplicacoes_treinamento(request: Request, q: str = "", db: Session = Depends(
             "pessoas_dataworld": carregar_pessoas_aplicacao_treinamento(db),
             "status_aplicacao": STATUS_APLICACAO,
             "fmt_num": fmt_num,
+            "fmt_data": fmt_data,
             **flash_from_request(request),
         },
     )
