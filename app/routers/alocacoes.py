@@ -1,14 +1,31 @@
 from datetime import date
 
 from fastapi import APIRouter, Depends, Form, Request
+from sqlalchemy import text
 from sqlalchemy.orm import Session
 
-from app.database import get_db
+from app.database import engine, get_db
 from app.models import DimCarro, DimCargoAutonomo, DimAutonomo, DimEtapa, DimMotivoTroca, DimPiloto, DimProva, FatoPilotoAutonomoProva
 from app.template_config import templates
 from app.utils import flash_from_request, parse_date, parse_money, redirect_with_message
 
 router = APIRouter(tags=["alocacoes"])
+
+
+def _migrar_fato():
+    with engine.connect() as conn:
+        if conn.dialect.name == "postgresql":
+            conn.execute(text("ALTER TABLE fato_piloto_autonomo_prova ADD COLUMN IF NOT EXISTS forma_pagamento VARCHAR(20)"))
+            conn.commit()
+        else:
+            try:
+                conn.execute(text("SELECT forma_pagamento FROM fato_piloto_autonomo_prova LIMIT 1"))
+            except Exception:
+                conn.rollback()
+                conn.execute(text("ALTER TABLE fato_piloto_autonomo_prova ADD COLUMN forma_pagamento VARCHAR(20)"))
+                conn.commit()
+
+_migrar_fato()
 
 
 def options(db: Session):
@@ -198,6 +215,7 @@ def editar(
     data_fim_vinculo: str = Form(""),
     valor_fechado_etapa: str = Form(""),
     dias_trabalhados: str = Form(""),
+    forma_pagamento: str = Form(""),
     observacoes: str = Form(""),
     db: Session = Depends(get_db),
 ):
@@ -259,6 +277,7 @@ def editar(
     fato.data_fim_vinculo = data_fim
     fato.valor_fechado_etapa = parse_money(valor_fechado_etapa)
     fato.dias_trabalhados = dias
+    fato.forma_pagamento = forma_pagamento or None
     fato.observacoes = observacoes
 
     db.commit()

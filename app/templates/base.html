@@ -100,6 +100,7 @@
           {# Folha faz upload de PDF na própria tela; sem listas de apoio. #}
         {% else %}
           <a class="nav-link {% if request.url.path.startswith('/excel') %}active{% endif %}" href="/excel/">📥 Importações Autônomos</a>
+          <a class="nav-link {% if request.url.path.startswith('/autonomos/atualizar') %}active{% endif %}" href="/autonomos/atualizar-excel">🔄 Atualizar Cadastros</a>
           <a class="nav-link {% if request.url.path.startswith('/ids-importacao') %}active{% endif %}" href="/ids-importacao">IDs para Importação</a>
           <a class="nav-link {% if request.url.path.startswith('/setup') %}active{% endif %}" href="/setup">⚙️ Listas de Apoio</a>
         {% endif %}

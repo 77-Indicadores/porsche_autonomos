@@ -238,6 +238,115 @@ def salvar_autonomo(
     return redirect_with_message("/autonomos", success="Autonomo salvo com sucesso.")
 
 
+@router.get("/autonomos/atualizar-excel")
+def atualizar_excel_form(request: Request, db: Session = Depends(get_db)):
+    return templates.TemplateResponse("cadastros/atualizar_autonomos.html", {
+        "request": request,
+        **flash_from_request(request),
+    })
+
+
+@router.post("/autonomos/atualizar-excel")
+async def atualizar_excel_post(request: Request, arquivo: UploadFile = File(...), db: Session = Depends(get_db)):
+    import io
+    import openpyxl
+
+    conteudo = await arquivo.read()
+    wb = openpyxl.load_workbook(io.BytesIO(conteudo), data_only=True)
+    ws = wb.active
+
+    # detecta linha de cabeçalho (primeira que tem "cpf" ou "nome" na primeira coluna)
+    header_row = 1
+    for r in ws.iter_rows(min_row=1, max_row=10):
+        vals = [str(c.value or "").strip().lower() for c in r]
+        if any("cpf" in v or "nome" in v for v in vals):
+            header_row = r[0].row
+            break
+
+    headers = [str(c.value or "").strip().lower() for c in ws[header_row]]
+
+    def _col(*keys):
+        for k in keys:
+            for i, h in enumerate(headers):
+                if k in h:
+                    return i
+        return None
+
+    idx_cpf      = _col("cpf")
+    idx_email    = _col("email")
+    idx_nome     = _col("nome")
+    idx_tel      = _col("telefone", "tel")
+    idx_status   = _col("status")
+    idx_data_inc = _col("data_inclusao", "data inclusao", "inclusao")
+
+    atualizados = 0
+    ignorados = 0
+    nao_encontrados = []
+
+    CAMPOS_STATUS = {'Ativo','Inativo','Hiato','Treinamento','Bloqueado','Desligado','Suspenso'}
+
+    for row in ws.iter_rows(min_row=header_row + 1, values_only=True):
+        if all(v is None for v in row):
+            continue
+
+        def cel(idx):
+            if idx is None or idx >= len(row):
+                return ""
+            return str(row[idx] or "").strip()
+
+        cpf   = cel(idx_cpf).replace(".", "").replace("-", "").replace(" ", "")
+        email = cel(idx_email).lower()
+        nome  = cel(idx_nome)
+
+        # busca por CPF primeiro, depois email
+        autonomo = None
+        if cpf:
+            autonomo = db.query(DimAutonomo).filter(
+                text("REPLACE(REPLACE(REPLACE(cpf,'.',''),'-',''),' ','') = :cpf")
+            ).params(cpf=cpf).first()
+        if not autonomo and email:
+            autonomo = db.query(DimAutonomo).filter(
+                DimAutonomo.email == email
+            ).first()
+
+        if not autonomo:
+            nao_encontrados.append(nome or cpf or email or "?")
+            ignorados += 1
+            continue
+
+        # atualiza apenas os campos presentes na planilha
+        if idx_tel is not None:
+            v = cel(idx_tel)
+            if v:
+                autonomo.telefone = v
+        if idx_status is not None:
+            v = cel(idx_status)
+            if v and v in CAMPOS_STATUS:
+                autonomo.status_autonomo = v
+        if idx_data_inc is not None:
+            v = cel(idx_data_inc)
+            if v:
+                # normaliza datetime do Excel
+                if len(v) >= 10 and v[4] == "-":
+                    v = v[:10]
+                autonomo.data_inclusao = v
+        if idx_email is not None and not email:
+            pass  # email veio vazio, não sobrescreve
+        elif idx_email is not None:
+            autonomo.email = email
+
+        atualizados += 1
+
+    db.commit()
+
+    msg = f"{atualizados} autônomo(s) atualizado(s)."
+    if nao_encontrados:
+        msg += f" {ignorados} não encontrado(s): {', '.join(nao_encontrados[:5])}"
+        if len(nao_encontrados) > 5:
+            msg += f" e mais {len(nao_encontrados)-5}."
+    return redirect_with_message("/autonomos/atualizar-excel", success=msg)
+
+
 @router.post("/autonomos/{id_autonomo}/desligar")
 def desligar_autonomo(id_autonomo: int, data_saida: str = Form(...), motivo_saida: str = Form(...), db: Session = Depends(get_db)):
     autonomo = db.get(DimAutonomo, id_autonomo)

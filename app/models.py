@@ -143,6 +143,7 @@ class FatoPilotoAutonomoProva(Base):
     valor_fechado_etapa: Mapped[float | None] = mapped_column(Numeric(12, 2))
     dias_trabalhados: Mapped[int | None] = mapped_column(Integer)
     status_pagamento: Mapped[str | None] = mapped_column(String(40))
+    forma_pagamento: Mapped[str | None] = mapped_column(String(20))
     data_pagamento: Mapped[date | None] = mapped_column(Date)
     documento: Mapped[str | None] = mapped_column(String(120))
     observacoes: Mapped[str | None] = mapped_column(Text)
