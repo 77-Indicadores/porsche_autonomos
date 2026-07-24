@@ -157,7 +157,8 @@ function novoCadastro() {
             class="btn-muted"
             type="button"
             onclick="editarAutonomo(this)"
-            data-fill='{"current_id_autonomo":"{{ a.id_autonomo }}","id_autonomo":"{{ a.id_autonomo }}","nome_autonomo":"{{ a.nome_autonomo }}","cpf":"{{ a.cpf or "" }}","telefone":"{{ a.telefone or "" }}","email":"{{ a.email or "" }}","id_cargo_autonomo":"{{ a.id_cargo_autonomo or "" }}","tipo_autonomo":"{{ a.tipo_autonomo or "" }}","data_inclusao":"{{ a.data_inclusao }}","status_autonomo":"{{ a.status_autonomo }}","observacoes":"{{ a.observacoes or "" }}","foto_url":"{{ a.foto_url or "" }}"}'
+            data-id="{{ a.id_autonomo }}"
+            data-fill='{{ {"nome_autonomo": a.nome_autonomo, "cpf": a.cpf or "", "telefone": a.telefone or "", "email": a.email or "", "id_cargo_autonomo": (a.id_cargo_autonomo or "")|string, "tipo_autonomo": a.tipo_autonomo or "", "data_inclusao": a.data_inclusao|string if a.data_inclusao else "", "status_autonomo": a.status_autonomo or "Ativo", "observacoes": a.observacoes or "", "foto_url": a.foto_url or ""} | tojson }}'
           >
             Editar
           </button>
@@ -180,24 +181,23 @@ function novoCadastro() {
 
 <script>
 function editarAutonomo(btn) {
-  const data = JSON.parse(btn.dataset.fill || "{}");
+  // ID sempre via data-id (número simples, nunca quebra)
+  document.getElementById("current_id_autonomo").value = btn.dataset.id || "";
 
-  Object.keys(data).forEach(k => {
+  let data = {};
+  try { data = JSON.parse(btn.dataset.fill || "{}"); } catch(e) { console.error("data-fill parse error", e); }
+
+  const campos = ["nome_autonomo","cpf","telefone","email","id_cargo_autonomo","tipo_autonomo","data_inclusao","status_autonomo","observacoes"];
+  campos.forEach(k => {
     const el = document.getElementById(k);
-    if (el) el.value = data[k] || "";
+    if (el) el.value = data[k] != null ? data[k] : "";
   });
 
-  // ID viaja no hidden field, não na query string
-  document.getElementById("current_id_autonomo").value = data.current_id_autonomo || data.id_autonomo || "";
-
   const preview = document.getElementById("preview_foto_autonomo");
-  if (data.foto_url) {
-    preview.src = data.foto_url;
-    preview.style.display = "block";
-  } else {
-    preview.src = "";
-    preview.style.display = "none";
-  }
+  const fotoUrl = data.foto_url || "";
+  document.getElementById("foto_url").value = fotoUrl;
+  if (fotoUrl) { preview.src = fotoUrl; preview.style.display = "block"; }
+  else { preview.src = ""; preview.style.display = "none"; }
 
   window.scrollTo({ top: 0, behavior: "smooth" });
 }
