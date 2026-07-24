@@ -100,7 +100,7 @@ function novoCadastro() {
     <div>
       <label class="label">Status</label>
       <select class="input" name="status_autonomo" id="status_autonomo">
-        {% for s in ['Ativo','Inativo','Desligado','Suspenso'] %}
+        {% for s in ['Ativo','Inativo','Hiato','Treinamento','Bloqueado','Desligado','Suspenso'] %}
           <option>{{ s }}</option>
         {% endfor %}
       </select>

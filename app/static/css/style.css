@@ -17,6 +17,9 @@
 .badge-pendente,.badge-planejada{background:rgb(254 249 195);color:rgb(133 77 14)}
 .badge-substituido,.badge-em{background:rgb(219 234 254);color:rgb(29 78 216)}
 .badge-encerrado,.badge-desligado,.badge-bloqueado,.badge-cancelado,.badge-reprovado{background:rgb(254 226 226);color:rgb(153 27 27)}
+.badge-inativo,.badge-suspenso{background:rgb(243 244 246);color:rgb(75 85 99)}
+.badge-hiato{background:rgb(237 233 254);color:rgb(109 40 217)}
+.badge-treinamento{background:rgb(219 234 254);color:rgb(29 78 216)}
 .badge-concluida{background:rgb(229 231 235);color:rgb(55 65 81)}
 .flash{border-radius:8px;padding:.85rem 1rem;margin-bottom:1rem;font-weight:800}.flash-success{background:rgb(220 252 231);color:rgb(22 101 52)}.flash-error{background:rgb(254 226 226);color:rgb(153 27 27)}
 .form-grid{display:grid;grid-template-columns:1fr;gap:1rem}@media(min-width:768px){.form-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.span-2{grid-column:span 2}.span-3{grid-column:span 3}}
