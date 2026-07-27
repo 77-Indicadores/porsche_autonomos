@@ -291,7 +291,7 @@
           <td>
             <div class="row-actions">
               <button class="btn-editar-row" type="button"
-                onclick="editarDep({{ d.id_departamento }}, {{ d.nome_departamento|tojson }}, {{ d.status|tojson }})">
+                onclick='editarDep({{ d.id_departamento }}, {{ d.nome_departamento|tojson }}, {{ d.status|tojson }})'>
                 ✏️ Editar
               </button>
               <form method="post" action="/dho/departamentos/{{ d.id_departamento }}/excluir" style="margin:0"
@@ -366,7 +366,7 @@
           <td>
             <div class="row-actions">
               <button class="btn-editar-row" type="button"
-                onclick="editarCargo({{ c.id_cargo }}, {{ c.nome_cargo|tojson }}, {{ (c.id_departamento or '')|tojson }}, {{ c.status|tojson }})">
+                onclick='editarCargo({{ c.id_cargo }}, {{ c.nome_cargo|tojson }}, {{ (c.id_departamento or "")|tojson }}, {{ c.status|tojson }})'>
                 ✏️ Editar
               </button>
               <form method="post" action="/dho/cargos/{{ c.id_cargo }}/excluir" style="margin:0"
