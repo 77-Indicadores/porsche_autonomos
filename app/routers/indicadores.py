@@ -362,15 +362,9 @@ def headcount(request: Request, mes: str = ""):
         ref_base = date.today()
     ref = _eomonth(ref_base)
     periodo_label = _mes_label(ref)
+    mes_sel = mes or f"{ref_base.year}-{ref_base.month:02d}"
 
-    try:
-        rows = _fetch_feedz("rel_colab_77")
-        colabs = _normalizar_colabs(rows)
-        dash_html = _build_headcount_html(colabs, ref, periodo_label, meses_opcoes, mes_sel)
-    except Exception as exc:
-        erro = f"Erro ao buscar dados do Feedz: {exc}"
-
-    # Gera lista de meses (12 meses para o seletor)
+    # Gera lista de meses (12 meses para o seletor) — antes do try
     hoje = date.today()
     meses_opcoes = []
     for i in range(11, -1, -1):
@@ -381,11 +375,18 @@ def headcount(request: Request, mes: str = ""):
             ano -= 1
         meses_opcoes.append((f"{ano}-{m:02d}", _mes_label(date(ano, m, 1))))
 
+    try:
+        rows = _fetch_feedz("rel_colab_77")
+        colabs = _normalizar_colabs(rows)
+        dash_html = _build_headcount_html(colabs, ref, periodo_label, meses_opcoes, mes_sel)
+    except Exception as exc:
+        erro = f"Erro ao buscar dados do Feedz: {exc}"
+
     return templates.TemplateResponse("indicadores/headcount.html", {
         "request": request,
         "dash_html": dash_html,
         "erro": erro,
-        "mes_sel": mes or f"{ref_base.year}-{ref_base.month:02d}",
+        "mes_sel": mes_sel,
         "meses_opcoes": meses_opcoes,
         "periodo_label": periodo_label,
     })
