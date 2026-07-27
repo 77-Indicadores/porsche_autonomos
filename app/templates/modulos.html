@@ -36,7 +36,7 @@
     min-height: 100vh;
     display: grid;
     grid-template-rows: auto 1fr;
-    padding: 42px;
+    padding: 24px 32px;
     box-sizing: border-box;
   }
 
@@ -44,8 +44,8 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 24px;
-    margin-bottom: 34px;
+    gap: 16px;
+    margin-bottom: 18px;
   }
 
   .modulos-brand {
@@ -95,21 +95,21 @@
 
   .modulos-main {
     display: grid;
-    grid-template-columns: 1.05fr 1.95fr;
-    gap: 34px;
+    grid-template-columns: 1fr 3fr;
+    gap: 20px;
     align-items: stretch;
   }
 
   .modulos-intro {
     background: #0f172a;
     color: #fff;
-    border-radius: 34px;
-    padding: 38px;
+    border-radius: 26px;
+    padding: 28px;
     box-shadow: 0 28px 80px rgba(15, 23, 42, .24);
     display: flex;
     flex-direction: column;
     justify-content: space-between;
-    min-height: 590px;
+    min-height: 0;
   }
 
   .modulos-intro small {
@@ -120,35 +120,35 @@
   }
 
   .modulos-intro h1 {
-    margin: 22px 0 16px;
-    font-size: clamp(38px, 5vw, 64px);
+    margin: 14px 0 10px;
+    font-size: clamp(28px, 3.5vw, 44px);
     line-height: .96;
   }
 
   .modulos-intro p {
     color: #cbd5e1;
-    font-size: 16px;
-    line-height: 1.7;
+    font-size: 14px;
+    line-height: 1.6;
     max-width: 520px;
   }
 
   .modulos-mini-kpis {
     display: grid;
     grid-template-columns: repeat(2, 1fr);
-    gap: 14px;
-    margin-top: 34px;
+    gap: 10px;
+    margin-top: 20px;
   }
 
   .modulos-mini-kpis div {
     background: rgba(255, 255, 255, .08);
     border: 1px solid rgba(255, 255, 255, .12);
-    border-radius: 20px;
-    padding: 18px;
+    border-radius: 16px;
+    padding: 12px;
   }
 
   .modulos-mini-kpis b {
     display: block;
-    font-size: 28px;
+    font-size: 22px;
   }
 
   .modulos-mini-kpis span {
@@ -158,8 +158,8 @@
 
   .modulos-grid-full {
     display: grid;
-    grid-template-columns: repeat(2, minmax(300px, 1fr));
-    gap: 26px;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 16px;
   }
 
   .modulo-card-full {
@@ -168,14 +168,14 @@
     display: flex;
     flex-direction: column;
     justify-content: space-between;
-    min-height: 590px;
-    border-radius: 34px;
-    padding: 36px;
+    min-height: 0;
+    border-radius: 22px;
+    padding: 22px;
     text-decoration: none;
     color: inherit;
     background: rgba(255, 255, 255, .9);
     border: 1px solid rgba(203, 213, 225, .8);
-    box-shadow: 0 24px 70px rgba(15, 23, 42, .12);
+    box-shadow: 0 12px 40px rgba(15, 23, 42, .10);
     transition: .18s ease;
   }
 
@@ -198,28 +198,28 @@
   }
 
   .modulo-icon-full {
-    width: 78px;
-    height: 78px;
-    border-radius: 26px;
+    width: 52px;
+    height: 52px;
+    border-radius: 18px;
     display: grid;
     place-items: center;
-    font-size: 38px;
+    font-size: 26px;
     background: #f8fafc;
-    margin-bottom: 28px;
+    margin-bottom: 14px;
     box-shadow: inset 0 0 0 1px rgba(226, 232, 240, .9);
   }
 
   .modulo-card-full h2 {
-    font-size: 42px;
+    font-size: 26px;
     line-height: 1;
-    margin: 0 0 14px;
+    margin: 0 0 8px;
     color: #0f172a;
   }
 
   .modulo-card-full p {
     color: #64748b;
-    font-size: 16px;
-    line-height: 1.65;
+    font-size: 13px;
+    line-height: 1.55;
     max-width: 520px;
   }
 
@@ -228,33 +228,34 @@
     z-index: 1;
     display: flex;
     flex-wrap: wrap;
-    gap: 10px;
+    gap: 6px;
+    margin-top: 12px;
   }
 
   .modulo-tags-full span {
     background: #f1f5f9;
     border: 1px solid #e2e8f0;
     border-radius: 999px;
-    padding: 9px 13px;
-    font-size: 12px;
-    font-weight: 900;
+    padding: 5px 10px;
+    font-size: 11px;
+    font-weight: 700;
     color: #334155;
   }
 
   .modulo-enter {
     position: relative;
     z-index: 1;
-    margin-top: 28px;
+    margin-top: 14px;
     display: inline-flex;
     align-items: center;
     justify-content: center;
     width: fit-content;
     border-radius: 999px;
-    padding: 13px 18px;
+    padding: 9px 14px;
     background: #0f172a;
     color: #fff;
     font-weight: 900;
-    font-size: 13px;
+    font-size: 12px;
   }
 
   @media (max-width: 1120px) {
