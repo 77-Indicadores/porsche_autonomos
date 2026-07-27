@@ -2,6 +2,7 @@
 {% block header %}Indicadores{% endblock %}
 {% block subtitle %}Vagas · Porsche Carrera Cup Brasil{% endblock %}
 {% block content %}
+<style>.page-header{display:none}</style>
 {% if erro %}<div class="alert alert-error mb-6">{{ erro }}</div>{% endif %}
 {% if dash_html %}{{ dash_html | safe }}{% elif not erro %}
 <section class="panel"><p class="text-zinc-500">Nenhuma vaga encontrada.</p></section>

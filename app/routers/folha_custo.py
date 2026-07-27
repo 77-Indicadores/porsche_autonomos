@@ -866,3 +866,129 @@ def folha_simulacao(
             "brl":            _brl,
         },
     )
+
+
+# ─── Custo por Colaborador (Total Rewards Premium) ───────────────────────────
+
+_CAT_ORDER = ["Salário", "Adicionais", "Encargos", "Benefícios", "Provisão", "PLR"]
+_CAT_EMOJI = {
+    "Salário":    "💰",
+    "Adicionais": "⚡",
+    "Encargos":   "🏛️",
+    "Benefícios": "🎁",
+    "Provisão":   "📦",
+    "PLR":        "🏆",
+}
+
+
+@router.get("/indicadores/folha-custo-colaborador")
+def custo_colaborador(
+    request: Request,
+    empresa: str = "",
+    competencia: str = "",
+    colaborador: str = "",
+):
+    todas_empresas, todas_comps = _opcoes()
+
+    if not competencia and todas_comps:
+        competencia = todas_comps[-1]
+
+    colab_params: dict = {}
+    colab_where = ["1=1"]
+    if empresa:
+        colab_where.append("empresa_nome = :empresa")
+        colab_params["empresa"] = empresa
+    if competencia:
+        colab_where.append("competencia = :comp")
+        colab_params["comp"] = competencia
+    w_str = " AND ".join(colab_where)
+
+    todos_colabs = [r["nome"] for r in _db(f"""
+        SELECT DISTINCT nome_empregado AS nome
+        FROM budget_resultado
+        WHERE {w_str}
+        ORDER BY nome_empregado
+    """, colab_params)]
+
+    func = None
+    categorias = []
+
+    if colaborador:
+        verbas = _db("""
+            SELECT descricao_verba AS descricao,
+                   SUM(valor_budget) AS valor,
+                   MIN(cargo_nome)   AS cargo,
+                   MIN(empresa_nome) AS empresa_nome,
+                   MIN(competencia)  AS competencia,
+                   MIN(matricula)    AS matricula
+            FROM budget_resultado
+            WHERE nome_empregado = :nome
+              AND (:empresa = '' OR empresa_nome = :empresa)
+              AND (:comp    = '' OR competencia  = :comp)
+            GROUP BY descricao_verba
+            ORDER BY valor DESC
+        """, {"nome": colaborador, "empresa": empresa, "comp": competencia or ""})
+
+        if verbas:
+            first = verbas[0]
+            total = sum(float(v["valor"] or 0) for v in verbas)
+            sal   = sum(float(v["valor"] or 0) for v in verbas if _classif(v["descricao"]) == "Salário")
+            ben   = sum(float(v["valor"] or 0) for v in verbas if _classif(v["descricao"]) == "Benefícios")
+            prov  = sum(float(v["valor"] or 0) for v in verbas if _classif(v["descricao"]) == "Provisão")
+            outros = total - sal - ben - prov
+
+            def _pct(v): return round(v / max(total, 1) * 100, 2)
+
+            # Agrupamento por categoria, ordenado
+            cat_map: dict[str, list] = {c: [] for c in _CAT_ORDER}
+            for v in verbas:
+                cat = _classif(v["descricao"])
+                if cat in cat_map:
+                    cat_map[cat].append({"descricao": v["descricao"], "valor": float(v["valor"] or 0)})
+
+            for cat in _CAT_ORDER:
+                itens = cat_map[cat]
+                if not itens:
+                    continue
+                subtotal = sum(i["valor"] for i in itens)
+                categorias.append({
+                    "cat":      cat,
+                    "emoji":    _CAT_EMOJI.get(cat, ""),
+                    "itens":    itens,
+                    "subtotal": subtotal,
+                    "pct_sal":  round(subtotal / max(sal if cat == "Salário" else total, 1) * 100, 1),
+                    "pct_tot":  round(subtotal / max(total, 1) * 100, 1),
+                })
+
+            func = {
+                "nome":        colaborador,
+                "cargo":       first["cargo"],
+                "empresa":     first["empresa_nome"],
+                "matricula":   first["matricula"],
+                "competencia": first["competencia"],
+                "total":       total,
+                "sal":         sal,
+                "ben":         ben,
+                "prov":        prov,
+                "outros":      outros,
+                "pct_sal":     _pct(sal),
+                "pct_ben":     _pct(ben),
+                "pct_prov":    _pct(prov),
+                "pct_out":     _pct(outros),
+            }
+
+    return templates.TemplateResponse(
+        "indicadores/folha_custo_colaborador.html",
+        {
+            "request":        request,
+            "todas_empresas": todas_empresas,
+            "todas_comps":    todas_comps,
+            "todos_colabs":   todos_colabs,
+            "empresa_sel":    empresa,
+            "comp_sel":       competencia,
+            "colab_sel":      colaborador,
+            "func":           func,
+            "categorias":     categorias,
+            "brl":            _brl,
+        },
+    )

@@ -1,9 +1,236 @@
 {% extends "base.html" %}
-{% block header %}Indicadores{% endblock %}
-{% block subtitle %}Folha · Custo por Colaborador · Porsche Carrera Cup Brasil{% endblock %}
+{% block header %}Custo por Colaborador{% endblock %}
+{% block subtitle %}Total Rewards — composição detalhada do pacote de remuneração.{% endblock %}
+
 {% block content %}
-{% if erro %}<div class="alert alert-error mb-6">{{ erro }}</div>{% endif %}
-{% if dash_html %}{{ dash_html | safe }}{% elif not erro %}
-<section class="panel"><p class="text-zinc-500">Nenhuma folha importada.</p></section>
+<style>
+/* ── filtros ── */
+.tr-filters{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;margin-bottom:20px}
+.tr-filters .fg{display:flex;flex-direction:column;gap:4px;min-width:160px;flex:1}
+.tr-filters label{font-size:11px;font-weight:700;color:#2d3340;text-transform:uppercase;letter-spacing:.3px}
+.tr-filters select{height:38px;border:1px solid #e9eaef;border-radius:10px;padding:0 10px;font-size:13px;color:#3a4150;background:#fff}
+
+/* ── layout principal ── */
+.main-dash{display:flex;gap:20px;align-items:start}
+@media(max-width:900px){.main-dash{flex-direction:column}}
+
+/* ── sidebar ── */
+.sidebar{width:220px;flex-shrink:0;background:#fff;border-radius:28px;padding:22px;
+  box-shadow:0 10px 30px rgba(0,0,0,.05);text-align:center}
+
+/* ring giratório */
+@keyframes girar{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
+@keyframes antigirar{from{transform:rotate(360deg)}to{transform:rotate(0deg)}}
+.foto-ring{width:96px;height:96px;border-radius:50%;
+  background:conic-gradient(#d5001c,#000,#c9a24d,#000,#d5001c);
+  animation:girar 6s linear infinite;margin:0 auto 12px;
+  display:flex;justify-content:center;align-items:center}
+.foto-inner{width:84px;height:84px;border-radius:50%;background:#fff;
+  display:flex;justify-content:center;align-items:center;
+  animation:antigirar 6s linear infinite}
+.avatar-ini{width:76px;height:76px;border-radius:50%;
+  background:linear-gradient(145deg,#2a58ff,#162f86);
+  display:flex;align-items:center;justify-content:center;
+  font-size:30px;color:#fff;font-weight:900}
+
+.sb-nome{font-weight:900;color:#0f172a;text-transform:uppercase;font-size:12px;line-height:1.3}
+.sb-mat{font-size:10px;font-weight:700;color:#94a3b8;margin-top:3px}
+.sb-info{margin-top:16px;text-align:left;background:#f8fafc;padding:11px;border-radius:16px}
+.sb-info .lbl{font-size:8px;font-weight:800;color:#94a3b8;text-transform:uppercase;margin-bottom:2px}
+.sb-info .val{font-size:10px;font-weight:800;color:#1e293b;margin-bottom:8px;line-height:1.3}
+.sb-info .val:last-child{margin-bottom:0}
+
+/* donut SVG */
+.donut-wrap{margin-top:18px}
+.donut-legend{font-size:8px;font-weight:800;margin-top:8px;
+  display:grid;grid-template-columns:1fr 1fr;gap:4px;text-align:left}
+
+/* ── área principal ── */
+.main-area{flex:1;min-width:0;display:flex;flex-direction:column;gap:16px}
+
+/* kpi grid */
+.kpi-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.card-kpi{background:#fff;padding:16px;border-radius:20px;
+  box-shadow:0 4px 10px rgba(0,0,0,.03);border-left:4px solid #d5001c}
+.card-kpi.dark{background:#1a1c22;border:none;color:#fff}
+.card-kpi .k-lbl{font-size:9px;font-weight:800;color:#94a3b8;text-transform:uppercase}
+.card-kpi.dark .k-lbl{color:#94a3b8}
+.card-kpi .k-val{font-size:22px;font-weight:900;margin:4px 0;font-variant-numeric:tabular-nums}
+.card-kpi .k-sub{font-size:9px;font-weight:800;color:#94a3b8}
+.card-kpi.dark .k-sub{color:#10b981}
+
+/* accordion */
+.acc-panel{background:#fff;border-radius:28px;padding:22px;
+  box-shadow:0 10px 30px rgba(0,0,0,.05)}
+.acc-title{font-size:10px;font-weight:800;color:#94a3b8;text-transform:uppercase;
+  letter-spacing:.4px;margin-bottom:14px}
+.acc-scroll{overflow-y:auto;max-height:380px;padding-right:6px}
+
+.acc-item{border-bottom:1px solid #f1f5f9}
+.acc-item:last-child{border-bottom:none}
+.acc-check{display:none}
+.acc-head{display:flex;justify-content:space-between;align-items:center;
+  cursor:pointer;padding:10px 0;font-weight:700;color:#0f172a;
+  transition:border-left .15s,padding-left .15s}
+.acc-check:checked + .acc-head{color:#d5001c;border-bottom:none}
+.acc-head:hover{border-left:3px solid #d5001c;padding-left:8px;background:#fdfdfd}
+.acc-head .cat-name{font-size:11px}
+.acc-head .cat-right{text-align:right}
+.acc-head .cat-val{font-weight:900;font-size:13px;font-variant-numeric:tabular-nums}
+.acc-head .cat-pct{font-size:9px;color:#94a3b8;font-weight:800}
+.acc-body{display:none;padding:8px 0 10px;background:#f8fafc;border-radius:10px;
+  font-size:11px;color:#64748b;margin-bottom:4px}
+.acc-check:checked + .acc-head + .acc-body{display:block}
+.acc-row{display:flex;justify-content:space-between;padding:5px 10px;
+  border-bottom:1px solid #f1f5f9}
+.acc-row:last-child{border-bottom:none}
+.acc-row span:last-child{font-weight:800;color:#1e293b;font-variant-numeric:tabular-nums}
+
+/* empty */
+.empty-tr{text-align:center;padding:60px 20px;color:#7c8391}
+.empty-tr h3{font-size:16px;color:#4c5360;margin-bottom:6px}
+</style>
+
+{# ── Filtros ── #}
+<form method="get" action="/indicadores/folha-custo-colaborador">
+  <div class="tr-filters">
+    <div class="fg">
+      <label>Empresa / Centro de Custo</label>
+      <select name="empresa" onchange="this.form.submit()">
+        <option value="">— Todas —</option>
+        {% for e in todas_empresas %}
+        <option value="{{ e }}" {% if e == empresa_sel %}selected{% endif %}>{{ e }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="fg">
+      <label>Competência</label>
+      <select name="competencia" onchange="this.form.submit()">
+        {% for c in todas_comps %}
+        <option value="{{ c }}" {% if c == comp_sel %}selected{% endif %}>{{ c }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="fg">
+      <label>Nome</label>
+      <select name="colaborador" onchange="this.form.submit()">
+        <option value="">— Selecione —</option>
+        {% for c in todos_colabs %}
+        <option value="{{ c }}" {% if c == colab_sel %}selected{% endif %}>{{ c }}</option>
+        {% endfor %}
+      </select>
+    </div>
+  </div>
+</form>
+
+{% if not func %}
+<div class="empty-tr">
+  <h3>Selecione um colaborador</h3>
+  <p>Escolha empresa, competência e nome para ver a composição do pacote.</p>
+</div>
+
+{% else %}
+{# Percentuais acumulados para o donut #}
+{% set off_sal  = 0 %}
+{% set off_ben  = func.pct_sal %}
+{% set off_prov = func.pct_sal + func.pct_ben %}
+{% set off_out  = func.pct_sal + func.pct_ben + func.pct_prov %}
+
+<div class="main-dash">
+
+  {# ── SIDEBAR ── #}
+  <div class="sidebar">
+    <div class="foto-ring">
+      <div class="foto-inner">
+        <div class="avatar-ini">{{ func.nome[0] }}</div>
+      </div>
+    </div>
+    <div class="sb-nome">{{ func.nome }}</div>
+    <div class="sb-mat">Mat. {{ func.matricula }}</div>
+
+    <div class="sb-info">
+      <div class="lbl">Cargo</div>
+      <div class="val">{{ func.cargo or "—" }}</div>
+      <div class="lbl">Empresa</div>
+      <div class="val">{{ func.empresa }}</div>
+      <div class="lbl">Competência</div>
+      <div class="val">{{ func.competencia }}</div>
+    </div>
+
+    {# Donut SVG #}
+    <div class="donut-wrap">
+      <svg width="110" height="110" viewBox="0 0 42 42" style="transform:rotate(-90deg)">
+        <circle cx="21" cy="21" r="15.915" fill="transparent" stroke="#f1f5f9" stroke-width="6"/>
+        {# Salário #}
+        <circle cx="21" cy="21" r="15.915" fill="transparent" stroke="#b30000" stroke-width="6"
+          stroke-dasharray="{{ func.pct_sal }} {{ 100 - func.pct_sal }}"
+          stroke-dashoffset="0"/>
+        {# Benefícios #}
+        <circle cx="21" cy="21" r="15.915" fill="transparent" stroke="#ff4444" stroke-width="6"
+          stroke-dasharray="{{ func.pct_ben }} {{ 100 - func.pct_ben }}"
+          stroke-dashoffset="-{{ func.pct_sal }}"/>
+        {# Provisão #}
+        <circle cx="21" cy="21" r="15.915" fill="transparent" stroke="#ff9999" stroke-width="6"
+          stroke-dasharray="{{ func.pct_prov }} {{ 100 - func.pct_prov }}"
+          stroke-dashoffset="-{{ func.pct_sal + func.pct_ben }}"/>
+        {# Outros #}
+        <circle cx="21" cy="21" r="15.915" fill="transparent" stroke="#ffe5e5" stroke-width="6"
+          stroke-dasharray="{{ func.pct_out }} {{ 100 - func.pct_out }}"
+          stroke-dashoffset="-{{ func.pct_sal + func.pct_ben + func.pct_prov }}"/>
+      </svg>
+      <div class="donut-legend">
+        <span><span style="color:#b30000">●</span> Salário</span>
+        <span><span style="color:#ff4444">●</span> Benefícios</span>
+        <span><span style="color:#ff9999">●</span> Provisão</span>
+        <span><span style="color:#ffe5e5">●</span> Outros</span>
+      </div>
+    </div>
+  </div>
+
+  {# ── ÁREA PRINCIPAL ── #}
+  <div class="main-area">
+    {# KPIs #}
+    <div class="kpi-grid">
+      <div class="card-kpi dark">
+        <div class="k-lbl">Pacote Mensal Total</div>
+        <div class="k-val">{{ brl(func.total, 0) }}</div>
+        <div class="k-sub">{{ func.competencia }}</div>
+      </div>
+      <div class="card-kpi">
+        <div class="k-lbl">Salário Base</div>
+        <div class="k-val" style="color:#1e293b">{{ brl(func.sal, 0) }}</div>
+        <div class="k-sub">Participação: {{ "%.0f"|format(func.pct_sal) }}%</div>
+      </div>
+    </div>
+
+    {# Accordion composição #}
+    <div class="acc-panel">
+      <div class="acc-title">Composição Detalhada</div>
+      <div class="acc-scroll">
+        {% for cat in categorias %}
+        <div class="acc-item">
+          <input type="checkbox" class="acc-check" id="cat_{{ loop.index }}">
+          <label class="acc-head" for="cat_{{ loop.index }}">
+            <div class="cat-name">{{ cat.emoji }} {{ cat.cat }}</div>
+            <div class="cat-right">
+              <div class="cat-val">{{ brl(cat.subtotal, 0) }}</div>
+              <div class="cat-pct">{{ cat.pct_tot }}% do total</div>
+            </div>
+          </label>
+          <div class="acc-body">
+            {% for item in cat.itens %}
+            <div class="acc-row">
+              <span>{{ item.descricao }}</span>
+              <span>{{ brl(item.valor, 2) }}</span>
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+
+</div>
 {% endif %}
 {% endblock %}
