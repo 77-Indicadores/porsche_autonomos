@@ -40,6 +40,14 @@
         <a class="nav-link {% if request.url.path.startswith('/dho/aplicacoes-treinamento') %}active{% endif %}" href="/dho/aplicacoes-treinamento">✅ Aplicar Treinamento</a>
       </div>
 
+      {% elif request.url.path.startswith('/indicadores') %}
+      <div class="nav-section">
+        <div class="nav-section-title">Indicadores</div>
+        <a class="nav-link {% if request.url.path == '/indicadores' %}active{% endif %}" href="/indicadores">📊 Painéis</a>
+        <div class="nav-subsection-title">Headcount</div>
+        <a class="nav-link {% if request.url.path == '/indicadores/headcount' %}active{% endif %}" href="/indicadores/headcount">👥 Headcount Ativo</a>
+      </div>
+
       {% elif request.url.path.startswith('/facilities') %}
       <div class="nav-section">
         <div class="nav-section-title">Facilities</div>

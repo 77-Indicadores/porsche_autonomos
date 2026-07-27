@@ -346,6 +346,20 @@ except Exception as exc:
     print(traceback.format_exc())
 
 # ============================================================
+# Router Indicadores
+# ============================================================
+try:
+    import importlib
+    indicadores_runtime = importlib.import_module("app.routers.indicadores")
+    app.include_router(indicadores_runtime.router)
+    print("OK - Rota /indicadores registrada.")
+except Exception as exc:
+    import traceback
+    print("ERRO AO REGISTRAR /indicadores")
+    print(exc)
+    print(traceback.format_exc())
+
+# ============================================================
 # Router Atestados Médicos (deve vir ANTES de folha_pagamento
 # para que /folha/atestados não seja capturado por /folha/{id_arquivo})
 # ============================================================

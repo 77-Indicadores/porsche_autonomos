@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+
+{% block header %}Indicadores{% endblock %}
+{% block subtitle %}Dashboards analíticos — Porsche Carrera Cup Brasil{% endblock %}
+
+{% block content %}
+<section class="panel">
+  <div class="panel-head">
+    <h3>Painéis disponíveis</h3>
+  </div>
+  <div style="display:flex;gap:16px;flex-wrap:wrap;padding:8px 0">
+    <a href="/indicadores/headcount" class="btn-primary" style="text-decoration:none;font-size:15px;padding:14px 24px;border-radius:12px">
+      👥 Headcount Ativo
+    </a>
+  </div>
+</section>
+{% endblock %}
