@@ -400,9 +400,9 @@ REFERENCE_SHEETS = {
     "carros": {
         "title": "REF_CARROS",
         "table": "dim_carros",
-        "columns": ["id_carro", "numero_carro", "modelo", "status_carro"],
-        "labels": ["ID Carro", "Numero", "Modelo", "Status"],
-        "order_by": ["numero_carro"],
+        "columns": ["id_carro", "chassi", "modelo", "categoria_padrao", "status_carro"],
+        "labels": ["ID Carro", "Chassi", "Modelo", "Categoria", "Status"],
+        "order_by": ["chassi"],
         "field": "id_carro",
     },
     "cargos": {
