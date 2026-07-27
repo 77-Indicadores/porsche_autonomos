@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 
-{% block header %}Headcount Ativo{% endblock %}
-{% block subtitle %}Colaboradores ativos por período — Porsche Carrera Cup Brasil{% endblock %}
+{% block header %}Indicadores{% endblock %}
+{% block subtitle %}Headcount Ativo · Porsche Carrera Cup Brasil{% endblock %}
 
 {% block content %}
 
@@ -9,22 +9,8 @@
 <div class="alert alert-error mb-6">{{ erro }}</div>
 {% endif %}
 
-<section class="panel mb-6">
-  <form method="get" class="flex gap-3 items-center">
-    <label class="label" style="margin:0;white-space:nowrap">Período de referência</label>
-    <select class="input" name="mes" style="max-width:200px" onchange="this.form.submit()">
-      {% for val, label in meses_opcoes %}
-        <option value="{{ val }}" {% if val == mes_sel %}selected{% endif %}>{{ label }}</option>
-      {% endfor %}
-    </select>
-    <button class="btn-secondary">Atualizar</button>
-  </form>
-</section>
-
 {% if dash_html %}
-<section style="overflow-x:auto">
-  {{ dash_html | safe }}
-</section>
+{{ dash_html | safe }}
 {% elif not erro %}
 <section class="panel">
   <p class="text-zinc-500">Nenhum dado encontrado para o período.</p>
