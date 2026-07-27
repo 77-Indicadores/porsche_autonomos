@@ -21,7 +21,7 @@ router = APIRouter(tags=["indicadores"])
 
 def _fetch_feedz(entity: str) -> list[dict]:
     base_url = os.getenv("FEEDZ_ODATA_URL", "https://catworld.77indicadores.com.br/api/odata/porsche/feedz")
-    token = os.getenv("FEEDZ_TOKEN", "")
+    token = os.getenv("FEEDZ_TOKEN") or os.getenv("CATWORLD_TOKEN", "")
     headers = {"Authorization": f"Bearer {token}", "Accept": "application/json"}
     url = f"{base_url}/{entity}"
     rows: list[dict] = []
