@@ -1,9 +1,224 @@
 {% extends "base.html" %}
-{% block header %}Indicadores{% endblock %}
-{% block subtitle %}Folha · Holerite Lista · Porsche Carrera Cup Brasil{% endblock %}
+{% block header %}Holerite · Lista{% endblock %}
+{% block subtitle %}Tabela consolidada de todos os colaboradores com detalhamento de verbas.{% endblock %}
+
 {% block content %}
-{% if erro %}<div class="alert alert-error mb-6">{{ erro }}</div>{% endif %}
-{% if dash_html %}{{ dash_html | safe }}{% elif not erro %}
-<section class="panel"><p class="text-zinc-500">Nenhuma folha importada.</p></section>
+<style>
+:root {
+  --red:#e10600; --navy:#08173a; --green:#16a34a;
+  --amber:#d97706; --indigo:#4f46e5; --dark-red:#991b1b;
+  --soft:#f8f8fa; --line:#e9eaef; --muted:#7c8391;
+}
+
+/* ── filtros ── */
+.hl-filters{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;margin-bottom:18px}
+.hl-filters .fg{display:flex;flex-direction:column;gap:4px;min-width:160px;flex:1}
+.hl-filters label{font-size:11px;font-weight:700;color:#2d3340;text-transform:uppercase;letter-spacing:.3px}
+.hl-filters select{height:38px;border:1px solid var(--line);border-radius:10px;padding:0 10px;font-size:13px;color:#3a4150;background:#fff}
+.hl-btn{height:38px;padding:0 18px;background:var(--red);color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;align-self:flex-end}
+
+/* ── sumário ── */
+.hl-summary{display:flex;gap:12px;margin-bottom:16px;flex-wrap:wrap}
+.hl-kpi{background:#fff;border:1px solid var(--line);border-radius:14px;padding:12px 18px;flex:1;min-width:140px;box-shadow:0 2px 8px rgba(0,0,0,.04)}
+.hl-kpi.dark{background:linear-gradient(145deg,var(--navy),#07122f);color:#fff;border:none}
+.hl-kpi .lbl{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.4px;opacity:.8}
+.hl-kpi .val{font-size:18px;font-weight:900;margin-top:4px;font-variant-numeric:tabular-nums;color:inherit}
+
+/* ── tabela ── */
+.hl-table-wrap{background:#fff;border:1px solid var(--line);border-radius:18px;overflow:hidden;box-shadow:0 4px 16px rgba(0,0,0,.05)}
+.hl-thead{display:flex;align-items:center;background:#fef2f2;padding:10px 0;border-bottom:1px solid #fecaca;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.3px;color:var(--dark-red)}
+.hl-thead .col-nome{width:25%;padding-left:14px;box-sizing:border-box}
+.hl-thead .col-val{flex:1;text-align:center}
+
+details{border-bottom:1px solid var(--line)}
+details:last-child{border-bottom:none}
+summary{list-style:none;cursor:pointer;outline:none}
+summary::-webkit-details-marker{display:none}
+
+.hl-row{display:flex;align-items:center;padding:9px 0;transition:background .15s}
+details[open] .hl-row,summary:hover .hl-row{background:#fafafa}
+
+.col-nome{width:25%;padding-left:14px;box-sizing:border-box;display:flex;align-items:center;gap:10px;flex-shrink:0}
+.avatar{width:32px;height:32px;border-radius:50%;background:linear-gradient(145deg,#2a58ff,#162f86);border:1px solid var(--red);display:flex;align-items:center;justify-content:center;font-size:13px;color:#fff;font-weight:900;flex-shrink:0}
+.col-nome-text{display:flex;flex-direction:column}
+.col-nome-text .name{color:#1f2937;font-weight:700;font-size:11px;line-height:1.2}
+.col-nome-text .role{font-size:9px;color:var(--muted);margin-top:1px}
+
+.col-val{flex:1;text-align:center;font-size:11px;font-weight:500;font-variant-numeric:tabular-nums;color:#374151}
+.col-val.c-red{color:#dc2626}
+.col-val.c-bold{font-weight:700;color:#111827}
+.col-val.c-pacote{color:var(--dark-red);font-weight:800;background:#fef2f2;border-radius:4px;padding:2px 4px}
+
+/* ── detalhe expandido ── */
+.hl-detail{display:flex;padding:10px 0;background:#f9fafb;font-size:9px;color:#6b7280;text-align:center;border-top:1px solid #f3f4f6}
+.hl-detail .col-nome{background:transparent}
+.hl-detail .col-val{flex:1}
+.det-item{margin-bottom:6px;line-height:1.4}
+.det-item b{color:#374151;font-weight:700}
+.det-zero{color:#d1d5db;font-style:italic}
+</style>
+
+{# ── Filtros ── #}
+<form method="get" action="/indicadores/folha-lista">
+  <div class="hl-filters">
+    <div class="fg">
+      <label>Empresa / Centro de Custo</label>
+      <select name="empresa" onchange="this.form.submit()">
+        <option value="">— Todas —</option>
+        {% for e in todas_empresas %}
+        <option value="{{ e }}" {% if e == empresa_sel %}selected{% endif %}>{{ e }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="fg">
+      <label>Competência</label>
+      <select name="competencia" onchange="this.form.submit()">
+        {% for c in todas_comps %}
+        <option value="{{ c }}" {% if c == comp_sel %}selected{% endif %}>{{ c }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <button type="submit" class="hl-btn">Filtrar</button>
+  </div>
+</form>
+
+{% if not funcionarios %}
+<div style="text-align:center;padding:60px 20px;color:var(--muted)">
+  <h3 style="font-size:16px;margin-bottom:6px;color:#4c5360">Nenhum dado encontrado</h3>
+  <p>Selecione uma competência disponível para visualizar a lista.</p>
+</div>
+
+{% else %}
+
+{# ── KPIs resumo ── #}
+<div class="hl-summary">
+  <div class="hl-kpi dark">
+    <div class="lbl">Colaboradores</div>
+    <div class="val">{{ funcionarios | length }}</div>
+  </div>
+  <div class="hl-kpi">
+    <div class="lbl">Total Proventos</div>
+    <div class="val">{{ brl(funcionarios | sum(attribute='tp'), 0) }}</div>
+  </div>
+  <div class="hl-kpi">
+    <div class="lbl">Total Provisões</div>
+    <div class="val">{{ brl(funcionarios | sum(attribute='tpr'), 0) }}</div>
+  </div>
+  <div class="hl-kpi">
+    <div class="lbl">Total Benefícios</div>
+    <div class="val">{{ brl(funcionarios | sum(attribute='tb'), 0) }}</div>
+  </div>
+  <div class="hl-kpi dark">
+    <div class="lbl">Pacote Total</div>
+    <div class="val">{{ brl(total_pacote, 0) }}</div>
+  </div>
+</div>
+
+{# ── Tabela ── #}
+<div class="hl-table-wrap">
+  {# Cabeçalho #}
+  <div class="hl-thead">
+    <div class="col-nome">Colaborador</div>
+    <div class="col-val">Prov.</div>
+    <div class="col-val">Desc.</div>
+    <div class="col-val">Líquido</div>
+    <div class="col-val">Provis.</div>
+    <div class="col-val">Benef.</div>
+    <div class="col-val">PLR</div>
+    <div class="col-val">Rescis.</div>
+    <div class="col-val">Pacote</div>
+  </div>
+
+  {# Linhas ── cada uma expansível #}
+  {% for f in funcionarios %}
+  <details>
+    <summary>
+      <div class="hl-row">
+        <div class="col-nome">
+          <div class="avatar">{{ f.nome[0] }}</div>
+          <div class="col-nome-text">
+            <span class="name">{{ f.nome }}</span>
+            <span class="role">{{ f.cargo or "—" }}</span>
+          </div>
+        </div>
+        <div class="col-val">{{ brl(f.tp, 0) }}</div>
+        <div class="col-val c-red">{{ brl(f.desc, 0) }}</div>
+        <div class="col-val c-bold">{{ brl(f.liq, 0) }}</div>
+        <div class="col-val">{{ brl(f.tpr, 0) }}</div>
+        <div class="col-val">{{ brl(f.tb, 0) }}</div>
+        <div class="col-val">{{ brl(f.tplr, 0) }}</div>
+        <div class="col-val">{{ brl(f.tr, 0) }}</div>
+        <div class="col-val"><span class="c-pacote">{{ brl(f.pacote, 0) }}</span></div>
+      </div>
+    </summary>
+
+    {# Detalhe expandido #}
+    <div class="hl-detail">
+      <div class="col-nome"></div>
+
+      {# Proventos #}
+      <div class="col-val">
+        {% for v in f.prov_v %}
+        <div class="det-item">{{ v.descricao }}<br><b>{{ brl(v.valor or 0, 0) }}</b></div>
+        {% endfor %}
+      </div>
+
+      {# Descontos ── INSS + IRRF estimados #}
+      <div class="col-val">
+        {% if f.eh_est %}
+        <div class="det-item">Isento INSS<br><b>—</b></div>
+        {% else %}
+        <div class="det-item">INSS (Est.)<br><b>{{ brl(f.inss, 0) }}</b></div>
+        {% endif %}
+        <div class="det-item">IRRF (Est.)<br><b>{% if f.irrf == 0 %}Isento{% else %}{{ brl(f.irrf, 0) }}{% endif %}</b></div>
+      </div>
+
+      {# Líquido ── sem detalhe #}
+      <div class="col-val"></div>
+
+      {# Provisões #}
+      <div class="col-val">
+        {% for v in f.prsn_v %}
+        <div class="det-item">{{ v.descricao }}<br><b>{{ brl(v.valor or 0, 0) }}</b></div>
+        {% endfor %}
+        {% if not f.prsn_v %}<span class="det-zero">—</span>{% endif %}
+      </div>
+
+      {# Benefícios #}
+      <div class="col-val">
+        {% for v in f.benef_v %}
+        <div class="det-item">{{ v.descricao }}<br><b>{{ brl(v.valor or 0, 0) }}</b></div>
+        {% endfor %}
+        {% if not f.benef_v %}<span class="det-zero">—</span>{% endif %}
+      </div>
+
+      {# PLR #}
+      <div class="col-val">
+        {% for v in f.plr_v %}
+        <div class="det-item">{{ v.descricao }}<br><b>{{ brl(v.valor or 0, 0) }}</b></div>
+        {% endfor %}
+        {% if not f.plr_v %}<span class="det-zero">—</span>{% endif %}
+      </div>
+
+      {# Rescisório #}
+      <div class="col-val">
+        {% for v in f.resc_v %}
+        <div class="det-item">{{ v.descricao }}<br><b>{{ brl(v.valor or 0, 0) }}</b></div>
+        {% endfor %}
+        {% if not f.resc_v %}<span class="det-zero">—</span>{% endif %}
+      </div>
+
+      {# Pacote ── sem detalhe #}
+      <div class="col-val"></div>
+    </div>
+  </details>
+  {% endfor %}
+</div>
+
+<div style="font-size:10px;color:var(--muted);margin-top:8px;text-align:right">
+  {{ funcionarios | length }} colaboradores · {{ comp_sel }}
+  · INSS e IRRF são estimativas calculadas pela tabela progressiva
+</div>
+
 {% endif %}
 {% endblock %}

@@ -1,0 +1,325 @@
+{% extends "base.html" %}
+{% block header %}Simulação de Aumento{% endblock %}
+{% block subtitle %}Compare o holerite atual com o cenário simulado após reajuste salarial.{% endblock %}
+
+{% block content %}
+<style>
+:root{--red:#e10600;--navy:#08173a;--green:#16a34a;--line:#e9eaef;--muted:#7c8391;--shadow:0 4px 16px rgba(0,0,0,.06)}
+
+/* filtros */
+.sim-filters{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;margin-bottom:20px}
+.sim-filters .fg{display:flex;flex-direction:column;gap:4px;min-width:160px;flex:1}
+.sim-filters label{font-size:11px;font-weight:700;color:#2d3340;text-transform:uppercase;letter-spacing:.3px}
+.sim-filters select{height:38px;border:1px solid var(--line);border-radius:10px;padding:0 10px;font-size:13px;color:#3a4150;background:#fff}
+
+/* input de percentual */
+.aumento-wrap{display:flex;flex-direction:column;gap:4px;min-width:160px}
+.aumento-wrap label{font-size:11px;font-weight:700;color:#2d3340;text-transform:uppercase;letter-spacing:.3px}
+.aumento-row{display:flex;gap:8px;align-items:center}
+.aumento-row input[type=range]{flex:1;accent-color:var(--green);height:6px}
+.aumento-num{width:70px;height:38px;border:1px solid var(--line);border-radius:10px;padding:0 10px;font-size:14px;font-weight:700;color:#16a34a;text-align:center}
+.sim-btn{height:38px;padding:0 18px;background:var(--red);color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;align-self:flex-end}
+
+/* badge */
+.badge-aumento{display:inline-flex;align-items:center;gap:4px;background:#f0fdf4;border:1px solid #bbf7d0;color:#16a34a;font-size:11px;font-weight:800;border-radius:8px;padding:3px 8px}
+
+/* grid comparativo */
+.sim-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+@media(max-width:900px){.sim-grid{grid-template-columns:1fr}}
+
+/* card */
+.sim-card{background:#fff;border:1px solid var(--line);border-radius:20px;overflow:hidden;box-shadow:var(--shadow)}
+.sim-card.card-sim{border:2px solid #16a34a}
+.card-banner{padding:10px 14px;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.5px}
+.card-banner.atual{background:#f3f4f6;color:#6b7280}
+.card-banner.sim{background:#f0fdf4;color:#16a34a}
+
+/* cabeçalho colaborador */
+.colab-head{display:flex;gap:12px;align-items:center;padding:12px 14px;border-bottom:1px solid var(--line)}
+.avatar{width:44px;height:44px;border-radius:10px;background:linear-gradient(145deg,#2a58ff,#162f86);border:2px solid #2f63ff;display:flex;align-items:center;justify-content:center;font-size:18px;color:#fff;font-weight:900;flex-shrink:0}
+.colab-info .empresa{font-size:10px;color:var(--red);font-weight:800;text-transform:uppercase}
+.colab-info .nome{font-size:14px;font-weight:900;color:#111827;line-height:1.2}
+.colab-info .cargo{font-size:11px;color:#6b7280}
+
+/* seções */
+.card-body{padding:12px 14px;display:flex;flex-direction:column;gap:10px}
+.sec{border-radius:12px;padding:10px 12px}
+.sec.prov{background:#f9fafb;border-left:3px solid #16a34a}
+.sec.desc{background:#f9fafb;border-left:3px solid #dc2626}
+.sec.liq{background:linear-gradient(135deg,#dcfce7,#bbf7d0);border:1px solid #16a34a;text-align:center;padding:14px 10px}
+.sec.benef{background:#f3f4f6}
+.sec.prsn{background:#f3f4f6}
+.sec.footer{background:#f9fafb;border:1px solid var(--line);text-align:center;padding:14px 10px}
+
+.sec-head{display:flex;justify-content:space-between;align-items:center;font-size:10px;font-weight:800;text-transform:uppercase;margin-bottom:6px;padding-bottom:4px;border-bottom:1px solid rgba(0,0,0,.07)}
+.sec.prov .sec-head{color:#16a34a}
+.sec.desc .sec-head{color:#dc2626}
+.sec.benef .sec-head{color:#4b5563}
+.sec.prsn .sec-head{color:#4b5563}
+
+.sec-item{display:flex;justify-content:space-between;font-size:11px;color:#4b5563;margin-bottom:3px}
+.sec-item span:last-child{font-weight:600;color:#1f2937;font-variant-numeric:tabular-nums}
+
+.liq-val{font-size:26px;font-weight:900;color:#065f46;font-variant-numeric:tabular-nums}
+.liq-lbl{font-size:9px;color:#065f46;text-transform:uppercase;letter-spacing:1px;margin-top:2px}
+
+.footer-lbl{font-size:10px;color:var(--muted);text-transform:uppercase;margin-bottom:4px}
+.footer-val{font-size:20px;font-weight:900;color:#111827;font-variant-numeric:tabular-nums}
+.footer-sub{font-size:11px;color:var(--red);font-weight:600;margin-top:4px}
+
+/* delta */
+.delta{display:flex;align-items:center;justify-content:center;gap:6px;margin-top:14px}
+.delta-box{background:#f0fdf4;border:1px solid #bbf7d0;border-radius:12px;padding:10px 20px;text-align:center;flex:1}
+.delta-box.neg{background:#fef2f2;border-color:#fecaca}
+.delta-lbl{font-size:9px;font-weight:700;text-transform:uppercase;color:#6b7280;margin-bottom:2px}
+.delta-val{font-size:16px;font-weight:900;color:#16a34a;font-variant-numeric:tabular-nums}
+.delta-val.neg{color:#dc2626}
+
+/* empty */
+.empty-sim{text-align:center;padding:60px 20px;color:var(--muted)}
+.empty-sim h3{font-size:16px;color:#4c5360;margin-bottom:6px}
+</style>
+
+<form method="get" action="/indicadores/folha-simulacao" id="sim-form">
+  <div class="sim-filters">
+    <div class="fg">
+      <label>Empresa / Centro de Custo</label>
+      <select name="empresa" onchange="this.form.submit()">
+        <option value="">— Todas —</option>
+        {% for e in todas_empresas %}
+        <option value="{{ e }}" {% if e == empresa_sel %}selected{% endif %}>{{ e }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="fg">
+      <label>Competência</label>
+      <select name="competencia" onchange="this.form.submit()">
+        {% for c in todas_comps %}
+        <option value="{{ c }}" {% if c == comp_sel %}selected{% endif %}>{{ c }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="fg">
+      <label>Nome</label>
+      <select name="colaborador" onchange="this.form.submit()">
+        <option value="">— Selecione —</option>
+        {% for c in todos_colabs %}
+        <option value="{{ c }}" {% if c == colab_sel %}selected{% endif %}>{{ c }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="aumento-wrap">
+      <label>Aumento (%)</label>
+      <div class="aumento-row">
+        <input type="range" name="aumento_range" id="sl" min="0" max="50" step="0.5"
+               value="{{ aumento }}" oninput="document.getElementById('pct').value=this.value">
+        <input type="number" name="aumento" id="pct" class="aumento-num"
+               min="0" max="100" step="0.5" value="{{ aumento }}"
+               oninput="document.getElementById('sl').value=this.value">
+      </div>
+    </div>
+    <button type="submit" class="sim-btn">Simular</button>
+  </div>
+</form>
+
+{% if not atual %}
+<div class="empty-sim">
+  <h3>Selecione um colaborador</h3>
+  <p>Escolha empresa, competência e nome para comparar cenários.</p>
+</div>
+
+{% else %}
+
+{# Deltas resumo #}
+<div class="delta" style="margin-bottom:16px">
+  {% set d_liq   = simulado.liq    - atual.liq %}
+  {% set d_pac   = simulado.pacote - atual.pacote %}
+  {% set d_prov  = simulado.tp     - atual.tp %}
+  <div class="delta-box {% if d_prov < 0 %}neg{% endif %}">
+    <div class="delta-lbl">Δ Proventos</div>
+    <div class="delta-val {% if d_prov < 0 %}neg{% endif %}">{% if d_prov >= 0 %}+{% endif %}{{ brl(d_prov, 0) }}</div>
+  </div>
+  <div class="delta-box {% if d_liq < 0 %}neg{% endif %}">
+    <div class="delta-lbl">Δ Líquido</div>
+    <div class="delta-val {% if d_liq < 0 %}neg{% endif %}">{% if d_liq >= 0 %}+{% endif %}{{ brl(d_liq, 0) }}</div>
+  </div>
+  <div class="delta-box {% if d_pac < 0 %}neg{% endif %}">
+    <div class="delta-lbl">Δ Pacote (custo empresa)</div>
+    <div class="delta-val {% if d_pac < 0 %}neg{% endif %}">{% if d_pac >= 0 %}+{% endif %}{{ brl(d_pac, 0) }}</div>
+  </div>
+</div>
+
+<div class="sim-grid">
+
+  {# ── CARD SIMULADO ── #}
+  <div class="sim-card card-sim">
+    <div class="card-banner sim">
+      📈 Simulado
+      {% if aumento > 0 %}
+      <span class="badge-aumento" style="margin-left:8px">+{{ aumento }}%</span>
+      {% endif %}
+    </div>
+    <div class="colab-head">
+      <div class="avatar">{{ simulado.nome[0] }}</div>
+      <div class="colab-info">
+        <div class="empresa">{{ simulado.empresa }}</div>
+        <div class="nome">{{ simulado.nome }}</div>
+        <div class="cargo">{{ simulado.cargo or "—" }}</div>
+      </div>
+    </div>
+    <div class="card-body">
+      <div class="sec prov">
+        <div class="sec-head"><span>➕ Proventos</span><span>{{ brl(simulado.tp, 0) }}</span></div>
+        {% for v in simulado.prov_v %}
+        <div class="sec-item"><span>{{ v.descricao }}</span><span>{{ brl(v.valor, 2) }}</span></div>
+        {% endfor %}
+      </div>
+      <div class="sec desc">
+        <div class="sec-head"><span>➖ Descontos</span><span>{{ brl(simulado.desc, 0) }}</span></div>
+        {% if simulado.eh_est %}
+        <div class="sec-item"><span>Isento INSS</span><span>—</span></div>
+        {% else %}
+        <div class="sec-item"><span>INSS (Est.)</span><span>-{{ brl(simulado.inss, 2) }}</span></div>
+        {% endif %}
+        {% if simulado.irrf > 0 %}
+        <div class="sec-item"><span>IRRF (Est.)</span><span>-{{ brl(simulado.irrf, 2) }}</span></div>
+        {% else %}
+        <div class="sec-item"><span>IRRF</span><span>Isento</span></div>
+        {% endif %}
+      </div>
+      <div class="sec liq">
+        <div class="liq-val">{{ brl(simulado.liq, 2) }}</div>
+        <div class="liq-lbl">Líquido Estimado com Aumento</div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        <div class="sec benef">
+          <div class="sec-head"><span>🎁 Benefícios</span><span>{{ brl(simulado.tb, 0) }}</span></div>
+          {% for v in simulado.benef_v %}
+          <div class="sec-item"><span>{{ v.descricao }}</span><span>{{ brl(v.valor, 2) }}</span></div>
+          {% endfor %}
+        </div>
+        <div class="sec prsn">
+          <div class="sec-head"><span>📦 Provisões</span><span>{{ brl(simulado.tpr, 0) }}</span></div>
+          {% for v in simulado.prsn_v %}
+          <div class="sec-item"><span>{{ v.descricao }}</span><span>{{ brl(v.valor, 2) }}</span></div>
+          {% endfor %}
+        </div>
+      </div>
+      {% if simulado.plr_v or simulado.resc_v %}
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        {% if simulado.plr_v %}
+        <div class="sec benef">
+          <div class="sec-head"><span>🏆 PLR</span><span>{{ brl(simulado.tplr, 0) }}</span></div>
+          {% for v in simulado.plr_v %}
+          <div class="sec-item"><span>{{ v.descricao }}</span><span>{{ brl(v.valor, 2) }}</span></div>
+          {% endfor %}
+        </div>
+        {% endif %}
+        {% if simulado.resc_v %}
+        <div class="sec prsn">
+          <div class="sec-head" style="color:#b91c1c"><span>⚠️ Rescisório</span><span>{{ brl(simulado.tr, 0) }}</span></div>
+          {% for v in simulado.resc_v %}
+          <div class="sec-item"><span>{{ v.descricao }}</span><span>{{ brl(v.valor, 2) }}</span></div>
+          {% endfor %}
+        </div>
+        {% endif %}
+      </div>
+      {% endif %}
+      <div class="sec footer">
+        <div class="footer-lbl">Custo Total Mensal Simulado</div>
+        <div class="footer-val">{{ brl(simulado.pacote, 2) }}</div>
+        {% if simulado.salario > 0 %}
+        <div class="footer-sub">Fator Global: {{ "%.2f"|format(simulado.pacote / simulado.salario) }}x o salário simulado</div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  {# ── CARD ATUAL ── #}
+  <div class="sim-card">
+    <div class="card-banner atual">📄 Atual</div>
+    <div class="colab-head">
+      <div class="avatar">{{ atual.nome[0] }}</div>
+      <div class="colab-info">
+        <div class="empresa">{{ atual.empresa }}</div>
+        <div class="nome">{{ atual.nome }}</div>
+        <div class="cargo">{{ atual.cargo or "—" }}</div>
+      </div>
+    </div>
+    <div class="card-body">
+      <div class="sec prov">
+        <div class="sec-head"><span>➕ Proventos</span><span>{{ brl(atual.tp, 0) }}</span></div>
+        {% for v in atual.prov_v %}
+        <div class="sec-item"><span>{{ v.descricao }}</span><span>{{ brl(v.valor, 2) }}</span></div>
+        {% endfor %}
+      </div>
+      <div class="sec desc">
+        <div class="sec-head"><span>➖ Descontos</span><span>{{ brl(atual.desc, 0) }}</span></div>
+        {% if atual.eh_est %}
+        <div class="sec-item"><span>Isento INSS</span><span>—</span></div>
+        {% else %}
+        <div class="sec-item"><span>INSS (Est.)</span><span>-{{ brl(atual.inss, 2) }}</span></div>
+        {% endif %}
+        {% if atual.irrf > 0 %}
+        <div class="sec-item"><span>IRRF (Est.)</span><span>-{{ brl(atual.irrf, 2) }}</span></div>
+        {% else %}
+        <div class="sec-item"><span>IRRF</span><span>Isento</span></div>
+        {% endif %}
+      </div>
+      <div class="sec liq">
+        <div class="liq-val">{{ brl(atual.liq, 2) }}</div>
+        <div class="liq-lbl">Líquido Estimado em Conta</div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        <div class="sec benef">
+          <div class="sec-head"><span>🎁 Benefícios</span><span>{{ brl(atual.tb, 0) }}</span></div>
+          {% for v in atual.benef_v %}
+          <div class="sec-item"><span>{{ v.descricao }}</span><span>{{ brl(v.valor, 2) }}</span></div>
+          {% endfor %}
+        </div>
+        <div class="sec prsn">
+          <div class="sec-head"><span>📦 Provisões</span><span>{{ brl(atual.tpr, 0) }}</span></div>
+          {% for v in atual.prsn_v %}
+          <div class="sec-item"><span>{{ v.descricao }}</span><span>{{ brl(v.valor, 2) }}</span></div>
+          {% endfor %}
+        </div>
+      </div>
+      {% if atual.plr_v or atual.resc_v %}
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        {% if atual.plr_v %}
+        <div class="sec benef">
+          <div class="sec-head"><span>🏆 PLR</span><span>{{ brl(atual.tplr, 0) }}</span></div>
+          {% for v in atual.plr_v %}
+          <div class="sec-item"><span>{{ v.descricao }}</span><span>{{ brl(v.valor, 2) }}</span></div>
+          {% endfor %}
+        </div>
+        {% endif %}
+        {% if atual.resc_v %}
+        <div class="sec prsn">
+          <div class="sec-head" style="color:#b91c1c"><span>⚠️ Rescisório</span><span>{{ brl(atual.tr, 0) }}</span></div>
+          {% for v in atual.resc_v %}
+          <div class="sec-item"><span>{{ v.descricao }}</span><span>{{ brl(v.valor, 2) }}</span></div>
+          {% endfor %}
+        </div>
+        {% endif %}
+      </div>
+      {% endif %}
+      <div class="sec footer">
+        <div class="footer-lbl">Custo Total Mensal Atual</div>
+        <div class="footer-val">{{ brl(atual.pacote, 2) }}</div>
+        {% if atual.salario > 0 %}
+        <div class="footer-sub">Fator Global: {{ "%.2f"|format(atual.pacote / atual.salario) }}x o salário base</div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+</div>
+{% endif %}
+
+<script>
+document.getElementById('pct').addEventListener('change', function(){
+  document.getElementById('sl').value = this.value;
+});
+</script>
+{% endblock %}

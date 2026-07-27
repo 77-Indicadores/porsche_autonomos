@@ -404,157 +404,465 @@ def folha_holerite(
 ):
     todas_empresas, todas_comps = _opcoes()
 
-    # Lista de colaboradores (filtrada por empresa/competência)
+    # Sempre força uma competência selecionada — padrão = a mais recente
+    if not competencia and todas_comps:
+        competencia = todas_comps[-1]
+
+    # Lista de colaboradores do budget (filtrada por empresa/competência)
     colab_where = ["1=1"]
     colab_params: dict = {}
     if empresa:
-        colab_where.append("fa.empresa_nome = :empresa")
+        colab_where.append("empresa_nome = :empresa")
         colab_params["empresa"] = empresa
     if competencia:
-        colab_where.append("ff.competencia = :competencia")
-        colab_params["competencia"] = competencia
+        colab_where.append("competencia = :comp")
+        colab_params["comp"] = competencia
     w_str = " AND ".join(colab_where)
 
     todos_colabs = [r["nome"] for r in _db(f"""
-        SELECT DISTINCT ff.nome
-        FROM folha_funcionarios ff
-        JOIN folha_arquivos fa ON fa.id_arquivo = ff.id_arquivo
+        SELECT DISTINCT nome_empregado AS nome
+        FROM budget_resultado
         WHERE {w_str}
-        ORDER BY ff.nome
+        ORDER BY nome_empregado
     """, colab_params)]
 
     func = None
-    rubricas_p: list[dict] = []
+    verbas: list[dict] = []
     rubricas_d: list[dict] = []
     evolucao: list[dict] = []
     svg_evolucao = ""
 
     if colaborador:
-        # dados do funcionário no período
-        func_rows = _db(f"""
-            SELECT ff.*, fa.empresa_nome
-            FROM folha_funcionarios ff
-            JOIN folha_arquivos fa ON fa.id_arquivo = ff.id_arquivo
-            WHERE ff.nome = :nome
-              AND (:empresa = '' OR fa.empresa_nome = :empresa)
-              AND (:comp    = '' OR ff.competencia  = :comp)
-            ORDER BY ff.competencia DESC
-            LIMIT 1
-        """, {"nome": colaborador, "empresa": empresa, "comp": competencia})
+        # Verbas do budget para o colaborador/período
+        verbas = _db("""
+            SELECT descricao_verba AS descricao,
+                   SUM(valor_budget) AS valor,
+                   MIN(cargo_nome)   AS cargo,
+                   MIN(cargo_grupo)  AS cargo_grupo,
+                   MIN(empresa_nome) AS empresa_nome,
+                   MIN(competencia)  AS competencia,
+                   MIN(matricula)    AS matricula
+            FROM budget_resultado
+            WHERE nome_empregado = :nome
+              AND (:empresa = '' OR empresa_nome = :empresa)
+              AND (:comp    = '' OR competencia  = :comp)
+            GROUP BY descricao_verba
+            ORDER BY valor DESC
+        """, {"nome": colaborador, "empresa": empresa, "comp": competencia or ""})
 
-        if func_rows:
-            func = func_rows[0]
-            id_func = func["id_funcionario"]
+        if verbas:
+            first   = verbas[0]
+            mat     = first["matricula"]
+            cargo   = (first["cargo"] or "").upper()
+            eh_est  = "ESTAGIARIO" in cargo or "ESTAGIARIA" in cargo
 
-            # rubricas do funcionário naquele mês
-            rubs = _db("""
-                SELECT fr.descricao, fr.tipo, fr.valor, fr.referencia
-                FROM folha_rubricas fr
-                WHERE fr.id_funcionario = :id_func
-                ORDER BY fr.tipo, fr.valor DESC
-            """, {"id_func": id_func})
+            # Dependentes do budget_cargos
+            dep_row = _db("""
+                SELECT MAX(dependentes) AS dep
+                FROM budget_cargos
+                WHERE matricula = :mat
+                  AND (:comp = '' OR competencia = :comp)
+            """, {"mat": mat, "comp": competencia or ""})
+            dependentes = int((dep_row[0]["dep"] or 0) if dep_row else 0)
 
-            rubricas_p = [r for r in rubs if r["tipo"] == "P"]
-            rubricas_d = [r for r in rubs if r["tipo"] == "D"]
-
-            # evolução do salário (últimos 6 meses)
-            evolucao = _db("""
-                SELECT ff.competencia, ff.salario
+            # Admissão da folha real
+            adm = _db("""
+                SELECT MIN(ff.data_admissao) AS data_admissao
                 FROM folha_funcionarios ff
                 JOIN folha_arquivos fa ON fa.id_arquivo = ff.id_arquivo
                 WHERE ff.nome = :nome
                   AND (:empresa = '' OR fa.empresa_nome = :empresa)
-                ORDER BY ff.competencia
-                LIMIT 6
             """, {"nome": colaborador, "empresa": empresa})
 
-            if evolucao:
-                svg_evolucao = _svg_line(
-                    [(e["competencia"], float(e["salario"] or 0)) for e in evolucao],
-                    [e["competencia"] for e in evolucao],
-                )
+            # Total bruto (Salário + Adicionais do budget)
+            total_bruto = sum(float(v["valor"] or 0) for v in verbas
+                              if _classif(v["descricao"]) in ("Salário", "Adicionais"))
 
-    # Classifica rubricas_p por categoria
-    def _grupo_p(cat: str) -> list[dict]:
-        return [r for r in rubricas_p if _classif(r["descricao"]) == cat]
+            # INSS calculado pela tabela progressiva
+            def _inss(base: float) -> float:
+                if eh_est:
+                    return 0.0
+                if base <= 1412.00:     return base * 0.075
+                if base <= 2666.68:     return 105.90  + (base - 1412.00) * 0.09
+                if base <= 4000.03:     return 218.82  + (base - 2666.68) * 0.12
+                if base <= 7786.02:     return 378.82  + (base - 4000.03) * 0.14
+                return 908.85
 
-    prov_salario    = _grupo_p("Salário")
-    prov_adicionais = _grupo_p("Adicionais")
+            # IRRF calculado pela tabela progressiva
+            def _irrf(bruto: float, inss: float, dep: int) -> float:
+                base_ir = (bruto if eh_est else bruto - inss) - dep * 189.59
+                if base_ir <= 2259.20:  return 0.0
+                if base_ir <= 2826.65:  return base_ir * 0.075  - 169.44
+                if base_ir <= 3751.05:  return base_ir * 0.15   - 381.44
+                if base_ir <= 4664.68:  return base_ir * 0.225  - 662.77
+                return base_ir * 0.275 - 896.00
+
+            inss_val = _inss(total_bruto)
+            irrf_val = _irrf(total_bruto, inss_val, dependentes)
+            total_desc = max(inss_val + irrf_val, 0.0)
+
+            rubricas_d = []
+            if inss_val > 0:
+                rubricas_d.append({"descricao": "INSS Empregado", "valor": round(inss_val, 2)})
+            if irrf_val > 0:
+                rubricas_d.append({"descricao": "IRRF",           "valor": round(irrf_val, 2)})
+
+            func = {
+                "nome":            colaborador,
+                "empresa_nome":    first["empresa_nome"],
+                "cargo":           first["cargo"],
+                "cargo_grupo":     first["cargo_grupo"],
+                "dependentes":     dependentes,
+                "matricula":       mat,
+                "competencia":     first["competencia"],
+                "data_admissao":   adm[0]["data_admissao"] if adm else None,
+                "total_proventos": total_bruto,
+                "total_descontos": total_desc,
+            }
+
+        # Evolução do salário base (meses disponíveis no budget)
+        evolucao = _db("""
+            SELECT competencia, SUM(valor_budget) AS salario
+            FROM budget_resultado
+            WHERE nome_empregado = :nome
+              AND (:empresa = '' OR empresa_nome = :empresa)
+              AND descricao_verba = 'Salário'
+            GROUP BY competencia
+            ORDER BY competencia
+        """, {"nome": colaborador, "empresa": empresa})
+
+        if evolucao:
+            svg_evolucao = _svg_line(
+                [(e["competencia"], float(e["salario"] or 0)) for e in evolucao],
+                [e["competencia"] for e in evolucao],
+            )
+
+    # Classifica verbas do budget; Rescisório separado da Provisão
+    _RESCISORIO = {"Provisão Aviso Prévio", "Multa do FGTS"}
+
+    def _grupo(cat: str) -> list[dict]:
+        return [v for v in verbas
+                if _classif(v["descricao"]) == cat and v["descricao"] not in _RESCISORIO]
+
+    prov_salario    = _grupo("Salário")
+    prov_adicionais = _grupo("Adicionais")
     prov_proventos  = prov_salario + prov_adicionais
-    prov_beneficios = _grupo_p("Benefícios")
-    prov_provisao   = _grupo_p("Provisão")
-    prov_plr        = _grupo_p("PLR")
+    prov_beneficios = _grupo("Benefícios")
+    prov_provisao   = _grupo("Provisão")
+    prov_plr        = _grupo("PLR")
+    prov_encargos   = _grupo("Encargos")
+    prov_rescisorio = [v for v in verbas if v["descricao"] in _RESCISORIO]
 
-    total_salario           = sum(r["valor"] or 0 for r in prov_salario)
-    total_adicionais        = sum(r["valor"] or 0 for r in prov_adicionais)
-    total_proventos_classif = total_salario + total_adicionais
-    total_beneficios        = sum(r["valor"] or 0 for r in prov_beneficios)
-    total_provisao          = sum(r["valor"] or 0 for r in prov_provisao)
-    total_plr               = sum(r["valor"] or 0 for r in prov_plr)
-    total_descontos         = sum(r["valor"] or 0 for r in rubricas_d)
-    fgts                    = float(func["valor_fgts"] or 0) if func else 0
-    salario_base            = float(func["salario"] or 0) if func else 0
-    total_custo             = total_proventos_classif + total_beneficios + total_provisao + total_plr + fgts
-    liquido                 = float(func["liquido"] or 0) if func else 0
+    total_salario    = sum(float(r["valor"] or 0) for r in prov_salario)
+    total_adicionais = sum(float(r["valor"] or 0) for r in prov_adicionais)
+    total_proventos  = total_salario + total_adicionais
+    total_beneficios = sum(float(r["valor"] or 0) for r in prov_beneficios)
+    total_provisao   = sum(float(r["valor"] or 0) for r in prov_provisao)
+    total_plr        = sum(float(r["valor"] or 0) for r in prov_plr)
+    total_encargos   = sum(float(r["valor"] or 0) for r in prov_encargos)
+    total_rescisorio = sum(float(r["valor"] or 0) for r in prov_rescisorio)
+    total_desc_val   = sum(float(r["valor"] or 0) for r in rubricas_d)
+    salario_base     = total_salario
+    liquido          = total_proventos - total_desc_val
+    total_custo      = total_proventos + total_beneficios + total_provisao + total_plr + total_encargos + total_rescisorio
+    fator_global     = round(total_custo / max(salario_base, 1), 2)
 
-    # Ranking das categorias — separando Salário e Adicionais
+    _RANK_CAT = {"Salário": 1, "Adicionais": 2, "Encargos": 3, "Benefícios": 4, "Provisão": 5, "PLR": 6}
     ranking = sorted([
-        {"cat": "Salário",    "emoji": "💰", "total": total_salario},
-        {"cat": "Benefícios", "emoji": "🎁", "total": total_beneficios},
-        {"cat": "Provisão",   "emoji": "📦", "total": total_provisao},
-        {"cat": "Encargos",   "emoji": "🏛️", "total": fgts},
-        {"cat": "PLR",        "emoji": "🏆", "total": total_plr},
-        {"cat": "Adicionais", "emoji": "⚡", "total": total_adicionais},
+        {"cat": "Salário",    "rank": 1, "emoji": "💰", "total": total_salario},
+        {"cat": "Benefícios", "rank": 4, "emoji": "🎁", "total": total_beneficios},
+        {"cat": "Provisão",   "rank": 5, "emoji": "📦", "total": total_provisao + total_rescisorio},
+        {"cat": "Encargos",   "rank": 3, "emoji": "🏛️", "total": total_encargos},
+        {"cat": "PLR",        "rank": 6, "emoji": "🏆", "total": total_plr},
+        {"cat": "Adicionais", "rank": 2, "emoji": "⚡", "total": total_adicionais},
     ], key=lambda x: -x["total"])
-
     max_rank = max((r["total"] for r in ranking), default=1)
     for r in ranking:
         r["pct"] = round(r["total"] / max(max_rank, 1) * 100, 1)
 
-    # Descontos identificados
-    inss_emp = sum(r["valor"] or 0 for r in rubricas_d
-                   if "I.N.S.S" in r["descricao"].upper() or
-                      ("INSS" in r["descricao"].upper() and "EMPREGADOR" not in r["descricao"].upper()))
-    irrf_emp = sum(r["valor"] or 0 for r in rubricas_d
-                   if "IMPOSTO DE RENDA" in r["descricao"].upper() or
-                      ("IRRF" in r["descricao"].upper() and "EMPREGADOR" not in r["descricao"].upper()))
-    outros_desc = [r for r in rubricas_d
-                   if "I.N.S.S" not in r["descricao"].upper()
-                   and "INSS" not in r["descricao"].upper()
-                   and "IMPOSTO DE RENDA" not in r["descricao"].upper()
-                   and "IRRF" not in r["descricao"].upper()]
-
     return templates.TemplateResponse(
         "indicadores/folha_holerite.html",
         {
-            "request": request,
-            "todas_empresas": todas_empresas,
-            "todas_comps": todas_comps,
-            "todos_colabs": todos_colabs,
-            "empresa_sel": empresa,
-            "comp_sel": competencia,
-            "colab_sel": colaborador,
-            "func": func,
-            "salario_base": salario_base,
-            "total_custo": total_custo,
-            "total_proventos_classif": total_proventos_classif,
+            "request":          request,
+            "todas_empresas":   todas_empresas,
+            "todas_comps":      todas_comps,
+            "todos_colabs":     todos_colabs,
+            "empresa_sel":      empresa,
+            "comp_sel":         competencia,
+            "colab_sel":        colaborador,
+            "func":             func,
+            "salario_base":     salario_base,
+            "total_custo":      total_custo,
             "total_beneficios": total_beneficios,
-            "total_provisao": total_provisao,
-            "total_plr": total_plr,
-            "fgts": fgts,
-            "total_descontos": total_descontos,
-            "liquido": liquido,
-            "prov_proventos": prov_proventos,
-            "prov_beneficios": prov_beneficios,
-            "prov_provisao": prov_provisao,
-            "prov_plr": prov_plr,
-            "rubricas_d": rubricas_d,
-            "inss_emp": inss_emp,
-            "irrf_emp": irrf_emp,
-            "outros_desc": outros_desc,
-            "ranking": ranking,
-            "evolucao": evolucao,
-            "svg_evolucao": svg_evolucao,
-            "brl": _brl,
+            "total_provisao":   total_provisao,
+            "total_encargos":   total_encargos,
+            "total_rescisorio": total_rescisorio,
+            "total_plr":        total_plr,
+            "fgts":             total_encargos,
+            "liquido":          liquido,
+            "fator_global":     fator_global,
+            "prov_proventos":   prov_proventos,
+            "prov_beneficios":  prov_beneficios,
+            "prov_provisao":    prov_provisao,
+            "prov_encargos":    prov_encargos,
+            "prov_rescisorio":  prov_rescisorio,
+            "prov_plr":         prov_plr,
+            "rubricas_d":       rubricas_d,
+            "ranking":          ranking,
+            "svg_evolucao":     svg_evolucao,
+            "brl":              _brl,
+        },
+    )
+
+
+# ─── Holerite · Lista ────────────────────────────────────────────────────────
+
+def _calc_inss(base: float, eh_est: bool) -> float:
+    if eh_est:               return 0.0
+    if base <= 1412.00:      return base * 0.075
+    if base <= 2666.68:      return 105.90 + (base - 1412.00) * 0.09
+    if base <= 4000.03:      return 218.82 + (base - 2666.68) * 0.12
+    if base <= 7786.02:      return 378.82 + (base - 4000.03) * 0.14
+    return 908.85
+
+
+def _calc_irrf(bruto: float, inss: float, dep: int, eh_est: bool) -> float:
+    base_ir = (bruto if eh_est else bruto - inss) - dep * 189.59
+    if base_ir <= 2259.20:   return 0.0
+    if base_ir <= 2826.65:   return base_ir * 0.075 - 169.44
+    if base_ir <= 3751.05:   return base_ir * 0.15  - 381.44
+    if base_ir <= 4664.68:   return base_ir * 0.225 - 662.77
+    return base_ir * 0.275 - 896.00
+
+
+@router.get("/indicadores/folha-lista")
+def folha_lista(
+    request: Request,
+    empresa: str = "",
+    competencia: str = "",
+):
+    from collections import defaultdict
+
+    todas_empresas, todas_comps = _opcoes()
+
+    if not competencia and todas_comps:
+        competencia = todas_comps[-1]
+
+    verbas_todas = _db("""
+        SELECT
+            nome_empregado,
+            descricao_verba          AS descricao,
+            SUM(valor_budget)        AS valor,
+            MIN(cargo_nome)          AS cargo,
+            MIN(cargo_grupo)         AS cargo_grupo,
+            MIN(matricula)           AS matricula
+        FROM budget_resultado
+        WHERE (:empresa = '' OR empresa_nome = :empresa)
+          AND (:comp    = '' OR competencia  = :comp)
+        GROUP BY nome_empregado, descricao_verba
+        ORDER BY nome_empregado, valor DESC
+    """, {"empresa": empresa, "comp": competencia})
+
+    dep_rows = _db("""
+        SELECT matricula, MAX(dependentes) AS dep
+        FROM budget_cargos
+        WHERE (:comp = '' OR competencia = :comp)
+        GROUP BY matricula
+    """, {"comp": competencia})
+    dep_map = {d["matricula"]: int(d["dep"] or 0) for d in dep_rows}
+
+    _RESCISORIO_L = {"Provisão Aviso Prévio", "Multa do FGTS"}
+
+    colabs: dict = defaultdict(list)
+    for v in verbas_todas:
+        colabs[v["nome_empregado"]].append(v)
+
+    funcionarios = []
+    for nome, verbas in sorted(colabs.items()):
+        first     = verbas[0]
+        mat       = first["matricula"]
+        cargo     = first["cargo"] or ""
+        eh_est    = "ESTAGIARIO" in cargo.upper() or "ESTAGIARIA" in cargo.upper()
+        dep       = dep_map.get(mat, 0)
+
+        prov_v  = [v for v in verbas if _classif(v["descricao"]) in ("Salário", "Adicionais") and v["descricao"] not in _RESCISORIO_L]
+        benef_v = [v for v in verbas if _classif(v["descricao"]) == "Benefícios"]
+        prsn_v  = [v for v in verbas if _classif(v["descricao"]) in ("Provisão", "Encargos") and v["descricao"] not in _RESCISORIO_L]
+        plr_v   = [v for v in verbas if _classif(v["descricao"]) == "PLR"]
+        resc_v  = [v for v in verbas if v["descricao"] in _RESCISORIO_L]
+
+        tp   = sum(float(v["valor"] or 0) for v in prov_v)
+        tb   = sum(float(v["valor"] or 0) for v in benef_v)
+        tpr  = sum(float(v["valor"] or 0) for v in prsn_v)
+        tplr = sum(float(v["valor"] or 0) for v in plr_v)
+        tr   = sum(float(v["valor"] or 0) for v in resc_v)
+
+        inss  = round(_calc_inss(tp, eh_est), 2)
+        irrf  = round(_calc_irrf(tp, inss, dep, eh_est), 2)
+        desc  = inss + irrf
+        liq   = tp - desc
+        pacote = liq + tb + tpr + tplr + tr
+
+        funcionarios.append({
+            "nome":      nome,
+            "cargo":     cargo,
+            "matricula": mat,
+            "eh_est":    eh_est,
+            "dep":       dep,
+            "tp":        tp,
+            "inss":      inss,
+            "irrf":      irrf,
+            "desc":      desc,
+            "liq":       liq,
+            "tb":        tb,
+            "tpr":       tpr,
+            "tplr":      tplr,
+            "tr":        tr,
+            "pacote":    pacote,
+            "prov_v":    prov_v,
+            "benef_v":   benef_v,
+            "prsn_v":    prsn_v,
+            "plr_v":     plr_v,
+            "resc_v":    resc_v,
+        })
+
+    total_pacote = sum(f["pacote"] for f in funcionarios)
+
+    return templates.TemplateResponse(
+        "indicadores/folha_lista.html",
+        {
+            "request":        request,
+            "todas_empresas": todas_empresas,
+            "todas_comps":    todas_comps,
+            "empresa_sel":    empresa,
+            "comp_sel":       competencia,
+            "funcionarios":   funcionarios,
+            "total_pacote":   total_pacote,
+            "brl":            _brl,
+        },
+    )
+
+
+# ─── Simulação de Aumento ────────────────────────────────────────────────────
+
+@router.get("/indicadores/folha-simulacao")
+def folha_simulacao(
+    request: Request,
+    empresa: str = "",
+    competencia: str = "",
+    colaborador: str = "",
+    aumento: float = 0.0,
+):
+    todas_empresas, todas_comps = _opcoes()
+
+    if not competencia and todas_comps:
+        competencia = todas_comps[-1]
+
+    colab_params: dict = {}
+    colab_where = ["1=1"]
+    if empresa:
+        colab_where.append("empresa_nome = :empresa")
+        colab_params["empresa"] = empresa
+    if competencia:
+        colab_where.append("competencia = :comp")
+        colab_params["comp"] = competencia
+    w_str = " AND ".join(colab_where)
+
+    todos_colabs = [r["nome"] for r in _db(f"""
+        SELECT DISTINCT nome_empregado AS nome
+        FROM budget_resultado
+        WHERE {w_str}
+        ORDER BY nome_empregado
+    """, colab_params)]
+
+    atual = None
+    simulado = None
+
+    _RESCISORIO = {"Provisão Aviso Prévio", "Multa do FGTS"}
+
+    if colaborador:
+        verbas = _db("""
+            SELECT descricao_verba AS descricao,
+                   SUM(valor_budget) AS valor,
+                   MIN(cargo_nome)   AS cargo,
+                   MIN(empresa_nome) AS empresa_nome,
+                   MIN(competencia)  AS competencia,
+                   MIN(matricula)    AS matricula
+            FROM budget_resultado
+            WHERE nome_empregado = :nome
+              AND (:empresa = '' OR empresa_nome = :empresa)
+              AND (:comp    = '' OR competencia  = :comp)
+            GROUP BY descricao_verba
+            ORDER BY valor DESC
+        """, {"nome": colaborador, "empresa": empresa, "comp": competencia or ""})
+
+        if verbas:
+            first  = verbas[0]
+            mat    = first["matricula"]
+            cargo  = (first["cargo"] or "").upper()
+            eh_est = "ESTAGIARIO" in cargo or "ESTAGIARIA" in cargo
+
+            dep_row = _db("""
+                SELECT MAX(dependentes) AS dep FROM budget_cargos
+                WHERE matricula = :mat AND (:comp = '' OR competencia = :comp)
+            """, {"mat": mat, "comp": competencia or ""})
+            dep = int((dep_row[0]["dep"] or 0) if dep_row else 0)
+
+            def _grupos(verbas_list, fator=1.0):
+                prov_v  = [v for v in verbas_list if _classif(v["descricao"]) in ("Salário", "Adicionais") and v["descricao"] not in _RESCISORIO]
+                benef_v = [v for v in verbas_list if _classif(v["descricao"]) == "Benefícios"]
+                prsn_v  = [v for v in verbas_list if _classif(v["descricao"]) in ("Provisão", "Encargos") and v["descricao"] not in _RESCISORIO]
+                plr_v   = [v for v in verbas_list if _classif(v["descricao"]) == "PLR"]
+                resc_v  = [v for v in verbas_list if v["descricao"] in _RESCISORIO]
+
+                tp   = sum(float(v["valor"] or 0) for v in prov_v)  * fator
+                tb   = sum(float(v["valor"] or 0) for v in benef_v)          # benefícios: fixo
+                tpr  = sum(float(v["valor"] or 0) for v in prsn_v)  * fator
+                tplr = sum(float(v["valor"] or 0) for v in plr_v)   * fator
+                tr   = sum(float(v["valor"] or 0) for v in resc_v)  * fator
+
+                inss = round(_calc_inss(tp, eh_est), 2)
+                irrf = round(_calc_irrf(tp, inss, dep, eh_est), 2)
+                desc = inss + irrf
+                liq  = tp - desc
+                pacote = liq + tb + tpr + tplr + tr
+                salario = sum(float(v["valor"] or 0) for v in prov_v if v["descricao"] == "Salário") * fator
+
+                return {
+                    "nome": colaborador,
+                    "cargo": first["cargo"],
+                    "empresa": first["empresa_nome"],
+                    "competencia": first["competencia"],
+                    "matricula": mat,
+                    "dep": dep,
+                    "eh_est": eh_est,
+                    "prov_v":  [{"descricao": v["descricao"], "valor": float(v["valor"] or 0) * fator} for v in prov_v],
+                    "benef_v": [{"descricao": v["descricao"], "valor": float(v["valor"] or 0)}          for v in benef_v],
+                    "prsn_v":  [{"descricao": v["descricao"], "valor": float(v["valor"] or 0) * fator} for v in prsn_v],
+                    "plr_v":   [{"descricao": v["descricao"], "valor": float(v["valor"] or 0) * fator} for v in plr_v],
+                    "resc_v":  [{"descricao": v["descricao"], "valor": float(v["valor"] or 0) * fator} for v in resc_v],
+                    "tp": tp, "tb": tb, "tpr": tpr, "tplr": tplr, "tr": tr,
+                    "inss": inss, "irrf": irrf, "desc": desc,
+                    "liq": liq, "pacote": pacote, "salario": salario,
+                }
+
+            fator = 1.0 + aumento / 100.0
+            atual    = _grupos(verbas, fator=1.0)
+            simulado = _grupos(verbas, fator=fator)
+
+    return templates.TemplateResponse(
+        "indicadores/folha_simulacao.html",
+        {
+            "request":        request,
+            "todas_empresas": todas_empresas,
+            "todas_comps":    todas_comps,
+            "todos_colabs":   todos_colabs,
+            "empresa_sel":    empresa,
+            "comp_sel":       competencia,
+            "colab_sel":      colaborador,
+            "aumento":        aumento,
+            "atual":          atual,
+            "simulado":       simulado,
+            "brl":            _brl,
         },
     )

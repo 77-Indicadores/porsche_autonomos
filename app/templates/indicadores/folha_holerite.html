@@ -37,8 +37,7 @@
 .hl-head h2{margin:0;font-size:13px;font-weight:900;text-transform:uppercase;letter-spacing:.3px;color:#1a1a1a}
 
 /* charts area */
-.hl-charts{display:grid;grid-template-columns:.9fr 1.3fr;gap:14px;margin-bottom:16px}
-@media(max-width:900px){.hl-charts{grid-template-columns:1fr}}
+.hl-charts{display:flex;flex-direction:column;gap:14px;margin-bottom:16px}
 
 /* ranking */
 .ranking{display:flex;flex-direction:column;gap:12px;padding:8px 14px 14px}
@@ -127,7 +126,6 @@
     <div class="fg">
       <label>Competência</label>
       <select name="competencia" onchange="this.form.submit()">
-        <option value="">— Todas —</option>
         {% for c in todas_comps %}
         <option value="{{ c }}" {% if c == comp_sel %}selected{% endif %}>{{ c }}</option>
         {% endfor %}
@@ -135,14 +133,13 @@
     </div>
     <div class="fg">
       <label>Nome</label>
-      <select name="colaborador">
+      <select name="colaborador" onchange="this.form.submit()">
         <option value="">— Selecione —</option>
         {% for c in todos_colabs %}
         <option value="{{ c }}" {% if c == colab_sel %}selected{% endif %}>{{ c }}</option>
         {% endfor %}
       </select>
     </div>
-    <button type="submit" class="hl-btn">Ver holerite</button>
   </div>
 </form>
 
@@ -184,7 +181,7 @@
           {% for r in ranking %}
           {% if r.total > 0 %}
           <div class="rank-row">
-            <div class="rank-num">{{ loop.index }}</div>
+            <div class="rank-num">{{ r.rank }}</div>
             <div class="rank-content">
               <div class="rank-lbl">{{ r.emoji }} {{ r.cat }}</div>
               <div class="rank-bar" style="width:{{ [r.pct, 100]|min }}%">
@@ -226,7 +223,7 @@
       </div>
       <div class="dept-box">
         <small>Dep.</small>
-        <div class="dept-val">{{ func.departamento or "—" }}</div>
+        <div class="dept-val">{{ func.dependentes if func.dependentes is defined else "—" }}</div>
       </div>
     </div>
 
@@ -295,7 +292,7 @@
       <section class="section orange">
         <div class="sec-head">
           <div>📦 Provisões / Encargos</div>
-          <div>{{ brl(total_provisao + fgts, 0) }}</div>
+          <div>{{ brl(total_provisao + total_encargos, 0) }}</div>
         </div>
         <div class="sec-rows">
           {% for r in prov_provisao %}
@@ -304,21 +301,22 @@
             <span class="amt">{{ brl(r.valor or 0, 2) }}</span>
           </div>
           {% endfor %}
-          {% if fgts > 0 %}
+          {% for r in prov_encargos %}
           <div class="sec-item">
-            <span>🏛️ FGTS (8%)</span>
-            <span class="amt">{{ brl(fgts, 2) }}</span>
+            <span>🏛️ {{ r.descricao }}</span>
+            <span class="amt">{{ brl(r.valor or 0, 2) }}</span>
           </div>
-          {% endif %}
-          {% if not prov_provisao and fgts == 0 %}
+          {% endfor %}
+          {% if not prov_provisao and not prov_encargos %}
           <div style="color:var(--muted);font-size:12px">—</div>
           {% endif %}
         </div>
       </section>
     </div>
 
-    {% if prov_plr %}
+    {% if prov_plr or prov_rescisorio %}
     <div class="small-grid">
+      {% if prov_plr %}
       <section class="section purple">
         <div class="sec-head">
           <div>🏆 PLR</div>
@@ -333,12 +331,34 @@
           {% endfor %}
         </div>
       </section>
+      {% endif %}
+      {% if prov_rescisorio %}
+      <section class="section red">
+        <div class="sec-head">
+          <div>⚠️ Rescisório</div>
+          <div>{{ brl(total_rescisorio, 0) }}</div>
+        </div>
+        <div class="sec-rows">
+          {% for r in prov_rescisorio %}
+          <div class="sec-item">
+            <span>{{ r.descricao }}</span>
+            <span class="amt">{{ brl(r.valor or 0, 2) }}</span>
+          </div>
+          {% endfor %}
+        </div>
+      </section>
+      {% endif %}
     </div>
     {% endif %}
 
     <div class="total-footer">
       <div class="ttl">Custo Total Mensal do Pacote</div>
       <div class="val">{{ brl(total_custo, 2) }}</div>
+      {% if fator_global %}
+      <div style="font-size:12px;color:var(--accent);margin-top:4px">
+        Fator Global: {{ fator_global }}x o salário base
+      </div>
+      {% endif %}
     </div>
   </aside>
 </div>
