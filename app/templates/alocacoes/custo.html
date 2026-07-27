@@ -2,7 +2,7 @@
 {% block content %}
 <section class="panel mb-6"><p class="font-bold">{{ fato.autonomo.nome_autonomo }}</p><p>{{ fato.piloto.nome_piloto }} / {{ fato.prova.nome_prova }}</p></section>
 <form class="panel form-grid" method="post">
-  <div><label class="label">Valor do pacote</label><input class="input" name="valor_fechado_etapa" value="{{ fato.valor_fechado_etapa if fato.valor_fechado_etapa is not none else '' }}"></div>
+  <div><label class="label">Valor do pacote</label><input class="input" name="valor_fechado_etapa" value="{{ fato.valor_fechado_etapa | money_input }}"></div>
   <div><label class="label">Dias trabalhados</label><input class="input" type="number" min="0" name="dias_trabalhados" value="{{ fato.dias_trabalhados or '' }}"></div>
   <div><label class="label">Valor/dia calculado</label><input class="input" value="{{ fato.valor_dia|money_br }}" disabled></div>
   <div><label class="label">Status pagamento</label><select class="input" name="status_pagamento"><option value="">Selecione</option>{% for p in pagamentos %}<option {% if fato.status_pagamento == p.status_pagamento %}selected{% endif %}>{{ p.status_pagamento }}</option>{% endfor %}</select></div>

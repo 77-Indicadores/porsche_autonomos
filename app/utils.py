@@ -38,6 +38,19 @@ def format_money(value):
     return f"R$ {formatted}"
 
 
+def format_money_input(value) -> str:
+    """Formata Decimal/float para campo de input: '28000.0' → '28000,00'.
+    Compatível com parse_money (vírgula como separador decimal, sem R$).
+    """
+    if value is None or value == "":
+        return ""
+    try:
+        n = Decimal(str(value))
+        return f"{n:.2f}".replace(".", ",")
+    except (InvalidOperation, ValueError):
+        return str(value)
+
+
 def is_active(value):
     return value in ("1", "true", "True", "on", True)
 

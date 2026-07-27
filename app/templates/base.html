@@ -46,6 +46,17 @@
         <a class="nav-link {% if request.url.path == '/indicadores' %}active{% endif %}" href="/indicadores">📊 Painéis</a>
         <div class="nav-subsection-title">Headcount</div>
         <a class="nav-link {% if request.url.path == '/indicadores/headcount' %}active{% endif %}" href="/indicadores/headcount">👥 Headcount Ativo</a>
+        <a class="nav-link {% if request.url.path == '/indicadores/turnover' %}active{% endif %}" href="/indicadores/turnover">📉 Turnover</a>
+        <div class="nav-subsection-title">Folha de Pagamento</div>
+        <a class="nav-link {% if request.url.path == '/indicadores/folha-visao-custo' %}active{% endif %}" href="/indicadores/folha-visao-custo">💰 Visão Custo Empresa</a>
+        <a class="nav-link {% if request.url.path == '/indicadores/folha-holerite' %}active{% endif %}" href="/indicadores/folha-holerite">🧾 Holerite Colaborador</a>
+        <a class="nav-link {% if request.url.path == '/indicadores/folha-lista' %}active{% endif %}" href="/indicadores/folha-lista">📋 Holerite · Lista</a>
+        <a class="nav-link {% if request.url.path == '/indicadores/folha-custo-colaborador' %}active{% endif %}" href="/indicadores/folha-custo-colaborador">👤 Custo por Colaborador</a>
+        <div class="nav-subsection-title">Facilities</div>
+        <a class="nav-link {% if request.url.path == '/indicadores/facilities' %}active{% endif %}" href="/indicadores/facilities">🏢 Facilities</a>
+        <div class="nav-subsection-title">DHO</div>
+        <a class="nav-link {% if request.url.path == '/indicadores/treinamentos' %}active{% endif %}" href="/indicadores/treinamentos">🎓 Treinamentos</a>
+        <a class="nav-link {% if request.url.path == '/indicadores/vagas' %}active{% endif %}" href="/indicadores/vagas">💼 Vagas</a>
       </div>
 
       {% elif request.url.path.startswith('/facilities') %}
@@ -98,7 +109,7 @@
       </div>
       {% endif %}
 
-      {% if request.url.path != '/' %}
+      {% if request.url.path != '/' and not request.url.path.startswith('/indicadores') %}
       <div class="nav-section">
         <div class="nav-section-title">Configurações</div>
 

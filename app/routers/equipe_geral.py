@@ -19,6 +19,7 @@ from sqlalchemy import (
 from sqlalchemy.orm import Session
 
 from app.database import engine, get_db
+from app.models import DimEtapa, DimProva
 from app.template_config import templates
 from app.utils import flash_from_request, redirect_with_message
 
@@ -91,11 +92,16 @@ def index(request: Request, db: Session = Depends(get_db)):
         select(equipe_geral).order_by(equipe_geral.c.id_equipe_geral.desc())
     ).mappings().all()
 
+    etapas = db.query(DimEtapa).order_by(DimEtapa.temporada.desc(), DimEtapa.nome_etapa).all()
+    provas = db.query(DimProva).order_by(DimProva.nome_prova).all()
+
     return templates.TemplateResponse(
         "equipe_geral/index.html",
         {
             "request": request,
             "equipes": [dict(e) for e in rows],
+            "etapas": etapas,
+            "provas": provas,
             **flash_from_request(request),
         },
     )
@@ -105,19 +111,36 @@ def index(request: Request, db: Session = Depends(get_db)):
 def salvar_equipe(
     id_equipe_geral: str = Form(""),
     nome_equipe: str = Form(...),
+    id_etapa: str = Form(""),
+    id_prova: str = Form(""),
+    qtd_pessoas: str = Form("1"),
+    custo_total: str = Form(""),
+    observacoes: str = Form(""),
     db: Session = Depends(get_db),
 ):
     nome_equipe = str(nome_equipe or "").strip()
     if not nome_equipe:
         return redirect_with_message("/equipe-geral", error="Informe o nome da equipe.")
 
+    def _parse_float(v: str):
+        try:
+            return float(str(v or "").strip().replace(",", ".")) if str(v or "").strip() else None
+        except ValueError:
+            return None
+
+    def _parse_int(v: str):
+        try:
+            return int(str(v or "").strip()) if str(v or "").strip() else None
+        except ValueError:
+            return None
+
     dados = {
         "nome_equipe": nome_equipe,
-        "id_etapa": 0,
-        "id_prova": 0,
-        "qtd_pessoas": 1,
-        "custo_total": None,
-        "observacoes": "",
+        "id_etapa": _parse_int(id_etapa),
+        "id_prova": _parse_int(id_prova),
+        "qtd_pessoas": _parse_float(qtd_pessoas) or 1,
+        "custo_total": _parse_float(custo_total),
+        "observacoes": str(observacoes or "").strip(),
         "atualizado_em": datetime.utcnow(),
     }
 

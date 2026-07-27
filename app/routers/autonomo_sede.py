@@ -168,11 +168,12 @@ async def sede_upload(
             import openpyxl
             wb = openpyxl.load_workbook(io.BytesIO(conteudo), data_only=True)
             ws = wb.active
-            # detecta a linha de cabeçalho: primeira linha que contém "id" na coluna A
+            # detecta a linha de cabeçalho: linha com ≥3 células preenchidas
+            # e pelo menos uma delas contém "id" (evita pegar células mescladas de título)
             header_row = 1
             for r in ws.iter_rows(min_row=1, max_row=10):
-                val = str(r[0].value or "").strip().lower()
-                if "id" in val:
+                nao_vazias = [c for c in r if c.value is not None and str(c.value).strip()]
+                if len(nao_vazias) >= 3 and any("id" in str(c.value).lower() for c in nao_vazias):
                     header_row = r[0].row
                     break
             headers = [str(c.value or "").strip().lower() for c in ws[header_row]]

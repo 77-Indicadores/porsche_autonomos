@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 
-{% block header %}Cadastrar Equipe{% endblock %}
-{% block subtitle %}Cadastro simples de equipes com ID automático e nome da equipe.{% endblock %}
+{% block header %}Cadastrar Equipe Geral{% endblock %}
+{% block subtitle %}Registre equipes de suporte com quantidade de pessoas, custo total, etapa e categoria para rateio por carro.{% endblock %}
 
 {% block header_action %}
 <button type="button" class="quick-action primary" onclick="novoCadastro()">+ Nova equipe</button>
@@ -9,22 +9,55 @@
 
 {% block content %}
 
+{% if success %}<div class="alert alert-success mb-4">{{ success }}</div>{% endif %}
+{% if error %}<div class="alert alert-error mb-4">{{ error }}</div>{% endif %}
+
 <section class="panel mb-6">
   <div class="panel-head">
-    <h3 id="titulo-form-equipe">Nova / editar equipe</h3>
+    <h3 id="titulo-form-equipe">Nova equipe geral</h3>
   </div>
 
   <form method="post" action="/equipe-geral" class="form-grid" id="form_equipe">
     <input type="hidden" name="id_equipe_geral" id="id_equipe_geral">
 
-    <div>
-      <label class="label">ID</label>
-      <input class="input" id="id_visual" value="Criado automaticamente" disabled>
+    <div class="span-2">
+      <label class="label">Nome da equipe / função</label>
+      <input class="input" name="nome_equipe" id="nome_equipe" placeholder="Ex.: Supervisores Engenharia, Adesivagem" required>
     </div>
 
-    <div class="span-2">
-      <label class="label">Nome da equipe</label>
-      <input class="input" name="nome_equipe" id="nome_equipe" placeholder="Ex.: Equipe Técnica Geral" required>
+    <div>
+      <label class="label">Qtd. pessoas</label>
+      <input class="input" type="number" step="0.5" min="0" name="qtd_pessoas" id="qtd_pessoas" placeholder="Ex.: 2" value="1">
+    </div>
+
+    <div>
+      <label class="label">Etapa</label>
+      <select class="input" name="id_etapa" id="id_etapa">
+        <option value="">— Todas as etapas —</option>
+        {% for e in etapas %}
+          <option value="{{ e.id_etapa }}">{{ e.temporada }} · {{ e.nome_etapa }}</option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div>
+      <label class="label">Categoria</label>
+      <select class="input" name="id_prova" id="id_prova">
+        <option value="">— Todas as categorias —</option>
+        {% for p in provas %}
+          <option value="{{ p.id_prova }}" data-etapa="{{ p.id_etapa }}">{{ p.nome_prova }}</option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div>
+      <label class="label">Custo total (R$)</label>
+      <input class="input" name="custo_total" id="custo_total" placeholder="Ex.: 4545,00">
+    </div>
+
+    <div class="span-3">
+      <label class="label">Observações</label>
+      <input class="input" name="observacoes" id="observacoes" placeholder="Opcional">
     </div>
 
     <div class="span-3 ux-actions-row">
@@ -34,18 +67,9 @@
   </form>
 </section>
 
-<section class="panel mb-6">
-  <div class="grid gap-3 md:grid-cols-1">
-    <div class="kpi-card">
-      <span>Equipes cadastradas</span>
-      <strong>{{ equipes|length }}</strong>
-    </div>
-  </div>
-</section>
-
 <section class="panel">
   <div class="panel-head">
-    <h3>Equipes cadastradas</h3>
+    <h3>Equipes cadastradas <span style="font-weight:400;color:#6b7280;font-size:13px">({{ equipes|length }})</span></h3>
   </div>
 
   <div class="overflow-x-auto">
@@ -53,7 +77,12 @@
       <thead>
         <tr>
           <th>ID</th>
-          <th>Nome da equipe</th>
+          <th>Nome / Função</th>
+          <th>Qtd.</th>
+          <th>Custo Total</th>
+          <th>Etapa</th>
+          <th>Categoria</th>
+          <th>Observações</th>
           <th>Ações</th>
         </tr>
       </thead>
@@ -63,25 +92,43 @@
         <tr>
           <td><span class="id-pill">{{ e.id_equipe_geral }}</span></td>
           <td class="font-bold">{{ e.nome_equipe }}</td>
+          <td>{{ e.qtd_pessoas or 1 }}</td>
+          <td>
+            {% if e.custo_total %}
+              R$ {{ "{:,.2f}".format(e.custo_total).replace(",","X").replace(".","," ).replace("X",".") }}
+            {% else %}—{% endif %}
+          </td>
+          <td>
+            {% for et in etapas %}{% if et.id_etapa == e.id_etapa %}{{ et.nome_etapa }}{% endif %}{% endfor %}
+            {% if not e.id_etapa %}—{% endif %}
+          </td>
+          <td>
+            {% for p in provas %}{% if p.id_prova == e.id_prova %}{{ p.nome_prova }}{% endif %}{% endfor %}
+            {% if not e.id_prova %}—{% endif %}
+          </td>
+          <td>{{ e.observacoes or "—" }}</td>
           <td class="actions">
             <button
               class="btn-muted"
               type="button"
               onclick="editarEquipe(this)"
-              data-id_equipe_geral="{{ e.id_equipe_geral }}"
-              data-nome_equipe="{{ e.nome_equipe }}"
-            >
-              Editar
-            </button>
+              data-id="{{ e.id_equipe_geral }}"
+              data-nome="{{ e.nome_equipe }}"
+              data-qtd="{{ e.qtd_pessoas or 1 }}"
+              data-etapa="{{ e.id_etapa or '' }}"
+              data-prova="{{ e.id_prova or '' }}"
+              data-custo="{{ e.custo_total or '' }}"
+              data-obs="{{ e.observacoes or '' }}"
+            >Editar</button>
 
-            <form method="post" action="/equipe-geral/{{ e.id_equipe_geral }}/excluir" onsubmit="return confirm('Excluir esta equipe?');">
+            <form method="post" action="/equipe-geral/{{ e.id_equipe_geral }}/excluir" onsubmit="return confirm('Excluir esta equipe?');" style="display:inline">
               <button class="btn-danger">Excluir</button>
             </form>
           </td>
         </tr>
         {% else %}
         <tr>
-          <td colspan="3" class="empty">Nenhuma equipe cadastrada.</td>
+          <td colspan="8" class="empty">Nenhuma equipe cadastrada.</td>
         </tr>
         {% endfor %}
       </tbody>
@@ -92,18 +139,21 @@
 <script>
 function setValue(id, value) {
   const el = document.getElementById(id);
-  if (el) el.value = value || "";
+  if (el) el.value = value != null ? value : "";
 }
 
 function editarEquipe(btn) {
-  const d = btn.dataset || {};
-
-  setValue("id_equipe_geral", d.id_equipe_geral);
-  setValue("id_visual", d.id_equipe_geral);
-  setValue("nome_equipe", d.nome_equipe);
+  const d = btn.dataset;
+  setValue("id_equipe_geral", d.id);
+  setValue("nome_equipe",     d.nome);
+  setValue("qtd_pessoas",     d.qtd);
+  setValue("id_etapa",        d.etapa);
+  setValue("id_prova",        d.prova);
+  setValue("custo_total",     d.custo ? String(d.custo).replace(".", ",") : "");
+  setValue("observacoes",     d.obs);
 
   const titulo = document.getElementById("titulo-form-equipe");
-  if (titulo) titulo.innerText = "Editar equipe #" + d.id_equipe_geral;
+  if (titulo) titulo.innerText = "Editar equipe #" + d.id;
 
   const botao = document.getElementById("btn_salvar_equipe");
   if (botao) botao.innerText = "Salvar alterações";
@@ -112,14 +162,11 @@ function editarEquipe(btn) {
 }
 
 function novoCadastro() {
-  const form = document.getElementById("form_equipe");
-  if (form) form.reset();
-
+  document.getElementById("form_equipe").reset();
   setValue("id_equipe_geral", "");
-  setValue("id_visual", "Criado automaticamente");
 
   const titulo = document.getElementById("titulo-form-equipe");
-  if (titulo) titulo.innerText = "Nova / editar equipe";
+  if (titulo) titulo.innerText = "Nova equipe geral";
 
   const botao = document.getElementById("btn_salvar_equipe");
   if (botao) botao.innerText = "Salvar equipe";

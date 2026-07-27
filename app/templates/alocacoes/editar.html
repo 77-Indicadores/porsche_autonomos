@@ -118,7 +118,7 @@
 
   <div>
     <label class="label">Valor do pacote</label>
-    <input class="input" name="valor_fechado_etapa" value="{{ fato.valor_fechado_etapa or '' }}" placeholder="3300,00">
+    <input class="input" name="valor_fechado_etapa" value="{{ fato.valor_fechado_etapa | money_input }}" placeholder="3300,00">
   </div>
 
   <div>

@@ -51,6 +51,16 @@ class AuthMiddleware(BaseHTTPMiddleware):
         if request.url.path.startswith("/static") or request.url.path in public_paths:
             return await call_next(request)
 
+        # Auto-login local: se AUTO_LOGIN_LOCAL=1, injeta usuário admin sem cookie
+        if os.getenv("AUTO_LOGIN_LOCAL", "0") == "1":
+            request.state.current_user = {
+                "email": os.getenv("AUTO_LOGIN_EMAIL", "admin@local"),
+                "nome": os.getenv("AUTO_LOGIN_NOME", "Administrador Local"),
+                "perfil": "admin",
+                "is_authenticated": True,
+            }
+            return await call_next(request)
+
         token = request.cookies.get(SESSION_COOKIE)
         session_user = read_session_token(token) if token else None
         request.state.current_user = session_user
@@ -342,6 +352,21 @@ try:
 except Exception as exc:
     import traceback
     print("ERRO AO REGISTRAR /autonomo-sede")
+    print(exc)
+    print(traceback.format_exc())
+
+# ============================================================
+# Router Folha Custo (deve vir ANTES de indicadores para ter prioridade
+# nas rotas /indicadores/folha-visao-custo e /indicadores/folha-holerite)
+# ============================================================
+try:
+    import importlib
+    folha_custo_runtime = importlib.import_module("app.routers.folha_custo")
+    app.include_router(folha_custo_runtime.router)
+    print("OK - Router folha_custo registrado.")
+except Exception as exc:
+    import traceback
+    print("ERRO AO REGISTRAR folha_custo")
     print(exc)
     print(traceback.format_exc())
 

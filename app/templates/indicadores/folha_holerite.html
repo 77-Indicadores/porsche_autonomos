@@ -1,0 +1,346 @@
+{% extends "base.html" %}
+{% block header %}Holerite Colaborador{% endblock %}
+{% block subtitle %}Custo total do colaborador: salário, benefícios, provisões e encargos.{% endblock %}
+
+{% block content %}
+<style>
+:root{
+  --red:#e10600;--navy:#08173a;--green:#16a34a;
+  --blue:#5978ff;--gold:#f0b323;--purple:#8d6bff;
+  --soft:#f8f8fa;--line:#e9eaef;--muted:#7c8391;
+  --shadow:0 8px 22px rgba(20,25,40,.06);--radius:20px;
+}
+/* layout */
+.hl-layout{display:grid;grid-template-columns:1.15fr .95fr;gap:14px;align-items:start}
+@media(max-width:1200px){.hl-layout{grid-template-columns:1fr}}
+
+/* filtros */
+.hl-filters{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;margin-bottom:18px}
+.hl-filters .fg{display:flex;flex-direction:column;gap:4px;min-width:180px;flex:1}
+.hl-filters label{font-size:11px;font-weight:700;color:#2d3340;text-transform:uppercase;letter-spacing:.3px}
+.hl-filters select{height:42px;border:1px solid var(--line);border-radius:10px;padding:0 12px;font-size:13px;color:#3a4150;background:#fff;outline:none}
+.hl-btn{height:42px;padding:0 20px;background:var(--red);color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;align-self:flex-end}
+
+/* KPIs */
+.hl-kpis{background:#edf1f9;border-radius:20px;padding:14px;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:16px}
+@media(max-width:760px){.hl-kpis{grid-template-columns:1fr 1fr}}
+.kpi{background:#fff;border-radius:16px;padding:14px 16px;border-left:4px solid var(--red);box-shadow:var(--shadow)}
+.kpi.dark{background:linear-gradient(145deg,var(--navy),#07122f);color:#fff;border-left:none}
+.kpi.blue{border-left-color:var(--blue)}
+.kpi.gold{border-left-color:var(--gold)}
+.kpi .lbl{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.4px;opacity:.9}
+.kpi .val{margin-top:6px;font-size:17px;font-weight:900;font-variant-numeric:tabular-nums}
+
+/* card base */
+.hl-card{background:#fff;border:1px solid var(--line);border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow)}
+.hl-head{padding:14px 16px 8px}
+.hl-head h2{margin:0;font-size:13px;font-weight:900;text-transform:uppercase;letter-spacing:.3px;color:#1a1a1a}
+
+/* charts area */
+.hl-charts{display:grid;grid-template-columns:.9fr 1.3fr;gap:14px;margin-bottom:16px}
+@media(max-width:900px){.hl-charts{grid-template-columns:1fr}}
+
+/* ranking */
+.ranking{display:flex;flex-direction:column;gap:12px;padding:8px 14px 14px}
+.rank-row{display:grid;grid-template-columns:24px 1fr;align-items:center;gap:8px}
+.rank-num{color:#888;font-size:13px;font-weight:600;text-align:right}
+.rank-content{display:grid;grid-template-columns:1fr 120px;gap:10px;align-items:center}
+.rank-lbl{font-size:13px;color:#555}
+.rank-bar{height:46px;background:linear-gradient(135deg,#e10600,#c90500);border-radius:0;
+  display:flex;align-items:center;justify-content:flex-end;padding-right:10px;min-width:20px}
+.rank-bar span{font-size:12px;font-weight:700;color:#fff;white-space:nowrap;font-variant-numeric:tabular-nums}
+
+/* right panel */
+.rp{background:rgba(255,255,255,.7);border:1px solid var(--line);border-radius:24px;
+  box-shadow:var(--shadow);padding:10px;max-height:820px;overflow:auto}
+
+/* employee head */
+.emp-head{background:#fff;border:1px solid var(--line);border-radius:18px;padding:14px;
+  display:grid;grid-template-columns:76px 1fr 66px;gap:14px;align-items:start;margin-bottom:12px}
+.avatar{width:74px;height:74px;border-radius:14px;
+  background:linear-gradient(145deg,#2a58ff,#162f86);
+  border:2px solid #2f63ff;
+  display:flex;align-items:center;justify-content:center;
+  font-size:28px;color:#fff;font-weight:900;text-transform:uppercase;
+  flex-shrink:0}
+.emp-company{color:var(--red);font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.3px;margin-bottom:3px}
+.emp-name{font-size:17px;font-weight:900;margin:0 0 2px;text-transform:uppercase;line-height:1.15}
+.emp-role{color:#596171;font-size:12px;text-transform:uppercase;margin-bottom:3px}
+.emp-info{color:#6a7281;font-size:11px}
+.dept-box{background:#f3f4f6;border-radius:14px;min-height:74px;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;font-weight:900;color:var(--gold)}
+.dept-box small{color:#8e95a3;font-size:9px;text-transform:uppercase;margin-bottom:3px;font-weight:700}
+.dept-val{font-size:22px;font-weight:900}
+
+/* sections */
+.split{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px}
+@media(max-width:700px){.split{grid-template-columns:1fr}}
+.section{background:#fff;border:1px solid var(--line);border-radius:16px;padding:10px 12px}
+.section.green{border-left:3px solid var(--green)}
+.section.red{border-left:3px solid var(--red)}
+.section.blue{border-left:3px solid var(--blue)}
+.section.orange{border-left:3px solid #f59e0b}
+.section.purple{border-left:3px solid var(--purple)}
+.sec-head{display:flex;justify-content:space-between;align-items:center;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.3px;margin-bottom:8px}
+.section.green .sec-head{color:#129546}
+.section.red .sec-head{color:#ee3f40}
+.section.blue .sec-head{color:#4b58f6}
+.section.orange .sec-head{color:#e47a00}
+.section.purple .sec-head{color:#5a4eff}
+.sec-rows{display:flex;flex-direction:column;gap:5px}
+.sec-item{display:grid;grid-template-columns:1fr auto;font-size:12px;color:#4c5360;gap:8px}
+.sec-item .amt{font-weight:600;font-variant-numeric:tabular-nums;white-space:nowrap;color:#2d3340}
+
+/* líquido */
+.liquido-box{background:linear-gradient(180deg,#c6e8cf,#bbe3c6);border:2px solid #23a65a;
+  border-radius:14px;padding:16px 10px 12px;text-align:center;margin-bottom:10px}
+.liquido-val{font-size:26px;font-weight:900;color:#00684c;margin-bottom:4px;font-variant-numeric:tabular-nums}
+.liquido-sub{font-size:10px;letter-spacing:1.2px;color:#167156;text-transform:uppercase;font-weight:600}
+
+/* half grid */
+.half-grid,.small-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px}
+@media(max-width:700px){.half-grid,.small-grid{grid-template-columns:1fr}}
+
+/* footer */
+.total-footer{background:#f7f8fa;border:1px solid #dde2ea;border-radius:16px;
+  text-align:center;padding:16px 12px 18px;margin-top:2px}
+.total-footer .ttl{color:var(--muted);text-transform:uppercase;font-size:11px;font-weight:600;margin-bottom:8px}
+.total-footer .val{font-size:36px;font-weight:900;color:#20283a;font-variant-numeric:tabular-nums}
+
+/* empty state */
+.empty-hl{text-align:center;padding:60px 20px;color:var(--muted)}
+.empty-hl h3{font-size:16px;margin-bottom:6px;color:#4c5360}
+</style>
+
+{# ── Filtros ── #}
+<form method="get" action="/indicadores/folha-holerite">
+  <div class="hl-filters">
+    <div class="fg">
+      <label>Empresa / Centro de Custo</label>
+      <select name="empresa" onchange="this.form.submit()">
+        <option value="">— Todas —</option>
+        {% for e in todas_empresas %}
+        <option value="{{ e }}" {% if e == empresa_sel %}selected{% endif %}>{{ e }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="fg">
+      <label>Competência</label>
+      <select name="competencia" onchange="this.form.submit()">
+        <option value="">— Todas —</option>
+        {% for c in todas_comps %}
+        <option value="{{ c }}" {% if c == comp_sel %}selected{% endif %}>{{ c }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="fg">
+      <label>Nome</label>
+      <select name="colaborador">
+        <option value="">— Selecione —</option>
+        {% for c in todos_colabs %}
+        <option value="{{ c }}" {% if c == colab_sel %}selected{% endif %}>{{ c }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <button type="submit" class="hl-btn">Ver holerite</button>
+  </div>
+</form>
+
+{% if not func %}
+<div class="empty-hl">
+  <h3>Selecione um colaborador</h3>
+  <p>Escolha a empresa, a competência e o nome para visualizar o holerite completo.</p>
+</div>
+
+{% else %}
+{# ═══ KPIs ═══ #}
+<div class="hl-kpis">
+  <div class="kpi dark">
+    <div class="lbl">Custo Total</div>
+    <div class="val">{{ brl(total_custo, 0) }}</div>
+  </div>
+  <div class="kpi">
+    <div class="lbl">💰 Salário Base</div>
+    <div class="val">{{ brl(salario_base, 0) }}</div>
+  </div>
+  <div class="kpi blue">
+    <div class="lbl">🎁 Benefícios</div>
+    <div class="val">{{ brl(total_beneficios, 0) }}</div>
+  </div>
+  <div class="kpi gold">
+    <div class="lbl">📦 Provisões / Encargos</div>
+    <div class="val">{{ brl(total_provisao + fgts, 0) }}</div>
+  </div>
+</div>
+
+<div class="hl-layout">
+  {# ═══ PAINEL ESQUERDO ═══ #}
+  <section>
+    <div class="hl-charts">
+      {# Composição de custo #}
+      <div class="hl-card">
+        <div class="hl-head"><h2>Comp. Custo Colaborador</h2></div>
+        <div class="ranking">
+          {% for r in ranking %}
+          {% if r.total > 0 %}
+          <div class="rank-row">
+            <div class="rank-num">{{ loop.index }}</div>
+            <div class="rank-content">
+              <div class="rank-lbl">{{ r.emoji }} {{ r.cat }}</div>
+              <div class="rank-bar" style="width:{{ [r.pct, 100]|min }}%">
+                <span>{{ brl(r.total, 0) }}</span>
+              </div>
+            </div>
+          </div>
+          {% endif %}
+          {% endfor %}
+        </div>
+      </div>
+
+      {# Evolução salarial #}
+      <div class="hl-card">
+        <div class="hl-head"><h2>Evolução Salário Base</h2></div>
+        <div style="padding:0 10px 14px">
+          {% if svg_evolucao %}
+            {{ svg_evolucao | safe }}
+          {% else %}
+            <p style="color:var(--muted);text-align:center;padding:40px 0">Sem histórico.</p>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </section>
+
+  {# ═══ PAINEL DIREITO — HOLERITE ═══ #}
+  <aside class="rp">
+    <div class="emp-head">
+      <div class="avatar">{{ func.nome[0] if func.nome else "?" }}</div>
+      <div>
+        <div class="emp-company">{{ func.empresa_nome }}</div>
+        <div class="emp-name">{{ func.nome }}</div>
+        <div class="emp-role">{{ func.cargo or "—" }}</div>
+        <div class="emp-info">
+          {% if func.data_admissao %}📅 Admissão: {{ func.data_admissao }}{% endif %}
+          &nbsp;·&nbsp; {{ func.competencia }}
+        </div>
+      </div>
+      <div class="dept-box">
+        <small>Dep.</small>
+        <div class="dept-val">{{ func.departamento or "—" }}</div>
+      </div>
+    </div>
+
+    {# Proventos + Descontos #}
+    <div class="split">
+      <section class="section green">
+        <div class="sec-head">
+          <div>➕ Proventos</div>
+          <div>{{ brl(func.total_proventos or 0, 0) }}</div>
+        </div>
+        <div class="sec-rows">
+          {% for r in prov_proventos %}
+          <div class="sec-item">
+            <span>{{ r.descricao }}</span>
+            <span class="amt">{{ brl(r.valor or 0, 2) }}</span>
+          </div>
+          {% else %}
+          <div style="color:var(--muted);font-size:12px">—</div>
+          {% endfor %}
+        </div>
+      </section>
+
+      <section class="section red">
+        <div class="sec-head">
+          <div>➖ Descontos</div>
+          <div>{{ brl(func.total_descontos or 0, 0) }}</div>
+        </div>
+        <div class="sec-rows">
+          {% for r in rubricas_d %}
+          <div class="sec-item">
+            <span>{{ r.descricao }}</span>
+            <span class="amt">-{{ brl(r.valor or 0, 2) }}</span>
+          </div>
+          {% else %}
+          <div style="color:var(--muted);font-size:12px">—</div>
+          {% endfor %}
+        </div>
+      </section>
+    </div>
+
+    {# Líquido #}
+    <div class="liquido-box">
+      <div class="liquido-val">{{ brl(liquido, 2) }}</div>
+      <div class="liquido-sub">Líquido estimado em conta</div>
+    </div>
+
+    {# Benefícios + Provisões/Encargos #}
+    <div class="half-grid">
+      <section class="section blue">
+        <div class="sec-head">
+          <div>🎁 Benefícios</div>
+          <div>{{ brl(total_beneficios, 0) }}</div>
+        </div>
+        <div class="sec-rows">
+          {% for r in prov_beneficios %}
+          <div class="sec-item">
+            <span>{{ r.descricao }}</span>
+            <span class="amt">{{ brl(r.valor or 0, 2) }}</span>
+          </div>
+          {% else %}
+          <div style="color:var(--muted);font-size:12px">—</div>
+          {% endfor %}
+        </div>
+      </section>
+
+      <section class="section orange">
+        <div class="sec-head">
+          <div>📦 Provisões / Encargos</div>
+          <div>{{ brl(total_provisao + fgts, 0) }}</div>
+        </div>
+        <div class="sec-rows">
+          {% for r in prov_provisao %}
+          <div class="sec-item">
+            <span>{{ r.descricao }}</span>
+            <span class="amt">{{ brl(r.valor or 0, 2) }}</span>
+          </div>
+          {% endfor %}
+          {% if fgts > 0 %}
+          <div class="sec-item">
+            <span>🏛️ FGTS (8%)</span>
+            <span class="amt">{{ brl(fgts, 2) }}</span>
+          </div>
+          {% endif %}
+          {% if not prov_provisao and fgts == 0 %}
+          <div style="color:var(--muted);font-size:12px">—</div>
+          {% endif %}
+        </div>
+      </section>
+    </div>
+
+    {% if prov_plr %}
+    <div class="small-grid">
+      <section class="section purple">
+        <div class="sec-head">
+          <div>🏆 PLR</div>
+          <div>{{ brl(total_plr, 0) }}</div>
+        </div>
+        <div class="sec-rows">
+          {% for r in prov_plr %}
+          <div class="sec-item">
+            <span>{{ r.descricao }}</span>
+            <span class="amt">{{ brl(r.valor or 0, 2) }}</span>
+          </div>
+          {% endfor %}
+        </div>
+      </section>
+    </div>
+    {% endif %}
+
+    <div class="total-footer">
+      <div class="ttl">Custo Total Mensal do Pacote</div>
+      <div class="val">{{ brl(total_custo, 2) }}</div>
+    </div>
+  </aside>
+</div>
+{% endif %}
+{% endblock %}
