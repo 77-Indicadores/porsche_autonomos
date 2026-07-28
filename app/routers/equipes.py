@@ -55,46 +55,6 @@ def calcular_rateios_equipe_atual(fatos):
     return rateios
 
 
-def garantir_exemplo_equipe_geral(db: Session):
-    """
-    Cria um lançamento local de exemplo para demonstrar o rateio da Equipe Geral.
-    Só cria se a tabela equipe_geral existir e ainda não houver nenhum registro.
-    """
-    try:
-        qtd = db.execute(text("SELECT COUNT(*) FROM equipe_geral")).scalar() or 0
-
-        if qtd > 0:
-            return
-
-        etapa = db.query(DimEtapa).order_by(DimEtapa.id_etapa).first()
-        categoria = db.query(DimProva).order_by(DimProva.id_prova).first()
-
-        if not etapa or not categoria:
-            return
-
-        db.execute(
-            text("""
-                INSERT INTO equipe_geral
-                    (id_etapa, id_prova, nome_equipe, qtd_pessoas, custo_total, observacoes, criado_em, atualizado_em)
-                VALUES
-                    (:id_etapa, :id_prova, :nome_equipe, :qtd_pessoas, :custo_total, :observacoes, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-            """),
-            {
-                "id_etapa": etapa.id_etapa,
-                "id_prova": categoria.id_prova,
-                "nome_equipe": "Equipe Geral - Exemplo de Rateio",
-                "qtd_pessoas": 3,
-                "custo_total": 12000,
-                "observacoes": "Lançamento de exemplo para demonstrar rateio por carro em Equipes Alocadas.",
-            },
-        )
-
-        db.commit()
-
-    except Exception as exc:
-        db.rollback()
-        print(f"AVISO - não consegui criar exemplo de equipe geral: {exc}")
-
 
 def carregar_equipes_gerais(db: Session):
     try:
@@ -138,8 +98,6 @@ def equipes(
 
     etapas = db.query(DimEtapa).order_by(DimEtapa.nome_etapa).all()
     categorias = db.query(DimProva).order_by(DimProva.nome_prova).all()
-
-    garantir_exemplo_equipe_geral(db)
 
     query = (
         db.query(FatoPilotoAutonomoProva)
