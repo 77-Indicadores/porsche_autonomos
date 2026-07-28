@@ -176,7 +176,7 @@ def _svg_line(pontos: list[tuple], labels: list[str], titulo: str = "") -> str:
     val_labels = "".join(
         f'<text x="{pts[i][0]:.0f}" y="{max(pts[i][1] - 11, 14):.0f}" '
         f'text-anchor="middle" font-size="11" fill="#5e6570" font-weight="600">'
-        f'{_brl_k(p[1])}</text>'
+        f'{_brl(p[1], 0)}</text>'
         for i, p in enumerate(pontos)
     )
 
@@ -567,14 +567,13 @@ def folha_holerite(
     total_custo      = total_proventos + total_beneficios + total_provisao + total_plr + total_encargos + total_rescisorio
     fator_global     = round(total_custo / max(salario_base, 1), 2)
 
-    _RANK_CAT = {"Salário": 1, "Adicionais": 2, "Encargos": 3, "Benefícios": 4, "Provisão": 5, "PLR": 6}
     ranking = sorted([
-        {"cat": "Salário",    "rank": 1, "emoji": "💰", "total": total_salario},
-        {"cat": "Benefícios", "rank": 4, "emoji": "🎁", "total": total_beneficios},
-        {"cat": "Provisão",   "rank": 5, "emoji": "📦", "total": total_provisao + total_rescisorio},
-        {"cat": "Encargos",   "rank": 3, "emoji": "🏛️", "total": total_encargos},
-        {"cat": "PLR",        "rank": 6, "emoji": "🏆", "total": total_plr},
-        {"cat": "Adicionais", "rank": 2, "emoji": "⚡", "total": total_adicionais},
+        {"cat": "Salário",    "emoji": "💰", "total": total_salario},
+        {"cat": "Benefícios", "emoji": "🎁", "total": total_beneficios},
+        {"cat": "Provisão",   "emoji": "📦", "total": total_provisao + total_rescisorio},
+        {"cat": "Encargos",   "emoji": "🏛️", "total": total_encargos},
+        {"cat": "PLR",        "emoji": "🏆", "total": total_plr},
+        {"cat": "Adicionais", "emoji": "⚡", "total": total_adicionais},
     ], key=lambda x: -x["total"])
     max_rank = max((r["total"] for r in ranking), default=1)
     for r in ranking:

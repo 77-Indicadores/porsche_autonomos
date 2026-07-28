@@ -14,8 +14,8 @@
 .main-dash{display:flex;gap:20px;align-items:start}
 @media(max-width:900px){.main-dash{flex-direction:column}}
 
-/* ── sidebar ── */
-.sidebar{width:220px;flex-shrink:0;background:#fff;border-radius:28px;padding:22px;
+/* ── employee sidebar ── */
+.emp-sidebar{width:220px;flex-shrink:0;background:#fff;border-radius:28px;padding:22px;
   box-shadow:0 10px 30px rgba(0,0,0,.05);text-align:center}
 
 /* ring giratório */
@@ -139,7 +139,7 @@
 <div class="main-dash">
 
   {# ── SIDEBAR ── #}
-  <div class="sidebar">
+  <div class="emp-sidebar">
     <div class="foto-ring">
       <div class="foto-inner">
         <div class="avatar-ini">{{ func.nome[0] }}</div>

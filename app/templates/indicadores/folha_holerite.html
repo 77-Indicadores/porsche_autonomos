@@ -39,14 +39,14 @@
 .hl-charts{display:flex;flex-direction:column;gap:14px;margin-bottom:16px}
 
 /* ranking */
-.ranking{display:flex;flex-direction:column;gap:12px;padding:8px 14px 14px}
-.rank-row{display:grid;grid-template-columns:24px 1fr;align-items:center;gap:8px}
-.rank-num{color:#888;font-size:13px;font-weight:600;text-align:right}
-.rank-content{display:grid;grid-template-columns:1fr 120px;gap:10px;align-items:center}
-.rank-lbl{font-size:13px;color:#555}
-.rank-bar{height:46px;background:linear-gradient(135deg,#e10600,#c90500);border-radius:0;
-  display:flex;align-items:center;justify-content:flex-end;padding-right:10px;min-width:20px}
-.rank-bar span{font-size:12px;font-weight:700;color:#fff;white-space:nowrap;font-variant-numeric:tabular-nums}
+.ranking{display:flex;flex-direction:column;gap:10px;padding:8px 14px 14px}
+.rank-row{display:grid;grid-template-columns:20px 1fr;align-items:center;gap:8px}
+.rank-num{color:#bbb;font-size:11px;font-weight:700;text-align:right}
+.rank-content{display:grid;grid-template-columns:120px 1fr 90px;gap:8px;align-items:center}
+.rank-lbl{font-size:12px;color:#555;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rank-track{height:28px;background:#f3f4f6;border-radius:6px;overflow:hidden}
+.rank-bar{height:100%;background:linear-gradient(90deg,#e10600,#c90500);border-radius:6px;min-width:4px}
+.rank-val{font-size:12px;font-weight:700;color:#1a1a1a;text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
 
 /* right panel */
 .rp{background:rgba(255,255,255,.7);border:1px solid var(--line);border-radius:24px;
@@ -180,12 +180,13 @@
           {% for r in ranking %}
           {% if r.total > 0 %}
           <div class="rank-row">
-            <div class="rank-num">{{ r.rank }}</div>
+            <div class="rank-num">{{ loop.index }}</div>
             <div class="rank-content">
               <div class="rank-lbl">{{ r.emoji }} {{ r.cat }}</div>
-              <div class="rank-bar" style="width:{{ [r.pct, 100]|min }}%">
-                <span>{{ brl(r.total, 0) }}</span>
+              <div class="rank-track">
+                <div class="rank-bar" style="width:{{ [r.pct, 100]|min }}%"></div>
               </div>
+              <div class="rank-val">{{ brl(r.total, 0) }}</div>
             </div>
           </div>
           {% endif %}
