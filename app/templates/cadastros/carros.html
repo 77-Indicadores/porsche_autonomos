@@ -26,8 +26,8 @@
     <input type="hidden" name="id_carro" id="id_carro">
 
     <div>
-      <label class="label">Número do carro</label>
-      <input class="input" name="numero_carro" id="numero_carro" placeholder="Ex.: #77" required>
+      <label class="label">Chassi / identificação</label>
+      <input class="input" name="chassi" id="chassi" placeholder="Ex.: CHASSI-0077" required>
     </div>
 
     <div>
@@ -45,11 +45,6 @@
         <option value="Endurance - Carrera">Endurance - Carrera</option>
         <option value="Endurance - Challenge">Endurance - Challenge</option>
       </select>
-    </div>
-
-    <div>
-      <label class="label">Chassi / identificação</label>
-      <input class="input" name="chassi" id="chassi" placeholder="Ex.: CHASSI-0077">
     </div>
 
     <div>
@@ -79,10 +74,9 @@
     <thead>
       <tr>
         <th>ID</th>
-        <th>Número</th>
+        <th>Chassi</th>
         <th>Modelo</th>
         <th>Categoria padrão</th>
-        <th>Chassi</th>
         <th>Status</th>
         <th>Ações</th>
       </tr>
@@ -92,10 +86,9 @@
       {% for c in items %}
       <tr>
         <td><span class="id-pill">{{ c.id_carro or "-" }}</span></td>
-        <td class="font-bold">{{ c.numero_carro }}</td>
+        <td class="font-bold">{{ c.chassi or '-' }}</td>
         <td>{{ c.modelo or '-' }}</td>
         <td>{{ c.categoria_padrao or '-' }}</td>
-        <td>{{ c.chassi or '-' }}</td>
         <td><span class="badge">{{ c.status_carro }}</span></td>
         <td class="actions">
           <button
@@ -103,7 +96,6 @@
             type="button"
             onclick="editarCarro(this)"
             data-id-carro="{{ c.id_carro }}"
-            data-numero-carro="{{ c.numero_carro or '' }}"
             data-modelo="{{ c.modelo or '' }}"
             data-categoria-padrao="{{ c.categoria_padrao or '' }}"
             data-chassi="{{ c.chassi or '' }}"
@@ -120,7 +112,7 @@
       </tr>
       {% else %}
       <tr>
-        <td colspan="7" class="empty">Nenhum carro cadastrado.</td>
+        <td colspan="6" class="empty">Nenhum carro cadastrado.</td>
       </tr>
       {% endfor %}
     </tbody>
@@ -137,7 +129,7 @@ function editarCarro(btn) {
   const d = btn.dataset || {};
 
   setCarroField("id_carro", d.idCarro);
-  setCarroField("numero_carro", d.numeroCarro);
+  setCarroField("chassi", d.chassi);
   setCarroField("modelo", d.modelo);
   setCarroField("categoria_padrao", d.categoriaPadrao);
   setCarroField("chassi", d.chassi);
