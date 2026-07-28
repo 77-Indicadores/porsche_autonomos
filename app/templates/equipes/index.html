@@ -165,7 +165,7 @@
               <strong>{{ s.funcao }}</strong> · saiu <b>{{ s.saiu }}</b> · entrou <b>{{ s.entrou }}</b>
             </div>
             <div class="sub-meta">
-              Data: {{ s.data or "-" }} | Motivo: {{ s.motivo or "-" }}
+              Data: {{ s.data|date_br }} | Motivo: {{ s.motivo or "-" }}
             </div>
             {% if s.justificativa %}
               <div class="sub-obs">{{ s.justificativa }}</div>

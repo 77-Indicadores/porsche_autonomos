@@ -221,7 +221,7 @@
         <div class="emp-name">{{ func.nome }}</div>
         <div class="emp-role">{{ func.cargo or "—" }}</div>
         <div class="emp-info">
-          {% if func.data_admissao %}📅 Admissão: {{ func.data_admissao }}{% endif %}
+          {% if func.data_admissao %}📅 Admissão: {{ func.data_admissao|date_br }}{% endif %}
           &nbsp;·&nbsp; {{ func.competencia }}
         </div>
       </div>

@@ -25,6 +25,13 @@ def parse_money(value: str | None) -> Decimal | None:
 def format_date(value):
     if not value:
         return "-"
+    if isinstance(value, str):
+        for fmt in ("%Y-%m-%d", "%d/%m/%Y"):
+            try:
+                return datetime.strptime(value, fmt).strftime("%d/%m/%Y")
+            except ValueError:
+                pass
+        return value
     if isinstance(value, datetime):
         value = value.date()
     return value.strftime("%d/%m/%Y")
