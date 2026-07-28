@@ -42,13 +42,11 @@ button,select{font:inherit}
 }
 .brand h1{margin:0;font-size:21px;line-height:1.1;letter-spacing:-.4px;color:var(--text)}
 .brand small{display:block;margin-top:4px;color:var(--muted);font-size:12px}
-.filters{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:8px}
-.filter{
-  border:1px solid var(--line);background:rgba(255,255,255,.82);
-  min-width:135px;height:40px;border-radius:12px;padding:0 12px;
-  color:#343843;outline:none;box-shadow:var(--shadow-soft);cursor:pointer;
-}
-.filter:focus{border-color:var(--red)}
+.filters{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:8px;align-items:center}
+.filter{background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:8px 14px;min-width:135px}
+.filter label{display:block;font-size:10px;font-weight:700;color:#9ca3af;text-transform:uppercase;letter-spacing:.08em;margin-bottom:3px}
+.filter select{width:100%;border:0;background:transparent;outline:none;color:#111827;font-size:13px;font-weight:600;cursor:pointer}
+.filter:focus-within{border-color:var(--red)}
 .icon-btn{
   width:40px;height:40px;border:0;border-radius:12px;
   background:#fff;cursor:pointer;color:#4d5360;
@@ -247,24 +245,33 @@ button,select{font:inherit}
     </div>
 
     <form method="get" action="/indicadores/folha-visao-custo" class="filters" id="fcform">
-      <select name="empresa" class="filter" onchange="document.getElementById('fcform').submit()">
-        <option value="">Todas as empresas</option>
-        {% for e in todas_empresas %}
-        <option value="{{ e }}" {% if e == empresa_sel %}selected{% endif %}>{{ e }}</option>
-        {% endfor %}
-      </select>
-      <select name="comp_ini" class="filter">
-        <option value="">Início</option>
-        {% for c in todas_comps %}
-        <option value="{{ c }}" {% if c == comp_ini_sel %}selected{% endif %}>{{ c }}</option>
-        {% endfor %}
-      </select>
-      <select name="comp_fim" class="filter" onchange="document.getElementById('fcform').submit()">
-        <option value="">Fim</option>
-        {% for c in todas_comps %}
-        <option value="{{ c }}" {% if c == comp_fim_sel %}selected{% endif %}>{{ c }}</option>
-        {% endfor %}
-      </select>
+      <div class="filter">
+        <label>Empresa</label>
+        <select name="empresa" onchange="document.getElementById('fcform').submit()">
+          <option value="">Todas</option>
+          {% for e in todas_empresas %}
+          <option value="{{ e }}" {% if e == empresa_sel %}selected{% endif %}>{{ e }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="filter">
+        <label>Competência Início</label>
+        <select name="comp_ini">
+          <option value="">—</option>
+          {% for c in todas_comps %}
+          <option value="{{ c }}" {% if c == comp_ini_sel %}selected{% endif %}>{{ c }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="filter">
+        <label>Competência Fim</label>
+        <select name="comp_fim" onchange="document.getElementById('fcform').submit()">
+          <option value="">—</option>
+          {% for c in todas_comps %}
+          <option value="{{ c }}" {% if c == comp_fim_sel %}selected{% endif %}>{{ c }}</option>
+          {% endfor %}
+        </select>
+      </div>
       <button type="submit" class="icon-btn" title="Filtrar">▶</button>
     </form>
   </header>

@@ -239,13 +239,9 @@ _CSS = """<style>
 .brand h1{font-size:22px;line-height:1;margin:0;letter-spacing:-.03em}
 .brand .subtitle{margin-top:4px;font-size:12px;color:var(--muted)}
 .filters{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
-.filter{
-  min-width:160px;background:rgba(255,255,255,.88);
-  border:1px solid rgba(0,0,0,.07);border-radius:14px;
-  padding:9px 12px;box-shadow:var(--shadow-soft);
-}
-.filter label{display:block;font-size:10px;color:#8b8f94;text-transform:uppercase;letter-spacing:.09em;font-weight:800;margin-bottom:4px}
-.filter select{width:100%;border:0;background:transparent;outline:none;color:#252525;font-size:13px;font-weight:700;cursor:pointer}
+.filter{background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:8px 14px;min-width:150px}
+.filter label{display:block;font-size:10px;font-weight:700;color:#9ca3af;text-transform:uppercase;letter-spacing:.08em;margin-bottom:3px}
+.filter select{width:100%;border:0;background:transparent;outline:none;color:#111827;font-size:13px;font-weight:600;cursor:pointer}
 .hero{
   background:linear-gradient(135deg,#171717 0%,#0c0c0c 58%,#250000 100%);
   color:#fff;border-radius:26px;padding:22px 24px;
@@ -706,10 +702,9 @@ _CSS_TURNOVER = """<style>
 .brand h1{font-size:22px;line-height:1;margin:0;letter-spacing:-.03em}
 .brand .subtitle{margin-top:4px;font-size:12px;color:var(--muted)}
 .filters{display:flex;gap:10px;align-items:center;flex-wrap:wrap;justify-content:flex-end}
-.filter{min-width:130px;background:rgba(255,255,255,.88);border:1px solid rgba(0,0,0,.07);border-radius:14px;
-  padding:9px 12px;box-shadow:var(--shadow-soft)}
-.filter label{display:block;font-size:10px;color:#8b8f94;text-transform:uppercase;letter-spacing:.09em;font-weight:800;margin-bottom:4px}
-.filter select{width:100%;border:0;background:transparent;outline:none;color:#252525;font-size:13px;font-weight:700;cursor:pointer}
+.filter{background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:8px 14px;min-width:130px}
+.filter label{display:block;font-size:10px;font-weight:700;color:#9ca3af;text-transform:uppercase;letter-spacing:.08em;margin-bottom:3px}
+.filter select{width:100%;border:0;background:transparent;outline:none;color:#111827;font-size:13px;font-weight:600;cursor:pointer}
 .hero{background:linear-gradient(135deg,#171717 0%,#0c0c0c 58%,#250000 100%);color:#fff;border-radius:26px;
   padding:22px 24px;display:grid;grid-template-columns:1.15fr .85fr;gap:18px;
   box-shadow:0 20px 46px rgba(0,0,0,.15);position:relative;overflow:hidden;margin-bottom:14px}
