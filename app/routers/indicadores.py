@@ -2521,9 +2521,9 @@ def _bh_minutes_to_time(minutes: int) -> str:
 def _fetch_banco_horas() -> list[dict]:
     base_url = os.getenv("CATWORLD_URL", "").rstrip("/")
     token = os.getenv("CATWORLD_TOKEN", "")
-    dataset_id = os.getenv("CATWORLD_DATASET_ID", "")
+    dataset_id = os.getenv("CATWORLD_PONTO_DATASET_ID") or os.getenv("CATWORLD_DATASET_ID", "")
     if not base_url or not token or not dataset_id:
-        raise RuntimeError("CATWORLD_URL, CATWORLD_TOKEN e CATWORLD_DATASET_ID precisam estar configurados.")
+        raise RuntimeError("CATWORLD_URL, CATWORLD_TOKEN e CATWORLD_PONTO_DATASET_ID precisam estar configurados.")
     client = CatworldClient(base_url=base_url, token=token)
     resultado = client.query("SELECT * FROM ifractal_extrato_banco_horas", dataset_id=dataset_id)
     rows = resultado.rows or []
@@ -2549,6 +2549,10 @@ def _fetch_banco_horas() -> list[dict]:
             "debito": str(d.get("debito") or "---").strip(),
             "saldo": str(d.get("saldo") or "00:00").strip(),
             "saldo_min": _bh_time_to_minutes(str(d.get("saldo") or "")),
+            "empresa": str(d.get("empresa") or "").strip(),
+            "departamento": str(d.get("departamento") or "").strip(),
+            "cargo": str(d.get("cargo") or "").strip(),
+            "periodo": str(d.get("banco_horas") or "").strip(),
         })
     return result
 
@@ -2574,10 +2578,12 @@ def _build_banco_horas_html(rows: list[dict]) -> str:
     def row_html(r: dict) -> str:
         cor = "#e31837" if r["saldo_min"] < 0 else ("#28a745" if r["saldo_min"] > 0 else "#888")
         icone = "🔴" if r["saldo_min"] < 0 else ("🟢" if r["saldo_min"] > 0 else "⚪")
+        sub = " · ".join(filter(None, [r.get("departamento"), r.get("empresa")]))
         return (
             f"<tr>"
-            f"<td>{icone} {r['pessoa']}</td>"
-            f"<td style='text-align:center'>{r['data_fmt']}</td>"
+            f"<td><div style='font-weight:600'>{icone} {r['pessoa']}</div>"
+            f"<div style='font-size:.75rem;color:#888'>{sub}</div></td>"
+            f"<td style='text-align:center;font-size:.8rem'>{r['data_fmt']}</td>"
             f"<td style='text-align:center'>{r['credito']}</td>"
             f"<td style='text-align:center'>{r['debito']}</td>"
             f"<td style='text-align:center;font-weight:bold;color:{cor}'>{r['saldo']}</td>"
@@ -2590,6 +2596,7 @@ def _build_banco_horas_html(rows: list[dict]) -> str:
 
     data_ref = max((r["data_dt"] for r in por_pessoa.values() if r["data_dt"]), default=None)
     data_ref_fmt = data_ref.strftime("%d/%m/%Y") if data_ref else "-"
+    periodo_label = next((r["periodo"] for r in por_pessoa.values() if r.get("periodo")), "")
 
     return f"""
 <style>
@@ -2609,7 +2616,7 @@ def _build_banco_horas_html(rows: list[dict]) -> str:
 .bh-ref{{font-size:.75rem;color:#888;margin-bottom:16px}}
 </style>
 
-<p class="bh-ref">Referência: última atualização em <strong>{data_ref_fmt}</strong> · {len(por_pessoa)} colaboradores</p>
+<p class="bh-ref">Referência: última atualização em <strong>{data_ref_fmt}</strong> · {len(por_pessoa)} colaboradores{"  ·  Período: " + periodo_label if periodo_label else ""}</p>
 
 <div class="bh-kpis">
   <div class="bh-kpi" style="--cor:#e31837">
