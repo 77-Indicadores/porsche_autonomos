@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+
+{% block header %}Banco de Horas{% endblock %}
+{% block subtitle %}Saldo atual por colaborador · Porsche Carrera Cup Brasil{% endblock %}
+
+{% block content %}
+
+{% if erro %}
+<div class="alert alert-error mb-6">{{ erro }}</div>
+{% endif %}
+
+{% if dash_html %}
+{{ dash_html | safe }}
+{% elif not erro %}
+<section class="panel">
+  <p class="text-zinc-500">Nenhum dado encontrado.</p>
+</section>
+{% endif %}
+
+{% endblock %}

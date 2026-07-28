@@ -10,6 +10,7 @@ from decimal import Decimal
 from typing import Optional
 
 import requests
+from catworld import CatworldClient
 from fastapi import APIRouter, Request
 from sqlalchemy import select, text
 
@@ -2491,4 +2492,185 @@ def folha_custo_colaborador(request: Request, empresa: str = "", competencia: st
         erro = f"Erro ao carregar dados de folha: {exc}"
     return templates.TemplateResponse("indicadores/folha_custo_colaborador.html", {
         "request": request, "dash_html": dash_html, "erro": erro,
+    })
+
+
+# ─── Banco de Horas ───────────────────────────────────────────────────────────
+
+def _bh_time_to_minutes(t_str: str) -> int:
+    if not t_str or str(t_str).strip() in ("None", "nan", "NaT", "", "00:00"):
+        return 0
+    s = str(t_str).strip()
+    neg = -1 if s.startswith("-") else 1
+    s = s.lstrip("-")
+    try:
+        h, m = s.split(":")
+        return neg * (int(h) * 60 + int(m))
+    except Exception:
+        return 0
+
+
+def _bh_minutes_to_time(minutes: int) -> str:
+    if minutes == 0:
+        return "00:00"
+    sinal = "-" if minutes < 0 else ""
+    m = abs(int(minutes))
+    return f"{sinal}{m // 60:02d}:{m % 60:02d}"
+
+
+def _fetch_banco_horas() -> list[dict]:
+    base_url = os.getenv("CATWORLD_URL", "").rstrip("/")
+    token = os.getenv("CATWORLD_TOKEN", "")
+    dataset_id = os.getenv("CATWORLD_DATASET_ID", "")
+    if not base_url or not token or not dataset_id:
+        raise RuntimeError("CATWORLD_URL, CATWORLD_TOKEN e CATWORLD_DATASET_ID precisam estar configurados.")
+    client = CatworldClient(base_url=base_url, token=token)
+    resultado = client.query("SELECT * FROM ifractal_extrato_banco_horas", dataset_id=dataset_id)
+    rows = resultado.rows or []
+    result = []
+    for r in rows:
+        d = dict(r) if not isinstance(r, dict) else r
+        nome = str(d.get("pessoa") or d.get("nome") or "").strip()
+        if not nome:
+            continue
+        data_raw = d.get("data") or d.get("data_referencia") or ""
+        try:
+            data_dt = datetime.strptime(str(data_raw)[:10], "%Y-%m-%d").date()
+        except Exception:
+            try:
+                data_dt = datetime.strptime(str(data_raw)[:10], "%d/%m/%Y").date()
+            except Exception:
+                data_dt = None
+        result.append({
+            "pessoa": nome,
+            "data_dt": data_dt,
+            "data_fmt": data_dt.strftime("%d/%m/%Y") if data_dt else "-",
+            "credito": str(d.get("credito") or "---").strip(),
+            "debito": str(d.get("debito") or "---").strip(),
+            "saldo": str(d.get("saldo") or "00:00").strip(),
+            "saldo_min": _bh_time_to_minutes(str(d.get("saldo") or "")),
+        })
+    return result
+
+
+def _build_banco_horas_html(rows: list[dict]) -> str:
+    # Pega o registro mais recente por pessoa
+    por_pessoa: dict[str, dict] = {}
+    for r in rows:
+        p = r["pessoa"]
+        if p not in por_pessoa or (r["data_dt"] and (not por_pessoa[p]["data_dt"] or r["data_dt"] > por_pessoa[p]["data_dt"])):
+            por_pessoa[p] = r
+
+    # Ordena: negativos primeiro (mais negativo no topo), depois positivos decrescente
+    pessoas = sorted(por_pessoa.values(), key=lambda x: x["saldo_min"])
+
+    positivos = [p for p in pessoas if p["saldo_min"] > 0]
+    negativos = [p for p in pessoas if p["saldo_min"] < 0]
+    neutros   = [p for p in pessoas if p["saldo_min"] == 0]
+
+    total_pos_min = sum(p["saldo_min"] for p in positivos)
+    total_neg_min = sum(p["saldo_min"] for p in negativos)
+
+    def row_html(r: dict) -> str:
+        cor = "#e31837" if r["saldo_min"] < 0 else ("#28a745" if r["saldo_min"] > 0 else "#888")
+        icone = "🔴" if r["saldo_min"] < 0 else ("🟢" if r["saldo_min"] > 0 else "⚪")
+        return (
+            f"<tr>"
+            f"<td>{icone} {r['pessoa']}</td>"
+            f"<td style='text-align:center'>{r['data_fmt']}</td>"
+            f"<td style='text-align:center'>{r['credito']}</td>"
+            f"<td style='text-align:center'>{r['debito']}</td>"
+            f"<td style='text-align:center;font-weight:bold;color:{cor}'>{r['saldo']}</td>"
+            f"</tr>"
+        )
+
+    linhas_neg = "".join(row_html(r) for r in negativos) if negativos else "<tr><td colspan='5' style='text-align:center;color:#888'>Nenhum saldo negativo</td></tr>"
+    linhas_pos = "".join(row_html(r) for r in sorted(positivos, key=lambda x: -x["saldo_min"])) if positivos else "<tr><td colspan='5' style='text-align:center;color:#888'>Nenhum saldo positivo</td></tr>"
+    linhas_neu = "".join(row_html(r) for r in neutros) if neutros else ""
+
+    data_ref = max((r["data_dt"] for r in por_pessoa.values() if r["data_dt"]), default=None)
+    data_ref_fmt = data_ref.strftime("%d/%m/%Y") if data_ref else "-"
+
+    return f"""
+<style>
+.bh-kpis{{display:flex;gap:16px;flex-wrap:wrap;margin-bottom:24px}}
+.bh-kpi{{background:#fff;border-radius:10px;padding:18px 24px;flex:1;min-width:160px;box-shadow:0 1px 4px rgba(0,0,0,.07);border-top:4px solid var(--cor)}}
+.bh-kpi span{{display:block;font-size:.75rem;color:#666;margin-bottom:4px}}
+.bh-kpi strong{{font-size:1.5rem;font-weight:700;color:var(--cor)}}
+.bh-section{{background:#fff;border-radius:10px;box-shadow:0 1px 4px rgba(0,0,0,.07);margin-bottom:20px;overflow:hidden}}
+.bh-section-head{{padding:12px 18px;font-weight:600;font-size:.85rem;display:flex;justify-content:space-between;align-items:center}}
+.bh-section-head.neg{{background:#fff0f0;color:#c0392b;border-left:4px solid #e31837}}
+.bh-section-head.pos{{background:#f0fff4;color:#1a7a3c;border-left:4px solid #28a745}}
+.bh-section-head.neu{{background:#f8f8f8;color:#555;border-left:4px solid #aaa}}
+.bh-table{{width:100%;border-collapse:collapse;font-size:.82rem}}
+.bh-table th{{padding:9px 12px;background:#f5f5f5;text-align:left;font-weight:600;font-size:.75rem;text-transform:uppercase;color:#555;border-bottom:2px solid #e5e7eb}}
+.bh-table td{{padding:9px 12px;border-bottom:1px solid #f0f0f0}}
+.bh-table tr:last-child td{{border-bottom:none}}
+.bh-ref{{font-size:.75rem;color:#888;margin-bottom:16px}}
+</style>
+
+<p class="bh-ref">Referência: última atualização em <strong>{data_ref_fmt}</strong> · {len(por_pessoa)} colaboradores</p>
+
+<div class="bh-kpis">
+  <div class="bh-kpi" style="--cor:#e31837">
+    <span>Saldo negativo</span>
+    <strong>{len(negativos)}</strong>
+    <small style="color:#888">{_bh_minutes_to_time(total_neg_min)} acumulado</small>
+  </div>
+  <div class="bh-kpi" style="--cor:#28a745">
+    <span>Saldo positivo</span>
+    <strong>{len(positivos)}</strong>
+    <small style="color:#888">{_bh_minutes_to_time(total_pos_min)} acumulado</small>
+  </div>
+  <div class="bh-kpi" style="--cor:#888">
+    <span>Zerado / sem saldo</span>
+    <strong>{len(neutros)}</strong>
+    <small style="color:#888">&nbsp;</small>
+  </div>
+  <div class="bh-kpi" style="--cor:#555">
+    <span>Total colaboradores</span>
+    <strong>{len(por_pessoa)}</strong>
+    <small style="color:#888">&nbsp;</small>
+  </div>
+</div>
+
+<div class="bh-section">
+  <div class="bh-section-head neg">
+    <span>🔴 Saldo negativo ({len(negativos)})</span>
+    <span>{_bh_minutes_to_time(total_neg_min)}</span>
+  </div>
+  <table class="bh-table">
+    <thead><tr><th>Nome</th><th>Referência</th><th>Crédito</th><th>Débito</th><th>Saldo</th></tr></thead>
+    <tbody>{linhas_neg}</tbody>
+  </table>
+</div>
+
+<div class="bh-section">
+  <div class="bh-section-head pos">
+    <span>🟢 Saldo positivo ({len(positivos)})</span>
+    <span>{_bh_minutes_to_time(total_pos_min)}</span>
+  </div>
+  <table class="bh-table">
+    <thead><tr><th>Nome</th><th>Referência</th><th>Crédito</th><th>Débito</th><th>Saldo</th></tr></thead>
+    <tbody>{linhas_pos}</tbody>
+  </table>
+</div>
+
+{"<div class='bh-section'><div class='bh-section-head neu'><span>⚪ Zerado (" + str(len(neutros)) + ")</span></div><table class='bh-table'><thead><tr><th>Nome</th><th>Referência</th><th>Crédito</th><th>Débito</th><th>Saldo</th></tr></thead><tbody>" + linhas_neu + "</tbody></table></div>" if neutros else ""}
+"""
+
+
+@router.get("/indicadores/banco-horas")
+def banco_horas(request: Request):
+    erro = None
+    dash_html = ""
+    try:
+        rows = _fetch_banco_horas()
+        dash_html = _build_banco_horas_html(rows)
+    except Exception as exc:
+        erro = f"Erro ao buscar dados de banco de horas: {exc}"
+    return templates.TemplateResponse("indicadores/banco_horas.html", {
+        "request": request,
+        "dash_html": dash_html,
+        "erro": erro,
     })
