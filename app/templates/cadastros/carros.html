@@ -36,18 +36,6 @@
     </div>
 
     <div>
-      <label class="label">Categoria padrão</label>
-      <select class="input" name="categoria_padrao" id="categoria_padrao">
-        <option value="">Selecione</option>
-        <option value="Carrera Cup">Carrera Cup</option>
-        <option value="Sprint Challenge">Sprint Challenge</option>
-        <option value="Sprint Trophy">Sprint Trophy</option>
-        <option value="Endurance - Carrera">Endurance - Carrera</option>
-        <option value="Endurance - Challenge">Endurance - Challenge</option>
-      </select>
-    </div>
-
-    <div>
       <label class="label">Status</label>
       <select class="input" name="status_carro" id="status_carro">
         <option value="Ativo">Ativo</option>
@@ -76,7 +64,7 @@
         <th>ID</th>
         <th>Chassi</th>
         <th>Modelo</th>
-        <th>Categoria padrão</th>
+
         <th>Status</th>
         <th>Ações</th>
       </tr>
@@ -88,7 +76,7 @@
         <td><span class="id-pill">{{ c.id_carro or "-" }}</span></td>
         <td class="font-bold">{{ c.chassi or '-' }}</td>
         <td>{{ c.modelo or '-' }}</td>
-        <td>{{ c.categoria_padrao or '-' }}</td>
+
         <td><span class="badge">{{ c.status_carro }}</span></td>
         <td class="actions">
           <button
@@ -97,7 +85,7 @@
             onclick="editarCarro(this)"
             data-id-carro="{{ c.id_carro }}"
             data-modelo="{{ c.modelo or '' }}"
-            data-categoria-padrao="{{ c.categoria_padrao or '' }}"
+
             data-chassi="{{ c.chassi or '' }}"
             data-status-carro="{{ c.status_carro or '' }}"
             data-observacoes="{{ c.observacoes or '' }}"
@@ -112,7 +100,7 @@
       </tr>
       {% else %}
       <tr>
-        <td colspan="6" class="empty">Nenhum carro cadastrado.</td>
+        <td colspan="5" class="empty">Nenhum carro cadastrado.</td>
       </tr>
       {% endfor %}
     </tbody>
@@ -131,7 +119,7 @@ function editarCarro(btn) {
   setCarroField("id_carro", d.idCarro);
   setCarroField("chassi", d.chassi);
   setCarroField("modelo", d.modelo);
-  setCarroField("categoria_padrao", d.categoriaPadrao);
+
   setCarroField("chassi", d.chassi);
   setCarroField("status_carro", d.statusCarro || "Ativo");
   setCarroField("observacoes", d.observacoes);
