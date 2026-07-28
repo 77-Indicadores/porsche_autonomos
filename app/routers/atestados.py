@@ -316,31 +316,32 @@ async def atestados_importar(request: Request, arquivo: UploadFile = File(...), 
                 s = str(v).strip()
                 return "" if s in ("-", "None", "none") else s
 
-            data_atestado = _normalizar_data(cel("data_atestado"))
-            data_entrega  = _normalizar_data(cel("data_entrega"))
-            empresa       = cel("empresa")
-            departamento  = cel("departamento")
-            matricula     = cel("matricula")
-            nome          = cel("nome_colaborador")
-            cargo         = cel("cargo")
-            data_inicio   = _normalizar_data(cel("data_inicio_afastamento"))
-            data_fim      = _normalizar_data(cel("data_fim_afastamento"))
-            cid           = cel("cid")
-            medico        = cel("medico_crm")
-            tipo          = cel("tipo_atestado")
-            obs           = cel("observacoes")
+            data_atestado    = _normalizar_data(cel("data_atestado"))
+            data_entrega     = _normalizar_data(cel("data_entrega"))
+            empresa          = cel("empresa")
+            departamento     = cel("departamento")
+            matricula        = cel("matricula")
+            nome_colaborador = cel("nome_colaborador")
+            cargo            = cel("cargo")
+            data_inicio      = _normalizar_data(cel("data_inicio_afastamento"))
+            data_fim         = _normalizar_data(cel("data_fim_afastamento"))
+            cid              = cel("cid")
+            medico           = cel("medico_crm")
+            tipo_atestado    = cel("tipo_atestado")
+            obs              = cel("observacoes")
 
             # validação de obrigatórios
-            faltando = [f for f in CAMPOS_OBRIGATORIOS if not locals().get(f, "").strip()]
+            lv = locals()
+            faltando = [f for f in CAMPOS_OBRIGATORIOS if not lv.get(f, "").strip()]
             if faltando:
                 erros.append(f"Linha {row_num}: campos faltando — {', '.join(faltando)}")
                 continue
 
             # normaliza tipo
-            tipo_norm = next((t for t in TIPOS_ATESTADO if t.lower() == tipo.lower()), tipo)
+            tipo_norm = next((t for t in TIPOS_ATESTADO if t.lower() == tipo_atestado.lower()), tipo_atestado)
 
             # checagem de duplicidade
-            if _is_duplicado(conn, data_atestado, nome, tipo_norm):
+            if _is_duplicado(conn, data_atestado, nome_colaborador, tipo_norm):
                 duplicados += 1
                 continue
 
@@ -352,7 +353,7 @@ async def atestados_importar(request: Request, arquivo: UploadFile = File(...), 
                 VALUES (:da,:de,:emp,:dep,:mat,:nome,:cargo,:di,:df,:cid,:med,:tipo,:obs)
             """), {
                 "da": data_atestado, "de": data_entrega, "emp": empresa, "dep": departamento,
-                "mat": matricula or None, "nome": nome, "cargo": cargo or None,
+                "mat": matricula or None, "nome": nome_colaborador, "cargo": cargo or None,
                 "di": data_inicio or None, "df": data_fim or None,
                 "cid": cid or None, "med": medico or None, "tipo": tipo_norm,
                 "obs": obs or None,
