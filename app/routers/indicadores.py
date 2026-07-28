@@ -2767,30 +2767,44 @@ def _fetch_hora_extra() -> list[dict]:
     return result
 
 
-def _build_hora_extra_html(rows: list[dict], all_rows: list[dict] | None = None,
-                           empresa_sel: str = "", cargo_sel: str = "") -> str:
+def _build_hora_extra_html(rows: list[dict], all_rows: list[dict] | None = None,  # noqa: C901
+                           empresa_sel: str = "", cargo_sel: str = "",
+                           ano_sel: str = "", mes_sel: str = "") -> str:
     all_rows = all_rows or rows
     empresas = sorted({r["empresa"] for r in all_rows if r["empresa"]})
     cargos   = sorted({r["cargo"]   for r in all_rows if r["cargo"]})
+    anos     = sorted({str(r["data_dt"].year) for r in all_rows if r.get("data_dt")}, reverse=True)
+    meses_disp = sorted({r["mes"] for r in all_rows if r.get("mes")})
 
-    def _opt(val, sel):
-        return f'<option value="{val}"{" selected" if val == sel else ""}>{val}</option>'
+    _MES_NOMES = {"01":"Jan","02":"Fev","03":"Mar","04":"Abr","05":"Mai","06":"Jun",
+                  "07":"Jul","08":"Ago","09":"Set","10":"Out","11":"Nov","12":"Dez"}
+
+    def _opt(val, sel, label=None):
+        return f'<option value="{val}"{" selected" if val == sel else ""}>{label or val}</option>'
+
     opts_emp   = "".join(_opt(e, empresa_sel) for e in empresas)
     opts_cargo = "".join(_opt(c, cargo_sel)   for c in cargos)
+    opts_ano   = "".join(_opt(a, ano_sel) for a in anos)
+    opts_mes   = "".join(
+        _opt(m, mes_sel, label=f"{_MES_NOMES.get(m[5:7], m[5:7])} {m[:4]}")
+        for m in meses_disp
+    )
+    has_filter = any([empresa_sel, cargo_sel, ano_sel, mes_sel])
     limpar = (f'<a href="/indicadores/horas-extras" class="he-limpar">✕ Limpar</a>'
-              if (empresa_sel or cargo_sel) else "")
+              if has_filter else "")
 
     FAIXAS = ["Até 15 min", "16 min – 2h", "Acima de 2h"]
-    CORES  = {"Até 15 min": "#f59e0b", "16 min – 2h": "#e31837", "Acima de 2h": "#7c3aed"}
+    # stacked bar colors: gray / red / dark
+    CF = {"Até 15 min": "#9ca3af", "16 min – 2h": "#e31837", "Acima de 2h": "#374151"}
 
-    from collections import defaultdict
+    from collections import defaultdict  # noqa: PLC0415
 
     def _agg(lst):
         return len(lst), sum(r["credito_min"] for r in lst)
 
-    por_faixa: dict[str, list] = defaultdict(list)
+    por_faixa:   dict[str, list] = defaultdict(list)
     por_empresa: dict[str, list] = defaultdict(list)
-    por_depto: dict[str, list] = defaultdict(list)
+    por_depto:   dict[str, list] = defaultdict(list)
     por_cargo_d: dict[str, list] = defaultdict(list)
     por_mes: dict[str, list] = defaultdict(list)
 
@@ -2816,161 +2830,287 @@ def _build_hora_extra_html(rows: list[dict], all_rows: list[dict] | None = None,
     tot_h_fmt = f"{total_min//60:02d}:{total_min%60:02d}"
     a2h_h_fmt = f"{a2h_min//60:02d}:{a2h_min%60:02d}"
 
-    # ── Faixas distribution ──
-    ranges_html = ""
+    meses_sorted = sorted(por_mes.keys())
+
+    total_oc_fmt = f"{total_oc:,}".replace(",", ".")
+    year_ref     = max((r["data_dt"].year for r in rows if r.get("data_dt")), default=2026)
+
+    # ── SVG helpers ────────────────────────────────────────────────────────────
+
+    def _svg_stacked():
+        if not meses_sorted:
+            return "<p style='color:#888;text-align:center;padding:20px'>Sem dados</p>"
+        PL, PR, PT, PB = 32, 8, 28, 28
+        CW, CH = 400, 200
+        iw, ih = CW - PL - PR, CH - PT - PB
+        n       = len(meses_sorted)
+        totals  = [len(por_mes[m]) for m in meses_sorted]
+        max_t   = max(totals) if totals else 1
+        bar_w   = max(18, min(44, iw // n - 8))
+        slot_w  = iw / n
+        p = [f'<svg viewBox="0 0 {CW} {CH}" xmlns="http://www.w3.org/2000/svg"'
+             f' style="width:100%;max-height:200px;display:block">']
+        for tick in range(5):
+            tv = int(tick / 4 * max_t)
+            ty = PT + ih - int(tick / 4 * ih)
+            p.append(f'<line x1="{PL}" y1="{ty}" x2="{CW-PR}" y2="{ty}"'
+                     f' stroke="#e5e7eb" stroke-width="1"/>')
+            p.append(f'<text x="{PL-4}" y="{ty+4}" text-anchor="end" font-size="9"'
+                     f' fill="#bbb" font-family="Inter,sans-serif">{tv}</text>')
+        for i, mes in enumerate(meses_sorted):
+            rows_m  = por_mes[mes]
+            total_m = len(rows_m)
+            cx      = PL + slot_w * i + slot_w / 2
+            bx      = cx - bar_w / 2
+            y_cur   = PT + ih
+            for f in FAIXAS:
+                cnt = len([r for r in rows_m if r["faixa"] == f])
+                if not cnt:
+                    continue
+                seg_h = max(1, int(cnt / max_t * ih))
+                seg_y = y_cur - seg_h
+                p.append(f'<rect x="{bx:.1f}" y="{seg_y:.1f}" width="{bar_w}"'
+                         f' height="{seg_h:.1f}" fill="{CF[f]}"/>')
+                if seg_h > 14:
+                    mid_y = seg_y + seg_h / 2 + 4
+                    p.append(f'<text x="{cx:.1f}" y="{mid_y:.1f}" text-anchor="middle"'
+                             f' font-size="9" fill="#fff" font-weight="700"'
+                             f' font-family="Inter,sans-serif">{cnt}</text>')
+                y_cur -= seg_h
+            p.append(f'<text x="{cx:.1f}" y="{y_cur-4:.1f}" text-anchor="middle"'
+                     f' font-size="10" fill="#333" font-weight="700"'
+                     f' font-family="Inter,sans-serif">{total_m}</text>')
+            lbl = rows_m[0]["mes_fmt"] if rows_m else mes
+            p.append(f'<text x="{cx:.1f}" y="{CH-2}" text-anchor="middle"'
+                     f' font-size="10" fill="#666" font-family="Inter,sans-serif">{lbl}</text>')
+        p.append('</svg>')
+        return "".join(p)
+
+    def _svg_line():
+        if not meses_sorted:
+            return "<p style='color:#888;text-align:center;padding:20px'>Sem dados</p>"
+        PL, PR, PT, PB = 50, 8, 24, 28
+        CW, CH  = 400, 200
+        iw, ih  = CW - PL - PR, CH - PT - PB
+        n       = len(meses_sorted)
+        hrs     = [sum(r["credito_min"] for r in por_mes[m]) for m in meses_sorted]
+        max_h   = max(hrs) if hrs else 1
+        slot_w  = iw / n
+        pts     = [(PL + slot_w * i + slot_w / 2,
+                    PT + ih - int(v / max_h * ih)) for i, v in enumerate(hrs)]
+        lp      = " ".join(f"{x:.1f},{y:.1f}" for x, y in pts)
+        area    = (f"{pts[0][0]:.1f},{PT+ih} " + lp +
+                   f" {pts[-1][0]:.1f},{PT+ih}")
+        p = [f'<svg viewBox="0 0 {CW} {CH}" xmlns="http://www.w3.org/2000/svg"'
+             f' style="width:100%;max-height:200px;display:block">']
+        for tick in range(5):
+            tv_m  = int(tick / 4 * max_h)
+            tv_l  = f"{tv_m//60}:{tv_m%60:02d}"
+            ty    = PT + ih - int(tick / 4 * ih)
+            p.append(f'<line x1="{PL}" y1="{ty}" x2="{CW-PR}" y2="{ty}"'
+                     f' stroke="#e5e7eb" stroke-width="1"/>')
+            p.append(f'<text x="{PL-4}" y="{ty+4}" text-anchor="end" font-size="8"'
+                     f' fill="#bbb" font-family="Inter,sans-serif">{tv_l}</text>')
+        p.append(f'<polygon points="{area}" fill="rgba(227,24,55,.07)"/>')
+        p.append(f'<polyline points="{lp}" fill="none" stroke="#e31837"'
+                 f' stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>')
+        for i, (x, y) in enumerate(pts):
+            hm  = hrs[i]
+            hl  = f"{hm//60}:{hm%60:02d}"
+            lbl = por_mes[meses_sorted[i]][0]["mes_fmt"]
+            p.append(f'<circle cx="{x:.1f}" cy="{y:.1f}" r="4" fill="#fff"'
+                     f' stroke="#e31837" stroke-width="2.5"/>')
+            p.append(f'<text x="{x:.1f}" y="{y-9:.1f}" text-anchor="middle"'
+                     f' font-size="9" fill="#333" font-weight="700"'
+                     f' font-family="Inter,sans-serif">{hl}</text>')
+            p.append(f'<text x="{x:.1f}" y="{CH-2}" text-anchor="middle"'
+                     f' font-size="10" fill="#666" font-family="Inter,sans-serif">{lbl}</text>')
+        p.append('</svg>')
+        return "".join(p)
+
+    def _svg_hbars(agrupado: dict, top: int = 8, color: str = "#e31837") -> str:
+        itens = sorted([(k, len(v)) for k, v in agrupado.items() if k],
+                       key=lambda x: -x[1])[:top]
+        if not itens:
+            return "<p style='color:#888;padding:16px'>Sem dados</p>"
+        max_v  = itens[0][1]
+        BAR_H  = 22
+        GAP    = 10
+        LBL_W  = 86
+        VAL_W  = 38
+        CW     = 380
+        PT     = 6
+        n      = len(itens)
+        CH     = n * (BAR_H + GAP) + PT
+        ba     = CW - LBL_W - VAL_W
+        p = [f'<svg viewBox="0 0 {CW} {CH}" xmlns="http://www.w3.org/2000/svg"'
+             f' style="width:100%;display:block">']
+        for i, (label, val) in enumerate(itens):
+            y  = PT + i * (BAR_H + GAP)
+            bw = int(val / max_v * ba) if max_v else 0
+            short = (label[:13] + "…") if len(label) > 14 else label
+            p.append(f'<rect x="{LBL_W}" y="{y}" width="{ba}" height="{BAR_H}"'
+                     f' fill="#f5f5f5" rx="3"/>')
+            if bw > 0:
+                p.append(f'<rect x="{LBL_W}" y="{y}" width="{bw}" height="{BAR_H}"'
+                         f' fill="{color}" rx="3"/>')
+            my = y + BAR_H / 2 + 4
+            p.append(f'<text x="{LBL_W-5}" y="{my:.1f}" text-anchor="end" font-size="11"'
+                     f' fill="#444" font-family="Inter,sans-serif">{short}</text>')
+            p.append(f'<text x="{LBL_W+ba+4}" y="{my:.1f}" text-anchor="start"'
+                     f' font-size="11" fill="#333" font-weight="700"'
+                     f' font-family="Inter,sans-serif">{val}</text>')
+        p.append('</svg>')
+        return "".join(p)
+
+    def _svg_faixa_count() -> str:
+        max_oc_f = max((len(por_faixa.get(f, [])) for f in FAIXAS), default=1)
+        BAR_H, GAP, LBL_W, PCT_W = 28, 16, 90, 38
+        CW = 380
+        PT = 8
+        CH = len(FAIXAS) * (BAR_H + GAP) + PT
+        ba = CW - LBL_W - PCT_W
+        p = [f'<svg viewBox="0 0 {CW} {CH}" xmlns="http://www.w3.org/2000/svg"'
+             f' style="width:100%;display:block">']
+        for i, f in enumerate(FAIXAS):
+            oc, _ = _agg(por_faixa.get(f, []))
+            pct   = round(oc / total_oc * 100) if total_oc else 0
+            y     = PT + i * (BAR_H + GAP)
+            bw    = int(oc / max_oc_f * ba) if max_oc_f else 0
+            my    = y + BAR_H / 2 + 4
+            p.append(f'<rect x="{LBL_W}" y="{y}" width="{ba}" height="{BAR_H}"'
+                     f' fill="#f5f5f5" rx="3"/>')
+            if bw > 0:
+                p.append(f'<rect x="{LBL_W}" y="{y}" width="{bw}" height="{BAR_H}"'
+                         f' fill="{CF[f]}" rx="3"/>')
+            if bw > 40:
+                p.append(f'<text x="{LBL_W+bw-6}" y="{my:.1f}" text-anchor="end"'
+                         f' font-size="11" fill="#fff" font-weight="700"'
+                         f' font-family="Inter,sans-serif">{oc}</text>')
+            p.append(f'<text x="{LBL_W-5}" y="{my:.1f}" text-anchor="end"'
+                     f' font-size="11" fill="#444" font-family="Inter,sans-serif">{f}</text>')
+            p.append(f'<text x="{CW-2}" y="{my:.1f}" text-anchor="end"'
+                     f' font-size="11" fill="#666" font-family="Inter,sans-serif">{pct}%</text>')
+        p.append('</svg>')
+        return "".join(p)
+
+    def _svg_faixa_hours() -> str:
+        fh  = [(f, _agg(por_faixa.get(f, []))[1]) for f in FAIXAS]
+        max_m = max(v for _, v in fh) if fh else 1
+        BAR_H, GAP, LBL_W, PCT_W = 28, 16, 90, 38
+        CW = 380
+        PT = 8
+        CH = len(FAIXAS) * (BAR_H + GAP) + PT
+        ba = CW - LBL_W - PCT_W
+        p = [f'<svg viewBox="0 0 {CW} {CH}" xmlns="http://www.w3.org/2000/svg"'
+             f' style="width:100%;display:block">']
+        for i, (f, mins) in enumerate(fh):
+            pct  = round(mins / total_min * 100) if total_min else 0
+            y    = PT + i * (BAR_H + GAP)
+            bw   = int(mins / max_m * ba) if max_m else 0
+            hl   = f"{mins//60}:{mins%60:02d}"
+            my   = y + BAR_H / 2 + 4
+            p.append(f'<rect x="{LBL_W}" y="{y}" width="{ba}" height="{BAR_H}"'
+                     f' fill="#f5f5f5" rx="3"/>')
+            if bw > 0:
+                p.append(f'<rect x="{LBL_W}" y="{y}" width="{bw}" height="{BAR_H}"'
+                         f' fill="{CF[f]}" rx="3"/>')
+            if bw > 55:
+                p.append(f'<text x="{LBL_W+bw-6}" y="{my:.1f}" text-anchor="end"'
+                         f' font-size="11" fill="#fff" font-weight="700"'
+                         f' font-family="Inter,sans-serif">{hl}</text>')
+            p.append(f'<text x="{LBL_W-5}" y="{my:.1f}" text-anchor="end"'
+                     f' font-size="11" fill="#444" font-family="Inter,sans-serif">{f}</text>')
+            p.append(f'<text x="{CW-2}" y="{my:.1f}" text-anchor="end"'
+                     f' font-size="11" fill="#666" font-family="Inter,sans-serif">{pct}%</text>')
+        p.append('</svg>')
+        return "".join(p)
+
+    # ── generate all SVGs ──────────────────────────────────────────────────────
+    svg_stacked   = _svg_stacked()
+    svg_line      = _svg_line()
+    svg_emp       = _svg_hbars(por_empresa, top=8)
+    svg_dep       = _svg_hbars(por_depto,   top=8)
+    svg_f_cnt     = _svg_faixa_count()
+    svg_f_hrs     = _svg_faixa_hours()
+
+    # ── hero faixa cards ────────────────────────────────────────────────────────
+    hero_top = ""
     for f in FAIXAS:
         oc, mins = _agg(por_faixa.get(f, []))
-        pct = round(oc / total_oc * 100) if total_oc else 0
-        cor = CORES[f]
-        h_fmt = f"{mins//60:02d}:{mins%60:02d}"
-        ranges_html += (
-            f'<div class="he-range">'
-            f'<div class="he-range-top">'
-            f'<div class="he-range-name">{f}</div>'
-            f'<div class="he-range-count" style="color:{cor}">{oc}</div>'
+        pct      = round(oc / total_oc * 100) if total_oc else 0
+        h_fmt    = f"{mins//60:02d}:{mins%60:02d}"
+        hero_top += (
+            f'<div class="he-hkpi">'
+            f'<div class="he-hkpi-lbl">{f}</div>'
+            f'<div class="he-hkpi-val">{oc}</div>'
+            f'<div class="he-hkpi-sub">{h_fmt}</div>'
+            f'<div class="he-hkpi-pct">{pct}% das ocorrências</div>'
             f'</div>'
-            f'<div class="he-range-meta"><span>{h_fmt} em horas</span>'
-            f'<strong>{pct}% das ocorrências</strong></div>'
-            f'<div class="he-track"><div class="he-fill" style="width:{pct}%;background:{cor}"></div></div>'
+        )
+    hero_bot = ""
+    for f in FAIXAS:
+        oc, _ = _agg(por_faixa.get(f, []))
+        pct   = round(oc / total_oc * 100) if total_oc else 0
+        hero_bot += (
+            f'<div class="he-hkpi he-hkpi-pct">'
+            f'<div class="he-hkpi-lbl">% {f}</div>'
+            f'<div class="he-hkpi-val">{pct}%</div>'
+            f'<div class="he-hkpi-pct">das ocorrências</div>'
             f'</div>'
         )
 
-    # ── Monthly SVG chart (dark style, data labels) ──
-    meses_sorted = sorted(por_mes.keys())
-    mes_oc  = [len(por_mes[m])                           for m in meses_sorted]
-    mes_min = [sum(r["credito_min"] for r in por_mes[m]) for m in meses_sorted]
-    mes_lbl = [por_mes[m][0]["mes_fmt"] if por_mes[m] else m for m in meses_sorted]
-    max_oc_m = max(mes_oc) if mes_oc else 1
-    n = len(meses_sorted)
+    # ── legend strings ─────────────────────────────────────────────────────────
+    def _dot(c, lbl):
+        return (f'<span style="display:inline-flex;align-items:center;gap:4px;'
+                f'font-size:11px;color:#555">'
+                f'<span style="width:9px;height:9px;border-radius:50%;'
+                f'background:{c};display:inline-block"></span>{lbl}</span>')
+    leg_faixas = " ".join(_dot(CF[f], f) for f in FAIXAS)
+    leg_horas  = _dot("#e31837", "Horas (hh:mm)")
+    leg_oc_pct = _dot("#e31837", "Ocorrências") + " " + _dot("#9ca3af", "% do total")
 
-    chart_svg = "<p style='color:#888;padding:24px;text-align:center'>Sem dados para o período.</p>"
-    if n:
-        PL, PR, PT, PB = 38, 16, 28, 34
-        CW, CH = 560, 210
-        iw, ih = CW - PL - PR, CH - PT - PB
-        bar_w  = max(18, min(54, iw // n - 10))
-        slot_w = iw / n
-        parts = [
-            f'<svg viewBox="0 0 {CW} {CH}" xmlns="http://www.w3.org/2000/svg"'
-            f' style="width:100%;max-height:220px;display:block">',
-            '<defs><linearGradient id="heg" x1="0" y1="0" x2="0" y2="1">',
-            '<stop offset="0%" stop-color="#e31837" stop-opacity="0.9"/>'
-            '<stop offset="100%" stop-color="#e31837" stop-opacity="0.55"/>',
-            '</linearGradient></defs>',
-        ]
-        # grid lines
-        for tick in range(5):
-            tv = int(tick / 4 * max_oc_m)
-            ty = PT + ih - int(tick / 4 * ih)
-            parts.append(f'<line x1="{PL}" y1="{ty}" x2="{CW-PR}" y2="{ty}"'
-                         f' stroke="#e5e7eb" stroke-width="1"/>')
-            parts.append(f'<text x="{PL-5}" y="{ty+4}" text-anchor="end" font-size="9"'
-                         f' fill="#aaa" font-family="Inter,sans-serif">{tv}</text>')
-        # bars + labels
-        for i, (lbl, oc, mins) in enumerate(zip(mes_lbl, mes_oc, mes_min)):
-            cx  = PL + slot_w * i + slot_w / 2
-            bx  = cx - bar_w / 2
-            bh  = int(oc / max_oc_m * ih) if max_oc_m else 0
-            by  = PT + ih - bh
-            tip = f"{lbl}: {oc} ocorrências · {mins//60:02d}:{mins%60:02d}"
-            parts.append(f'<rect x="{bx:.1f}" y="{by}" width="{bar_w}" height="{bh}"'
-                         f' fill="url(#heg)" rx="4"><title>{tip}</title></rect>')
-            # quantidade dentro ou acima da barra
-            if bh > 18:
-                parts.append(f'<text x="{cx:.1f}" y="{by+13}" text-anchor="middle"'
-                             f' font-size="10" fill="#fff" font-weight="700"'
-                             f' font-family="Inter,sans-serif">{oc}</text>')
-            else:
-                parts.append(f'<text x="{cx:.1f}" y="{by-4}" text-anchor="middle"'
-                             f' font-size="10" fill="#555" font-weight="700"'
-                             f' font-family="Inter,sans-serif">{oc}</text>')
-            # horas abaixo
-            h_lbl = f"{mins//60}h{mins%60:02d}" if mins >= 60 else f"{mins}min"
-            parts.append(f'<text x="{cx:.1f}" y="{CH-PT+10}" text-anchor="middle"'
-                         f' font-size="8" fill="#aaa" font-family="Inter,sans-serif">{h_lbl}</text>')
-            # label do mês
-            parts.append(f'<text x="{cx:.1f}" y="{CH-PT+20}" text-anchor="middle"'
-                         f' font-size="10" fill="#666" font-family="Inter,sans-serif">{lbl}</text>')
-        parts.append('</svg>')
-        chart_svg = "".join(parts)
+    css = """<style>
+.he-filtros{background:#fff;border-radius:10px;box-shadow:0 1px 4px rgba(0,0,0,.07);padding:14px 20px;margin-bottom:16px}
+.he-filtros-inner{display:flex;gap:14px;align-items:flex-end;flex-wrap:wrap}
+.he-filtro-group{display:flex;flex-direction:column;gap:3px;min-width:190px}
+.he-filtro-group label{font-size:.72rem;font-weight:600;color:#666;text-transform:uppercase;letter-spacing:.04em}
+.he-filtro-group select{padding:8px 10px;border:1px solid #d1d5db;border-radius:6px;font-size:.84rem;color:#111;background:#fafafa;cursor:pointer;outline:none}
+.he-filtro-group select:focus{border-color:#e31837;box-shadow:0 0 0 2px rgba(227,24,55,.10)}
+.he-limpar{font-size:.78rem;color:#e31837;text-decoration:none;padding:8px 4px;white-space:nowrap;align-self:flex-end}
+.he-limpar:hover{text-decoration:underline}
+/* hero */
+.he-hero{background:linear-gradient(135deg,#0f0f0f 0%,#1a0003 55%,#2a0007 100%);border-radius:12px;padding:20px 24px;margin-bottom:16px;display:grid;grid-template-columns:1fr 1.5fr;gap:20px;position:relative;overflow:hidden}
+.he-hero::after{content:"";position:absolute;right:-40px;top:-60px;width:260px;height:260px;border-radius:50%;background:radial-gradient(circle,rgba(227,24,55,.3) 0%,transparent 70%);pointer-events:none}
+.he-hero-badge{display:inline-block;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);color:#ccc;font-size:.72rem;padding:4px 10px;border-radius:20px;margin-bottom:12px}
+.he-hero-title{color:#fff;font-size:1.1rem;font-weight:700;margin-bottom:4px}
+.he-hero-sub{color:#888;font-size:.8rem;margin-bottom:16px}
+.he-hero-nums{display:flex;gap:24px;flex-wrap:wrap}
+.he-hero-num{display:flex;flex-direction:column}
+.he-hero-big{color:#fff;font-size:clamp(1.8rem,3vw,2.6rem);font-weight:900;letter-spacing:-.04em;line-height:1}
+.he-hero-lbl{color:#888;font-size:.72rem;margin-top:3px}
+.he-hero-kpis-wrap{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;align-content:start}
+.he-hkpi{background:rgba(255,255,255,.055);border:1px solid rgba(255,255,255,.09);border-radius:8px;padding:10px 12px;border-left:3px solid #e31837}
+.he-hkpi.he-hkpi-pct{border-left-color:rgba(227,24,55,.5)}
+.he-hkpi-lbl{color:#aaa;font-size:.65rem;font-weight:600;text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px}
+.he-hkpi-val{color:#fff;font-size:1.25rem;font-weight:900;letter-spacing:-.03em;line-height:1}
+.he-hkpi-sub{color:#e31837;font-size:.72rem;font-weight:700;margin-top:2px}
+.he-hkpi-pct{color:#777;font-size:.68rem;margin-top:2px}
+/* panels */
+.he-panel{background:#fff;border-radius:10px;box-shadow:0 1px 4px rgba(0,0,0,.07);overflow:hidden}
+.he-panel-head{padding:11px 16px;font-weight:700;font-size:.84rem;background:#fafafa;border-left:4px solid #e31837;display:flex;justify-content:space-between;align-items:center}
+.he-panel-head-right{font-size:.72rem;color:#888;font-weight:400;display:flex;gap:10px;flex-wrap:wrap}
+.he-panel-body{padding:12px 14px}
+/* grids */
+.he-row-mid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:12px}
+.he-row-bot{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:8px}
+@media(max-width:1100px){
+.he-hero{grid-template-columns:1fr}
+.he-row-mid,.he-row-bot{grid-template-columns:1fr}
+}
+</style>"""
 
-    # ── Ranked table helper ──
-    def _tbl_block(agrupado: dict, top: int = 10):
-        itens = [(k, *_agg(v), v) for k, v in agrupado.items() if k]
-        itens.sort(key=lambda x: x[1], reverse=True)
-        itens = itens[:top]
-        max_t = itens[0][1] if itens else 1
-        html  = ""
-        for nome, oc, mins, v in itens:
-            pct_bar = int(oc / max_t * 100) if max_t else 0
-            pct_tot = round(oc / total_oc * 100) if total_oc else 0
-            h_fmt   = f"{mins//60:02d}:{mins%60:02d}"
-            fc      = {f: len([r for r in v if r["faixa"] == f]) for f in FAIXAS}
-            badges  = "".join(
-                f'<span class="he-badge" style="background:{CORES[f]}">{fc[f]}</span>'
-                for f in FAIXAS if fc[f]
-            )
-            html += (
-                f'<tr>'
-                f'<td style="padding:9px 12px;max-width:140px;overflow:hidden;'
-                f'text-overflow:ellipsis;white-space:nowrap" title="{nome}">{nome}</td>'
-                f'<td style="padding:9px 8px;width:70px">'
-                f'<div class="he-bar-wrap"><div class="he-bar-fill" style="width:{pct_bar}%"></div></div></td>'
-                f'<td style="padding:9px 8px;font-weight:700">{oc}'
-                f'<span class="he-pct"> {pct_tot}%</span></td>'
-                f'<td style="padding:9px 8px;color:#888;font-size:.78rem">{h_fmt}</td>'
-                f'<td style="padding:9px 8px">{badges}</td>'
-                f'</tr>'
-            )
-        return html or "<tr><td colspan='5' style='text-align:center;color:#888;padding:16px'>Sem dados</td></tr>"
-
-    emp_rows   = _tbl_block(por_empresa, 10)
-    dep_rows   = _tbl_block(por_depto, 10)
-    cargo_rows = _tbl_block(por_cargo_d, 10)
-
-    total_oc_fmt = f"{total_oc:,}".replace(",", ".")
-
-    return f"""
-<style>
-.he-filtros{{background:#fff;border-radius:10px;box-shadow:0 1px 4px rgba(0,0,0,.07);padding:16px 20px;margin-bottom:20px}}
-.he-filtros-inner{{display:flex;gap:16px;align-items:flex-end;flex-wrap:wrap}}
-.he-filtro-group{{display:flex;flex-direction:column;gap:4px;min-width:200px}}
-.he-filtro-group label{{font-size:.72rem;font-weight:600;color:#666;text-transform:uppercase;letter-spacing:.04em}}
-.he-filtro-group select{{padding:8px 12px;border:1px solid #d1d5db;border-radius:6px;font-size:.85rem;color:#111;background:#fafafa;cursor:pointer;outline:none}}
-.he-filtro-group select:focus{{border-color:#e31837;box-shadow:0 0 0 2px rgba(227,24,55,.12)}}
-.he-limpar{{font-size:.78rem;color:#e31837;text-decoration:none;padding:8px 4px;white-space:nowrap;align-self:flex-end}}
-.he-limpar:hover{{text-decoration:underline}}
-.he-kpis{{display:flex;gap:16px;flex-wrap:wrap;margin-bottom:20px}}
-.he-kpi{{background:#fff;border-radius:10px;padding:18px 24px;flex:1;min-width:160px;box-shadow:0 1px 4px rgba(0,0,0,.07);border-top:4px solid var(--cor)}}
-.he-kpi span{{display:block;font-size:.75rem;color:#666;margin-bottom:4px;font-weight:600}}
-.he-kpi strong{{font-size:1.5rem;font-weight:700;color:var(--cor)}}
-.he-kpi small{{display:block;font-size:.72rem;color:#888;margin-top:4px}}
-.he-section{{background:#fff;border-radius:10px;box-shadow:0 1px 4px rgba(0,0,0,.07);margin-bottom:20px;overflow:hidden}}
-.he-section-head{{padding:12px 18px;font-weight:600;font-size:.85rem;background:#fafafa;border-left:4px solid #e31837;display:flex;justify-content:space-between;align-items:center}}
-.he-section-body{{padding:16px 20px}}
-.he-grid-main{{display:grid;grid-template-columns:1fr 1.7fr;gap:16px;margin-bottom:20px}}
-.he-grid-bottom{{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:8px}}
-.he-range{{padding:12px 0;border-bottom:1px solid #f0f0f0}}
-.he-range:last-child{{border-bottom:none}}
-.he-range-top{{display:flex;justify-content:space-between;align-items:baseline;gap:8px;margin-bottom:4px}}
-.he-range-name{{font-size:.83rem;color:#333;font-weight:600}}
-.he-range-count{{font-size:1.2rem;font-weight:700}}
-.he-range-meta{{display:flex;justify-content:space-between;color:#888;font-size:.72rem;margin-bottom:7px}}
-.he-track{{height:7px;background:#f0f0f0;border-radius:10px;overflow:hidden}}
-.he-fill{{height:100%;border-radius:10px}}
-.he-table{{width:100%;border-collapse:collapse;font-size:.82rem}}
-.he-table th{{padding:9px 12px;background:#f5f5f5;text-align:left;font-weight:600;font-size:.75rem;text-transform:uppercase;color:#555;border-bottom:2px solid #e5e7eb}}
-.he-table td{{padding:9px 12px;border-bottom:1px solid #f0f0f0}}
-.he-table tr:last-child td{{border-bottom:none}}
-.he-bar-wrap{{height:6px;background:#f0f0f0;border-radius:10px;overflow:hidden;min-width:60px}}
-.he-bar-fill{{height:100%;background:#e31837;border-radius:10px}}
-.he-badge{{display:inline-block;font-size:.68rem;color:#fff;border-radius:4px;padding:2px 6px;margin:1px;font-weight:600}}
-.he-pct{{font-size:.72rem;color:#888;font-weight:400}}
-@media(max-width:1100px){{
-  .he-grid-main,.he-grid-bottom{{grid-template-columns:1fr}}
-}}
-</style>
-
+    return css + f"""
 <form method="get" action="/indicadores/horas-extras" class="he-filtros">
   <div class="he-filtros-inner">
     <div class="he-filtro-group">
@@ -2985,80 +3125,98 @@ def _build_hora_extra_html(rows: list[dict], all_rows: list[dict] | None = None,
         <option value="">Todos os cargos</option>{opts_cargo}
       </select>
     </div>
+    <div class="he-filtro-group">
+      <label>Ano</label>
+      <select name="ano" onchange="this.form.submit()">
+        <option value="">Todos os anos</option>{opts_ano}
+      </select>
+    </div>
+    <div class="he-filtro-group">
+      <label>Mês</label>
+      <select name="mes" onchange="this.form.submit()">
+        <option value="">Todos os meses</option>{opts_mes}
+      </select>
+    </div>
     {limpar}
   </div>
 </form>
 
-<div class="he-kpis">
-  <div class="he-kpi" style="--cor:#e31837">
-    <span>Total de ocorrências</span>
-    <strong>{total_oc_fmt}</strong>
-    <small>base consolidada do período</small>
+<div class="he-hero">
+  <div>
+    <div class="he-hero-badge">Acumulado · {year_ref}</div>
+    <div class="he-hero-title">Resumo de Horas Extras</div>
+    <div class="he-hero-sub">Visão do período com foco em jornada extraordinária</div>
+    <div class="he-hero-nums">
+      <div class="he-hero-num">
+        <div class="he-hero-big">{total_oc_fmt}</div>
+        <div class="he-hero-lbl">ocorrências acumuladas no período</div>
+      </div>
+      <div class="he-hero-num">
+        <div class="he-hero-big">{tot_h_fmt}</div>
+        <div class="he-hero-lbl">total em horas</div>
+      </div>
+      <div class="he-hero-num">
+        <div class="he-hero-big">{total_col}</div>
+        <div class="he-hero-lbl">colaboradores com HE</div>
+      </div>
+    </div>
   </div>
-  <div class="he-kpi" style="--cor:#f59e0b">
-    <span>Total em horas</span>
-    <strong>{tot_h_fmt}</strong>
-    <small>{med_fmt} de média por ocorrência</small>
-  </div>
-  <div class="he-kpi" style="--cor:#3b82f6">
-    <span>Colaboradores com HE</span>
-    <strong>{total_col}</strong>
-    <small>{med_col_f} de média por colaborador</small>
-  </div>
-  <div class="he-kpi" style="--cor:#7c3aed">
-    <span>Acima de 2h</span>
-    <strong>{a2h_oc}</strong>
-    <small>{pct_a2h}% das ocorrências · {a2h_h_fmt}</small>
+  <div class="he-hero-kpis-wrap">
+    {hero_top}{hero_bot}
   </div>
 </div>
 
-<div class="he-grid-main">
-  <div class="he-section" style="margin-bottom:0">
-    <div class="he-section-head">Distribuição por faixa</div>
-    <div class="he-section-body">
-      {ranges_html}
+<div class="he-row-mid">
+  <div class="he-panel">
+    <div class="he-panel-head">
+      Ocorrências por mês
+      <div class="he-panel-head-right">{leg_faixas}</div>
     </div>
+    <div class="he-panel-body">{svg_stacked}</div>
   </div>
 
-  <div class="he-section" style="margin-bottom:0">
-    <div class="he-section-head">
-      📅 Evolução mensal de ocorrências
-      <span style="font-weight:400;font-size:.78rem;color:#888">{len(meses_sorted)} meses</span>
+  <div class="he-panel">
+    <div class="he-panel-head">
+      Horas extras por mês
+      <div class="he-panel-head-right">{leg_horas}</div>
     </div>
-    <div style="padding:12px 16px;overflow-x:auto">{chart_svg}</div>
+    <div class="he-panel-body">{svg_line}</div>
+  </div>
+
+  <div class="he-panel">
+    <div class="he-panel-head">
+      Distribuição por faixa
+      <div class="he-panel-head-right">{leg_oc_pct}</div>
+    </div>
+    <div class="he-panel-body">{svg_f_cnt}</div>
   </div>
 </div>
-<div style="margin-bottom:20px"></div>
 
-<div class="he-grid-bottom">
-  <div class="he-section" style="margin-bottom:0">
-    <div class="he-section-head">🏢 Por empresa</div>
-    <table class="he-table">
-      <thead><tr><th>Empresa</th><th></th><th>Oc.</th><th>Horas</th><th>Faixas</th></tr></thead>
-      <tbody>{emp_rows}</tbody>
-    </table>
+<div class="he-row-bot">
+  <div class="he-panel">
+    <div class="he-panel-head">🏢 Por Empresa</div>
+    <div class="he-panel-body">{svg_emp}</div>
   </div>
 
-  <div class="he-section" style="margin-bottom:0">
-    <div class="he-section-head">🗂️ Por departamento</div>
-    <table class="he-table">
-      <thead><tr><th>Departamento</th><th></th><th>Oc.</th><th>Horas</th><th>Faixas</th></tr></thead>
-      <tbody>{dep_rows}</tbody>
-    </table>
+  <div class="he-panel">
+    <div class="he-panel-head">🗂️ Por Departamento</div>
+    <div class="he-panel-body">{svg_dep}</div>
   </div>
 
-  <div class="he-section" style="margin-bottom:0">
-    <div class="he-section-head">💼 Por cargo</div>
-    <table class="he-table">
-      <thead><tr><th>Cargo</th><th></th><th>Oc.</th><th>Horas</th><th>Faixas</th></tr></thead>
-      <tbody>{cargo_rows}</tbody>
-    </table>
+  <div class="he-panel">
+    <div class="he-panel-head">
+      Distribuição de horas por faixa
+      <div class="he-panel-head-right">{_dot("#e31837","Horas (hh:mm)")} {_dot("#9ca3af","% do total")}</div>
+    </div>
+    <div class="he-panel-body">{svg_f_hrs}</div>
   </div>
+
 </div>"""
 
 
 @router.get("/indicadores/horas-extras")
-def horas_extras(request: Request, empresa: str = "", cargo: str = ""):
+def horas_extras(request: Request, empresa: str = "", cargo: str = "",
+                 ano: str = "", mes: str = ""):
     erro = None
     dash_html = ""
     try:
@@ -3068,8 +3226,13 @@ def horas_extras(request: Request, empresa: str = "", cargo: str = ""):
             filtered = [r for r in filtered if r["empresa"] == empresa]
         if cargo:
             filtered = [r for r in filtered if r["cargo"] == cargo]
+        if ano:
+            filtered = [r for r in filtered if r.get("data_dt") and str(r["data_dt"].year) == ano]
+        if mes:
+            filtered = [r for r in filtered if r.get("mes") == mes]
         dash_html = _build_hora_extra_html(filtered, all_rows=all_rows,
-                                           empresa_sel=empresa, cargo_sel=cargo)
+                                           empresa_sel=empresa, cargo_sel=cargo,
+                                           ano_sel=ano, mes_sel=mes)
     except Exception as exc:
         import traceback; traceback.print_exc()
         erro = f"Erro ao buscar dados de horas extras: {exc}"
