@@ -1,5 +1,6 @@
 ﻿from pathlib import Path
 import os
+import json
 import unicodedata
 from io import BytesIO
 from datetime import datetime
@@ -188,6 +189,7 @@ dho_empregados = Table(
     Column("data_desligamento", String(20), nullable=True),
     Column("status", String(50), default="Ativo"),
     Column("observacoes", Text, nullable=True),
+    Column("foto_url", Text, nullable=True),
     Column("criado_em", DateTime, default=datetime.utcnow),
     Column("atualizado_em", DateTime, default=datetime.utcnow),
 )
@@ -437,6 +439,11 @@ def garantir_schema():
 
             if dialect == "postgresql":
                 conn.execute(text("""
+                    ALTER TABLE IF EXISTS dho_empregados
+                    ADD COLUMN IF NOT EXISTS foto_url TEXT
+                """))
+
+                conn.execute(text("""
                     ALTER TABLE IF EXISTS dho_vagas
                     ADD COLUMN IF NOT EXISTS id_departamento INTEGER,
                     ADD COLUMN IF NOT EXISTS id_cargo INTEGER,
@@ -497,7 +504,13 @@ def garantir_schema():
                 def cols(table):
                     return [r[1] for r in conn.execute(text(f"PRAGMA table_info({table})")).fetchall()]
 
-                if "dho_vagas" in [r[0] for r in conn.execute(text("SELECT name FROM sqlite_master WHERE type='table'")).fetchall()]:
+                tabelas_existentes = [r[0] for r in conn.execute(text("SELECT name FROM sqlite_master WHERE type='table'")).fetchall()]
+
+                if "dho_empregados" in tabelas_existentes:
+                    if "foto_url" not in cols("dho_empregados"):
+                        conn.execute(text("ALTER TABLE dho_empregados ADD COLUMN foto_url TEXT"))
+
+                if "dho_vagas" in tabelas_existentes:
                     c = cols("dho_vagas")
                     add_cols = {
                         "id_departamento": "INTEGER",
@@ -2396,6 +2409,47 @@ def empregados_sincronizar(request: Request, db: Session = Depends(get_db)):
             f"{resultado['inativados']} inativado(s)."
         ),
     )
+
+
+@router.post("/dho/empregados/importar-fotos")
+async def empregados_importar_fotos(
+    request: Request,
+    json_file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+):
+    """Carrega fotos em lote a partir de JSON com {matricula, foto_base64}."""
+    current_user = getattr(request.state, "current_user", None)
+    if not current_user:
+        from fastapi.responses import RedirectResponse
+        return RedirectResponse("/auth/login", status_code=303)
+    try:
+        conteudo = await json_file.read()
+        fotos = json.loads(conteudo)
+        if not isinstance(fotos, list):
+            raise ValueError("JSON deve ser uma lista")
+        atualizados = 0
+        for item in fotos:
+            mat = str(item.get("matricula") or "").strip()
+            foto = item.get("foto_base64") or item.get("imagem_base64") or ""
+            if not mat or not foto:
+                continue
+            r = db.execute(
+                update(dho_empregados)
+                .where(dho_empregados.c.matricula == mat)
+                .values(foto_url=foto)
+            )
+            atualizados += r.rowcount or 0
+        db.commit()
+        return redirect_with_message(
+            "/dho/empregados",
+            success=f"{atualizados} foto(s) importada(s) com sucesso.",
+        )
+    except Exception as exc:
+        db.rollback()
+        return redirect_with_message(
+            "/dho/empregados",
+            error=f"Erro ao importar fotos: {exc}",
+        )
 
 
 @router.post("/dho/empregados")

@@ -134,7 +134,11 @@ details[open] .hl-row,summary:hover .hl-row{background:#fafafa}
     <summary>
       <div class="hl-row">
         <div class="col-nome">
+          {% if f.foto_url %}
+          <img src="{{ f.foto_url }}" class="avatar" style="object-fit:cover;border-radius:50%;">
+          {% else %}
           <div class="avatar">{{ f.nome[0] }}</div>
+          {% endif %}
           <div class="col-nome-text">
             <span class="name">{{ f.nome }}</span>
             <span class="role">{{ f.cargo or "—" }}</span>

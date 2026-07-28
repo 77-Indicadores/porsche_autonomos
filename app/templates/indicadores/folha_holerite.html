@@ -211,7 +211,11 @@
   {# ═══ PAINEL DIREITO — HOLERITE ═══ #}
   <aside class="rp">
     <div class="emp-head">
+      {% if func.foto_url %}
+      <img src="{{ func.foto_url }}" class="avatar" style="object-fit:cover;border-radius:14px;">
+      {% else %}
       <div class="avatar">{{ func.nome[0] if func.nome else "?" }}</div>
+      {% endif %}
       <div>
         <div class="emp-company">{{ func.empresa_nome }}</div>
         <div class="emp-name">{{ func.nome }}</div>

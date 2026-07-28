@@ -33,6 +33,15 @@ def _brl(v, dec: int = 0) -> str:
     return prefix + s
 
 
+def _foto_map() -> dict[str, str]:
+    """Carrega mapa matricula→foto_url da tabela dho_empregados (se existir)."""
+    try:
+        rows = _db("SELECT matricula, foto_url FROM dho_empregados WHERE foto_url IS NOT NULL AND foto_url != ''")
+        return {str(r["matricula"]): r["foto_url"] for r in rows if r["matricula"]}
+    except Exception:
+        return {}
+
+
 def _brl_k(v) -> str:
     """Formata em R$ k (milhares) para gráficos."""
     if v is None:
@@ -518,6 +527,7 @@ def folha_holerite(
                 "data_admissao":   adm[0]["data_admissao"] if adm else None,
                 "total_proventos": total_bruto,
                 "total_descontos": total_desc,
+                "foto_url":        _foto_map().get(str(mat or "")),
             }
 
         # Evolução do salário base (meses disponíveis no budget)
@@ -724,6 +734,10 @@ def folha_lista(
             "plr_v":     plr_v,
             "resc_v":    resc_v,
         })
+
+    fotos = _foto_map()
+    for f in funcionarios:
+        f["foto_url"] = fotos.get(str(f["matricula"] or ""))
 
     total_pacote = sum(f["pacote"] for f in funcionarios)
 
