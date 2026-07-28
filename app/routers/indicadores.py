@@ -2557,7 +2557,36 @@ def _fetch_banco_horas() -> list[dict]:
     return result
 
 
-def _build_banco_horas_html(rows: list[dict]) -> str:
+def _build_banco_horas_html(rows: list[dict], all_rows: list[dict] | None = None,
+                            empresa_sel: str = "", departamento_sel: str = "") -> str:
+    all_rows = all_rows or rows
+    empresas     = sorted({r["empresa"]     for r in all_rows if r["empresa"]})
+    departamentos = sorted({r["departamento"] for r in all_rows if r["departamento"]})
+
+    # ── filtros ──────────────────────────────────────────────────────────────
+    def _opt(val, sel): return f'<option value="{val}"{" selected" if val==sel else ""}>{val}</option>'
+    opts_emp  = "".join(_opt(e, empresa_sel)      for e in empresas)
+    opts_dep  = "".join(_opt(d, departamento_sel) for d in departamentos)
+    limpar    = '<a href="/indicadores/banco-horas" class="bh-limpar">✕ Limpar</a>' if (empresa_sel or departamento_sel) else ""
+    filtros_html = f"""
+<form method="get" action="/indicadores/banco-horas" class="bh-filtros" id="bhForm">
+  <div class="bh-filtros-inner">
+    <div class="bh-filtro-group">
+      <label>Empresa</label>
+      <select name="empresa" onchange="this.form.submit()">
+        <option value="">Todas as empresas</option>{opts_emp}
+      </select>
+    </div>
+    <div class="bh-filtro-group">
+      <label>Departamento</label>
+      <select name="departamento" onchange="this.form.submit()">
+        <option value="">Todos os departamentos</option>{opts_dep}
+      </select>
+    </div>
+    {limpar}
+  </div>
+</form>"""
+
     # Pega o registro mais recente por pessoa
     por_pessoa: dict[str, dict] = {}
     for r in rows:
@@ -2598,7 +2627,7 @@ def _build_banco_horas_html(rows: list[dict]) -> str:
     data_ref_fmt = data_ref.strftime("%d/%m/%Y") if data_ref else "-"
     periodo_label = next((r["periodo"] for r in por_pessoa.values() if r.get("periodo")), "")
 
-    return f"""
+    return filtros_html + f"""
 <style>
 .bh-kpis{{display:flex;gap:16px;flex-wrap:wrap;margin-bottom:24px}}
 .bh-kpi{{background:#fff;border-radius:10px;padding:18px 24px;flex:1;min-width:160px;box-shadow:0 1px 4px rgba(0,0,0,.07);border-top:4px solid var(--cor)}}
@@ -2614,6 +2643,14 @@ def _build_banco_horas_html(rows: list[dict]) -> str:
 .bh-table td{{padding:9px 12px;border-bottom:1px solid #f0f0f0}}
 .bh-table tr:last-child td{{border-bottom:none}}
 .bh-ref{{font-size:.75rem;color:#888;margin-bottom:16px}}
+.bh-filtros{{background:#fff;border-radius:10px;box-shadow:0 1px 4px rgba(0,0,0,.07);padding:16px 20px;margin-bottom:20px}}
+.bh-filtros-inner{{display:flex;gap:16px;align-items:flex-end;flex-wrap:wrap}}
+.bh-filtro-group{{display:flex;flex-direction:column;gap:4px;min-width:200px}}
+.bh-filtro-group label{{font-size:.72rem;font-weight:600;color:#666;text-transform:uppercase;letter-spacing:.04em}}
+.bh-filtro-group select{{padding:8px 12px;border:1px solid #d1d5db;border-radius:6px;font-size:.85rem;color:#111;background:#fafafa;cursor:pointer;outline:none}}
+.bh-filtro-group select:focus{{border-color:#e31837;box-shadow:0 0 0 2px rgba(227,24,55,.12)}}
+.bh-limpar{{font-size:.78rem;color:#e31837;text-decoration:none;padding:8px 4px;white-space:nowrap;align-self:flex-end}}
+.bh-limpar:hover{{text-decoration:underline}}
 </style>
 
 <p class="bh-ref">Referência: última atualização em <strong>{data_ref_fmt}</strong> · {len(por_pessoa)} colaboradores{"  ·  Período: " + periodo_label if periodo_label else ""}</p>
@@ -2668,12 +2705,18 @@ def _build_banco_horas_html(rows: list[dict]) -> str:
 
 
 @router.get("/indicadores/banco-horas")
-def banco_horas(request: Request):
+def banco_horas(request: Request, empresa: str = "", departamento: str = ""):
     erro = None
     dash_html = ""
     try:
-        rows = _fetch_banco_horas()
-        dash_html = _build_banco_horas_html(rows)
+        all_rows = _fetch_banco_horas()
+        filtered = all_rows
+        if empresa:
+            filtered = [r for r in filtered if r["empresa"] == empresa]
+        if departamento:
+            filtered = [r for r in filtered if r["departamento"] == departamento]
+        dash_html = _build_banco_horas_html(filtered, all_rows=all_rows,
+                                            empresa_sel=empresa, departamento_sel=departamento)
     except Exception as exc:
         erro = f"Erro ao buscar dados de banco de horas: {exc}"
     return templates.TemplateResponse("indicadores/banco_horas.html", {
