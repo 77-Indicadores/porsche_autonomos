@@ -2773,41 +2773,20 @@ def _build_hora_extra_html(rows: list[dict], all_rows: list[dict] | None = None,
     empresas = sorted({r["empresa"] for r in all_rows if r["empresa"]})
     cargos   = sorted({r["cargo"]   for r in all_rows if r["cargo"]})
 
-    # ── filtros ──
     def _opt(val, sel):
         return f'<option value="{val}"{" selected" if val == sel else ""}>{val}</option>'
     opts_emp   = "".join(_opt(e, empresa_sel) for e in empresas)
     opts_cargo = "".join(_opt(c, cargo_sel)   for c in cargos)
-    limpar = '<a href="/indicadores/horas-extras" class="he-limpar">✕ Limpar</a>' if (empresa_sel or cargo_sel) else ""
-    filtros_html = f"""
-<form method="get" action="/indicadores/horas-extras" class="he-filtros" id="heForm">
-  <div class="he-filtros-inner">
-    <div class="he-filtro-group">
-      <label>Empresa</label>
-      <select name="empresa" onchange="this.form.submit()">
-        <option value="">Todas as empresas</option>{opts_emp}
-      </select>
-    </div>
-    <div class="he-filtro-group">
-      <label>Cargo</label>
-      <select name="cargo" onchange="this.form.submit()">
-        <option value="">Todos os cargos</option>{opts_cargo}
-      </select>
-    </div>
-    {limpar}
-  </div>
-</form>"""
+    limpar = (f'<a href="/indicadores/horas-extras" class="hed-clear">✕ Limpar</a>'
+              if (empresa_sel or cargo_sel) else "")
 
     FAIXAS = ["Até 15 min", "16 min – 2h", "Acima de 2h"]
-    CORES  = {"Até 15 min": "#f59e0b", "16 min – 2h": "#e31837", "Acima de 2h": "#7c3aed"}
+    CORES  = {"Até 15 min": "#27c281", "16 min – 2h": "#ffb000", "Acima de 2h": "#d5001c"}
 
-    # ── agregações ──
     from collections import defaultdict
 
     def _agg(lst):
-        oc = len(lst)
-        total = sum(r["credito_min"] for r in lst)
-        return oc, total
+        return len(lst), sum(r["credito_min"] for r in lst)
 
     por_faixa: dict[str, list] = defaultdict(list)
     por_empresa: dict[str, list] = defaultdict(list)
@@ -2825,147 +2804,312 @@ def _build_hora_extra_html(rows: list[dict], all_rows: list[dict] | None = None,
         por_cargo_d[r["cargo"]].append(r)
         por_mes[r["mes"]].append(r)
 
-    total_oc  = len(rows)
-    total_min = sum(r["credito_min"] for r in rows)
+    total_oc  = sum(len(v) for v in por_faixa.values())
+    total_min = sum(r["credito_min"] for r in rows if r["faixa"])
+    total_col = len(set(r["pessoa"] for r in rows))
+    a2h_oc, a2h_min = _agg(por_faixa.get("Acima de 2h", []))
+    pct_a2h   = round(a2h_oc / total_oc * 100) if total_oc else 0
+    med_min   = total_min // total_oc if total_oc else 0
+    med_fmt   = f"{med_min//60}h{med_min%60:02d}" if med_min >= 60 else f"{med_min}min"
+    med_col   = total_min // total_col if total_col else 0
+    med_col_f = f"{med_col//60}h{med_col%60:02d}" if med_col >= 60 else f"{med_col}min"
+    tot_h_fmt = f"{total_min//60:02d}:{total_min%60:02d}"
+    a2h_h_fmt = f"{a2h_min//60:02d}:{a2h_min%60:02d}"
 
-    # ── KPI cards por faixa ──
-    kpi_cards = ""
+    # ── Faixas distribution ──
+    ranges_html = ""
     for f in FAIXAS:
         oc, mins = _agg(por_faixa.get(f, []))
-        cor = CORES[f]
         pct = round(oc / total_oc * 100) if total_oc else 0
-        kpi_cards += f"""
-  <div class="he-kpi" style="--cor:{cor}">
-    <span>{f}</span>
-    <strong>{oc}</strong>
-    <small>{f"{mins//60:02d}:{mins%60:02d}"} · {pct}% das ocorrências</small>
-  </div>"""
-
-    # ── tabela por empresa ──
-    def _tbl_rows(agrupado: dict):
-        itens = []
-        for k, v in agrupado.items():
-            if not k:
-                continue
-            oc, mins = _agg(v)
-            itens.append((k, oc, mins, v))
-        itens.sort(key=lambda x: x[1], reverse=True)
-        html = ""
-        for nome, oc, mins, v in itens:
-            f_counts = {f: len([r for r in v if r["faixa"] == f]) for f in FAIXAS}
-            badges = " ".join(
-                f'<span class="he-badge" style="background:{CORES[f]}">{f}: {f_counts[f]}</span>'
-                for f in FAIXAS if f_counts[f]
-            )
-            html += (f"<tr><td>{nome}</td><td style='text-align:center'>{oc}</td>"
-                     f"<td style='text-align:center'>{mins//60:02d}:{mins%60:02d}</td>"
-                     f"<td>{badges}</td></tr>")
-        return html or "<tr><td colspan='4' style='text-align:center;color:#888'>Sem dados</td></tr>"
-
-    # ── evolução mensal (barras SVG) ──
-    meses_sorted = sorted(por_mes.keys())
-    mes_oc  = [len(por_mes[m]) for m in meses_sorted]
-    mes_min = [sum(r["credito_min"] for r in por_mes[m]) for m in meses_sorted]
-    mes_lbl = [por_mes[m][0]["mes_fmt"] if por_mes[m] else m for m in meses_sorted]
-
-    max_oc = max(mes_oc) if mes_oc else 1
-    n = len(meses_sorted)
-    bar_w = max(20, min(60, 500 // n)) if n else 40
-    gap = max(4, bar_w // 4)
-    svg_w = n * (bar_w + gap) + 60
-    svg_h = 180
-
-    bars_svg = ""
-    for i, (lbl, oc, mins) in enumerate(zip(mes_lbl, mes_oc, mes_min)):
-        x = 40 + i * (bar_w + gap)
-        h = int(oc / max_oc * 120) if max_oc else 0
-        y = svg_h - 40 - h
-        tip = f"{lbl}: {oc} oc · {mins//60:02d}:{mins%60:02d}"
-        bars_svg += (
-            f'<rect x="{x}" y="{y}" width="{bar_w}" height="{h}" fill="#e31837" rx="3" opacity="0.85">'
-            f'<title>{tip}</title></rect>'
-            f'<text x="{x + bar_w//2}" y="{svg_h - 20}" text-anchor="middle" font-size="10" fill="#666">'
-            f'{lbl}</text>'
-            f'<text x="{x + bar_w//2}" y="{y - 4}" text-anchor="middle" font-size="9" fill="#333">'
-            f'{oc}</text>'
+        cor = CORES[f]
+        h_fmt = f"{mins//60:02d}:{mins%60:02d}"
+        ranges_html += (
+            f'<div class="hed-range">'
+            f'<div class="hed-range-top">'
+            f'<div class="hed-range-name">{f}</div>'
+            f'<div class="hed-range-count" style="color:{cor}">{oc}</div>'
+            f'</div>'
+            f'<div class="hed-range-meta"><span>{h_fmt} em horas</span>'
+            f'<strong>{pct}% das ocorrências</strong></div>'
+            f'<div class="hed-track"><div class="hed-fill" style="width:{pct}%;background:{cor}"></div></div>'
+            f'</div>'
         )
 
-    # y-axis ticks
-    for tick in [0, 25, 50, 75, 100]:
-        tv = int(tick / 100 * max_oc)
-        ty = svg_h - 40 - int(tick / 100 * 120)
-        bars_svg += f'<line x1="36" y1="{ty}" x2="{svg_w}" y2="{ty}" stroke="#e5e7eb" stroke-width="1"/>'
-        bars_svg += f'<text x="34" y="{ty+4}" text-anchor="end" font-size="9" fill="#aaa">{tv}</text>'
+    # ── Monthly SVG chart (dark style, data labels) ──
+    meses_sorted = sorted(por_mes.keys())
+    mes_oc  = [len(por_mes[m])                           for m in meses_sorted]
+    mes_min = [sum(r["credito_min"] for r in por_mes[m]) for m in meses_sorted]
+    mes_lbl = [por_mes[m][0]["mes_fmt"] if por_mes[m] else m for m in meses_sorted]
+    max_oc_m = max(mes_oc) if mes_oc else 1
+    n = len(meses_sorted)
 
-    evolucao_svg = (
-        f'<svg viewBox="0 0 {svg_w} {svg_h}" xmlns="http://www.w3.org/2000/svg" '
-        f'style="width:100%;max-height:200px;overflow:visible">{bars_svg}</svg>'
-        if meses_sorted else "<p style='color:#888;padding:16px'>Sem dados para o período.</p>"
-    )
+    chart_svg = "<p style='color:#6b7280;padding:24px;text-align:center'>Sem dados para o período.</p>"
+    if n:
+        PL, PR, PT, PB = 38, 16, 28, 32
+        CW, CH = 560, 210
+        iw, ih = CW - PL - PR, CH - PT - PB
+        bar_w  = max(16, min(52, iw // n - 10))
+        slot_w = iw / n
+        parts = [
+            f'<svg viewBox="0 0 {CW} {CH}" xmlns="http://www.w3.org/2000/svg"'
+            f' style="width:100%;max-height:230px;display:block">',
+            '<defs><linearGradient id="heg" x1="0" y1="0" x2="0" y2="1">',
+            '<stop offset="0%" stop-color="#d5001c"/><stop offset="100%" stop-color="#7a0010"/>',
+            '</linearGradient></defs>',
+        ]
+        # grid lines
+        for tick in range(5):
+            tv  = int(tick / 4 * max_oc_m)
+            ty  = PT + ih - int(tick / 4 * ih)
+            parts.append(f'<line x1="{PL}" y1="{ty}" x2="{CW-PR}" y2="{ty}"'
+                         f' stroke="rgba(255,255,255,.07)" stroke-width="1"/>')
+            parts.append(f'<text x="{PL-5}" y="{ty+4}" text-anchor="end" font-size="9"'
+                         f' fill="#4b5563" font-family="Inter,sans-serif">{tv}</text>')
+        # bars + labels
+        for i, (lbl, oc, mins) in enumerate(zip(mes_lbl, mes_oc, mes_min)):
+            cx   = PL + slot_w * i + slot_w / 2
+            bx   = cx - bar_w / 2
+            bh   = int(oc / max_oc_m * ih) if max_oc_m else 0
+            by   = PT + ih - bh
+            tip  = f"{lbl}: {oc} ocorrências · {mins//60:02d}:{mins%60:02d}"
+            parts.append(f'<rect x="{bx:.1f}" y="{by}" width="{bar_w}" height="{bh}"'
+                         f' fill="url(#heg)" rx="5"><title>{tip}</title></rect>')
+            # data label
+            if bh > 20:
+                parts.append(f'<text x="{cx:.1f}" y="{by+15}" text-anchor="middle"'
+                             f' font-size="10" fill="#fff" font-weight="700"'
+                             f' font-family="Inter,sans-serif">{oc}</text>')
+            else:
+                parts.append(f'<text x="{cx:.1f}" y="{by-5}" text-anchor="middle"'
+                             f' font-size="10" fill="#9ca3af" font-weight="700"'
+                             f' font-family="Inter,sans-serif">{oc}</text>')
+            # hours label below bar
+            h_lbl = f"{mins//60}h{mins%60:02d}" if mins >= 60 else f"{mins}min"
+            parts.append(f'<text x="{cx:.1f}" y="{CH-PT+2}" text-anchor="middle"'
+                         f' font-size="9" fill="#6b7280" font-family="Inter,sans-serif">{h_lbl}</text>')
+            # x-axis label
+            parts.append(f'<text x="{cx:.1f}" y="{CH-PT+14}" text-anchor="middle"'
+                         f' font-size="10" fill="#9ca3af" font-family="Inter,sans-serif">{lbl}</text>')
+        parts.append('</svg>')
+        chart_svg = "".join(parts)
 
-    return f"""{filtros_html}
+    # ── Ranked table helper ──
+    def _tbl_block(agrupado: dict, top: int = 10):
+        itens = [(k, *_agg(v), v) for k, v in agrupado.items() if k]
+        itens.sort(key=lambda x: x[1], reverse=True)
+        itens = itens[:top]
+        max_t = itens[0][1] if itens else 1
+        html  = ""
+        for nome, oc, mins, v in itens:
+            pct_bar = int(oc / max_t * 100) if max_t else 0
+            pct_tot = round(oc / total_oc * 100) if total_oc else 0
+            h_fmt   = f"{mins//60:02d}:{mins%60:02d}"
+            fc = {f: len([r for r in v if r["faixa"] == f]) for f in FAIXAS}
+            badges  = "".join(
+                f'<span class="hed-badge" style="background:{CORES[f]}">{fc[f]}</span>'
+                for f in FAIXAS if fc[f]
+            )
+            html += (
+                f'<tr>'
+                f'<td class="hed-td-name" title="{nome}">{nome}</td>'
+                f'<td class="hed-td-bar"><div class="hed-mini-bar-wrap">'
+                f'<div class="hed-mini-bar" style="width:{pct_bar}%"></div></div></td>'
+                f'<td class="hed-td-num">{oc}<span class="hed-pct"> {pct_tot}%</span></td>'
+                f'<td class="hed-td-h">{h_fmt}</td>'
+                f'<td class="hed-td-badges">{badges}</td>'
+                f'</tr>'
+            )
+        return html or "<tr><td colspan='5' class='hed-no-data'>Sem dados</td></tr>"
+
+    emp_rows   = _tbl_block(por_empresa, 10)
+    dep_rows   = _tbl_block(por_depto, 10)
+    cargo_rows = _tbl_block(por_cargo_d, 10)
+
+    # ── Insights ──
+    pct_a2h_h    = round(a2h_min / total_min * 100) if total_min else 0
+    pct_rel      = round((total_oc - len(por_faixa.get("Até 15 min", []))) / total_oc * 100) if total_oc else 0
+    total_oc_fmt = f"{total_oc:,}".replace(",", ".")
+
+    css = """
 <style>
-.he-filtros{{background:#fff;border-radius:10px;box-shadow:0 1px 4px rgba(0,0,0,.07);padding:16px 20px;margin-bottom:20px}}
-.he-filtros-inner{{display:flex;gap:16px;align-items:flex-end;flex-wrap:wrap}}
-.he-filtro-group{{display:flex;flex-direction:column;gap:4px;min-width:200px}}
-.he-filtro-group label{{font-size:.72rem;font-weight:600;color:#666;text-transform:uppercase;letter-spacing:.04em}}
-.he-filtro-group select{{padding:8px 12px;border:1px solid #d1d5db;border-radius:6px;font-size:.85rem;color:#111;background:#fafafa;cursor:pointer;outline:none}}
-.he-filtro-group select:focus{{border-color:#e31837;box-shadow:0 0 0 2px rgba(227,24,55,.12)}}
-.he-limpar{{font-size:.78rem;color:#e31837;text-decoration:none;padding:8px 4px;white-space:nowrap;align-self:flex-end}}
-.he-kpis{{display:flex;gap:16px;flex-wrap:wrap;margin-bottom:24px}}
-.he-kpi{{background:#fff;border-radius:10px;padding:18px 24px;flex:1;min-width:180px;box-shadow:0 1px 4px rgba(0,0,0,.07);border-top:4px solid var(--cor)}}
-.he-kpi span{{display:block;font-size:.75rem;color:#666;margin-bottom:4px;font-weight:600}}
-.he-kpi strong{{font-size:1.5rem;font-weight:700;color:var(--cor)}}
-.he-kpi small{{display:block;font-size:.72rem;color:#888;margin-top:4px}}
-.he-section{{background:#fff;border-radius:10px;box-shadow:0 1px 4px rgba(0,0,0,.07);margin-bottom:20px;overflow:hidden}}
-.he-section-head{{padding:12px 18px;font-weight:600;font-size:.85rem;background:#fafafa;border-left:4px solid #e31837;display:flex;justify-content:space-between;align-items:center}}
-.he-table{{width:100%;border-collapse:collapse;font-size:.82rem}}
-.he-table th{{padding:9px 12px;background:#f5f5f5;text-align:left;font-weight:600;font-size:.75rem;text-transform:uppercase;color:#555;border-bottom:2px solid #e5e7eb}}
-.he-table td{{padding:9px 12px;border-bottom:1px solid #f0f0f0}}
-.he-table tr:last-child td{{border-bottom:none}}
-.he-badge{{display:inline-block;font-size:.68rem;color:#fff;border-radius:4px;padding:2px 6px;margin:1px;font-weight:600}}
-.he-total-kpi{{background:#fff;border-radius:10px;box-shadow:0 1px 4px rgba(0,0,0,.07);padding:14px 20px;margin-bottom:20px;display:flex;gap:32px;align-items:center;border-left:4px solid #e31837}}
-.he-total-kpi b{{font-size:1.3rem;color:#e31837}}
-.he-total-kpi span{{font-size:.8rem;color:#666}}
-</style>
+.hed-dash{font-family:Inter,'Segoe UI',Arial,sans-serif;color:#f1f2f4}
+.hed-filters{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;margin-bottom:14px}
+.hed-filter{background:#13151a;border:1px solid #2b2f38;border-radius:12px;padding:9px 14px;min-width:175px}
+.hed-filter label{display:block;color:#6b7280;font-size:10px;text-transform:uppercase;letter-spacing:.08em;font-weight:700;margin-bottom:3px}
+.hed-filter select{background:transparent;border:0;color:#f1f2f4;font-size:13px;font-weight:600;outline:none;width:100%;cursor:pointer}
+.hed-filter select option{color:#111;background:#fff}
+.hed-clear{align-self:center;font-size:12px;color:#d5001c;text-decoration:none;padding:9px 13px;border:1px solid rgba(213,0,28,.3);border-radius:10px;white-space:nowrap;font-weight:600}
+.hed-kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:12px}
+.hed-kpi{background:linear-gradient(150deg,#1b1d23,#101216);border:1px solid #2b2f38;border-radius:16px;padding:16px 18px;position:relative;overflow:hidden;min-height:115px}
+.hed-kpi::before{content:"";position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--acc,#d5001c)}
+.hed-kpi-icon{position:absolute;right:13px;top:13px;width:32px;height:32px;display:grid;place-items:center;border-radius:10px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.07);font-size:15px}
+.hed-kpi-lbl{font-size:10px;color:#6b7280;font-weight:700;margin-bottom:10px;text-transform:uppercase;letter-spacing:.05em}
+.hed-kpi-val{font-size:clamp(22px,2.2vw,34px);font-weight:900;letter-spacing:-.04em;color:#f1f2f4;line-height:1}
+.hed-kpi-foot{display:flex;align-items:center;gap:6px;margin-top:10px;color:#6b7280;font-size:11px;flex-wrap:wrap}
+.hed-pill{background:rgba(39,194,129,.12);color:#27c281;border-radius:999px;padding:2px 7px;font-size:10px;font-weight:800}
+.hed-pill-red{background:rgba(213,0,28,.12);color:#ff5070}
+.hed-grid-main{display:grid;grid-template-columns:1fr 1.65fr;gap:12px;margin-bottom:12px}
+.hed-card{background:linear-gradient(150deg,rgba(27,29,35,.97),rgba(15,17,21,.97));border:1px solid #2b2f38;border-radius:16px;overflow:hidden}
+.hed-card-head{padding:14px 16px 13px;border-bottom:1px solid #1e2129;display:flex;align-items:flex-start;justify-content:space-between;gap:10px}
+.hed-card-title{font-weight:800;font-size:14px;letter-spacing:-.01em;color:#e8eaed}
+.hed-card-sub{margin-top:3px;color:#6b7280;font-size:11px}
+.hed-card-badge{font-size:11px;color:#6b7280;background:#1a1d25;border:1px solid #2b2f38;border-radius:8px;padding:4px 9px;white-space:nowrap}
+.hed-card-body{padding:14px 16px}
+.hed-ranges{display:grid;gap:12px}
+.hed-range{padding:12px 14px;border:1px solid #222630;border-radius:12px;background:rgba(255,255,255,.015)}
+.hed-range-top{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:5px}
+.hed-range-name{font-size:13px;color:#d0d3da;font-weight:700}
+.hed-range-count{font-size:24px;font-weight:900;letter-spacing:-.04em}
+.hed-range-meta{display:flex;justify-content:space-between;color:#6b7280;font-size:11px;margin-bottom:8px}
+.hed-range-meta strong{color:#9ca3af}
+.hed-track{height:6px;background:#1e2129;border-radius:10px;overflow:hidden}
+.hed-fill{height:100%;border-radius:10px}
+.hed-chart-wrap{padding:10px 12px 6px;overflow-x:auto}
+.hed-grid-bottom{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:8px}
+.hed-tbl{width:100%;border-collapse:collapse;font-size:12px}
+.hed-tbl th{padding:8px 10px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#4b5563;border-bottom:1px solid #1e2129}
+.hed-td-name{padding:8px 10px;color:#d0d3da;font-weight:600;max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.hed-td-bar{padding:8px 6px;width:70px}
+.hed-td-num{padding:8px 6px;color:#f1f2f4;font-weight:800;white-space:nowrap}
+.hed-td-h{padding:8px 6px;color:#9ca3af;font-size:11px;white-space:nowrap}
+.hed-td-badges{padding:8px 6px;white-space:nowrap}
+.hed-pct{font-weight:400;color:#6b7280;font-size:10px}
+.hed-mini-bar-wrap{height:5px;background:#1e2129;border-radius:10px;overflow:hidden}
+.hed-mini-bar{height:100%;background:#d5001c;border-radius:10px}
+.hed-badge{display:inline-block;font-size:10px;color:#fff;border-radius:4px;padding:1px 5px;margin:1px;font-weight:700}
+.hed-no-data{padding:16px;text-align:center;color:#4b5563}
+.hed-tbl tr{border-bottom:1px solid #1a1d25}
+.hed-tbl tr:last-child{border-bottom:none}
+@media(max-width:1100px){
+  .hed-kpis{grid-template-columns:repeat(2,1fr)}
+  .hed-grid-main,.hed-grid-bottom{grid-template-columns:1fr}
+}
+</style>"""
 
-<div class="he-total-kpi">
-  <div><span>Total de ocorrências</span><br><b>{total_oc}</b></div>
-  <div><span>Total em horas</span><br><b>{total_min//60:02d}:{total_min%60:02d}</b></div>
-  <div><span>Colaboradores com HE</span><br><b>{len(set(r["pessoa"] for r in rows))}</b></div>
+    return f"""{css}
+<div class="hed-dash">
+
+<form method="get" action="/indicadores/horas-extras">
+<div class="hed-filters">
+  <div class="hed-filter">
+    <label>Empresa</label>
+    <select name="empresa" onchange="this.form.submit()">
+      <option value="">Todas as empresas</option>{opts_emp}
+    </select>
+  </div>
+  <div class="hed-filter">
+    <label>Cargo</label>
+    <select name="cargo" onchange="this.form.submit()">
+      <option value="">Todos os cargos</option>{opts_cargo}
+    </select>
+  </div>
+  {limpar}
+</div>
+</form>
+
+<div class="hed-kpis">
+  <article class="hed-kpi" style="--acc:#d5001c">
+    <div class="hed-kpi-icon">#</div>
+    <div class="hed-kpi-lbl">Total de ocorrências</div>
+    <div class="hed-kpi-val">{total_oc_fmt}</div>
+    <div class="hed-kpi-foot"><span class="hed-pill">100%</span> Base consolidada do período</div>
+  </article>
+  <article class="hed-kpi" style="--acc:#ffb000">
+    <div class="hed-kpi-icon">◷</div>
+    <div class="hed-kpi-lbl">Total em horas</div>
+    <div class="hed-kpi-val">{tot_h_fmt}</div>
+    <div class="hed-kpi-foot"><span class="hed-pill">{med_fmt}</span> Média por ocorrência</div>
+  </article>
+  <article class="hed-kpi" style="--acc:#5b8cff">
+    <div class="hed-kpi-icon">♟</div>
+    <div class="hed-kpi-lbl">Colaboradores com HE</div>
+    <div class="hed-kpi-val">{total_col}</div>
+    <div class="hed-kpi-foot"><span class="hed-pill">{med_col_f}</span> Média por colaborador</div>
+  </article>
+  <article class="hed-kpi" style="--acc:#d5001c">
+    <div class="hed-kpi-icon">!</div>
+    <div class="hed-kpi-lbl">Acima de 2h</div>
+    <div class="hed-kpi-val">{a2h_oc}</div>
+    <div class="hed-kpi-foot"><span class="hed-pill hed-pill-red">{pct_a2h}%</span> {a2h_h_fmt} concentradas</div>
+  </article>
 </div>
 
-<div class="he-kpis">{kpi_cards}</div>
+<div class="hed-grid-main">
+  <div class="hed-card">
+    <div class="hed-card-head">
+      <div>
+        <div class="hed-card-title">Distribuição por duração</div>
+        <div class="hed-card-sub">Ocorrências e horas acumuladas por faixa</div>
+      </div>
+    </div>
+    <div class="hed-card-body">
+      <div class="hed-ranges">{ranges_html}</div>
+    </div>
+  </div>
 
-<div class="he-section">
-  <div class="he-section-head">📅 Evolução mensal de ocorrências <span style="font-weight:400;font-size:.78rem;color:#888">{len(meses_sorted)} meses</span></div>
-  <div style="padding:16px 20px;overflow-x:auto">{evolucao_svg}</div>
+  <div class="hed-card">
+    <div class="hed-card-head">
+      <div>
+        <div class="hed-card-title">Evolução mensal de ocorrências</div>
+        <div class="hed-card-sub">Quantidade de registros e volume de horas por mês</div>
+      </div>
+      <span class="hed-card-badge">{len(meses_sorted)} meses</span>
+    </div>
+    <div class="hed-chart-wrap">{chart_svg}</div>
+  </div>
 </div>
 
-<div class="he-section">
-  <div class="he-section-head">🏢 Por Empresa</div>
-  <table class="he-table">
-    <thead><tr><th>Empresa</th><th>Ocorrências</th><th>Total Horas</th><th>Faixas</th></tr></thead>
-    <tbody>{_tbl_rows(por_empresa)}</tbody>
-  </table>
+<div class="hed-grid-bottom">
+  <div class="hed-card">
+    <div class="hed-card-head">
+      <div>
+        <div class="hed-card-title">🏢 Por empresa</div>
+        <div class="hed-card-sub">Participação no total de ocorrências</div>
+      </div>
+    </div>
+    <table class="hed-tbl">
+      <thead><tr>
+        <th>Empresa</th><th></th>
+        <th>Oc.</th><th>Horas</th><th>Faixas</th>
+      </tr></thead>
+      <tbody>{emp_rows}</tbody>
+    </table>
+  </div>
+
+  <div class="hed-card">
+    <div class="hed-card-head">
+      <div>
+        <div class="hed-card-title">🗂️ Por departamento</div>
+        <div class="hed-card-sub">Áreas com maior concentração de HE</div>
+      </div>
+    </div>
+    <table class="hed-tbl">
+      <thead><tr>
+        <th>Departamento</th><th></th>
+        <th>Oc.</th><th>Horas</th><th>Faixas</th>
+      </tr></thead>
+      <tbody>{dep_rows}</tbody>
+    </table>
+  </div>
+
+  <div class="hed-card">
+    <div class="hed-card-head">
+      <div>
+        <div class="hed-card-title">💼 Por cargo</div>
+        <div class="hed-card-sub">Funções com mais horas extras</div>
+      </div>
+    </div>
+    <table class="hed-tbl">
+      <thead><tr>
+        <th>Cargo</th><th></th>
+        <th>Oc.</th><th>Horas</th><th>Faixas</th>
+      </tr></thead>
+      <tbody>{cargo_rows}</tbody>
+    </table>
+  </div>
 </div>
 
-<div class="he-section">
-  <div class="he-section-head">🗂️ Por Departamento</div>
-  <table class="he-table">
-    <thead><tr><th>Departamento</th><th>Ocorrências</th><th>Total Horas</th><th>Faixas</th></tr></thead>
-    <tbody>{_tbl_rows(por_depto)}</tbody>
-  </table>
-</div>
-
-<div class="he-section">
-  <div class="he-section-head">💼 Por Cargo</div>
-  <table class="he-table">
-    <thead><tr><th>Cargo</th><th>Ocorrências</th><th>Total Horas</th><th>Faixas</th></tr></thead>
-    <tbody>{_tbl_rows(por_cargo_d)}</tbody>
-  </table>
-</div>
-"""
+</div>"""
 
 
 @router.get("/indicadores/horas-extras")
