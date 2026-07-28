@@ -2704,6 +2704,293 @@ def _build_banco_horas_html(rows: list[dict], all_rows: list[dict] | None = None
 """
 
 
+# ─── Horas Extras ──────────────────────────────────────────────────────────────
+
+def _he_parse_minutes(t_str: str) -> int:
+    """Converte HH:MM ou HH:MM:SS para minutos; ignora nulos."""
+    s = str(t_str or "").strip()
+    if not s or s.lower() in ("none", "nan", "", "null"):
+        return 0
+    parts = s.split(":")
+    try:
+        h = int(parts[0])
+        m = int(parts[1]) if len(parts) > 1 else 0
+        return h * 60 + m
+    except Exception:
+        return 0
+
+
+def _he_faixa(minutos: int) -> str:
+    if minutos <= 0:
+        return ""
+    if minutos <= 15:
+        return "Até 15 min"
+    if minutos <= 120:
+        return "16 min – 2h"
+    return "Acima de 2h"
+
+
+def _fetch_hora_extra() -> list[dict]:
+    base_url = os.getenv("CATWORLD_URL", "").rstrip("/")
+    token = os.getenv("CATWORLD_TOKEN", "")
+    dataset_id = os.getenv("CATWORLD_PONTO_DATASET_ID") or os.getenv("CATWORLD_DATASET_ID", "")
+    if not base_url or not token or not dataset_id:
+        raise RuntimeError("CATWORLD_URL, CATWORLD_TOKEN e CATWORLD_PONTO_DATASET_ID precisam estar configurados.")
+    client = CatworldClient(base_url=base_url, token=token)
+    resultado = client.query("SELECT * FROM ifractal_hora_extra", dataset_id=dataset_id)
+    rows = resultado.rows or []
+    result = []
+    for r in rows:
+        d = dict(r) if not isinstance(r, dict) else r
+        nome = str(d.get("pessoa") or "").strip()
+        credito_str = str(d.get("bh_credito") or "").strip()
+        credito_min = _he_parse_minutes(credito_str)
+        if not nome or credito_min <= 0:
+            continue
+        data_raw = d.get("data") or d.get("dt") or ""
+        try:
+            data_dt = datetime.strptime(str(data_raw)[:10], "%Y-%m-%d").date()
+        except Exception:
+            data_dt = None
+        result.append({
+            "pessoa":       nome,
+            "empresa":      str(d.get("empresa") or "").strip(),
+            "departamento": str(d.get("departamento") or "").strip(),
+            "cargo":        str(d.get("cargo") or "").strip(),
+            "data_dt":      data_dt,
+            "mes":          data_dt.strftime("%Y-%m") if data_dt else "0000-00",
+            "mes_fmt":      data_dt.strftime("%b/%Y") if data_dt else "-",
+            "credito_min":  credito_min,
+            "credito_fmt":  f"{credito_min // 60:02d}:{credito_min % 60:02d}",
+            "faixa":        _he_faixa(credito_min),
+        })
+    return result
+
+
+def _build_hora_extra_html(rows: list[dict], all_rows: list[dict] | None = None,
+                           empresa_sel: str = "", cargo_sel: str = "") -> str:
+    all_rows = all_rows or rows
+    empresas = sorted({r["empresa"] for r in all_rows if r["empresa"]})
+    cargos   = sorted({r["cargo"]   for r in all_rows if r["cargo"]})
+
+    # ── filtros ──
+    def _opt(val, sel):
+        return f'<option value="{val}"{" selected" if val == sel else ""}>{val}</option>'
+    opts_emp   = "".join(_opt(e, empresa_sel) for e in empresas)
+    opts_cargo = "".join(_opt(c, cargo_sel)   for c in cargos)
+    limpar = '<a href="/indicadores/horas-extras" class="he-limpar">✕ Limpar</a>' if (empresa_sel or cargo_sel) else ""
+    filtros_html = f"""
+<form method="get" action="/indicadores/horas-extras" class="he-filtros" id="heForm">
+  <div class="he-filtros-inner">
+    <div class="he-filtro-group">
+      <label>Empresa</label>
+      <select name="empresa" onchange="this.form.submit()">
+        <option value="">Todas as empresas</option>{opts_emp}
+      </select>
+    </div>
+    <div class="he-filtro-group">
+      <label>Cargo</label>
+      <select name="cargo" onchange="this.form.submit()">
+        <option value="">Todos os cargos</option>{opts_cargo}
+      </select>
+    </div>
+    {limpar}
+  </div>
+</form>"""
+
+    FAIXAS = ["Até 15 min", "16 min – 2h", "Acima de 2h"]
+    CORES  = {"Até 15 min": "#f59e0b", "16 min – 2h": "#e31837", "Acima de 2h": "#7c3aed"}
+
+    # ── agregações ──
+    from collections import defaultdict
+
+    def _agg(lst):
+        oc = len(lst)
+        total = sum(r["credito_min"] for r in lst)
+        return oc, total
+
+    por_faixa: dict[str, list] = defaultdict(list)
+    por_empresa: dict[str, list] = defaultdict(list)
+    por_depto: dict[str, list] = defaultdict(list)
+    por_cargo_d: dict[str, list] = defaultdict(list)
+    por_mes: dict[str, list] = defaultdict(list)
+
+    for r in rows:
+        f = r["faixa"]
+        if not f:
+            continue
+        por_faixa[f].append(r)
+        por_empresa[r["empresa"]].append(r)
+        por_depto[r["departamento"]].append(r)
+        por_cargo_d[r["cargo"]].append(r)
+        por_mes[r["mes"]].append(r)
+
+    total_oc  = len(rows)
+    total_min = sum(r["credito_min"] for r in rows)
+
+    # ── KPI cards por faixa ──
+    kpi_cards = ""
+    for f in FAIXAS:
+        oc, mins = _agg(por_faixa.get(f, []))
+        cor = CORES[f]
+        pct = round(oc / total_oc * 100) if total_oc else 0
+        kpi_cards += f"""
+  <div class="he-kpi" style="--cor:{cor}">
+    <span>{f}</span>
+    <strong>{oc}</strong>
+    <small>{f"{mins//60:02d}:{mins%60:02d}"} · {pct}% das ocorrências</small>
+  </div>"""
+
+    # ── tabela por empresa ──
+    def _tbl_rows(agrupado: dict):
+        itens = []
+        for k, v in agrupado.items():
+            if not k:
+                continue
+            oc, mins = _agg(v)
+            itens.append((k, oc, mins, v))
+        itens.sort(key=lambda x: x[1], reverse=True)
+        html = ""
+        for nome, oc, mins, v in itens:
+            f_counts = {f: len([r for r in v if r["faixa"] == f]) for f in FAIXAS}
+            badges = " ".join(
+                f'<span class="he-badge" style="background:{CORES[f]}">{f}: {f_counts[f]}</span>'
+                for f in FAIXAS if f_counts[f]
+            )
+            html += (f"<tr><td>{nome}</td><td style='text-align:center'>{oc}</td>"
+                     f"<td style='text-align:center'>{mins//60:02d}:{mins%60:02d}</td>"
+                     f"<td>{badges}</td></tr>")
+        return html or "<tr><td colspan='4' style='text-align:center;color:#888'>Sem dados</td></tr>"
+
+    # ── evolução mensal (barras SVG) ──
+    meses_sorted = sorted(por_mes.keys())
+    mes_oc  = [len(por_mes[m]) for m in meses_sorted]
+    mes_min = [sum(r["credito_min"] for r in por_mes[m]) for m in meses_sorted]
+    mes_lbl = [por_mes[m][0]["mes_fmt"] if por_mes[m] else m for m in meses_sorted]
+
+    max_oc = max(mes_oc) if mes_oc else 1
+    n = len(meses_sorted)
+    bar_w = max(20, min(60, 500 // n)) if n else 40
+    gap = max(4, bar_w // 4)
+    svg_w = n * (bar_w + gap) + 60
+    svg_h = 180
+
+    bars_svg = ""
+    for i, (lbl, oc, mins) in enumerate(zip(mes_lbl, mes_oc, mes_min)):
+        x = 40 + i * (bar_w + gap)
+        h = int(oc / max_oc * 120) if max_oc else 0
+        y = svg_h - 40 - h
+        tip = f"{lbl}: {oc} oc · {mins//60:02d}:{mins%60:02d}"
+        bars_svg += (
+            f'<rect x="{x}" y="{y}" width="{bar_w}" height="{h}" fill="#e31837" rx="3" opacity="0.85">'
+            f'<title>{tip}</title></rect>'
+            f'<text x="{x + bar_w//2}" y="{svg_h - 20}" text-anchor="middle" font-size="10" fill="#666">'
+            f'{lbl}</text>'
+            f'<text x="{x + bar_w//2}" y="{y - 4}" text-anchor="middle" font-size="9" fill="#333">'
+            f'{oc}</text>'
+        )
+
+    # y-axis ticks
+    for tick in [0, 25, 50, 75, 100]:
+        tv = int(tick / 100 * max_oc)
+        ty = svg_h - 40 - int(tick / 100 * 120)
+        bars_svg += f'<line x1="36" y1="{ty}" x2="{svg_w}" y2="{ty}" stroke="#e5e7eb" stroke-width="1"/>'
+        bars_svg += f'<text x="34" y="{ty+4}" text-anchor="end" font-size="9" fill="#aaa">{tv}</text>'
+
+    evolucao_svg = (
+        f'<svg viewBox="0 0 {svg_w} {svg_h}" xmlns="http://www.w3.org/2000/svg" '
+        f'style="width:100%;max-height:200px;overflow:visible">{bars_svg}</svg>'
+        if meses_sorted else "<p style='color:#888;padding:16px'>Sem dados para o período.</p>"
+    )
+
+    return f"""{filtros_html}
+<style>
+.he-filtros{{background:#fff;border-radius:10px;box-shadow:0 1px 4px rgba(0,0,0,.07);padding:16px 20px;margin-bottom:20px}}
+.he-filtros-inner{{display:flex;gap:16px;align-items:flex-end;flex-wrap:wrap}}
+.he-filtro-group{{display:flex;flex-direction:column;gap:4px;min-width:200px}}
+.he-filtro-group label{{font-size:.72rem;font-weight:600;color:#666;text-transform:uppercase;letter-spacing:.04em}}
+.he-filtro-group select{{padding:8px 12px;border:1px solid #d1d5db;border-radius:6px;font-size:.85rem;color:#111;background:#fafafa;cursor:pointer;outline:none}}
+.he-filtro-group select:focus{{border-color:#e31837;box-shadow:0 0 0 2px rgba(227,24,55,.12)}}
+.he-limpar{{font-size:.78rem;color:#e31837;text-decoration:none;padding:8px 4px;white-space:nowrap;align-self:flex-end}}
+.he-kpis{{display:flex;gap:16px;flex-wrap:wrap;margin-bottom:24px}}
+.he-kpi{{background:#fff;border-radius:10px;padding:18px 24px;flex:1;min-width:180px;box-shadow:0 1px 4px rgba(0,0,0,.07);border-top:4px solid var(--cor)}}
+.he-kpi span{{display:block;font-size:.75rem;color:#666;margin-bottom:4px;font-weight:600}}
+.he-kpi strong{{font-size:1.5rem;font-weight:700;color:var(--cor)}}
+.he-kpi small{{display:block;font-size:.72rem;color:#888;margin-top:4px}}
+.he-section{{background:#fff;border-radius:10px;box-shadow:0 1px 4px rgba(0,0,0,.07);margin-bottom:20px;overflow:hidden}}
+.he-section-head{{padding:12px 18px;font-weight:600;font-size:.85rem;background:#fafafa;border-left:4px solid #e31837;display:flex;justify-content:space-between;align-items:center}}
+.he-table{{width:100%;border-collapse:collapse;font-size:.82rem}}
+.he-table th{{padding:9px 12px;background:#f5f5f5;text-align:left;font-weight:600;font-size:.75rem;text-transform:uppercase;color:#555;border-bottom:2px solid #e5e7eb}}
+.he-table td{{padding:9px 12px;border-bottom:1px solid #f0f0f0}}
+.he-table tr:last-child td{{border-bottom:none}}
+.he-badge{{display:inline-block;font-size:.68rem;color:#fff;border-radius:4px;padding:2px 6px;margin:1px;font-weight:600}}
+.he-total-kpi{{background:#fff;border-radius:10px;box-shadow:0 1px 4px rgba(0,0,0,.07);padding:14px 20px;margin-bottom:20px;display:flex;gap:32px;align-items:center;border-left:4px solid #e31837}}
+.he-total-kpi b{{font-size:1.3rem;color:#e31837}}
+.he-total-kpi span{{font-size:.8rem;color:#666}}
+</style>
+
+<div class="he-total-kpi">
+  <div><span>Total de ocorrências</span><br><b>{total_oc}</b></div>
+  <div><span>Total em horas</span><br><b>{total_min//60:02d}:{total_min%60:02d}</b></div>
+  <div><span>Colaboradores com HE</span><br><b>{len(set(r["pessoa"] for r in rows))}</b></div>
+</div>
+
+<div class="he-kpis">{kpi_cards}</div>
+
+<div class="he-section">
+  <div class="he-section-head">📅 Evolução mensal de ocorrências <span style="font-weight:400;font-size:.78rem;color:#888">{len(meses_sorted)} meses</span></div>
+  <div style="padding:16px 20px;overflow-x:auto">{evolucao_svg}</div>
+</div>
+
+<div class="he-section">
+  <div class="he-section-head">🏢 Por Empresa</div>
+  <table class="he-table">
+    <thead><tr><th>Empresa</th><th>Ocorrências</th><th>Total Horas</th><th>Faixas</th></tr></thead>
+    <tbody>{_tbl_rows(por_empresa)}</tbody>
+  </table>
+</div>
+
+<div class="he-section">
+  <div class="he-section-head">🗂️ Por Departamento</div>
+  <table class="he-table">
+    <thead><tr><th>Departamento</th><th>Ocorrências</th><th>Total Horas</th><th>Faixas</th></tr></thead>
+    <tbody>{_tbl_rows(por_depto)}</tbody>
+  </table>
+</div>
+
+<div class="he-section">
+  <div class="he-section-head">💼 Por Cargo</div>
+  <table class="he-table">
+    <thead><tr><th>Cargo</th><th>Ocorrências</th><th>Total Horas</th><th>Faixas</th></tr></thead>
+    <tbody>{_tbl_rows(por_cargo_d)}</tbody>
+  </table>
+</div>
+"""
+
+
+@router.get("/indicadores/horas-extras")
+def horas_extras(request: Request, empresa: str = "", cargo: str = ""):
+    erro = None
+    dash_html = ""
+    try:
+        all_rows = _fetch_hora_extra()
+        filtered = all_rows
+        if empresa:
+            filtered = [r for r in filtered if r["empresa"] == empresa]
+        if cargo:
+            filtered = [r for r in filtered if r["cargo"] == cargo]
+        dash_html = _build_hora_extra_html(filtered, all_rows=all_rows,
+                                           empresa_sel=empresa, cargo_sel=cargo)
+    except Exception as exc:
+        import traceback; traceback.print_exc()
+        erro = f"Erro ao buscar dados de horas extras: {exc}"
+    return templates.TemplateResponse("indicadores/horas_extras.html", {
+        "request": request,
+        "dash_html": dash_html,
+        "erro": erro,
+    })
+
+
 @router.get("/indicadores/banco-horas")
 def banco_horas(request: Request, empresa: str = "", departamento: str = ""):
     erro = None
