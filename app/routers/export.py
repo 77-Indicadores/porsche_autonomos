@@ -20,7 +20,7 @@ TABELAS = [
     ("autonomos",        "Autônomos",             "SELECT * FROM dim_autonomos ORDER BY nome_autonomo"),
     ("etapas",           "Etapas",                "SELECT * FROM dim_etapas ORDER BY temporada DESC, data_inicio"),
     ("categorias",       "Categorias",            "SELECT * FROM dim_provas ORDER BY nome_prova"),
-    ("carros",           "Carros",                "SELECT * FROM dim_carros ORDER BY numero_carro"),
+    ("carros",           "Carros",                "SELECT * FROM dim_carros ORDER BY chassi"),
     ("pilotos",          "Pilotos",               "SELECT * FROM dim_pilotos ORDER BY nome_piloto"),
     ("cargos",           "Cargos Autônomo",       "SELECT * FROM dim_cargos_autonomos ORDER BY nome_cargo"),
     ("alocacoes",        "Alocações",             "SELECT * FROM fato_piloto_autonomo_prova ORDER BY id_etapa, id_prova"),

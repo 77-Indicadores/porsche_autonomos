@@ -80,7 +80,7 @@ def options(db: Session):
     return {
         "etapas": db.query(DimEtapa).order_by(DimEtapa.temporada.desc(), DimEtapa.data_inicio.desc()).all(),
         "provas": db.query(DimProva).order_by(DimProva.data_prova.desc()).all(),
-        "carros": db.query(DimCarro).order_by(DimCarro.numero_carro).all(),
+        "carros": db.query(DimCarro).order_by(DimCarro.chassi).all(),
         "cargos": db.query(DimCargoAutonomo).order_by(DimCargoAutonomo.nome_cargo).all(),
     }
 
@@ -112,9 +112,9 @@ def get_nome_carro(db: Session, id_carro):
     obj = db.get(DimCarro, id_carro)
     if not obj:
         return f"ID {id_carro}"
-    numero = getattr(obj, "numero_carro", "") or ""
+    chassi = getattr(obj, "chassi", "") or ""
     modelo = getattr(obj, "modelo", "") or ""
-    return f"{numero} - {modelo}".strip(" -")
+    return f"{chassi} - {modelo}".strip(" -")
 
 
 def get_nome_cargo(db: Session, id_cargo):

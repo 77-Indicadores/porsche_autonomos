@@ -44,7 +44,7 @@
         <option value="">Todos os carros</option>
         {% for c in carros %}
           <option value="{{ c.id_carro }}">
-            {{ c.numero_carro }}{% if c.modelo %} - {{ c.modelo }}{% endif %}{% if c.categoria_padrao %} - {{ c.categoria_padrao }}{% endif %}
+            {{ c.chassi }}{% if c.modelo %} - {{ c.modelo }}{% endif %}{% if c.categoria_padrao %} ({{ c.categoria_padrao }}){% endif %}
           </option>
         {% endfor %}
       </select>

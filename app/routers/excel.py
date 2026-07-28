@@ -170,20 +170,18 @@ ENTIDADES = {
     "carros": {
         "label": "Carros",
         "table": "dim_carros",
-        "unique": ["numero_carro"],
+        "unique": ["chassi"],
         "columns": [
-            "numero_carro",
+            "chassi",
             "modelo",
             "categoria_padrao",
-            "chassi",
             "status_carro",
             "observacoes",
         ],
         "example": [
-            "77",
+            "CHASSI-001",
             "911 GT3 Cup",
             "Cup",
-            "CHASSI-001",
             "Ativo",
             "Exemplo",
         ],

@@ -22,7 +22,7 @@ def carros(request: Request, q: str = "", db: Session = Depends(get_db)):
             (DimCarro.status_carro.like(like))
         )
 
-    items = query.order_by(DimCarro.numero_carro).all()
+    items = query.order_by(DimCarro.chassi).all()
 
     return templates.TemplateResponse(
         "cadastros/carros.html",

@@ -25,7 +25,7 @@ def ids_importacao(request: Request, db: Session = Depends(get_db)):
     autonomos = db.query(DimAutonomo).order_by(DimAutonomo.nome_autonomo).all()
     etapas = db.query(DimEtapa).order_by(DimEtapa.nome_etapa).all()
     categorias = db.query(DimProva).order_by(DimProva.nome_prova).all()
-    carros = db.query(DimCarro).order_by(DimCarro.numero_carro).all()
+    carros = db.query(DimCarro).order_by(DimCarro.chassi).all()
     cargos = db.query(DimCargoAutonomo).order_by(DimCargoAutonomo.nome_cargo).all()
     motivos = db.query(DimMotivoTroca).order_by(DimMotivoTroca.motivo_troca).all()
 

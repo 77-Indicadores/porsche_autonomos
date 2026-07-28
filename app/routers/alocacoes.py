@@ -32,7 +32,7 @@ def options(db: Session):
     return {
         "pilotos": db.query(DimPiloto).filter(DimPiloto.status_piloto == "Ativo").order_by(DimPiloto.nome_piloto).all(),
         "autonomos": db.query(DimAutonomo).filter(DimAutonomo.status_autonomo == "Ativo").order_by(DimAutonomo.nome_autonomo).all(),
-        "carros": db.query(DimCarro).filter(DimCarro.status_carro == "Ativo").order_by(DimCarro.numero_carro).all(),
+        "carros": db.query(DimCarro).filter(DimCarro.status_carro == "Ativo").order_by(DimCarro.chassi).all(),
         "cargos_autonomos": db.query(DimCargoAutonomo).filter(DimCargoAutonomo.status == "Ativo").order_by(DimCargoAutonomo.nome_cargo).all(),
         "etapas": db.query(DimEtapa).order_by(DimEtapa.temporada.desc(), DimEtapa.nome_etapa).all(),
         "provas": db.query(DimProva).order_by(DimProva.data_prova.desc()).all(),

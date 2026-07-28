@@ -74,7 +74,7 @@
             <div class="equipe-meta">
               <span>📍 {{ equipe.etapa.nome_etapa if equipe.etapa else "-" }}</span>
               <span>🏁 {{ equipe.categoria.nome_prova if equipe.categoria else "-" }}</span>
-              <span>🏎️ {{ equipe.carro.numero_carro if equipe.carro else "-" }}{% if equipe.carro and equipe.carro.modelo %} - {{ equipe.carro.modelo }}{% endif %}</span>
+              <span>🏎️ {{ equipe.carro.chassi if equipe.carro else "-" }}{% if equipe.carro and equipe.carro.modelo %} - {{ equipe.carro.modelo }}{% endif %}</span>
             </div>
           </div>
         </div>
