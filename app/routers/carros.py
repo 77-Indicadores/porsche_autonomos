@@ -18,7 +18,6 @@ def carros(request: Request, q: str = "", db: Session = Depends(get_db)):
         query = query.filter(
             (DimCarro.chassi.like(like)) |
             (DimCarro.modelo.like(like)) |
-            (DimCarro.categoria_padrao.like(like)) |
             (DimCarro.status_carro.like(like))
         )
 
@@ -42,7 +41,6 @@ def salvar_carro(
     current_id_carro: str = "",
     chassi: str = Form(...),
     modelo: str = Form(""),
-    categoria_padrao: str = Form(""),
     status_carro: str = Form("Ativo"),
     observacoes: str = Form(""),
     db: Session = Depends(get_db),
@@ -62,7 +60,6 @@ def salvar_carro(
         db.add(carro)
 
     carro.modelo = modelo
-    carro.categoria_padrao = categoria_padrao
     carro.chassi = chassi
     carro.status_carro = status_carro
     carro.observacoes = observacoes

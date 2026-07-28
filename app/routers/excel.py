@@ -174,14 +174,12 @@ ENTIDADES = {
         "columns": [
             "chassi",
             "modelo",
-            "categoria_padrao",
             "status_carro",
             "observacoes",
         ],
         "example": [
             "CHASSI-001",
             "911 GT3 Cup",
-            "Cup",
             "Ativo",
             "Exemplo",
         ],
@@ -398,8 +396,8 @@ REFERENCE_SHEETS = {
     "carros": {
         "title": "REF_CARROS",
         "table": "dim_carros",
-        "columns": ["id_carro", "chassi", "modelo", "categoria_padrao", "status_carro"],
-        "labels": ["ID Carro", "Chassi", "Modelo", "Categoria", "Status"],
+        "columns": ["id_carro", "chassi", "modelo", "status_carro"],
+        "labels": ["ID Carro", "Chassi", "Modelo", "Status"],
         "order_by": ["chassi"],
         "field": "id_carro",
     },
