@@ -3263,3 +3263,117 @@ def banco_horas(request: Request, empresa: str = "", departamento: str = ""):
         "dash_html": dash_html,
         "erro": erro,
     })
+
+
+# ─── Afastamentos ─────────────────────────────────────────────────────────────
+
+_MESES_PT_AFAS = [
+    "Janeiro","Fevereiro","Março","Abril","Maio","Junho",
+    "Julho","Agosto","Setembro","Outubro","Novembro","Dezembro",
+]
+
+
+def _parse_dt_afas(s) -> "datetime | None":
+    s = str(s or "").strip().split(" ")[0]
+    if not s:
+        return None
+    try:
+        if len(s) == 10 and s[2] == "/":
+            return datetime(int(s[6:]), int(s[3:5]), int(s[0:2]))
+        if len(s) == 10 and s[4] == "-":
+            return datetime(int(s[0:4]), int(s[5:7]), int(s[8:10]))
+    except Exception:
+        pass
+    return None
+
+
+@router.get("/indicadores/afastamentos")
+def afastamentos_indicador(
+    request: Request,
+    empresa: str = "",
+    departamento: str = "",
+    tipo: str = "",
+    ano: str = "",
+):
+    from app.database import engine as _eng
+    from collections import Counter
+
+    with _eng.connect() as conn:
+        rows_raw = conn.execute(
+            text("SELECT * FROM atestados_medicos ORDER BY id DESC")
+        ).mappings().all()
+
+    rows = []
+    for r in rows_raw:
+        d = dict(r)
+        data_at  = _parse_dt_afas(d.get("data_atestado"))
+        data_ini = _parse_dt_afas(d.get("data_inicio_afastamento"))
+        data_fim = _parse_dt_afas(d.get("data_fim_afastamento"))
+        dias = None
+        if data_ini and data_fim:
+            dias = max((data_fim - data_ini).days + 1, 0)
+        rows.append({
+            "id":                      d["id"],
+            "empresa":                 str(d.get("empresa") or "").strip(),
+            "departamento":            str(d.get("departamento") or "").strip(),
+            "matricula":               str(d.get("matricula") or "").strip(),
+            "nome_colaborador":        str(d.get("nome_colaborador") or "").strip(),
+            "cargo":                   str(d.get("cargo") or "").strip(),
+            "tipo_atestado":           str(d.get("tipo_atestado") or "").strip(),
+            "cid":                     str(d.get("cid") or "").strip(),
+            "data_atestado":           str(d.get("data_atestado") or "").strip(),
+            "data_inicio_afastamento": str(d.get("data_inicio_afastamento") or "").strip(),
+            "data_fim_afastamento":    str(d.get("data_fim_afastamento") or "").strip(),
+            "dias":                    dias,
+            "ano":                     str(data_at.year) if data_at else "",
+            "mes":                     data_at.month if data_at else 0,
+            "mes_nome":                _MESES_PT_AFAS[data_at.month - 1] if data_at else "",
+        })
+
+    empresas      = sorted({r["empresa"]       for r in rows if r["empresa"]})
+    departamentos = sorted({r["departamento"]  for r in rows if r["departamento"]})
+    tipos         = sorted({r["tipo_atestado"] for r in rows if r["tipo_atestado"]})
+    anos          = sorted({r["ano"]           for r in rows if r["ano"]}, reverse=True)
+
+    filtered = rows
+    if empresa:
+        filtered = [r for r in filtered if r["empresa"] == empresa]
+    if departamento:
+        filtered = [r for r in filtered if r["departamento"] == departamento]
+    if tipo:
+        filtered = [r for r in filtered if r["tipo_atestado"] == tipo]
+    if ano:
+        filtered = [r for r in filtered if r["ano"] == ano]
+
+    total           = len(filtered)
+    com_afas        = [r for r in filtered if r["data_inicio_afastamento"]]
+    colab_unicos    = len({r["nome_colaborador"] for r in com_afas})
+    total_dias      = sum(r["dias"] for r in com_afas if r["dias"] is not None)
+    media_dias      = round(total_dias / len(com_afas), 1) if com_afas else 0
+
+    por_tipo  = dict(Counter(r["tipo_atestado"] for r in filtered).most_common())
+    por_depto = dict(Counter(r["departamento"]  for r in filtered).most_common(10))
+    max_tipo  = max(por_tipo.values(),  default=1)
+    max_depto = max(por_depto.values(), default=1)
+
+    return templates.TemplateResponse("indicadores/afastamentos.html", {
+        "request":        request,
+        "rows":           filtered,
+        "total":          total,
+        "com_afas":       len(com_afas),
+        "colab_unicos":   colab_unicos,
+        "total_dias":     total_dias,
+        "media_dias":     media_dias,
+        "por_tipo":       por_tipo,
+        "por_depto":      por_depto,
+        "max_tipo":       max_tipo,
+        "max_depto":      max_depto,
+        "empresas":       empresas,
+        "departamentos":  departamentos,
+        "tipos":          tipos,
+        "anos":           anos,
+        "empresa_sel":    empresa,
+        "dep_sel":        departamento,
+        "tipo_sel":       tipo,
+        "ano_sel":        ano,
+    })
