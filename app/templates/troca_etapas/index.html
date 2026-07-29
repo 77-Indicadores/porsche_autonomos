@@ -261,14 +261,6 @@
             </div>
           </form>
 
-          {% if salvo %}
-            <form method="post" action="/troca-etapas/excluir" style="margin:0;display:flex;align-items:flex-end;">
-              <input type="hidden" name="id_etapa_anterior" value="{{ ant.id_etapa }}">
-              <input type="hidden" name="id_etapa_proxima" value="{{ prox.id_etapa }}">
-              <input type="hidden" name="id_fato" value="{{ f.id_fato }}">
-              <button type="submit" class="btn-clear" onclick="return confirm('Remover motivo?')">✕</button>
-            </form>
-          {% endif %}
         </div>
       {% endfor %}
     {% endif %}
