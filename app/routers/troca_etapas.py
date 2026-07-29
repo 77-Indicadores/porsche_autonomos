@@ -123,12 +123,20 @@ def troca_etapas_index(request: Request, db: Session = Depends(get_db)):
         }
         pilotos_na_prox = {(f.id_piloto, _nome_prova(f)) for f in fatos_prox_list}
 
-        # Mapa (piloto, carro, nome_prova) → nomes dos autonomos na etapa seguinte
+        # Autonomos que já estavam na etapa anterior por (piloto, carro, categoria)
+        autonomos_na_ant: dict = {}
+        for f in fatos_ant:
+            chave = (f.id_piloto, f.id_carro, _nome_prova(f))
+            autonomos_na_ant.setdefault(chave, set()).add(f.id_autonomo)
+
+        # Substituto = quem está na etapa seguinte para o mesmo combo e NÃO estava antes
         substitutos_map: dict = {}
         for f in fatos_prox_list:
             chave = (f.id_piloto, f.id_carro, _nome_prova(f))
-            nome_aut = getattr(f.autonomo, "nome_autonomo", None) or "—"
-            substitutos_map.setdefault(chave, []).append(nome_aut)
+            ja_estava = autonomos_na_ant.get(chave, set())
+            if f.id_autonomo not in ja_estava:
+                nome_aut = getattr(f.autonomo, "nome_autonomo", None) or "—"
+                substitutos_map.setdefault(chave, []).append(nome_aut)
 
         ausentes = []
         ids_piloto_nao_correu = set()
