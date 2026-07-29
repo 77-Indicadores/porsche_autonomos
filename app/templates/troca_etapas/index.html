@@ -257,9 +257,8 @@
 
     {# ── Piloto não correu (detectado automaticamente) ── #}
     {% if nao_correram %}
-      <div style="padding:10px 20px 6px;border:1px solid #334155;border-top:none;background:#0f172a;display:flex;align-items:center;gap:8px;">
-        <span style="font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.05em;">Piloto não correu na etapa seguinte</span>
-        <span style="font-size:11px;color:#475569;">— detectado automaticamente, sem alocação na etapa seguinte</span>
+      <div style="padding:10px 20px 6px;border:1px solid #334155;border-top:none;background:#0f172a;">
+        <span style="font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.05em;">Piloto não correu na etapa</span>
       </div>
       {% for f in nao_correram %}
         <div class="te-card" style="opacity:.65;border-top:none;">
