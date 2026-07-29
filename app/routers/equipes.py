@@ -195,44 +195,56 @@ def equipes(
 
     # ------------------------------------------------------------
     # Rateio da Equipe Geral
+    # Regra:
+    #   sem categoria (id_prova=None) → rateia para todos os carros da etapa
+    #   com categoria                 → rateia apenas para os carros da etapa+categoria
     # ------------------------------------------------------------
     equipes_gerais_map = carregar_equipes_gerais(db)
 
-    carros_por_etapa_categoria = {}
+    # Carros únicos por etapa (todas as categorias)
+    carros_por_etapa: dict = {}
+    # Carros únicos por etapa+categoria
+    carros_por_etapa_categoria: dict = {}
 
     for equipe in equipes_map.values():
         etapa_id = getattr(equipe["etapa"], "id_etapa", None)
         prova_id = getattr(equipe["categoria"], "id_prova", None)
         carro_id = getattr(equipe["carro"], "id_carro", None)
 
+        if etapa_id and carro_id:
+            carros_por_etapa.setdefault(etapa_id, set()).add(carro_id)
         if etapa_id and prova_id and carro_id:
             carros_por_etapa_categoria.setdefault((etapa_id, prova_id), set()).add(carro_id)
 
     for equipe in equipes_map.values():
         etapa_id = getattr(equipe["etapa"], "id_etapa", None)
         prova_id = getattr(equipe["categoria"], "id_prova", None)
-        chave_ep = (etapa_id, prova_id)
 
-        qtd_carros_rateio = len(carros_por_etapa_categoria.get(chave_ep, set())) or 1
-        rateios = equipes_gerais_map.get(chave_ep, [])
-
-        for rateio in rateios:
+        def _aplicar_rateio(rateio, qtd_carros):
             custo_total_geral = float(rateio.get("custo_total") or 0)
-            valor_rateado = custo_total_geral / qtd_carros_rateio
-
+            valor_rateado = custo_total_geral / qtd_carros
             equipe["rateios_equipe_geral"].append({
                 "id_equipe_geral": rateio.get("id_equipe_geral"),
                 "nome_equipe": rateio.get("nome_equipe") or "Equipe Geral",
                 "qtd_pessoas": fmt_qtd(rateio.get("qtd_pessoas")),
                 "custo_total": custo_total_geral,
                 "custo_total_fmt": fmt_money(custo_total_geral),
-                "qtd_carros_rateio": qtd_carros_rateio,
+                "qtd_carros_rateio": qtd_carros,
                 "valor_rateado": valor_rateado,
                 "valor_rateado_fmt": fmt_money(valor_rateado),
             })
-
             equipe["custo_rateio_equipe_geral"] += valor_rateado
             equipe["custo_total"] += valor_rateado
+
+        # Equipes gerais SEM categoria → divide entre todos os carros da etapa
+        qtd_etapa = len(carros_por_etapa.get(etapa_id, set())) or 1
+        for rateio in equipes_gerais_map.get((etapa_id, None), []):
+            _aplicar_rateio(rateio, qtd_etapa)
+
+        # Equipes gerais COM categoria → divide entre carros daquela etapa+categoria
+        qtd_ep = len(carros_por_etapa_categoria.get((etapa_id, prova_id), set())) or 1
+        for rateio in equipes_gerais_map.get((etapa_id, prova_id), []):
+            _aplicar_rateio(rateio, qtd_ep)
 
     equipes = list(equipes_map.values())
 
