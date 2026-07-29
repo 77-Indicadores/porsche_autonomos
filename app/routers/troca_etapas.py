@@ -90,14 +90,23 @@ def troca_etapas_index(request: Request, db: Session = Depends(get_db)):
             continue
 
         fatos_ant = fatos_por_etapa.get(ant.id_etapa, [])
+        fatos_prox_list = fatos_por_etapa.get(prox.id_etapa, [])
+
+        # Categorias que de fato correram na etapa seguinte
+        provas_na_prox = {f.id_prova for f in fatos_prox_list}
+
+        # Chaves com categoria: mesmo autonomo+piloto+carro+categoria na etapa seguinte
         chaves_prox = {
-            (f.id_autonomo, f.id_piloto, f.id_carro)
-            for f in fatos_por_etapa.get(prox.id_etapa, [])
+            (f.id_autonomo, f.id_piloto, f.id_carro, f.id_prova)
+            for f in fatos_prox_list
         }
 
+        # Ausente = estava na anterior com categoria X, a categoria X correu na seguinte
+        # mas esse combo específico não aparece na seguinte
         ausentes = [
             f for f in fatos_ant
-            if (f.id_autonomo, f.id_piloto, f.id_carro) not in chaves_prox
+            if f.id_prova in provas_na_prox
+            and (f.id_autonomo, f.id_piloto, f.id_carro, f.id_prova) not in chaves_prox
         ]
 
         trocas_salvas: dict = {}
