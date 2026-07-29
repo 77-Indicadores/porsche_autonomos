@@ -5,6 +5,90 @@
 
 {% block content %}
 <style>
+/* ── Multi-select component ── */
+.ms-wrapper {
+  position: relative;
+  display: inline-block;
+}
+.ms-trigger {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #1e293b;
+  border: 1px solid #475569;
+  border-radius: 8px;
+  padding: 6px 12px;
+  cursor: pointer;
+  font-size: 13px;
+  color: #e2e8f0;
+  min-width: 160px;
+  user-select: none;
+  white-space: nowrap;
+}
+.ms-trigger:hover { border-color: #64748b; }
+.ms-wrapper.open .ms-trigger { border-color: #e31837; }
+.ms-trigger .ms-arrow { margin-left: auto; color: #64748b; font-size: 11px; transition: transform .18s; }
+.ms-wrapper.open .ms-arrow { transform: rotate(180deg); }
+.ms-display { flex: 1; overflow: hidden; text-overflow: ellipsis; }
+
+.ms-dropdown {
+  display: none;
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  z-index: 300;
+  background: #1e293b;
+  border: 1px solid #334155;
+  border-radius: 10px;
+  min-width: 220px;
+  max-width: 340px;
+  box-shadow: 0 8px 24px rgba(0,0,0,.5);
+  overflow: hidden;
+}
+.ms-wrapper.open .ms-dropdown { display: block; }
+
+.ms-search-wrap {
+  padding: 8px 10px;
+  border-bottom: 1px solid #334155;
+}
+.ms-search {
+  width: 100%;
+  box-sizing: border-box;
+  background: #0f172a;
+  border: 1px solid #334155;
+  border-radius: 6px;
+  padding: 6px 10px;
+  color: #e2e8f0;
+  font-size: 13px;
+  outline: none;
+}
+.ms-search:focus { border-color: #e31837; }
+
+.ms-list {
+  overflow-y: auto;
+  max-height: 240px;
+}
+.ms-option {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  cursor: pointer;
+  font-size: 13px;
+  color: #cbd5e1;
+  transition: background .1s;
+}
+.ms-option:hover { background: #334155; }
+.ms-option input[type="checkbox"] {
+  width: 15px;
+  height: 15px;
+  accent-color: #e31837;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.ms-option label { cursor: pointer; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ms-empty { padding: 10px 12px; color: #475569; font-size: 13px; }
+
 /* ── Filter bar ── */
 .te-filters {
   position: sticky;
@@ -13,8 +97,8 @@
   background: #0a0f1e;
   border: 1px solid #334155;
   border-radius: 10px;
-  padding: 10px 16px;
-  margin-bottom: 20px;
+  padding: 10px 14px;
+  margin-bottom: 16px;
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
@@ -38,6 +122,25 @@
   background: #334155;
   flex-shrink: 0;
 }
+.te-filter-actions {
+  margin-left: auto;
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+.btn-expand-all, .btn-collapse-all {
+  background: none;
+  border: 1px solid #475569;
+  color: #94a3b8;
+  border-radius: 6px;
+  padding: 5px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.btn-expand-all:hover   { border-color: #64748b; color: #cbd5e1; }
+.btn-collapse-all:hover { border-color: #64748b; color: #cbd5e1; }
 .te-filter-clear {
   background: none;
   border: 1px solid #475569;
@@ -47,14 +150,12 @@
   font-size: 12px;
   font-weight: 600;
   cursor: pointer;
-  margin-left: auto;
+  white-space: nowrap;
 }
 .te-filter-clear:hover { border-color: #94a3b8; color: #94a3b8; }
 
-/* ── Grupo expander (details/summary) ── */
-.te-grupo-wrapper {
-  margin-top: 20px;
-}
+/* ── Grupo expander ── */
+.te-grupo-wrapper { margin-top: 18px; }
 .te-grupo-wrapper:first-of-type { margin-top: 0; }
 
 .te-grupo-wrapper > summary {
@@ -64,7 +165,7 @@
   background: #0f172a;
   border: 1px solid #334155;
   border-radius: 12px 12px 0 0;
-  padding: 14px 20px;
+  padding: 13px 18px;
   cursor: pointer;
   list-style: none;
   user-select: none;
@@ -77,8 +178,7 @@
 
 .te-chevron {
   color: #475569;
-  font-size: 13px;
-  font-style: normal;
+  font-size: 12px;
   transition: transform .18s;
   flex-shrink: 0;
 }
@@ -105,7 +205,7 @@
   background: var(--panel-bg, #1e293b);
   border: 1px solid #334155;
   border-top: none;
-  padding: 16px 20px;
+  padding: 16px 18px;
   display: flex;
   flex-wrap: wrap;
   gap: 16px;
@@ -115,7 +215,7 @@
 .te-card + .te-card { border-top: 1px solid #1e293b; }
 
 .te-section-label {
-  padding: 10px 20px 6px;
+  padding: 9px 18px 6px;
   border: 1px solid #334155;
   border-top: none;
   background: #0f172a;
@@ -206,7 +306,7 @@
 }
 
 .te-ok-msg {
-  padding: 14px 20px;
+  padding: 14px 18px;
   color: #64748b;
   font-size: 13px;
   border: 1px solid #334155;
@@ -216,7 +316,7 @@
 }
 .te-no-results {
   display: none;
-  padding: 14px 20px;
+  padding: 14px 18px;
   color: #475569;
   font-size: 13px;
   border: 1px solid #334155;
@@ -247,40 +347,83 @@
 
 {# ── Filter bar ── #}
 <div class="te-filters">
+
   <div class="te-filter-group">
     <span class="te-filter-label">Etapa</span>
-    <select class="input" id="fil-etapa" style="font-size:13px;padding:5px 10px;min-width:200px;">
-      <option value="">Todas</option>
-      {% for grupo in grupos %}
-        <option value="{{ loop.index }}">{{ grupo.etapa_ant.nome_etapa }} → {{ grupo.etapa_prox.nome_etapa }}</option>
-      {% endfor %}
-    </select>
+    <div class="ms-wrapper" id="ms-etapa">
+      <div class="ms-trigger" onclick="msToggle('ms-etapa')">
+        <span class="ms-display">Todas</span>
+        <span class="ms-arrow">▾</span>
+      </div>
+      <div class="ms-dropdown">
+        <div class="ms-search-wrap">
+          <input class="ms-search" type="text" placeholder="Buscar etapa…" oninput="msFiltrar('ms-etapa', this.value)" autocomplete="off">
+        </div>
+        <div class="ms-list" id="ms-etapa-list">
+          {% for grupo in grupos %}
+            <label class="ms-option">
+              <input type="checkbox" value="{{ loop.index }}" onchange="msChange('ms-etapa')">
+              <label>{{ grupo.etapa_ant.nome_etapa }} → {{ grupo.etapa_prox.nome_etapa }}</label>
+            </label>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
   </div>
 
   <div class="te-filter-sep"></div>
 
   <div class="te-filter-group">
     <span class="te-filter-label">Status</span>
-    <select class="input" id="fil-status" style="font-size:13px;padding:5px 10px;">
-      <option value="">Todos</option>
-      <option value="registrado">Registrado</option>
-      <option value="nao-registrado">Não registrado</option>
-    </select>
+    <div class="ms-wrapper" id="ms-status">
+      <div class="ms-trigger" onclick="msToggle('ms-status')">
+        <span class="ms-display">Todos</span>
+        <span class="ms-arrow">▾</span>
+      </div>
+      <div class="ms-dropdown">
+        <div class="ms-list" id="ms-status-list">
+          <label class="ms-option">
+            <input type="checkbox" value="registrado" onchange="msChange('ms-status')">
+            <label>Registrado</label>
+          </label>
+          <label class="ms-option">
+            <input type="checkbox" value="nao-registrado" onchange="msChange('ms-status')">
+            <label>Não registrado</label>
+          </label>
+        </div>
+      </div>
+    </div>
   </div>
 
   <div class="te-filter-sep"></div>
 
   <div class="te-filter-group">
     <span class="te-filter-label">Piloto</span>
-    <input class="input" id="fil-piloto" type="text" placeholder="Nome do piloto…"
-           style="font-size:13px;padding:5px 10px;min-width:180px;">
+    <div class="ms-wrapper" id="ms-piloto">
+      <div class="ms-trigger" onclick="msToggle('ms-piloto')">
+        <span class="ms-display">Todos</span>
+        <span class="ms-arrow">▾</span>
+      </div>
+      <div class="ms-dropdown">
+        <div class="ms-search-wrap">
+          <input class="ms-search" type="text" placeholder="Buscar piloto…" oninput="msFiltrar('ms-piloto', this.value)" autocomplete="off">
+        </div>
+        <div class="ms-list" id="ms-piloto-list">
+          {# populated by JS after page load #}
+        </div>
+      </div>
+    </div>
   </div>
 
-  <button class="te-filter-clear" onclick="limparFiltros()">✕ Limpar</button>
+  <div class="te-filter-actions">
+    <button class="btn-expand-all"   onclick="expandirTodos()">▼ Expandir todos</button>
+    <button class="btn-collapse-all" onclick="recolherTodos()">▲ Recolher todos</button>
+    <button class="te-filter-clear"  onclick="limparFiltros()">✕ Limpar</button>
+  </div>
 </div>
 
 {% for grupo in grupos %}
-  {# ── ALL variables defined BEFORE the header so badge counts are correct ── #}
+  {# ── ALL variables defined BEFORE the header ── #}
   {% set ant = grupo.etapa_ant %}
   {% set prox = grupo.etapa_prox %}
   {% set ausentes = grupo.ausentes %}
@@ -290,7 +433,9 @@
   {% set trocas_reais = ausentes | rejectattr("id_fato", "in", ids_piloto_nao_correu) | list %}
   {% set nao_correram = ausentes | selectattr("id_fato", "in", ids_piloto_nao_correu) | list %}
 
-  <details id="te-grupo-{{ loop.index }}" class="te-grupo-wrapper" open data-grupo="{{ loop.index }}">
+  <details id="te-grupo-{{ loop.index }}" class="te-grupo-wrapper" open
+           data-grupo="{{ loop.index }}"
+           data-etapa-label="{{ ant.nome_etapa }} → {{ prox.nome_etapa }}">
     <summary>
       <span class="te-chevron">▶</span>
       <div class="te-grupo-title">
@@ -300,14 +445,14 @@
         <small style="color:#64748b;font-weight:400;font-size:12px;">{{ ant.temporada }}</small>
       </div>
       {% if ausentes %}
-        {% set qt_troca = trocas_reais | length %}
+        {% set qt_troca     = trocas_reais | length %}
         {% set qt_nao_correu = nao_correram | length %}
         {% if qt_troca %}
           <span class="te-grupo-badge tem">{{ qt_troca }} troca{{ 's' if qt_troca != 1 }}</span>
         {% endif %}
         {% if qt_nao_correu %}
           <span class="te-grupo-badge" style="background:#1e3a5f;color:#93c5fd;">
-            {{ qt_nao_correu }} não correu{{ 'ram' if qt_nao_correu != 1 }}
+            {{ qt_nao_correu }} não {{ 'correu' if qt_nao_correu == 1 else 'correram' }}
           </span>
         {% endif %}
       {% else %}
@@ -315,7 +460,7 @@
       {% endif %}
     </summary>
 
-    {# ── Trocas de autônomo (piloto correu mas com equipe diferente) ── #}
+    {# ── Trocas de autônomo ── #}
     {% if trocas_reais %}
       <div class="te-section-label te-sec-troca">
         <span>Troca de autônomo</span>
@@ -325,6 +470,7 @@
         <div class="te-card"
              data-tipo="troca"
              data-piloto="{{ (f.piloto.nome_piloto if f.piloto else '') | lower }}"
+             data-piloto-nome="{{ f.piloto.nome_piloto if f.piloto else '' }}"
              data-registrado="{{ '1' if salvo else '0' }}">
 
           <div class="te-info">
@@ -385,7 +531,7 @@
       {% endfor %}
     {% endif %}
 
-    {# ── Piloto não correu na etapa ── #}
+    {# ── Piloto não correu ── #}
     {% if nao_correram %}
       <div class="te-section-label te-sec-nao-correu">
         <span>Piloto não correu na etapa</span>
@@ -394,6 +540,7 @@
         <div class="te-card"
              data-tipo="nao-correu"
              data-piloto="{{ (f.piloto.nome_piloto if f.piloto else '') | lower }}"
+             data-piloto-nome="{{ f.piloto.nome_piloto if f.piloto else '' }}"
              style="opacity:.65;">
           <div class="te-info">
             {% if f.carro %}
@@ -424,76 +571,173 @@
     {% endif %}
 
     <div class="te-no-results">Nenhum resultado com os filtros aplicados.</div>
-
   </details>
 {% endfor %}
 
 {% endif %}
 
 <script>
-function aplicarFiltros() {
-  const etapa  = document.getElementById("fil-etapa").value;
-  const status = document.getElementById("fil-status").value;
-  const piloto = (document.getElementById("fil-piloto").value || "").toLowerCase().trim();
+/* ── Multi-select helpers ── */
+function msToggle(id) {
+  const w = document.getElementById(id);
+  const isOpen = w.classList.contains('open');
+  // close all others
+  document.querySelectorAll('.ms-wrapper.open').forEach(x => x.classList.remove('open'));
+  if (!isOpen) {
+    w.classList.add('open');
+    const s = w.querySelector('.ms-search');
+    if (s) { s.value = ''; msFiltrar(id, ''); s.focus(); }
+  }
+}
 
-  document.querySelectorAll(".te-grupo-wrapper").forEach(function(grupo) {
+function msFiltrar(id, term) {
+  const lc = term.toLowerCase();
+  document.querySelectorAll('#' + id + ' .ms-option').forEach(function(opt) {
+    const txt = (opt.textContent || '').toLowerCase();
+    opt.style.display = txt.includes(lc) ? '' : 'none';
+  });
+}
+
+function msGetSelected(id) {
+  return Array.from(
+    document.querySelectorAll('#' + id + ' .ms-option input:checked')
+  ).map(cb => cb.value);
+}
+
+function msUpdateLabel(id, defaultLabel) {
+  const selected = msGetSelected(id);
+  const total    = document.querySelectorAll('#' + id + ' .ms-option input').length;
+  const disp     = document.querySelector('#' + id + ' .ms-display');
+  if (!disp) return;
+  if (selected.length === 0 || selected.length === total) {
+    disp.textContent = defaultLabel;
+  } else {
+    disp.textContent = selected.length + ' selecionado' + (selected.length > 1 ? 's' : '');
+  }
+}
+
+function msChange(id) {
+  const labels = { 'ms-etapa': 'Todas', 'ms-status': 'Todos', 'ms-piloto': 'Todos' };
+  msUpdateLabel(id, labels[id] || 'Todos');
+  aplicarFiltros();
+}
+
+// Close dropdowns on outside click
+document.addEventListener('click', function(e) {
+  if (!e.target.closest('.ms-wrapper')) {
+    document.querySelectorAll('.ms-wrapper.open').forEach(w => w.classList.remove('open'));
+  }
+});
+
+/* ── Populate piloto list from DOM ── */
+(function buildPilotoList() {
+  const seen = new Map();
+  document.querySelectorAll('.te-card[data-piloto]').forEach(function(card) {
+    const key = card.dataset.piloto;
+    const nome = card.dataset.pilotoNome || key;
+    if (key && !seen.has(key)) seen.set(key, nome);
+  });
+
+  const sorted = Array.from(seen.entries()).sort((a, b) => a[1].localeCompare(b[1]));
+  const list   = document.getElementById('ms-piloto-list');
+  if (!list) return;
+
+  if (sorted.length === 0) {
+    list.innerHTML = '<div class="ms-empty">Nenhum piloto</div>';
+    return;
+  }
+
+  list.innerHTML = sorted.map(function(entry) {
+    const val  = entry[0].replace(/"/g, '&quot;');
+    const nome = entry[1].replace(/</g, '&lt;');
+    return '<label class="ms-option">' +
+      '<input type="checkbox" value="' + val + '" onchange="msChange(\'ms-piloto\')">' +
+      '<label>' + nome + '</label></label>';
+  }).join('');
+})();
+
+/* ── Expand / Collapse all ── */
+function expandirTodos() {
+  document.querySelectorAll('.te-grupo-wrapper').forEach(function(g) {
+    if (g.style.display !== 'none') g.setAttribute('open', '');
+  });
+}
+function recolherTodos() {
+  document.querySelectorAll('.te-grupo-wrapper').forEach(function(g) {
+    if (g.style.display !== 'none') g.removeAttribute('open');
+  });
+}
+
+/* ── Main filter logic ── */
+function aplicarFiltros() {
+  const etapaSel  = msGetSelected('ms-etapa');   // grupo indices
+  const statusSel = msGetSelected('ms-status');  // 'registrado', 'nao-registrado'
+  const pilotoSel = msGetSelected('ms-piloto');  // lowercase names
+
+  document.querySelectorAll('.te-grupo-wrapper').forEach(function(grupo) {
     const idx = grupo.dataset.grupo;
 
-    // Hide entire grupo when etapa filter doesn't match
-    if (etapa && idx !== etapa) {
-      grupo.style.display = "none";
+    // Etapa filter
+    if (etapaSel.length > 0 && !etapaSel.includes(idx)) {
+      grupo.style.display = 'none';
       return;
     }
-    grupo.style.display = "";
+    grupo.style.display = '';
 
-    let trocaVisiveis    = 0;
-    let naoCorreuVisiveis = 0;
+    let trocaVis = 0, naoCorreuVis = 0;
 
-    // Troca cards: all three filters apply
-    grupo.querySelectorAll(".te-card[data-tipo='troca']").forEach(function(card) {
+    // Troca cards
+    grupo.querySelectorAll('.te-card[data-tipo="troca"]').forEach(function(card) {
       let show = true;
-      if (status === "registrado"     && card.dataset.registrado !== "1") show = false;
-      if (status === "nao-registrado" && card.dataset.registrado !== "0") show = false;
-      if (piloto && !card.dataset.piloto.includes(piloto))                show = false;
-      card.style.display = show ? "" : "none";
-      if (show) trocaVisiveis++;
+      if (statusSel.length > 0) {
+        const reg = card.dataset.registrado;
+        const wantReg  = statusSel.includes('registrado');
+        const wantNReg = statusSel.includes('nao-registrado');
+        if (wantReg  && !wantNReg && reg !== '1') show = false;
+        if (wantNReg && !wantReg  && reg !== '0') show = false;
+      }
+      if (show && pilotoSel.length > 0 && !pilotoSel.includes(card.dataset.piloto)) show = false;
+      card.style.display = show ? '' : 'none';
+      if (show) trocaVis++;
     });
 
-    // Nao-correu cards: hidden when status filter is active; piloto filter still applies
-    grupo.querySelectorAll(".te-card[data-tipo='nao-correu']").forEach(function(card) {
-      let show = !status;
-      if (show && piloto && !card.dataset.piloto.includes(piloto)) show = false;
-      card.style.display = show ? "" : "none";
-      if (show) naoCorreuVisiveis++;
+    // Nao-correu cards (hidden when status filter is active)
+    grupo.querySelectorAll('.te-card[data-tipo="nao-correu"]').forEach(function(card) {
+      let show = statusSel.length === 0;
+      if (show && pilotoSel.length > 0 && !pilotoSel.includes(card.dataset.piloto)) show = false;
+      card.style.display = show ? '' : 'none';
+      if (show) naoCorreuVis++;
     });
 
-    // Show/hide section sub-headers
-    const secTroca     = grupo.querySelector(".te-sec-troca");
-    const secNaoCorreu = grupo.querySelector(".te-sec-nao-correu");
-    if (secTroca)     secTroca.style.display     = trocaVisiveis > 0     ? "" : "none";
-    if (secNaoCorreu) secNaoCorreu.style.display = naoCorreuVisiveis > 0 ? "" : "none";
+    // Section sub-headers
+    const secT = grupo.querySelector('.te-sec-troca');
+    const secN = grupo.querySelector('.te-sec-nao-correu');
+    if (secT) secT.style.display = trocaVis > 0    ? '' : 'none';
+    if (secN) secN.style.display = naoCorreuVis > 0 ? '' : 'none';
 
-    // Show "no results" when all cards are hidden by filters
-    const total     = trocaVisiveis + naoCorreuVisiveis;
-    const hasCards  = grupo.querySelectorAll(".te-card").length > 0;
-    const noResults = grupo.querySelector(".te-no-results");
-    if (noResults) noResults.style.display = (hasCards && total === 0) ? "block" : "none";
+    // "No results" message
+    const total    = trocaVis + naoCorreuVis;
+    const hasCards = grupo.querySelectorAll('.te-card').length > 0;
+    const noRes    = grupo.querySelector('.te-no-results');
+    if (noRes) noRes.style.display = (hasCards && total === 0) ? 'block' : 'none';
 
-    // Auto-open grupo when a filter produces results in it
-    if ((etapa || status || piloto) && total > 0) grupo.setAttribute("open", "");
+    if ((etapaSel.length || statusSel.length || pilotoSel.length) && total > 0) {
+      grupo.setAttribute('open', '');
+    }
   });
 }
 
 function limparFiltros() {
-  document.getElementById("fil-etapa").value  = "";
-  document.getElementById("fil-status").value = "";
-  document.getElementById("fil-piloto").value = "";
+  ['ms-etapa', 'ms-status', 'ms-piloto'].forEach(function(id) {
+    document.querySelectorAll('#' + id + ' input[type="checkbox"]').forEach(cb => cb.checked = false);
+    const labels = { 'ms-etapa': 'Todas', 'ms-status': 'Todos', 'ms-piloto': 'Todos' };
+    const disp = document.querySelector('#' + id + ' .ms-display');
+    if (disp) disp.textContent = labels[id];
+    const s = document.querySelector('#' + id + ' .ms-search');
+    if (s) { s.value = ''; msFiltrar(id, ''); }
+  });
   aplicarFiltros();
 }
-
-document.getElementById("fil-etapa").addEventListener("change",  aplicarFiltros);
-document.getElementById("fil-status").addEventListener("change", aplicarFiltros);
-document.getElementById("fil-piloto").addEventListener("input",  aplicarFiltros);
 </script>
 
 {% endblock %}
