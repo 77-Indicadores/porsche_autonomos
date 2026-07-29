@@ -92,27 +92,33 @@ def troca_etapas_index(request: Request, db: Session = Depends(get_db)):
         fatos_ant = fatos_por_etapa.get(ant.id_etapa, [])
         fatos_prox_list = fatos_por_etapa.get(prox.id_etapa, [])
 
-        # Categorias que de fato correram na etapa seguinte
-        provas_na_prox = {f.id_prova for f in fatos_prox_list}
+        # Compara pelo NOME da categoria, pois o mesmo nome tem id_prova diferente
+        # em cada etapa (dim_categorias cria um registro por etapa)
+        def _nome_prova(f):
+            return (f.prova.nome_prova if f.prova else None) or ""
 
-        # Chaves (autonomo+piloto+carro+categoria) presentes na etapa seguinte
+        # Nomes de categorias que correram na etapa seguinte
+        nomes_na_prox = {_nome_prova(f) for f in fatos_prox_list}
+
+        # Chaves (autonomo+piloto+carro+nome_categoria) na etapa seguinte
         chaves_prox = {
-            (f.id_autonomo, f.id_piloto, f.id_carro, f.id_prova)
+            (f.id_autonomo, f.id_piloto, f.id_carro, _nome_prova(f))
             for f in fatos_prox_list
         }
 
-        # Pilotos que correram na etapa seguinte por categoria
-        pilotos_na_prox = {(f.id_piloto, f.id_prova) for f in fatos_prox_list}
+        # Pilotos que correram na etapa seguinte por nome de categoria
+        pilotos_na_prox = {(f.id_piloto, _nome_prova(f)) for f in fatos_prox_list}
 
         ausentes = []
-        ids_piloto_nao_correu = set()  # id_fato dos casos onde o piloto não correu
+        ids_piloto_nao_correu = set()
         for f in fatos_ant:
-            if f.id_prova not in provas_na_prox:
+            nome = _nome_prova(f)
+            if nome not in nomes_na_prox:
                 continue  # categoria não correu na seguinte → não é troca
-            if (f.id_autonomo, f.id_piloto, f.id_carro, f.id_prova) in chaves_prox:
-                continue  # combo igual existe → continuou normalmente
+            if (f.id_autonomo, f.id_piloto, f.id_carro, nome) in chaves_prox:
+                continue  # mesmo combo → continuou normalmente
             ausentes.append(f)
-            if (f.id_piloto, f.id_prova) not in pilotos_na_prox:
+            if (f.id_piloto, nome) not in pilotos_na_prox:
                 ids_piloto_nao_correu.add(f.id_fato)
 
         trocas_salvas: dict = {}
