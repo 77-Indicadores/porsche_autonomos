@@ -226,6 +226,15 @@
             <input type="hidden" name="id_etapa_proxima" value="{{ prox.id_etapa }}">
             <input type="hidden" name="id_fato" value="{{ f.id_fato }}">
             <div>
+              <span class="lbl-f">Substituto</span>
+              <select class="input" name="id_autonomo_substituto">
+                <option value="">— nenhum —</option>
+                {% for a in autonomos %}
+                  <option value="{{ a.id_autonomo }}" {% if salvo and salvo.id_autonomo_substituto == a.id_autonomo %}selected{% endif %}>{{ a.nome_autonomo }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div>
               <span class="lbl-f">Motivo de troca</span>
               <select class="input" name="id_motivo_troca">
                 <option value="">— sem motivo —</option>

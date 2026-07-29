@@ -12,12 +12,13 @@ from sqlalchemy import (
     delete,
     insert,
     select,
+    text,
     update,
 )
 from sqlalchemy.orm import Session, joinedload
 
 from app.database import engine, get_db
-from app.models import DimEtapa, DimMotivoTroca, FatoPilotoAutonomoProva
+from app.models import DimAutonomo, DimEtapa, DimMotivoTroca, FatoPilotoAutonomoProva
 from app.template_config import templates
 from app.utils import redirect_with_message
 
@@ -33,6 +34,7 @@ troca_entre_etapas = Table(
     Column("id_etapa_proxima", Integer, nullable=False),
     Column("id_fato", Integer, nullable=False),
     Column("id_motivo_troca", Integer, nullable=True),
+    Column("id_autonomo_substituto", Integer, nullable=True),
     Column("justificativa", Text, nullable=True),
     Column("registrado_em", DateTime, default=datetime.utcnow),
     UniqueConstraint("id_etapa_anterior", "id_etapa_proxima", "id_fato", name="uq_troca_etapas_fato"),
@@ -41,9 +43,23 @@ troca_entre_etapas = Table(
 _metadata.create_all(engine)
 
 
+def _garantir_schema():
+    try:
+        with engine.begin() as conn:
+            if conn.dialect.name == "postgresql":
+                conn.execute(text("""
+                    ALTER TABLE IF EXISTS troca_entre_etapas
+                    ADD COLUMN IF NOT EXISTS id_autonomo_substituto INTEGER
+                """))
+    except Exception as exc:
+        print(f"AVISO - troca_entre_etapas schema: {exc}")
+
+
+_garantir_schema()
+
+
 @router.get("/troca-etapas")
 def troca_etapas_index(request: Request, db: Session = Depends(get_db)):
-    # Etapas ordenadas por temporada (desc) → data_inicio → nome
     etapas = db.query(DimEtapa).order_by(
         DimEtapa.temporada.desc(),
         DimEtapa.data_inicio,
@@ -57,6 +73,13 @@ def troca_etapas_index(request: Request, db: Session = Depends(get_db)):
         .all()
     )
     motivos_map = {m.id_motivo_troca: m.motivo_troca for m in motivos}
+
+    autonomos = (
+        db.query(DimAutonomo)
+        .order_by(DimAutonomo.nome_autonomo)
+        .all()
+    )
+    autonomos_map = {a.id_autonomo: a.nome_autonomo for a in autonomos}
 
     # Todos os fatos carregados de uma vez
     todos_fatos = (
@@ -92,21 +115,14 @@ def troca_etapas_index(request: Request, db: Session = Depends(get_db)):
         fatos_ant = fatos_por_etapa.get(ant.id_etapa, [])
         fatos_prox_list = fatos_por_etapa.get(prox.id_etapa, [])
 
-        # Compara pelo NOME da categoria, pois o mesmo nome tem id_prova diferente
-        # em cada etapa (dim_categorias cria um registro por etapa)
         def _nome_prova(f):
             return (f.prova.nome_prova if f.prova else None) or ""
 
-        # Nomes de categorias que correram na etapa seguinte
         nomes_na_prox = {_nome_prova(f) for f in fatos_prox_list}
-
-        # Chaves (autonomo+piloto+carro+nome_categoria) na etapa seguinte
         chaves_prox = {
             (f.id_autonomo, f.id_piloto, f.id_carro, _nome_prova(f))
             for f in fatos_prox_list
         }
-
-        # Pilotos que correram na etapa seguinte por nome de categoria
         pilotos_na_prox = {(f.id_piloto, _nome_prova(f)) for f in fatos_prox_list}
 
         ausentes = []
@@ -114,9 +130,9 @@ def troca_etapas_index(request: Request, db: Session = Depends(get_db)):
         for f in fatos_ant:
             nome = _nome_prova(f)
             if nome not in nomes_na_prox:
-                continue  # categoria não correu na seguinte → não é troca
+                continue
             if (f.id_autonomo, f.id_piloto, f.id_carro, nome) in chaves_prox:
-                continue  # mesmo combo → continuou normalmente
+                continue
             ausentes.append(f)
             if (f.id_piloto, nome) not in pilotos_na_prox:
                 ids_piloto_nao_correu.add(f.id_fato)
@@ -126,8 +142,11 @@ def troca_etapas_index(request: Request, db: Session = Depends(get_db)):
             key = (ant.id_etapa, prox.id_etapa, f.id_fato)
             if key in trocas_db:
                 t = trocas_db[key]
+                sub_id = t.get("id_autonomo_substituto")
                 trocas_salvas[f.id_fato] = {
                     "id_motivo_troca": t["id_motivo_troca"],
+                    "id_autonomo_substituto": sub_id,
+                    "nome_substituto": autonomos_map.get(sub_id, "") if sub_id else "",
                     "justificativa": t["justificativa"] or "",
                     "motivo_label": motivos_map.get(t["id_motivo_troca"], ""),
                 }
@@ -145,6 +164,7 @@ def troca_etapas_index(request: Request, db: Session = Depends(get_db)):
         {
             "request": request,
             "motivos": motivos,
+            "autonomos": autonomos,
             "grupos": grupos,
         },
     )
@@ -156,10 +176,12 @@ def registrar_motivo(
     id_etapa_proxima: int = Form(...),
     id_fato: int = Form(...),
     id_motivo_troca: str = Form(""),
+    id_autonomo_substituto: str = Form(""),
     justificativa: str = Form(""),
     db: Session = Depends(get_db),
 ):
     motivo_int = int(id_motivo_troca) if id_motivo_troca.strip() else None
+    sub_int = int(id_autonomo_substituto) if id_autonomo_substituto.strip() else None
     justificativa = justificativa.strip()
 
     existing = db.execute(
@@ -180,6 +202,7 @@ def registrar_motivo(
             )
             .values(
                 id_motivo_troca=motivo_int,
+                id_autonomo_substituto=sub_int,
                 justificativa=justificativa,
                 registrado_em=datetime.utcnow(),
             )
@@ -191,13 +214,14 @@ def registrar_motivo(
                 id_etapa_proxima=id_etapa_proxima,
                 id_fato=id_fato,
                 id_motivo_troca=motivo_int,
+                id_autonomo_substituto=sub_int,
                 justificativa=justificativa,
                 registrado_em=datetime.utcnow(),
             )
         )
 
     db.commit()
-    return redirect_with_message("/troca-etapas", success="Motivo registrado.")
+    return redirect_with_message("/troca-etapas", success="Registrado com sucesso.")
 
 
 @router.post("/troca-etapas/excluir")
