@@ -321,6 +321,21 @@ except Exception as exc:
 
 
 # ============================================================
+# Router Troca de Etapas
+# ============================================================
+try:
+    import importlib
+    troca_etapas_runtime = importlib.import_module("app.routers.troca_etapas")
+    app.include_router(troca_etapas_runtime.router)
+    print("OK - Rota /troca-etapas registrada.")
+except Exception as exc:
+    import traceback
+    print("ERRO AO REGISTRAR /troca-etapas")
+    print(exc)
+    print(traceback.format_exc())
+
+
+# ============================================================
 # Router Cadastro de Carros
 # ============================================================
 try:

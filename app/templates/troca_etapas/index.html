@@ -1,0 +1,373 @@
+{% extends "base.html" %}
+{% block title %}Troca de Etapas{% endblock %}
+{% block header %}Troca de Etapas{% endblock %}
+{% block subtitle %}Identifique autônomos que não continuaram de uma etapa para outra{% endblock %}
+
+{% block content %}
+<style>
+.te-filter-panel {
+  background: var(--panel-bg, #1e293b);
+  border: 1px solid var(--border, #334155);
+  border-radius: 12px;
+  padding: 20px 24px;
+  margin-bottom: 24px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  align-items: flex-end;
+}
+.te-filter-panel label {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  color: #94a3b8;
+  margin-bottom: 6px;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+}
+.te-filter-panel select {
+  min-width: 220px;
+}
+.te-header-info {
+  background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+  border: 1px solid #334155;
+  border-radius: 12px;
+  padding: 20px 24px;
+  margin-bottom: 24px;
+  display: flex;
+  align-items: center;
+  gap: 24px;
+}
+.te-header-badge {
+  background: #e31837;
+  color: #fff;
+  font-size: 28px;
+  font-weight: 800;
+  border-radius: 10px;
+  width: 64px;
+  height: 64px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.te-header-text h2 {
+  font-size: 18px;
+  font-weight: 700;
+  color: #f1f5f9;
+  margin: 0 0 4px 0;
+}
+.te-header-text p {
+  color: #94a3b8;
+  font-size: 13px;
+  margin: 0;
+}
+.te-card {
+  background: var(--panel-bg, #1e293b);
+  border: 1px solid var(--border, #334155);
+  border-radius: 12px;
+  margin-bottom: 16px;
+  overflow: hidden;
+}
+.te-card-header {
+  background: #0f172a;
+  padding: 12px 20px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  border-bottom: 1px solid #334155;
+}
+.te-card-header .carro-badge {
+  background: #e31837;
+  color: #fff;
+  font-weight: 800;
+  font-size: 13px;
+  padding: 2px 10px;
+  border-radius: 6px;
+}
+.te-card-header .piloto-nome {
+  font-weight: 600;
+  color: #f1f5f9;
+  font-size: 15px;
+}
+.te-card-header .prova-tag {
+  background: #1e3a5f;
+  color: #93c5fd;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 4px;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+}
+.te-card-body {
+  padding: 16px 20px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20px;
+  align-items: flex-start;
+}
+.te-person-info {
+  flex: 1 1 220px;
+}
+.te-person-info .label-sm {
+  font-size: 11px;
+  font-weight: 600;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: .05em;
+  margin-bottom: 2px;
+}
+.te-person-info .value {
+  font-size: 15px;
+  font-weight: 600;
+  color: #e2e8f0;
+}
+.te-person-info .sub-value {
+  font-size: 12px;
+  color: #94a3b8;
+}
+.te-form {
+  flex: 2 1 360px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.te-form-row {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  align-items: flex-end;
+}
+.te-form-row > * {
+  flex: 1 1 160px;
+}
+.te-saved-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #14532d;
+  color: #86efac;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 6px;
+  margin-bottom: 8px;
+}
+.te-empty {
+  text-align: center;
+  padding: 48px 24px;
+  color: #64748b;
+}
+.te-empty .te-empty-icon {
+  font-size: 48px;
+  margin-bottom: 12px;
+}
+.te-empty h3 {
+  font-size: 18px;
+  font-weight: 600;
+  color: #94a3b8;
+  margin: 0 0 8px 0;
+}
+.te-empty p {
+  font-size: 14px;
+  margin: 0;
+}
+.te-arrow {
+  color: #e31837;
+  font-size: 20px;
+  font-weight: 900;
+}
+.btn-te-save {
+  background: #e31837;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 8px 18px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.btn-te-save:hover { background: #b91c1c; }
+.btn-te-clear {
+  background: transparent;
+  color: #64748b;
+  border: 1px solid #475569;
+  border-radius: 8px;
+  padding: 7px 14px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.btn-te-clear:hover { border-color: #94a3b8; color: #94a3b8; }
+</style>
+
+<!-- Filtro -->
+<form method="get" action="/troca-etapas">
+  <div class="te-filter-panel">
+    <div>
+      <label>Etapa Anterior</label>
+      <select class="input" name="etapa_ant" onchange="this.form.submit()">
+        <option value="">— selecione —</option>
+        {% for e in etapas %}
+          <option value="{{ e.id_etapa }}" {% if etapa_ant == e.id_etapa %}selected{% endif %}>
+            {{ e.temporada }} · {{ e.nome_etapa }}
+          </option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div style="display:flex;align-items:flex-end;padding-bottom:8px;">
+      <span class="te-arrow">→</span>
+    </div>
+
+    <div>
+      <label>Etapa Seguinte</label>
+      <select class="input" name="etapa_prox" onchange="this.form.submit()">
+        <option value="">— selecione —</option>
+        {% for e in etapas %}
+          <option value="{{ e.id_etapa }}" {% if etapa_prox == e.id_etapa %}selected{% endif %}>
+            {{ e.temporada }} · {{ e.nome_etapa }}
+          </option>
+        {% endfor %}
+      </select>
+    </div>
+  </div>
+</form>
+
+<!-- Estado inicial: nenhum par selecionado -->
+{% if not etapa_ant or not etapa_prox %}
+<div class="panel">
+  <div class="te-empty">
+    <div class="te-empty-icon">🔄</div>
+    <h3>Selecione duas etapas</h3>
+    <p>Escolha a etapa anterior e a etapa seguinte para ver quem não continuou.</p>
+  </div>
+</div>
+
+{% elif etapa_ant == etapa_prox %}
+<div class="panel">
+  <div class="te-empty">
+    <div class="te-empty-icon">⚠️</div>
+    <h3>Etapas iguais</h3>
+    <p>Selecione etapas diferentes para comparar.</p>
+  </div>
+</div>
+
+{% else %}
+
+<!-- Header do resultado -->
+<div class="te-header-info">
+  <div class="te-header-badge">{{ ausentes | length }}</div>
+  <div class="te-header-text">
+    <h2>
+      {{ etapa_ant_obj.nome_etapa }} ({{ etapa_ant_obj.temporada }})
+      &nbsp;→&nbsp;
+      {{ etapa_prox_obj.nome_etapa }} ({{ etapa_prox_obj.temporada }})
+    </h2>
+    {% if ausentes %}
+      <p>
+        {{ ausentes | length }} autônomo{{ 's' if ausentes | length != 1 else '' }}
+        não continuou{{ 'ram' if ausentes | length != 1 else '' }} para a etapa seguinte.
+        {{ trocas_salvas | length }} motivo{{ 's' if trocas_salvas | length != 1 else '' }} registrado{{ 's' if trocas_salvas | length != 1 else '' }}.
+      </p>
+    {% else %}
+      <p>Todos os autônomos da etapa anterior continuaram na etapa seguinte.</p>
+    {% endif %}
+  </div>
+</div>
+
+{% if ausentes %}
+  {% for f in ausentes %}
+    {% set salvo = trocas_salvas.get(f.id_fato) %}
+    <div class="te-card">
+      <div class="te-card-header">
+        {% if f.carro %}
+          <span class="carro-badge">{{ f.carro.chassi or f.carro.id_carro }}</span>
+        {% else %}
+          <span class="carro-badge" style="background:#475569;">—</span>
+        {% endif %}
+        <span class="piloto-nome">{{ f.piloto.nome_piloto if f.piloto else '—' }}</span>
+        {% if f.prova %}
+          <span class="prova-tag">{{ f.prova.nome_prova }}</span>
+        {% endif %}
+        {% if salvo %}
+          <span class="te-saved-badge" style="margin-left:auto;">✓ Motivo registrado</span>
+        {% endif %}
+      </div>
+
+      <div class="te-card-body">
+        <div class="te-person-info">
+          <div class="label-sm">Autônomo</div>
+          <div class="value">{{ f.autonomo.nome_autonomo if f.autonomo else '—' }}</div>
+          <div class="sub-value">{{ f.funcao_autonomo or '—' }}</div>
+        </div>
+
+        {% if f.carro %}
+        <div class="te-person-info">
+          <div class="label-sm">Carro</div>
+          <div class="value">{{ f.carro.chassi or '—' }}</div>
+          <div class="sub-value">{{ f.carro.modelo or '' }}</div>
+        </div>
+        {% endif %}
+
+        <!-- Formulário de motivo -->
+        <form class="te-form" method="post" action="/troca-etapas/registrar">
+          <input type="hidden" name="id_etapa_anterior" value="{{ etapa_ant }}">
+          <input type="hidden" name="id_etapa_proxima" value="{{ etapa_prox }}">
+          <input type="hidden" name="id_fato" value="{{ f.id_fato }}">
+
+          <div class="te-form-row">
+            <div>
+              <label class="label" style="font-size:11px;color:#64748b;text-transform:uppercase;">Motivo de troca</label>
+              <select class="input" name="id_motivo_troca">
+                <option value="">— sem motivo —</option>
+                {% for m in motivos %}
+                  <option value="{{ m.id_motivo_troca }}"
+                    {% if salvo and salvo.id_motivo_troca == m.id_motivo_troca %}selected{% endif %}>
+                    {{ m.motivo_troca }}
+                  </option>
+                {% endfor %}
+              </select>
+            </div>
+            <div>
+              <label class="label" style="font-size:11px;color:#64748b;text-transform:uppercase;">Justificativa</label>
+              <input class="input" type="text" name="justificativa"
+                placeholder="Detalhes (opcional)"
+                value="{{ salvo.justificativa if salvo else '' }}">
+            </div>
+          </div>
+
+          <div style="display:flex;gap:8px;margin-top:4px;">
+            <button type="submit" class="btn-te-save">
+              {{ '🔄 Atualizar' if salvo else '💾 Registrar' }}
+            </button>
+            {% if salvo %}
+              <form method="post" action="/troca-etapas/excluir" style="margin:0;">
+                <input type="hidden" name="id_etapa_anterior" value="{{ etapa_ant }}">
+                <input type="hidden" name="id_etapa_proxima" value="{{ etapa_prox }}">
+                <input type="hidden" name="id_fato" value="{{ f.id_fato }}">
+                <button type="submit" class="btn-te-clear"
+                  onclick="return confirm('Remover este motivo?')">✕ Limpar</button>
+              </form>
+            {% endif %}
+          </div>
+        </form>
+      </div>
+    </div>
+  {% endfor %}
+
+{% else %}
+  <div class="panel">
+    <div class="te-empty">
+      <div class="te-empty-icon">✅</div>
+      <h3>Nenhuma ausência</h3>
+      <p>Todos os autônomos da etapa anterior têm registro na etapa seguinte.</p>
+    </div>
+  </div>
+{% endif %}
+
+{% endif %}
+{% endblock %}
