@@ -88,6 +88,11 @@
 }
 .ms-option label { cursor: pointer; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ms-empty { padding: 10px 12px; color: #475569; font-size: 13px; }
+.ms-select-all {
+  border-bottom: 1px solid #334155;
+  background: #0f172a;
+}
+.ms-select-all label { font-weight: 600; color: #94a3b8; }
 
 /* ── Filter bar ── */
 .te-filters {
@@ -153,6 +158,22 @@
   white-space: nowrap;
 }
 .te-filter-clear:hover { border-color: #94a3b8; color: #94a3b8; }
+.btn-exportar {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: #14532d;
+  color: #86efac;
+  border: 1px solid #166534;
+  border-radius: 6px;
+  padding: 5px 11px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+  text-decoration: none;
+}
+.btn-exportar:hover { background: #166534; }
 
 /* ── Grupo expander ── */
 .te-grupo-wrapper { margin-top: 18px; }
@@ -205,14 +226,19 @@
   background: var(--panel-bg, #1e293b);
   border: 1px solid #334155;
   border-top: none;
-  padding: 16px 18px;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 16px;
-  align-items: flex-start;
+  padding: 14px 18px;
+  display: grid;
+  grid-template-columns: 160px 200px 180px 1fr auto;
+  gap: 0 20px;
+  align-items: start;
 }
 .te-card:last-child { border-radius: 0 0 12px 12px; }
 .te-card + .te-card { border-top: 1px solid #1e293b; }
+
+/* Nao-correu cards: 3 info cols + badge */
+.te-card.nao-correu-card {
+  grid-template-columns: 160px 200px 180px auto;
+}
 
 .te-section-label {
   padding: 9px 18px 6px;
@@ -228,16 +254,15 @@
   letter-spacing: .05em;
 }
 
-.te-info { flex: 1 1 200px; }
 .te-info .lbl {
   font-size: 11px;
   font-weight: 600;
   color: #64748b;
   text-transform: uppercase;
   letter-spacing: .04em;
-  margin-bottom: 2px;
+  margin-bottom: 3px;
 }
-.te-info .val { font-size: 14px; font-weight: 600; color: #e2e8f0; }
+.te-info .val { font-size: 14px; font-weight: 600; color: #e2e8f0; line-height: 1.3; }
 .te-info .sub { font-size: 12px; color: #94a3b8; }
 
 .carro-chip {
@@ -262,13 +287,12 @@
 }
 
 .te-form {
-  flex: 2 1 340px;
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
   align-items: flex-end;
 }
-.te-form > div { flex: 1 1 150px; }
+.te-form > div { flex: 1 1 150px; min-width: 140px; }
 .te-form .lbl-f {
   font-size: 11px;
   font-weight: 600;
@@ -279,6 +303,15 @@
   margin-bottom: 4px;
 }
 .te-form-btns { display: flex; gap: 6px; align-items: flex-end; flex-shrink: 0; }
+
+@media (max-width: 1100px) {
+  .te-card {
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+  }
+  .te-card.nao-correu-card { grid-template-columns: 1fr 1fr; }
+  .te-form { grid-column: 1 / -1; }
+}
 .btn-save {
   background: #e31837;
   color: #fff;
@@ -360,6 +393,10 @@
           <input class="ms-search" type="text" placeholder="Buscar etapa…" oninput="msFiltrar('ms-etapa', this.value)" autocomplete="off">
         </div>
         <div class="ms-list" id="ms-etapa-list">
+          <label class="ms-option ms-select-all">
+            <input type="checkbox" value="__all__" onchange="msSelectAll('ms-etapa', this)">
+            <label>Selecionar todos</label>
+          </label>
           {% for grupo in grupos %}
             <label class="ms-option">
               <input type="checkbox" value="{{ loop.index }}" onchange="msChange('ms-etapa')">
@@ -382,13 +419,17 @@
       </div>
       <div class="ms-dropdown">
         <div class="ms-list" id="ms-status-list">
-          <label class="ms-option">
-            <input type="checkbox" value="registrado" onchange="msChange('ms-status')">
-            <label>Registrado</label>
+          <label class="ms-option ms-select-all">
+            <input type="checkbox" value="__all__" onchange="msSelectAll('ms-status', this)">
+            <label>Selecionar todos</label>
           </label>
           <label class="ms-option">
-            <input type="checkbox" value="nao-registrado" onchange="msChange('ms-status')">
-            <label>Não registrado</label>
+            <input type="checkbox" value="justificado" onchange="msChange('ms-status')">
+            <label>Justificado</label>
+          </label>
+          <label class="ms-option">
+            <input type="checkbox" value="nao-justificado" onchange="msChange('ms-status')">
+            <label>Não justificado</label>
           </label>
         </div>
       </div>
@@ -418,6 +459,7 @@
   <div class="te-filter-actions">
     <button class="btn-expand-all"   onclick="expandirTodos()">▼ Expandir todos</button>
     <button class="btn-collapse-all" onclick="recolherTodos()">▲ Recolher todos</button>
+    <a class="btn-exportar" href="/troca-etapas/exportar">⬇ Excel</a>
     <button class="te-filter-clear"  onclick="limparFiltros()">✕ Limpar</button>
   </div>
 </div>
@@ -445,10 +487,18 @@
         <small style="color:#64748b;font-weight:400;font-size:12px;">{{ ant.temporada }}</small>
       </div>
       {% if ausentes %}
-        {% set qt_troca     = trocas_reais | length %}
+        {% set qt_troca      = trocas_reais | length %}
         {% set qt_nao_correu = nao_correram | length %}
+        {% set qt_justif     = trocas_reais | selectattr("id_fato", "in", trocas_salvas) | list | length %}
+        {% set qt_nao_justif = qt_troca - qt_justif %}
         {% if qt_troca %}
           <span class="te-grupo-badge tem">{{ qt_troca }} troca{{ 's' if qt_troca != 1 }}</span>
+        {% endif %}
+        {% if qt_justif %}
+          <span class="te-grupo-badge" style="background:#14532d;color:#86efac;">{{ qt_justif }} justificada{{ 's' if qt_justif != 1 }}</span>
+        {% endif %}
+        {% if qt_nao_justif %}
+          <span class="te-grupo-badge" style="background:#431407;color:#fdba74;">{{ qt_nao_justif }} não justificada{{ 's' if qt_nao_justif != 1 }}</span>
         {% endif %}
         {% if qt_nao_correu %}
           <span class="te-grupo-badge" style="background:#1e3a5f;color:#93c5fd;">
@@ -471,7 +521,7 @@
              data-tipo="troca"
              data-piloto="{{ (f.piloto.nome_piloto if f.piloto else '') | lower }}"
              data-piloto-nome="{{ f.piloto.nome_piloto if f.piloto else '' }}"
-             data-registrado="{{ '1' if salvo else '0' }}">
+             data-justificado="{{ '1' if salvo else '0' }}">
 
           <div class="te-info">
             {% if f.carro %}<span class="carro-chip">{{ f.carro.chassi or f.carro.id_carro }}</span>{% endif %}
@@ -485,19 +535,21 @@
             <div class="val">{{ f.autonomo.nome_autonomo if f.autonomo else '—' }}</div>
             <div class="sub">{{ f.funcao_autonomo or '—' }}</div>
             {% if salvo %}
-              <div style="margin-top:6px;"><span class="saved-tag">✓ registrado</span></div>
+              <div style="margin-top:6px;"><span class="saved-tag">✓ justificado</span></div>
             {% endif %}
           </div>
 
           {% set subs = substitutos.get(f.id_fato) %}
-          {% if subs %}
-            <div class="te-info">
-              <div class="lbl">Substituto (etapa seguinte)</div>
+          <div class="te-info">
+            <div class="lbl">Substituto (etapa seguinte)</div>
+            {% if subs %}
               {% for s in subs %}
                 <div class="val" style="color:#86efac;">{{ s }}</div>
               {% endfor %}
-            </div>
-          {% endif %}
+            {% else %}
+              <div class="val" style="color:#475569;">—</div>
+            {% endif %}
+          </div>
 
           <form class="te-form" method="post" action="/troca-etapas/registrar">
             <input type="hidden" name="id_etapa_anterior" value="{{ ant.id_etapa }}">
@@ -537,7 +589,7 @@
         <span>Piloto não correu na etapa</span>
       </div>
       {% for f in nao_correram %}
-        <div class="te-card"
+        <div class="te-card nao-correu-card"
              data-tipo="nao-correu"
              data-piloto="{{ (f.piloto.nome_piloto if f.piloto else '') | lower }}"
              data-piloto-nome="{{ f.piloto.nome_piloto if f.piloto else '' }}"
@@ -577,11 +629,10 @@
 {% endif %}
 
 <script>
-/* ── Multi-select helpers ── */
+/* ── Multi-select: open/close ── */
 function msToggle(id) {
   const w = document.getElementById(id);
   const isOpen = w.classList.contains('open');
-  // close all others
   document.querySelectorAll('.ms-wrapper.open').forEach(x => x.classList.remove('open'));
   if (!isOpen) {
     w.classList.add('open');
@@ -590,50 +641,70 @@ function msToggle(id) {
   }
 }
 
-function msFiltrar(id, term) {
-  const lc = term.toLowerCase();
-  document.querySelectorAll('#' + id + ' .ms-option').forEach(function(opt) {
-    const txt = (opt.textContent || '').toLowerCase();
-    opt.style.display = txt.includes(lc) ? '' : 'none';
-  });
-}
-
-function msGetSelected(id) {
-  return Array.from(
-    document.querySelectorAll('#' + id + ' .ms-option input:checked')
-  ).map(cb => cb.value);
-}
-
-function msUpdateLabel(id, defaultLabel) {
-  const selected = msGetSelected(id);
-  const total    = document.querySelectorAll('#' + id + ' .ms-option input').length;
-  const disp     = document.querySelector('#' + id + ' .ms-display');
-  if (!disp) return;
-  if (selected.length === 0 || selected.length === total) {
-    disp.textContent = defaultLabel;
-  } else {
-    disp.textContent = selected.length + ' selecionado' + (selected.length > 1 ? 's' : '');
-  }
-}
-
-function msChange(id) {
-  const labels = { 'ms-etapa': 'Todas', 'ms-status': 'Todos', 'ms-piloto': 'Todos' };
-  msUpdateLabel(id, labels[id] || 'Todos');
-  aplicarFiltros();
-}
-
-// Close dropdowns on outside click
 document.addEventListener('click', function(e) {
   if (!e.target.closest('.ms-wrapper')) {
     document.querySelectorAll('.ms-wrapper.open').forEach(w => w.classList.remove('open'));
   }
 });
 
+/* ── Multi-select: search ── */
+function msFiltrar(id, term) {
+  const lc = term.toLowerCase();
+  document.querySelectorAll('#' + id + ' .ms-option:not(.ms-select-all)').forEach(function(opt) {
+    const txt = (opt.textContent || '').toLowerCase();
+    opt.style.display = txt.includes(lc) ? '' : 'none';
+  });
+}
+
+/* ── Multi-select: get selected (excludes __all__) ── */
+function msGetSelected(id) {
+  return Array.from(
+    document.querySelectorAll('#' + id + ' .ms-option:not(.ms-select-all) input:checked')
+  ).map(cb => cb.value);
+}
+
+/* ── Multi-select: update trigger label ── */
+function msUpdateLabel(id, defaultLabel) {
+  const selected = msGetSelected(id);
+  const total    = document.querySelectorAll('#' + id + ' .ms-option:not(.ms-select-all) input').length;
+  const disp     = document.querySelector('#' + id + ' .ms-display');
+  if (!disp) return;
+  disp.textContent = (selected.length === 0 || selected.length === total)
+    ? defaultLabel
+    : selected.length + ' selecionado' + (selected.length > 1 ? 's' : '');
+}
+
+/* ── Multi-select: update "Selecionar todos" state ── */
+function msUpdateSelectAll(id) {
+  const allCbs     = document.querySelectorAll('#' + id + ' .ms-option:not(.ms-select-all) input');
+  const checkedQty = Array.from(allCbs).filter(cb => cb.checked).length;
+  const selAllCb   = document.querySelector('#' + id + ' .ms-select-all input');
+  if (!selAllCb) return;
+  selAllCb.checked       = checkedQty === allCbs.length && allCbs.length > 0;
+  selAllCb.indeterminate = checkedQty > 0 && checkedQty < allCbs.length;
+}
+
+/* ── Multi-select: "Selecionar todos" clicked ── */
+function msSelectAll(id, cb) {
+  document.querySelectorAll('#' + id + ' .ms-option:not(.ms-select-all) input').forEach(function(inp) {
+    inp.checked = cb.checked;
+  });
+  msChange(id);
+}
+
+/* ── Multi-select: any option changed ── */
+function msChange(id) {
+  const labels = { 'ms-etapa': 'Todas', 'ms-status': 'Todos', 'ms-piloto': 'Todos' };
+  msUpdateLabel(id, labels[id] || 'Todos');
+  msUpdateSelectAll(id);
+  aplicarFiltros();
+}
+
 /* ── Populate piloto list from DOM ── */
 (function buildPilotoList() {
   const seen = new Map();
   document.querySelectorAll('.te-card[data-piloto]').forEach(function(card) {
-    const key = card.dataset.piloto;
+    const key  = card.dataset.piloto;
     const nome = card.dataset.pilotoNome || key;
     if (key && !seen.has(key)) seen.set(key, nome);
   });
@@ -647,13 +718,19 @@ document.addEventListener('click', function(e) {
     return;
   }
 
-  list.innerHTML = sorted.map(function(entry) {
+  const selAll = '<label class="ms-option ms-select-all">' +
+    '<input type="checkbox" value="__all__" onchange="msSelectAll(\'ms-piloto\', this)">' +
+    '<label>Selecionar todos</label></label>';
+
+  const opts = sorted.map(function(entry) {
     const val  = entry[0].replace(/"/g, '&quot;');
     const nome = entry[1].replace(/</g, '&lt;');
     return '<label class="ms-option">' +
       '<input type="checkbox" value="' + val + '" onchange="msChange(\'ms-piloto\')">' +
       '<label>' + nome + '</label></label>';
   }).join('');
+
+  list.innerHTML = selAll + opts;
 })();
 
 /* ── Expand / Collapse all ── */
@@ -670,14 +747,13 @@ function recolherTodos() {
 
 /* ── Main filter logic ── */
 function aplicarFiltros() {
-  const etapaSel  = msGetSelected('ms-etapa');   // grupo indices
-  const statusSel = msGetSelected('ms-status');  // 'registrado', 'nao-registrado'
-  const pilotoSel = msGetSelected('ms-piloto');  // lowercase names
+  const etapaSel  = msGetSelected('ms-etapa');
+  const statusSel = msGetSelected('ms-status');  // 'justificado', 'nao-justificado'
+  const pilotoSel = msGetSelected('ms-piloto');
 
   document.querySelectorAll('.te-grupo-wrapper').forEach(function(grupo) {
     const idx = grupo.dataset.grupo;
 
-    // Etapa filter
     if (etapaSel.length > 0 && !etapaSel.includes(idx)) {
       grupo.style.display = 'none';
       return;
@@ -686,22 +762,20 @@ function aplicarFiltros() {
 
     let trocaVis = 0, naoCorreuVis = 0;
 
-    // Troca cards
     grupo.querySelectorAll('.te-card[data-tipo="troca"]').forEach(function(card) {
       let show = true;
       if (statusSel.length > 0) {
-        const reg = card.dataset.registrado;
-        const wantReg  = statusSel.includes('registrado');
-        const wantNReg = statusSel.includes('nao-registrado');
-        if (wantReg  && !wantNReg && reg !== '1') show = false;
-        if (wantNReg && !wantReg  && reg !== '0') show = false;
+        const just       = card.dataset.justificado;
+        const wantJust   = statusSel.includes('justificado');
+        const wantNJust  = statusSel.includes('nao-justificado');
+        if (wantJust  && !wantNJust && just !== '1') show = false;
+        if (wantNJust && !wantJust  && just !== '0') show = false;
       }
       if (show && pilotoSel.length > 0 && !pilotoSel.includes(card.dataset.piloto)) show = false;
       card.style.display = show ? '' : 'none';
       if (show) trocaVis++;
     });
 
-    // Nao-correu cards (hidden when status filter is active)
     grupo.querySelectorAll('.te-card[data-tipo="nao-correu"]').forEach(function(card) {
       let show = statusSel.length === 0;
       if (show && pilotoSel.length > 0 && !pilotoSel.includes(card.dataset.piloto)) show = false;
@@ -709,13 +783,11 @@ function aplicarFiltros() {
       if (show) naoCorreuVis++;
     });
 
-    // Section sub-headers
     const secT = grupo.querySelector('.te-sec-troca');
     const secN = grupo.querySelector('.te-sec-nao-correu');
-    if (secT) secT.style.display = trocaVis > 0    ? '' : 'none';
+    if (secT) secT.style.display = trocaVis > 0     ? '' : 'none';
     if (secN) secN.style.display = naoCorreuVis > 0 ? '' : 'none';
 
-    // "No results" message
     const total    = trocaVis + naoCorreuVis;
     const hasCards = grupo.querySelectorAll('.te-card').length > 0;
     const noRes    = grupo.querySelector('.te-no-results');
@@ -727,9 +799,13 @@ function aplicarFiltros() {
   });
 }
 
+/* ── Limpar todos os filtros ── */
 function limparFiltros() {
   ['ms-etapa', 'ms-status', 'ms-piloto'].forEach(function(id) {
-    document.querySelectorAll('#' + id + ' input[type="checkbox"]').forEach(cb => cb.checked = false);
+    document.querySelectorAll('#' + id + ' input[type="checkbox"]').forEach(cb => {
+      cb.checked = false;
+      cb.indeterminate = false;
+    });
     const labels = { 'ms-etapa': 'Todas', 'ms-status': 'Todos', 'ms-piloto': 'Todos' };
     const disp = document.querySelector('#' + id + ' .ms-display');
     if (disp) disp.textContent = labels[id];
