@@ -95,19 +95,25 @@ def troca_etapas_index(request: Request, db: Session = Depends(get_db)):
         # Categorias que de fato correram na etapa seguinte
         provas_na_prox = {f.id_prova for f in fatos_prox_list}
 
-        # Chaves com categoria: mesmo autonomo+piloto+carro+categoria na etapa seguinte
+        # Chaves (autonomo+piloto+carro+categoria) presentes na etapa seguinte
         chaves_prox = {
             (f.id_autonomo, f.id_piloto, f.id_carro, f.id_prova)
             for f in fatos_prox_list
         }
 
-        # Ausente = estava na anterior com categoria X, a categoria X correu na seguinte
-        # mas esse combo específico não aparece na seguinte
-        ausentes = [
-            f for f in fatos_ant
-            if f.id_prova in provas_na_prox
-            and (f.id_autonomo, f.id_piloto, f.id_carro, f.id_prova) not in chaves_prox
-        ]
+        # Pilotos que correram na etapa seguinte por categoria
+        pilotos_na_prox = {(f.id_piloto, f.id_prova) for f in fatos_prox_list}
+
+        ausentes = []
+        ids_piloto_nao_correu = set()  # id_fato dos casos onde o piloto não correu
+        for f in fatos_ant:
+            if f.id_prova not in provas_na_prox:
+                continue  # categoria não correu na seguinte → não é troca
+            if (f.id_autonomo, f.id_piloto, f.id_carro, f.id_prova) in chaves_prox:
+                continue  # combo igual existe → continuou normalmente
+            ausentes.append(f)
+            if (f.id_piloto, f.id_prova) not in pilotos_na_prox:
+                ids_piloto_nao_correu.add(f.id_fato)
 
         trocas_salvas: dict = {}
         for f in ausentes:
@@ -125,6 +131,7 @@ def troca_etapas_index(request: Request, db: Session = Depends(get_db)):
             "etapa_prox": prox,
             "ausentes": ausentes,
             "trocas_salvas": trocas_salvas,
+            "ids_piloto_nao_correu": ids_piloto_nao_correu,
         })
 
     return templates.TemplateResponse(

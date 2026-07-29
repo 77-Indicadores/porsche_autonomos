@@ -196,77 +196,90 @@
     {% endif %}
   </div>
 
+  {% set ids_piloto_nao_correu = grupo.ids_piloto_nao_correu %}
+  {% set trocas_reais = ausentes | rejectattr("id_fato", "in", ids_piloto_nao_correu) | list %}
+  {% set nao_correram = ausentes | selectattr("id_fato", "in", ids_piloto_nao_correu) | list %}
+
   {% if ausentes %}
-    {% for f in ausentes %}
-      {% set salvo = trocas_salvas.get(f.id_fato) %}
-      <div class="te-card">
 
-        <!-- Identificação -->
-        <div class="te-info">
-          {% if f.carro %}
-            <span class="carro-chip">{{ f.carro.chassi or f.carro.id_carro }}</span>
-          {% endif %}
-          {% if f.prova %}
-            <span class="prova-chip">{{ f.prova.nome_prova }}</span>
-          {% endif %}
-          <div class="lbl" style="margin-top:6px;">Piloto</div>
-          <div class="val">{{ f.piloto.nome_piloto if f.piloto else '—' }}</div>
-        </div>
-
-        <div class="te-info">
-          <div class="lbl">Autônomo</div>
-          <div class="val">{{ f.autonomo.nome_autonomo if f.autonomo else '—' }}</div>
-          <div class="sub">{{ f.funcao_autonomo or '—' }}</div>
-          {% if salvo %}
-            <div style="margin-top:6px;"><span class="saved-tag">✓ registrado</span></div>
-          {% endif %}
-        </div>
-
-        <!-- Formulário de motivo -->
-        <form class="te-form" method="post" action="/troca-etapas/registrar">
-          <input type="hidden" name="id_etapa_anterior" value="{{ ant.id_etapa }}">
-          <input type="hidden" name="id_etapa_proxima" value="{{ prox.id_etapa }}">
-          <input type="hidden" name="id_fato" value="{{ f.id_fato }}">
-
-          <div>
-            <span class="lbl-f">Motivo de troca</span>
-            <select class="input" name="id_motivo_troca">
-              <option value="">— sem motivo —</option>
-              {% for m in motivos %}
-                <option value="{{ m.id_motivo_troca }}"
-                  {% if salvo and salvo.id_motivo_troca == m.id_motivo_troca %}selected{% endif %}>
-                  {{ m.motivo_troca }}
-                </option>
-              {% endfor %}
-            </select>
+    {# ── Trocas de autônomo (piloto correu mas com equipe diferente) ── #}
+    {% if trocas_reais %}
+      {% for f in trocas_reais %}
+        {% set salvo = trocas_salvas.get(f.id_fato) %}
+        <div class="te-card">
+          <div class="te-info">
+            {% if f.carro %}<span class="carro-chip">{{ f.carro.chassi or f.carro.id_carro }}</span>{% endif %}
+            {% if f.prova %}<span class="prova-chip">{{ f.prova.nome_prova }}</span>{% endif %}
+            <div class="lbl" style="margin-top:6px;">Piloto</div>
+            <div class="val">{{ f.piloto.nome_piloto if f.piloto else '—' }}</div>
           </div>
 
-          <div>
-            <span class="lbl-f">Justificativa</span>
-            <input class="input" type="text" name="justificativa"
-              placeholder="Detalhes (opcional)"
-              value="{{ salvo.justificativa if salvo else '' }}">
+          <div class="te-info">
+            <div class="lbl">Autônomo</div>
+            <div class="val">{{ f.autonomo.nome_autonomo if f.autonomo else '—' }}</div>
+            <div class="sub">{{ f.funcao_autonomo or '—' }}</div>
+            {% if salvo %}<div style="margin-top:6px;"><span class="saved-tag">✓ registrado</span></div>{% endif %}
           </div>
 
-          <div class="te-form-btns">
-            <button type="submit" class="btn-save">
-              {{ '↺ Atualizar' if salvo else '💾 Salvar' }}
-            </button>
-          </div>
-        </form>
-
-        {% if salvo %}
-          <form method="post" action="/troca-etapas/excluir" style="margin:0;display:flex;align-items:flex-end;">
+          <form class="te-form" method="post" action="/troca-etapas/registrar">
             <input type="hidden" name="id_etapa_anterior" value="{{ ant.id_etapa }}">
             <input type="hidden" name="id_etapa_proxima" value="{{ prox.id_etapa }}">
             <input type="hidden" name="id_fato" value="{{ f.id_fato }}">
-            <button type="submit" class="btn-clear"
-              onclick="return confirm('Remover motivo registrado?')">✕</button>
+            <div>
+              <span class="lbl-f">Motivo de troca</span>
+              <select class="input" name="id_motivo_troca">
+                <option value="">— sem motivo —</option>
+                {% for m in motivos %}
+                  <option value="{{ m.id_motivo_troca }}" {% if salvo and salvo.id_motivo_troca == m.id_motivo_troca %}selected{% endif %}>{{ m.motivo_troca }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div>
+              <span class="lbl-f">Justificativa</span>
+              <input class="input" type="text" name="justificativa" placeholder="Detalhes (opcional)" value="{{ salvo.justificativa if salvo else '' }}">
+            </div>
+            <div class="te-form-btns">
+              <button type="submit" class="btn-save">{{ '↺ Atualizar' if salvo else '💾 Salvar' }}</button>
+            </div>
           </form>
-        {% endif %}
 
+          {% if salvo %}
+            <form method="post" action="/troca-etapas/excluir" style="margin:0;display:flex;align-items:flex-end;">
+              <input type="hidden" name="id_etapa_anterior" value="{{ ant.id_etapa }}">
+              <input type="hidden" name="id_etapa_proxima" value="{{ prox.id_etapa }}">
+              <input type="hidden" name="id_fato" value="{{ f.id_fato }}">
+              <button type="submit" class="btn-clear" onclick="return confirm('Remover motivo?')">✕</button>
+            </form>
+          {% endif %}
+        </div>
+      {% endfor %}
+    {% endif %}
+
+    {# ── Piloto não correu (detectado automaticamente) ── #}
+    {% if nao_correram %}
+      <div style="padding:10px 20px 6px;border:1px solid #334155;border-top:none;background:#0f172a;display:flex;align-items:center;gap:8px;">
+        <span style="font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.05em;">Piloto não correu na etapa seguinte</span>
+        <span style="font-size:11px;color:#475569;">— detectado automaticamente, sem alocação na etapa seguinte</span>
       </div>
-    {% endfor %}
+      {% for f in nao_correram %}
+        <div class="te-card" style="opacity:.65;border-top:none;">
+          <div class="te-info">
+            {% if f.carro %}<span class="carro-chip" style="background:#475569;">{{ f.carro.chassi or f.carro.id_carro }}</span>{% endif %}
+            {% if f.prova %}<span class="prova-chip">{{ f.prova.nome_prova }}</span>{% endif %}
+            <div class="lbl" style="margin-top:6px;">Piloto</div>
+            <div class="val">{{ f.piloto.nome_piloto if f.piloto else '—' }}</div>
+          </div>
+          <div class="te-info">
+            <div class="lbl">Autônomo</div>
+            <div class="val">{{ f.autonomo.nome_autonomo if f.autonomo else '—' }}</div>
+            <div class="sub">{{ f.funcao_autonomo or '—' }}</div>
+          </div>
+          <div style="display:flex;align-items:center;">
+            <span style="background:#1e3a5f;color:#93c5fd;font-size:12px;font-weight:700;padding:4px 12px;border-radius:6px;">🚫 Piloto não correu</span>
+          </div>
+        </div>
+      {% endfor %}
+    {% endif %}
 
   {% else %}
     <div class="te-ok-msg">Nenhuma ausência — todos os autônomos da etapa anterior estão presentes na seguinte.</div>
