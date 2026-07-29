@@ -197,6 +197,7 @@
   </div>
 
   {% set ids_piloto_nao_correu = grupo.ids_piloto_nao_correu %}
+  {% set substitutos = grupo.substitutos %}
   {% set trocas_reais = ausentes | rejectattr("id_fato", "in", ids_piloto_nao_correu) | list %}
   {% set nao_correram = ausentes | selectattr("id_fato", "in", ids_piloto_nao_correu) | list %}
 
@@ -221,19 +222,20 @@
             {% if salvo %}<div style="margin-top:6px;"><span class="saved-tag">✓ registrado</span></div>{% endif %}
           </div>
 
+          {% set subs = substitutos.get(f.id_fato) %}
+          {% if subs %}
+          <div class="te-info">
+            <div class="lbl">Substituto (etapa seguinte)</div>
+            {% for s in subs %}
+              <div class="val" style="color:#86efac;">{{ s }}</div>
+            {% endfor %}
+          </div>
+          {% endif %}
+
           <form class="te-form" method="post" action="/troca-etapas/registrar">
             <input type="hidden" name="id_etapa_anterior" value="{{ ant.id_etapa }}">
             <input type="hidden" name="id_etapa_proxima" value="{{ prox.id_etapa }}">
             <input type="hidden" name="id_fato" value="{{ f.id_fato }}">
-            <div>
-              <span class="lbl-f">Substituto</span>
-              <select class="input" name="id_autonomo_substituto">
-                <option value="">— nenhum —</option>
-                {% for a in autonomos %}
-                  <option value="{{ a.id_autonomo }}" {% if salvo and salvo.id_autonomo_substituto == a.id_autonomo %}selected{% endif %}>{{ a.nome_autonomo }}</option>
-                {% endfor %}
-              </select>
-            </div>
             <div>
               <span class="lbl-f">Motivo de troca</span>
               <select class="input" name="id_motivo_troca">

@@ -74,12 +74,10 @@ def troca_etapas_index(request: Request, db: Session = Depends(get_db)):
     )
     motivos_map = {m.id_motivo_troca: m.motivo_troca for m in motivos}
 
-    autonomos = (
-        db.query(DimAutonomo)
-        .order_by(DimAutonomo.nome_autonomo)
-        .all()
-    )
-    autonomos_map = {a.id_autonomo: a.nome_autonomo for a in autonomos}
+    autonomos_map = {
+        a.id_autonomo: a.nome_autonomo
+        for a in db.query(DimAutonomo).all()
+    }
 
     # Todos os fatos carregados de uma vez
     todos_fatos = (
@@ -125,8 +123,16 @@ def troca_etapas_index(request: Request, db: Session = Depends(get_db)):
         }
         pilotos_na_prox = {(f.id_piloto, _nome_prova(f)) for f in fatos_prox_list}
 
+        # Mapa (piloto, carro, nome_prova) → nomes dos autonomos na etapa seguinte
+        substitutos_map: dict = {}
+        for f in fatos_prox_list:
+            chave = (f.id_piloto, f.id_carro, _nome_prova(f))
+            nome_aut = getattr(f.autonomo, "nome_autonomo", None) or "—"
+            substitutos_map.setdefault(chave, []).append(nome_aut)
+
         ausentes = []
         ids_piloto_nao_correu = set()
+        substitutos: dict = {}  # id_fato → lista de nomes substitutos
         for f in fatos_ant:
             nome = _nome_prova(f)
             if nome not in nomes_na_prox:
@@ -136,17 +142,18 @@ def troca_etapas_index(request: Request, db: Session = Depends(get_db)):
             ausentes.append(f)
             if (f.id_piloto, nome) not in pilotos_na_prox:
                 ids_piloto_nao_correu.add(f.id_fato)
+            else:
+                subs = substitutos_map.get((f.id_piloto, f.id_carro, nome), [])
+                if subs:
+                    substitutos[f.id_fato] = subs
 
         trocas_salvas: dict = {}
         for f in ausentes:
             key = (ant.id_etapa, prox.id_etapa, f.id_fato)
             if key in trocas_db:
                 t = trocas_db[key]
-                sub_id = t.get("id_autonomo_substituto")
                 trocas_salvas[f.id_fato] = {
                     "id_motivo_troca": t["id_motivo_troca"],
-                    "id_autonomo_substituto": sub_id,
-                    "nome_substituto": autonomos_map.get(sub_id, "") if sub_id else "",
                     "justificativa": t["justificativa"] or "",
                     "motivo_label": motivos_map.get(t["id_motivo_troca"], ""),
                 }
@@ -157,6 +164,7 @@ def troca_etapas_index(request: Request, db: Session = Depends(get_db)):
             "ausentes": ausentes,
             "trocas_salvas": trocas_salvas,
             "ids_piloto_nao_correu": ids_piloto_nao_correu,
+            "substitutos": substitutos,
         })
 
     return templates.TemplateResponse(
@@ -164,7 +172,6 @@ def troca_etapas_index(request: Request, db: Session = Depends(get_db)):
         {
             "request": request,
             "motivos": motivos,
-            "autonomos": autonomos,
             "grupos": grupos,
         },
     )
@@ -176,12 +183,10 @@ def registrar_motivo(
     id_etapa_proxima: int = Form(...),
     id_fato: int = Form(...),
     id_motivo_troca: str = Form(""),
-    id_autonomo_substituto: str = Form(""),
     justificativa: str = Form(""),
     db: Session = Depends(get_db),
 ):
     motivo_int = int(id_motivo_troca) if id_motivo_troca.strip() else None
-    sub_int = int(id_autonomo_substituto) if id_autonomo_substituto.strip() else None
     justificativa = justificativa.strip()
 
     existing = db.execute(
@@ -202,7 +207,6 @@ def registrar_motivo(
             )
             .values(
                 id_motivo_troca=motivo_int,
-                id_autonomo_substituto=sub_int,
                 justificativa=justificativa,
                 registrado_em=datetime.utcnow(),
             )
@@ -214,7 +218,6 @@ def registrar_motivo(
                 id_etapa_proxima=id_etapa_proxima,
                 id_fato=id_fato,
                 id_motivo_troca=motivo_int,
-                id_autonomo_substituto=sub_int,
                 justificativa=justificativa,
                 registrado_em=datetime.utcnow(),
             )
