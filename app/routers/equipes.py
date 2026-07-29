@@ -198,23 +198,29 @@ def equipes(
     # Regra:
     #   sem categoria (id_prova=None) → rateia para todos os carros da etapa
     #   com categoria                 → rateia apenas para os carros da etapa+categoria
+    #
+    # IMPORTANTE: carros_por_etapa deve ser calculado sem o filtro de id_prova,
+    # pois equipes gerais sem categoria dividem por TODOS os carros da etapa,
+    # independente do filtro de visualização aplicado pelo usuário.
     # ------------------------------------------------------------
     equipes_gerais_map = carregar_equipes_gerais(db)
 
-    # Carros únicos por etapa (todas as categorias)
+    # Query separada sem filtro de categoria para contar todos os carros da etapa
+    q_todos = db.query(
+        FatoPilotoAutonomoProva.id_etapa,
+        FatoPilotoAutonomoProva.id_prova,
+        FatoPilotoAutonomoProva.id_carro,
+    )
+    if id_etapa_int:
+        q_todos = q_todos.filter(FatoPilotoAutonomoProva.id_etapa == id_etapa_int)
+
     carros_por_etapa: dict = {}
-    # Carros únicos por etapa+categoria
     carros_por_etapa_categoria: dict = {}
-
-    for equipe in equipes_map.values():
-        etapa_id = getattr(equipe["etapa"], "id_etapa", None)
-        prova_id = getattr(equipe["categoria"], "id_prova", None)
-        carro_id = getattr(equipe["carro"], "id_carro", None)
-
-        if etapa_id and carro_id:
-            carros_por_etapa.setdefault(etapa_id, set()).add(carro_id)
-        if etapa_id and prova_id and carro_id:
-            carros_por_etapa_categoria.setdefault((etapa_id, prova_id), set()).add(carro_id)
+    for r in q_todos.all():
+        if r.id_etapa and r.id_carro:
+            carros_por_etapa.setdefault(r.id_etapa, set()).add(r.id_carro)
+        if r.id_etapa and r.id_prova and r.id_carro:
+            carros_por_etapa_categoria.setdefault((r.id_etapa, r.id_prova), set()).add(r.id_carro)
 
     for equipe in equipes_map.values():
         etapa_id = getattr(equipe["etapa"], "id_etapa", None)
