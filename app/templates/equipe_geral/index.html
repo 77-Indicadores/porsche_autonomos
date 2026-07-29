@@ -137,25 +137,29 @@
 </section>
 
 <script>
+// Mapa etapa_id -> [prova_ids] vindo do backend
+const _provasPorEtapa = {{ provas_por_etapa_json | safe }};
+
 // Captura todas as opções de prova na carga da página
 const _todasProvas = Array.from(document.getElementById("id_prova").options).map(o => ({
   value: o.value,
   text: o.text,
-  etapa: o.dataset.etapa || ""
 }));
 
 function filtrarProvas(etapaId, provaId) {
   const sel = document.getElementById("id_prova");
   const etapaStr = String(etapaId || "");
+  const allowed = etapaStr && _provasPorEtapa[etapaStr]
+    ? new Set(_provasPorEtapa[etapaStr].map(String))
+    : null;
 
   sel.innerHTML = '<option value="">— Todas as categorias —</option>';
   _todasProvas.forEach(o => {
     if (o.value === "") return;
-    if (!etapaStr || o.etapa === etapaStr) {
+    if (!allowed || allowed.has(o.value)) {
       const opt = document.createElement("option");
       opt.value = o.value;
       opt.textContent = o.text;
-      opt.dataset.etapa = o.etapa;
       sel.appendChild(opt);
     }
   });

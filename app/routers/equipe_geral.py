@@ -18,8 +18,10 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import Session
 
+import json
+
 from app.database import engine, get_db
-from app.models import DimEtapa, DimProva
+from app.models import DimEtapa, DimProva, FatoPilotoAutonomoProva
 from app.template_config import templates
 from app.utils import flash_from_request, redirect_with_message
 
@@ -95,6 +97,19 @@ def index(request: Request, db: Session = Depends(get_db)):
     etapas = db.query(DimEtapa).order_by(DimEtapa.temporada.desc(), DimEtapa.nome_etapa).all()
     provas = db.query(DimProva).order_by(DimProva.nome_prova).all()
 
+    # Mapa etapa_id → lista de id_prova (via fatos existentes)
+    pares = (
+        db.query(FatoPilotoAutonomoProva.id_etapa, FatoPilotoAutonomoProva.id_prova)
+        .distinct()
+        .all()
+    )
+    provas_por_etapa: dict = {}
+    for par in pares:
+        if par.id_etapa and par.id_prova:
+            provas_por_etapa.setdefault(str(par.id_etapa), [])
+            if par.id_prova not in provas_por_etapa[str(par.id_etapa)]:
+                provas_por_etapa[str(par.id_etapa)].append(par.id_prova)
+
     return templates.TemplateResponse(
         "equipe_geral/index.html",
         {
@@ -102,6 +117,7 @@ def index(request: Request, db: Session = Depends(get_db)):
             "equipes": [dict(e) for e in rows],
             "etapas": etapas,
             "provas": provas,
+            "provas_por_etapa_json": json.dumps(provas_por_etapa),
             **flash_from_request(request),
         },
     )
