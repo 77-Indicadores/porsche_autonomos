@@ -190,7 +190,14 @@
       <small style="color:#64748b;font-weight:400;font-size:12px;">{{ ant.temporada }}</small>
     </div>
     {% if ausentes %}
-      <span class="te-grupo-badge tem">{{ ausentes | length }} ausente{{ 's' if ausentes | length != 1 }}</span>
+      {% set qt_troca = ausentes | rejectattr("id_fato", "in", ids_piloto_nao_correu) | list | length %}
+      {% set qt_nao_correu = ausentes | selectattr("id_fato", "in", ids_piloto_nao_correu) | list | length %}
+      {% if qt_troca %}
+        <span class="te-grupo-badge tem">{{ qt_troca }} troca{{ 's' if qt_troca != 1 }}</span>
+      {% endif %}
+      {% if qt_nao_correu %}
+        <span class="te-grupo-badge" style="background:#1e3a5f;color:#93c5fd;">{{ qt_nao_correu }} não correu{{ 'ram' if qt_nao_correu != 1 }}</span>
+      {% endif %}
     {% else %}
       <span class="te-grupo-badge ok">✓ todos continuaram</span>
     {% endif %}
