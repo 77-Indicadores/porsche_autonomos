@@ -123,16 +123,16 @@ def troca_etapas_index(request: Request, db: Session = Depends(get_db)):
         }
         pilotos_na_prox = {(f.id_piloto, _nome_prova(f)) for f in fatos_prox_list}
 
-        # Autonomos que já estavam na etapa anterior por (piloto, carro, categoria)
+        # Autonomos que já estavam na etapa anterior por (piloto, carro, categoria, função)
         autonomos_na_ant: dict = {}
         for f in fatos_ant:
-            chave = (f.id_piloto, f.id_carro, _nome_prova(f))
+            chave = (f.id_piloto, f.id_carro, _nome_prova(f), f.funcao_autonomo or "")
             autonomos_na_ant.setdefault(chave, set()).add(f.id_autonomo)
 
-        # Substituto = quem está na etapa seguinte para o mesmo combo e NÃO estava antes
+        # Substituto 1-para-1: novo autonomo na mesma função do ausente
         substitutos_map: dict = {}
         for f in fatos_prox_list:
-            chave = (f.id_piloto, f.id_carro, _nome_prova(f))
+            chave = (f.id_piloto, f.id_carro, _nome_prova(f), f.funcao_autonomo or "")
             ja_estava = autonomos_na_ant.get(chave, set())
             if f.id_autonomo not in ja_estava:
                 nome_aut = getattr(f.autonomo, "nome_autonomo", None) or "—"
@@ -151,7 +151,7 @@ def troca_etapas_index(request: Request, db: Session = Depends(get_db)):
             if (f.id_piloto, nome) not in pilotos_na_prox:
                 ids_piloto_nao_correu.add(f.id_fato)
             else:
-                subs = substitutos_map.get((f.id_piloto, f.id_carro, nome), [])
+                subs = substitutos_map.get((f.id_piloto, f.id_carro, nome, f.funcao_autonomo or ""), [])
                 if subs:
                     substitutos[f.id_fato] = subs
 
