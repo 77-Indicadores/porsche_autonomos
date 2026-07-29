@@ -5,24 +5,92 @@
 
 {% block content %}
 <style>
-.te-grupo-header {
+/* ── Filter bar ── */
+.te-filters {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  background: #0a0f1e;
+  border: 1px solid #334155;
+  border-radius: 10px;
+  padding: 10px 16px;
+  margin-bottom: 20px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+.te-filter-label {
+  font-size: 11px;
+  font-weight: 700;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+}
+.te-filter-group {
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: 6px;
+}
+.te-filter-sep {
+  width: 1px;
+  height: 22px;
+  background: #334155;
+  flex-shrink: 0;
+}
+.te-filter-clear {
+  background: none;
+  border: 1px solid #475569;
+  color: #64748b;
+  border-radius: 6px;
+  padding: 5px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  margin-left: auto;
+}
+.te-filter-clear:hover { border-color: #94a3b8; color: #94a3b8; }
+
+/* ── Grupo expander (details/summary) ── */
+.te-grupo-wrapper {
+  margin-top: 20px;
+}
+.te-grupo-wrapper:first-of-type { margin-top: 0; }
+
+.te-grupo-wrapper > summary {
+  display: flex;
+  align-items: center;
+  gap: 12px;
   background: #0f172a;
   border: 1px solid #334155;
   border-radius: 12px 12px 0 0;
   padding: 14px 20px;
-  margin-top: 28px;
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
+  transition: background .15s;
 }
-.te-grupo-header:first-of-type { margin-top: 0; }
+.te-grupo-wrapper > summary::-webkit-details-marker { display: none; }
+.te-grupo-wrapper > summary::marker { display: none; }
+.te-grupo-wrapper:not([open]) > summary { border-radius: 12px; }
+.te-grupo-wrapper > summary:hover { background: #1e293b; }
+
+.te-chevron {
+  color: #475569;
+  font-size: 13px;
+  font-style: normal;
+  transition: transform .18s;
+  flex-shrink: 0;
+}
+.te-grupo-wrapper[open] > summary .te-chevron { transform: rotate(90deg); }
+
 .te-grupo-title {
   font-size: 15px;
   font-weight: 700;
   color: #f1f5f9;
   flex: 1;
 }
-.te-grupo-title span.arrow { color: #e31837; margin: 0 6px; }
+.te-grupo-title .arrow { color: #e31837; margin: 0 6px; }
 .te-grupo-badge {
   font-size: 12px;
   font-weight: 700;
@@ -32,6 +100,7 @@
 .te-grupo-badge.tem { background: #7f1d1d; color: #fca5a5; }
 .te-grupo-badge.ok  { background: #14532d; color: #86efac; }
 
+/* ── Cards ── */
 .te-card {
   background: var(--panel-bg, #1e293b);
   border: 1px solid #334155;
@@ -45,9 +114,21 @@
 .te-card:last-child { border-radius: 0 0 12px 12px; }
 .te-card + .te-card { border-top: 1px solid #1e293b; }
 
-.te-info {
-  flex: 1 1 200px;
+.te-section-label {
+  padding: 10px 20px 6px;
+  border: 1px solid #334155;
+  border-top: none;
+  background: #0f172a;
 }
+.te-section-label span {
+  font-size: 11px;
+  font-weight: 700;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: .05em;
+}
+
+.te-info { flex: 1 1 200px; }
 .te-info .lbl {
   font-size: 11px;
   font-weight: 600;
@@ -56,15 +137,8 @@
   letter-spacing: .04em;
   margin-bottom: 2px;
 }
-.te-info .val {
-  font-size: 14px;
-  font-weight: 600;
-  color: #e2e8f0;
-}
-.te-info .sub {
-  font-size: 12px;
-  color: #94a3b8;
-}
+.te-info .val { font-size: 14px; font-weight: 600; color: #e2e8f0; }
+.te-info .sub { font-size: 12px; color: #94a3b8; }
 
 .carro-chip {
   display: inline-block;
@@ -104,12 +178,7 @@
   display: block;
   margin-bottom: 4px;
 }
-.te-form-btns {
-  display: flex;
-  gap: 6px;
-  align-items: flex-end;
-  flex-shrink: 0;
-}
+.te-form-btns { display: flex; gap: 6px; align-items: flex-end; flex-shrink: 0; }
 .btn-save {
   background: #e31837;
   color: #fff;
@@ -122,17 +191,6 @@
   white-space: nowrap;
 }
 .btn-save:hover { background: #b91c1c; }
-.btn-clear {
-  background: transparent;
-  color: #64748b;
-  border: 1px solid #475569;
-  border-radius: 8px;
-  padding: 7px 12px;
-  font-size: 12px;
-  font-weight: 600;
-  cursor: pointer;
-}
-.btn-clear:hover { border-color: #94a3b8; color: #94a3b8; }
 
 .saved-tag {
   display: inline-flex;
@@ -146,9 +204,20 @@
   border-radius: 5px;
   margin-bottom: 4px;
 }
+
 .te-ok-msg {
   padding: 14px 20px;
   color: #64748b;
+  font-size: 13px;
+  border: 1px solid #334155;
+  border-top: none;
+  border-radius: 0 0 12px 12px;
+  background: var(--panel-bg, #1e293b);
+}
+.te-no-results {
+  display: none;
+  padding: 14px 20px;
+  color: #475569;
   font-size: 13px;
   border: 1px solid #334155;
   border-top: none;
@@ -174,47 +243,90 @@
     <h3>Nenhuma comparação disponível</h3>
     <p>Cadastre pelo menos duas etapas na mesma temporada e faça alocações para ver as trocas.</p>
   </div>
-{% endif %}
+{% else %}
+
+{# ── Filter bar ── #}
+<div class="te-filters">
+  <div class="te-filter-group">
+    <span class="te-filter-label">Etapa</span>
+    <select class="input" id="fil-etapa" style="font-size:13px;padding:5px 10px;min-width:200px;">
+      <option value="">Todas</option>
+      {% for grupo in grupos %}
+        <option value="{{ loop.index }}">{{ grupo.etapa_ant.nome_etapa }} → {{ grupo.etapa_prox.nome_etapa }}</option>
+      {% endfor %}
+    </select>
+  </div>
+
+  <div class="te-filter-sep"></div>
+
+  <div class="te-filter-group">
+    <span class="te-filter-label">Status</span>
+    <select class="input" id="fil-status" style="font-size:13px;padding:5px 10px;">
+      <option value="">Todos</option>
+      <option value="registrado">Registrado</option>
+      <option value="nao-registrado">Não registrado</option>
+    </select>
+  </div>
+
+  <div class="te-filter-sep"></div>
+
+  <div class="te-filter-group">
+    <span class="te-filter-label">Piloto</span>
+    <input class="input" id="fil-piloto" type="text" placeholder="Nome do piloto…"
+           style="font-size:13px;padding:5px 10px;min-width:180px;">
+  </div>
+
+  <button class="te-filter-clear" onclick="limparFiltros()">✕ Limpar</button>
+</div>
 
 {% for grupo in grupos %}
+  {# ── ALL variables defined BEFORE the header so badge counts are correct ── #}
   {% set ant = grupo.etapa_ant %}
   {% set prox = grupo.etapa_prox %}
   {% set ausentes = grupo.ausentes %}
   {% set trocas_salvas = grupo.trocas_salvas %}
-
-  <div class="te-grupo-header">
-    <div class="te-grupo-title">
-      {{ ant.nome_etapa }}
-      <span class="arrow">→</span>
-      {{ prox.nome_etapa }}
-      <small style="color:#64748b;font-weight:400;font-size:12px;">{{ ant.temporada }}</small>
-    </div>
-    {% if ausentes %}
-      {% set qt_troca = ausentes | rejectattr("id_fato", "in", ids_piloto_nao_correu) | list | length %}
-      {% set qt_nao_correu = ausentes | selectattr("id_fato", "in", ids_piloto_nao_correu) | list | length %}
-      {% if qt_troca %}
-        <span class="te-grupo-badge tem">{{ qt_troca }} troca{{ 's' if qt_troca != 1 }}</span>
-      {% endif %}
-      {% if qt_nao_correu %}
-        <span class="te-grupo-badge" style="background:#1e3a5f;color:#93c5fd;">{{ qt_nao_correu }} não correu{{ 'ram' if qt_nao_correu != 1 }}</span>
-      {% endif %}
-    {% else %}
-      <span class="te-grupo-badge ok">✓ todos continuaram</span>
-    {% endif %}
-  </div>
-
   {% set ids_piloto_nao_correu = grupo.ids_piloto_nao_correu %}
   {% set substitutos = grupo.substitutos %}
   {% set trocas_reais = ausentes | rejectattr("id_fato", "in", ids_piloto_nao_correu) | list %}
   {% set nao_correram = ausentes | selectattr("id_fato", "in", ids_piloto_nao_correu) | list %}
 
-  {% if ausentes %}
+  <details id="te-grupo-{{ loop.index }}" class="te-grupo-wrapper" open data-grupo="{{ loop.index }}">
+    <summary>
+      <span class="te-chevron">▶</span>
+      <div class="te-grupo-title">
+        {{ ant.nome_etapa }}
+        <span class="arrow">→</span>
+        {{ prox.nome_etapa }}
+        <small style="color:#64748b;font-weight:400;font-size:12px;">{{ ant.temporada }}</small>
+      </div>
+      {% if ausentes %}
+        {% set qt_troca = trocas_reais | length %}
+        {% set qt_nao_correu = nao_correram | length %}
+        {% if qt_troca %}
+          <span class="te-grupo-badge tem">{{ qt_troca }} troca{{ 's' if qt_troca != 1 }}</span>
+        {% endif %}
+        {% if qt_nao_correu %}
+          <span class="te-grupo-badge" style="background:#1e3a5f;color:#93c5fd;">
+            {{ qt_nao_correu }} não correu{{ 'ram' if qt_nao_correu != 1 }}
+          </span>
+        {% endif %}
+      {% else %}
+        <span class="te-grupo-badge ok">✓ todos continuaram</span>
+      {% endif %}
+    </summary>
 
     {# ── Trocas de autônomo (piloto correu mas com equipe diferente) ── #}
     {% if trocas_reais %}
+      <div class="te-section-label te-sec-troca">
+        <span>Troca de autônomo</span>
+      </div>
       {% for f in trocas_reais %}
         {% set salvo = trocas_salvas.get(f.id_fato) %}
-        <div class="te-card">
+        <div class="te-card"
+             data-tipo="troca"
+             data-piloto="{{ (f.piloto.nome_piloto if f.piloto else '') | lower }}"
+             data-registrado="{{ '1' if salvo else '0' }}">
+
           <div class="te-info">
             {% if f.carro %}<span class="carro-chip">{{ f.carro.chassi or f.carro.id_carro }}</span>{% endif %}
             {% if f.prova %}<span class="prova-chip">{{ f.prova.nome_prova }}</span>{% endif %}
@@ -226,17 +338,19 @@
             <div class="lbl">Autônomo</div>
             <div class="val">{{ f.autonomo.nome_autonomo if f.autonomo else '—' }}</div>
             <div class="sub">{{ f.funcao_autonomo or '—' }}</div>
-            {% if salvo %}<div style="margin-top:6px;"><span class="saved-tag">✓ registrado</span></div>{% endif %}
+            {% if salvo %}
+              <div style="margin-top:6px;"><span class="saved-tag">✓ registrado</span></div>
+            {% endif %}
           </div>
 
           {% set subs = substitutos.get(f.id_fato) %}
           {% if subs %}
-          <div class="te-info">
-            <div class="lbl">Substituto (etapa seguinte)</div>
-            {% for s in subs %}
-              <div class="val" style="color:#86efac;">{{ s }}</div>
-            {% endfor %}
-          </div>
+            <div class="te-info">
+              <div class="lbl">Substituto (etapa seguinte)</div>
+              {% for s in subs %}
+                <div class="val" style="color:#86efac;">{{ s }}</div>
+              {% endfor %}
+            </div>
           {% endif %}
 
           <form class="te-form" method="post" action="/troca-etapas/registrar">
@@ -248,32 +362,43 @@
               <select class="input" name="id_motivo_troca">
                 <option value="">— sem motivo —</option>
                 {% for m in motivos %}
-                  <option value="{{ m.id_motivo_troca }}" {% if salvo and salvo.id_motivo_troca == m.id_motivo_troca %}selected{% endif %}>{{ m.motivo_troca }}</option>
+                  <option value="{{ m.id_motivo_troca }}"
+                    {% if salvo and salvo.id_motivo_troca == m.id_motivo_troca %}selected{% endif %}>
+                    {{ m.motivo_troca }}
+                  </option>
                 {% endfor %}
               </select>
             </div>
             <div>
               <span class="lbl-f">Justificativa</span>
-              <input class="input" type="text" name="justificativa" placeholder="Detalhes (opcional)" value="{{ salvo.justificativa if salvo else '' }}">
+              <input class="input" type="text" name="justificativa"
+                     placeholder="Detalhes (opcional)"
+                     value="{{ salvo.justificativa if salvo else '' }}">
             </div>
             <div class="te-form-btns">
-              <button type="submit" class="btn-save">{{ '↺ Atualizar' if salvo else '💾 Salvar' }}</button>
+              <button type="submit" class="btn-save">
+                {{ '↺ Atualizar' if salvo else '💾 Salvar' }}
+              </button>
             </div>
           </form>
-
         </div>
       {% endfor %}
     {% endif %}
 
-    {# ── Piloto não correu (detectado automaticamente) ── #}
+    {# ── Piloto não correu na etapa ── #}
     {% if nao_correram %}
-      <div style="padding:10px 20px 6px;border:1px solid #334155;border-top:none;background:#0f172a;">
-        <span style="font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.05em;">Piloto não correu na etapa</span>
+      <div class="te-section-label te-sec-nao-correu">
+        <span>Piloto não correu na etapa</span>
       </div>
       {% for f in nao_correram %}
-        <div class="te-card" style="opacity:.65;border-top:none;">
+        <div class="te-card"
+             data-tipo="nao-correu"
+             data-piloto="{{ (f.piloto.nome_piloto if f.piloto else '') | lower }}"
+             style="opacity:.65;">
           <div class="te-info">
-            {% if f.carro %}<span class="carro-chip" style="background:#475569;">{{ f.carro.chassi or f.carro.id_carro }}</span>{% endif %}
+            {% if f.carro %}
+              <span class="carro-chip" style="background:#475569;">{{ f.carro.chassi or f.carro.id_carro }}</span>
+            {% endif %}
             {% if f.prova %}<span class="prova-chip">{{ f.prova.nome_prova }}</span>{% endif %}
             <div class="lbl" style="margin-top:6px;">Piloto</div>
             <div class="val">{{ f.piloto.nome_piloto if f.piloto else '—' }}</div>
@@ -284,15 +409,91 @@
             <div class="sub">{{ f.funcao_autonomo or '—' }}</div>
           </div>
           <div style="display:flex;align-items:center;">
-            <span style="background:#1e3a5f;color:#93c5fd;font-size:12px;font-weight:700;padding:4px 12px;border-radius:6px;">🚫 Piloto não correu</span>
+            <span style="background:#1e3a5f;color:#93c5fd;font-size:12px;font-weight:700;padding:4px 12px;border-radius:6px;">
+              🚫 Piloto não correu
+            </span>
           </div>
         </div>
       {% endfor %}
     {% endif %}
 
-  {% else %}
-    <div class="te-ok-msg">Nenhuma ausência — todos os autônomos da etapa anterior estão presentes na seguinte.</div>
-  {% endif %}
+    {% if not ausentes %}
+      <div class="te-ok-msg">
+        Nenhuma ausência — todos os autônomos da etapa anterior estão presentes na seguinte.
+      </div>
+    {% endif %}
 
+    <div class="te-no-results">Nenhum resultado com os filtros aplicados.</div>
+
+  </details>
 {% endfor %}
+
+{% endif %}
+
+<script>
+function aplicarFiltros() {
+  const etapa  = document.getElementById("fil-etapa").value;
+  const status = document.getElementById("fil-status").value;
+  const piloto = (document.getElementById("fil-piloto").value || "").toLowerCase().trim();
+
+  document.querySelectorAll(".te-grupo-wrapper").forEach(function(grupo) {
+    const idx = grupo.dataset.grupo;
+
+    // Hide entire grupo when etapa filter doesn't match
+    if (etapa && idx !== etapa) {
+      grupo.style.display = "none";
+      return;
+    }
+    grupo.style.display = "";
+
+    let trocaVisiveis    = 0;
+    let naoCorreuVisiveis = 0;
+
+    // Troca cards: all three filters apply
+    grupo.querySelectorAll(".te-card[data-tipo='troca']").forEach(function(card) {
+      let show = true;
+      if (status === "registrado"     && card.dataset.registrado !== "1") show = false;
+      if (status === "nao-registrado" && card.dataset.registrado !== "0") show = false;
+      if (piloto && !card.dataset.piloto.includes(piloto))                show = false;
+      card.style.display = show ? "" : "none";
+      if (show) trocaVisiveis++;
+    });
+
+    // Nao-correu cards: hidden when status filter is active; piloto filter still applies
+    grupo.querySelectorAll(".te-card[data-tipo='nao-correu']").forEach(function(card) {
+      let show = !status;
+      if (show && piloto && !card.dataset.piloto.includes(piloto)) show = false;
+      card.style.display = show ? "" : "none";
+      if (show) naoCorreuVisiveis++;
+    });
+
+    // Show/hide section sub-headers
+    const secTroca     = grupo.querySelector(".te-sec-troca");
+    const secNaoCorreu = grupo.querySelector(".te-sec-nao-correu");
+    if (secTroca)     secTroca.style.display     = trocaVisiveis > 0     ? "" : "none";
+    if (secNaoCorreu) secNaoCorreu.style.display = naoCorreuVisiveis > 0 ? "" : "none";
+
+    // Show "no results" when all cards are hidden by filters
+    const total     = trocaVisiveis + naoCorreuVisiveis;
+    const hasCards  = grupo.querySelectorAll(".te-card").length > 0;
+    const noResults = grupo.querySelector(".te-no-results");
+    if (noResults) noResults.style.display = (hasCards && total === 0) ? "block" : "none";
+
+    // Auto-open grupo when a filter produces results in it
+    if ((etapa || status || piloto) && total > 0) grupo.setAttribute("open", "");
+  });
+}
+
+function limparFiltros() {
+  document.getElementById("fil-etapa").value  = "";
+  document.getElementById("fil-status").value = "";
+  document.getElementById("fil-piloto").value = "";
+  aplicarFiltros();
+}
+
+document.getElementById("fil-etapa").addEventListener("change",  aplicarFiltros);
+document.getElementById("fil-status").addEventListener("change", aplicarFiltros);
+document.getElementById("fil-piloto").addEventListener("input",  aplicarFiltros);
+</script>
+
 {% endblock %}
