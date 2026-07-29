@@ -41,100 +41,89 @@ troca_entre_etapas = Table(
 _metadata.create_all(engine)
 
 
-def _etapas_ordenadas(db: Session):
-    """Retorna etapas ordenadas por data_inicio (nulls last), depois nome_etapa."""
+@router.get("/troca-etapas")
+def troca_etapas_index(request: Request, db: Session = Depends(get_db)):
+    # Etapas ordenadas por temporada (desc) → data_inicio → nome
     etapas = db.query(DimEtapa).order_by(
         DimEtapa.temporada.desc(),
         DimEtapa.data_inicio,
         DimEtapa.nome_etapa,
     ).all()
-    return etapas
 
+    motivos = (
+        db.query(DimMotivoTroca)
+        .filter(DimMotivoTroca.status == "Ativo")
+        .order_by(DimMotivoTroca.motivo_troca)
+        .all()
+    )
+    motivos_map = {m.id_motivo_troca: m.motivo_troca for m in motivos}
 
-@router.get("/troca-etapas")
-def troca_etapas_index(
-    request: Request,
-    etapa_ant: str = "",
-    etapa_prox: str = "",
-    db: Session = Depends(get_db),
-):
-    etapas = _etapas_ordenadas(db)
-    motivos = db.query(DimMotivoTroca).filter(DimMotivoTroca.status == "Ativo").order_by(DimMotivoTroca.motivo_troca).all()
-
-    id_ant = int(etapa_ant) if etapa_ant.strip() else None
-    id_prox = int(etapa_prox) if etapa_prox.strip() else None
-
-    ausentes = []
-    trocas_salvas = {}
-    etapa_ant_obj = None
-    etapa_prox_obj = None
-
-    if id_ant and id_prox and id_ant != id_prox:
-        etapa_ant_obj = db.query(DimEtapa).get(id_ant)
-        etapa_prox_obj = db.query(DimEtapa).get(id_prox)
-
-        # Fatos da etapa anterior com todos os relacionamentos
-        fatos_ant = (
-            db.query(FatoPilotoAutonomoProva)
-            .options(
-                joinedload(FatoPilotoAutonomoProva.piloto),
-                joinedload(FatoPilotoAutonomoProva.autonomo),
-                joinedload(FatoPilotoAutonomoProva.prova),
-                joinedload(FatoPilotoAutonomoProva.carro),
-            )
-            .filter(FatoPilotoAutonomoProva.id_etapa == id_ant)
-            .all()
+    # Todos os fatos carregados de uma vez
+    todos_fatos = (
+        db.query(FatoPilotoAutonomoProva)
+        .options(
+            joinedload(FatoPilotoAutonomoProva.piloto),
+            joinedload(FatoPilotoAutonomoProva.autonomo),
+            joinedload(FatoPilotoAutonomoProva.prova),
+            joinedload(FatoPilotoAutonomoProva.carro),
         )
+        .all()
+    )
+    fatos_por_etapa: dict = {}
+    for f in todos_fatos:
+        fatos_por_etapa.setdefault(f.id_etapa, []).append(f)
 
-        # Chaves (autonomo, piloto, carro) presentes na etapa seguinte
-        fatos_prox = (
-            db.query(
-                FatoPilotoAutonomoProva.id_autonomo,
-                FatoPilotoAutonomoProva.id_piloto,
-                FatoPilotoAutonomoProva.id_carro,
-            )
-            .filter(FatoPilotoAutonomoProva.id_etapa == id_prox)
-            .all()
-        )
-        chaves_prox = {(r.id_autonomo, r.id_piloto, r.id_carro) for r in fatos_prox}
+    # Todos os registros de troca já salvos
+    todas_trocas = db.execute(select(troca_entre_etapas)).mappings().all()
+    trocas_db: dict = {}
+    for t in todas_trocas:
+        key = (t["id_etapa_anterior"], t["id_etapa_proxima"], t["id_fato"])
+        trocas_db[key] = dict(t)
 
-        # Quem estava na anterior mas não aparece na seguinte
+    # Grupos: um por par consecutivo dentro da mesma temporada
+    grupos = []
+    for i in range(len(etapas) - 1):
+        ant = etapas[i]
+        prox = etapas[i + 1]
+
+        if ant.temporada != prox.temporada:
+            continue
+
+        fatos_ant = fatos_por_etapa.get(ant.id_etapa, [])
+        chaves_prox = {
+            (f.id_autonomo, f.id_piloto, f.id_carro)
+            for f in fatos_por_etapa.get(prox.id_etapa, [])
+        }
+
         ausentes = [
             f for f in fatos_ant
             if (f.id_autonomo, f.id_piloto, f.id_carro) not in chaves_prox
         ]
 
-        # Motivos já registrados para este par de etapas
-        if ausentes:
-            ids_fatos = [f.id_fato for f in ausentes]
-            rows = db.execute(
-                select(troca_entre_etapas).where(
-                    troca_entre_etapas.c.id_etapa_anterior == id_ant,
-                    troca_entre_etapas.c.id_etapa_proxima == id_prox,
-                    troca_entre_etapas.c.id_fato.in_(ids_fatos),
-                )
-            ).mappings().all()
-
-            motivos_map = {m.id_motivo_troca: m.motivo_troca for m in motivos}
-            for r in rows:
-                trocas_salvas[r["id_fato"]] = {
-                    "id_motivo_troca": r["id_motivo_troca"],
-                    "justificativa": r["justificativa"] or "",
-                    "motivo_label": motivos_map.get(r["id_motivo_troca"], ""),
+        trocas_salvas: dict = {}
+        for f in ausentes:
+            key = (ant.id_etapa, prox.id_etapa, f.id_fato)
+            if key in trocas_db:
+                t = trocas_db[key]
+                trocas_salvas[f.id_fato] = {
+                    "id_motivo_troca": t["id_motivo_troca"],
+                    "justificativa": t["justificativa"] or "",
+                    "motivo_label": motivos_map.get(t["id_motivo_troca"], ""),
                 }
+
+        grupos.append({
+            "etapa_ant": ant,
+            "etapa_prox": prox,
+            "ausentes": ausentes,
+            "trocas_salvas": trocas_salvas,
+        })
 
     return templates.TemplateResponse(
         "troca_etapas/index.html",
         {
             "request": request,
-            "etapas": etapas,
             "motivos": motivos,
-            "etapa_ant": id_ant,
-            "etapa_prox": id_prox,
-            "etapa_ant_obj": etapa_ant_obj,
-            "etapa_prox_obj": etapa_prox_obj,
-            "ausentes": ausentes,
-            "trocas_salvas": trocas_salvas,
+            "grupos": grupos,
         },
     )
 
@@ -186,11 +175,7 @@ def registrar_motivo(
         )
 
     db.commit()
-
-    return redirect_with_message(
-        f"/troca-etapas?etapa_ant={id_etapa_anterior}&etapa_prox={id_etapa_proxima}",
-        success="Motivo registrado com sucesso.",
-    )
+    return redirect_with_message("/troca-etapas", success="Motivo registrado.")
 
 
 @router.post("/troca-etapas/excluir")
@@ -208,8 +193,4 @@ def excluir_motivo(
         )
     )
     db.commit()
-
-    return redirect_with_message(
-        f"/troca-etapas?etapa_ant={id_etapa_anterior}&etapa_prox={id_etapa_proxima}",
-        success="Registro removido.",
-    )
+    return redirect_with_message("/troca-etapas", success="Registro removido.")

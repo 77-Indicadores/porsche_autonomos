@@ -1,373 +1,276 @@
 {% extends "base.html" %}
 {% block title %}Troca de Etapas{% endblock %}
 {% block header %}Troca de Etapas{% endblock %}
-{% block subtitle %}Identifique autônomos que não continuaram de uma etapa para outra{% endblock %}
+{% block subtitle %}Autônomos que não continuaram de uma etapa para a seguinte{% endblock %}
 
 {% block content %}
 <style>
-.te-filter-panel {
+.te-grupo-header {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  background: #0f172a;
+  border: 1px solid #334155;
+  border-radius: 12px 12px 0 0;
+  padding: 14px 20px;
+  margin-top: 28px;
+}
+.te-grupo-header:first-of-type { margin-top: 0; }
+.te-grupo-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: #f1f5f9;
+  flex: 1;
+}
+.te-grupo-title span.arrow { color: #e31837; margin: 0 6px; }
+.te-grupo-badge {
+  font-size: 12px;
+  font-weight: 700;
+  padding: 3px 10px;
+  border-radius: 6px;
+}
+.te-grupo-badge.tem { background: #7f1d1d; color: #fca5a5; }
+.te-grupo-badge.ok  { background: #14532d; color: #86efac; }
+
+.te-card {
   background: var(--panel-bg, #1e293b);
-  border: 1px solid var(--border, #334155);
-  border-radius: 12px;
-  padding: 20px 24px;
-  margin-bottom: 24px;
+  border: 1px solid #334155;
+  border-top: none;
+  padding: 16px 20px;
   display: flex;
   flex-wrap: wrap;
   gap: 16px;
-  align-items: flex-end;
+  align-items: flex-start;
 }
-.te-filter-panel label {
-  display: block;
-  font-size: 12px;
+.te-card:last-child { border-radius: 0 0 12px 12px; }
+.te-card + .te-card { border-top: 1px solid #1e293b; }
+
+.te-info {
+  flex: 1 1 200px;
+}
+.te-info .lbl {
+  font-size: 11px;
   font-weight: 600;
-  color: #94a3b8;
-  margin-bottom: 6px;
+  color: #64748b;
   text-transform: uppercase;
   letter-spacing: .04em;
+  margin-bottom: 2px;
 }
-.te-filter-panel select {
-  min-width: 220px;
-}
-.te-header-info {
-  background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
-  border: 1px solid #334155;
-  border-radius: 12px;
-  padding: 20px 24px;
-  margin-bottom: 24px;
-  display: flex;
-  align-items: center;
-  gap: 24px;
-}
-.te-header-badge {
-  background: #e31837;
-  color: #fff;
-  font-size: 28px;
-  font-weight: 800;
-  border-radius: 10px;
-  width: 64px;
-  height: 64px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-}
-.te-header-text h2 {
-  font-size: 18px;
-  font-weight: 700;
-  color: #f1f5f9;
-  margin: 0 0 4px 0;
-}
-.te-header-text p {
-  color: #94a3b8;
-  font-size: 13px;
-  margin: 0;
-}
-.te-card {
-  background: var(--panel-bg, #1e293b);
-  border: 1px solid var(--border, #334155);
-  border-radius: 12px;
-  margin-bottom: 16px;
-  overflow: hidden;
-}
-.te-card-header {
-  background: #0f172a;
-  padding: 12px 20px;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  border-bottom: 1px solid #334155;
-}
-.te-card-header .carro-badge {
-  background: #e31837;
-  color: #fff;
-  font-weight: 800;
-  font-size: 13px;
-  padding: 2px 10px;
-  border-radius: 6px;
-}
-.te-card-header .piloto-nome {
+.te-info .val {
+  font-size: 14px;
   font-weight: 600;
-  color: #f1f5f9;
-  font-size: 15px;
+  color: #e2e8f0;
 }
-.te-card-header .prova-tag {
+.te-info .sub {
+  font-size: 12px;
+  color: #94a3b8;
+}
+
+.carro-chip {
+  display: inline-block;
+  background: #e31837;
+  color: #fff;
+  font-weight: 800;
+  font-size: 12px;
+  padding: 2px 8px;
+  border-radius: 5px;
+  margin-bottom: 4px;
+}
+.prova-chip {
+  display: inline-block;
   background: #1e3a5f;
   color: #93c5fd;
   font-size: 11px;
   font-weight: 600;
-  padding: 2px 8px;
+  padding: 2px 7px;
   border-radius: 4px;
-  text-transform: uppercase;
-  letter-spacing: .04em;
+  margin-left: 6px;
 }
-.te-card-body {
-  padding: 16px 20px;
+
+.te-form {
+  flex: 2 1 340px;
   display: flex;
   flex-wrap: wrap;
-  gap: 20px;
-  align-items: flex-start;
+  gap: 8px;
+  align-items: flex-end;
 }
-.te-person-info {
-  flex: 1 1 220px;
-}
-.te-person-info .label-sm {
+.te-form > div { flex: 1 1 150px; }
+.te-form .lbl-f {
   font-size: 11px;
   font-weight: 600;
   color: #64748b;
   text-transform: uppercase;
-  letter-spacing: .05em;
-  margin-bottom: 2px;
+  letter-spacing: .04em;
+  display: block;
+  margin-bottom: 4px;
 }
-.te-person-info .value {
-  font-size: 15px;
-  font-weight: 600;
-  color: #e2e8f0;
-}
-.te-person-info .sub-value {
-  font-size: 12px;
-  color: #94a3b8;
-}
-.te-form {
-  flex: 2 1 360px;
+.te-form-btns {
   display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-.te-form-row {
-  display: flex;
-  gap: 10px;
-  flex-wrap: wrap;
-  align-items: flex-end;
-}
-.te-form-row > * {
-  flex: 1 1 160px;
-}
-.te-saved-badge {
-  display: inline-flex;
-  align-items: center;
   gap: 6px;
-  background: #14532d;
-  color: #86efac;
-  font-size: 12px;
-  font-weight: 600;
-  padding: 4px 10px;
-  border-radius: 6px;
-  margin-bottom: 8px;
+  align-items: flex-end;
+  flex-shrink: 0;
 }
-.te-empty {
-  text-align: center;
-  padding: 48px 24px;
-  color: #64748b;
-}
-.te-empty .te-empty-icon {
-  font-size: 48px;
-  margin-bottom: 12px;
-}
-.te-empty h3 {
-  font-size: 18px;
-  font-weight: 600;
-  color: #94a3b8;
-  margin: 0 0 8px 0;
-}
-.te-empty p {
-  font-size: 14px;
-  margin: 0;
-}
-.te-arrow {
-  color: #e31837;
-  font-size: 20px;
-  font-weight: 900;
-}
-.btn-te-save {
+.btn-save {
   background: #e31837;
   color: #fff;
   border: none;
   border-radius: 8px;
-  padding: 8px 18px;
+  padding: 8px 16px;
   font-size: 13px;
   font-weight: 700;
   cursor: pointer;
   white-space: nowrap;
 }
-.btn-te-save:hover { background: #b91c1c; }
-.btn-te-clear {
+.btn-save:hover { background: #b91c1c; }
+.btn-clear {
   background: transparent;
   color: #64748b;
   border: 1px solid #475569;
   border-radius: 8px;
-  padding: 7px 14px;
+  padding: 7px 12px;
   font-size: 12px;
   font-weight: 600;
   cursor: pointer;
-  white-space: nowrap;
 }
-.btn-te-clear:hover { border-color: #94a3b8; color: #94a3b8; }
+.btn-clear:hover { border-color: #94a3b8; color: #94a3b8; }
+
+.saved-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: #14532d;
+  color: #86efac;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 5px;
+  margin-bottom: 4px;
+}
+.te-ok-msg {
+  padding: 14px 20px;
+  color: #64748b;
+  font-size: 13px;
+  border: 1px solid #334155;
+  border-top: none;
+  border-radius: 0 0 12px 12px;
+  background: var(--panel-bg, #1e293b);
+}
+
+.te-empty-page {
+  text-align: center;
+  padding: 60px 24px;
+  color: #64748b;
+  background: var(--panel-bg, #1e293b);
+  border: 1px solid #334155;
+  border-radius: 12px;
+}
+.te-empty-page .icon { font-size: 48px; margin-bottom: 12px; }
+.te-empty-page h3 { font-size: 18px; font-weight: 600; color: #94a3b8; margin: 0 0 8px 0; }
 </style>
 
-<!-- Filtro -->
-<form method="get" action="/troca-etapas">
-  <div class="te-filter-panel">
-    <div>
-      <label>Etapa Anterior</label>
-      <select class="input" name="etapa_ant" onchange="this.form.submit()">
-        <option value="">— selecione —</option>
-        {% for e in etapas %}
-          <option value="{{ e.id_etapa }}" {% if etapa_ant == e.id_etapa %}selected{% endif %}>
-            {{ e.temporada }} · {{ e.nome_etapa }}
-          </option>
-        {% endfor %}
-      </select>
-    </div>
-
-    <div style="display:flex;align-items:flex-end;padding-bottom:8px;">
-      <span class="te-arrow">→</span>
-    </div>
-
-    <div>
-      <label>Etapa Seguinte</label>
-      <select class="input" name="etapa_prox" onchange="this.form.submit()">
-        <option value="">— selecione —</option>
-        {% for e in etapas %}
-          <option value="{{ e.id_etapa }}" {% if etapa_prox == e.id_etapa %}selected{% endif %}>
-            {{ e.temporada }} · {{ e.nome_etapa }}
-          </option>
-        {% endfor %}
-      </select>
-    </div>
+{% if not grupos %}
+  <div class="te-empty-page">
+    <div class="icon">📭</div>
+    <h3>Nenhuma comparação disponível</h3>
+    <p>Cadastre pelo menos duas etapas na mesma temporada e faça alocações para ver as trocas.</p>
   </div>
-</form>
+{% endif %}
 
-<!-- Estado inicial: nenhum par selecionado -->
-{% if not etapa_ant or not etapa_prox %}
-<div class="panel">
-  <div class="te-empty">
-    <div class="te-empty-icon">🔄</div>
-    <h3>Selecione duas etapas</h3>
-    <p>Escolha a etapa anterior e a etapa seguinte para ver quem não continuou.</p>
-  </div>
-</div>
+{% for grupo in grupos %}
+  {% set ant = grupo.etapa_ant %}
+  {% set prox = grupo.etapa_prox %}
+  {% set ausentes = grupo.ausentes %}
+  {% set trocas_salvas = grupo.trocas_salvas %}
 
-{% elif etapa_ant == etapa_prox %}
-<div class="panel">
-  <div class="te-empty">
-    <div class="te-empty-icon">⚠️</div>
-    <h3>Etapas iguais</h3>
-    <p>Selecione etapas diferentes para comparar.</p>
-  </div>
-</div>
-
-{% else %}
-
-<!-- Header do resultado -->
-<div class="te-header-info">
-  <div class="te-header-badge">{{ ausentes | length }}</div>
-  <div class="te-header-text">
-    <h2>
-      {{ etapa_ant_obj.nome_etapa }} ({{ etapa_ant_obj.temporada }})
-      &nbsp;→&nbsp;
-      {{ etapa_prox_obj.nome_etapa }} ({{ etapa_prox_obj.temporada }})
-    </h2>
+  <div class="te-grupo-header">
+    <div class="te-grupo-title">
+      {{ ant.nome_etapa }}
+      <span class="arrow">→</span>
+      {{ prox.nome_etapa }}
+      <small style="color:#64748b;font-weight:400;font-size:12px;">{{ ant.temporada }}</small>
+    </div>
     {% if ausentes %}
-      <p>
-        {{ ausentes | length }} autônomo{{ 's' if ausentes | length != 1 else '' }}
-        não continuou{{ 'ram' if ausentes | length != 1 else '' }} para a etapa seguinte.
-        {{ trocas_salvas | length }} motivo{{ 's' if trocas_salvas | length != 1 else '' }} registrado{{ 's' if trocas_salvas | length != 1 else '' }}.
-      </p>
+      <span class="te-grupo-badge tem">{{ ausentes | length }} ausente{{ 's' if ausentes | length != 1 }}</span>
     {% else %}
-      <p>Todos os autônomos da etapa anterior continuaram na etapa seguinte.</p>
+      <span class="te-grupo-badge ok">✓ todos continuaram</span>
     {% endif %}
   </div>
-</div>
 
-{% if ausentes %}
-  {% for f in ausentes %}
-    {% set salvo = trocas_salvas.get(f.id_fato) %}
-    <div class="te-card">
-      <div class="te-card-header">
-        {% if f.carro %}
-          <span class="carro-badge">{{ f.carro.chassi or f.carro.id_carro }}</span>
-        {% else %}
-          <span class="carro-badge" style="background:#475569;">—</span>
-        {% endif %}
-        <span class="piloto-nome">{{ f.piloto.nome_piloto if f.piloto else '—' }}</span>
-        {% if f.prova %}
-          <span class="prova-tag">{{ f.prova.nome_prova }}</span>
-        {% endif %}
-        {% if salvo %}
-          <span class="te-saved-badge" style="margin-left:auto;">✓ Motivo registrado</span>
-        {% endif %}
-      </div>
+  {% if ausentes %}
+    {% for f in ausentes %}
+      {% set salvo = trocas_salvas.get(f.id_fato) %}
+      <div class="te-card">
 
-      <div class="te-card-body">
-        <div class="te-person-info">
-          <div class="label-sm">Autônomo</div>
-          <div class="value">{{ f.autonomo.nome_autonomo if f.autonomo else '—' }}</div>
-          <div class="sub-value">{{ f.funcao_autonomo or '—' }}</div>
+        <!-- Identificação -->
+        <div class="te-info">
+          {% if f.carro %}
+            <span class="carro-chip">{{ f.carro.chassi or f.carro.id_carro }}</span>
+          {% endif %}
+          {% if f.prova %}
+            <span class="prova-chip">{{ f.prova.nome_prova }}</span>
+          {% endif %}
+          <div class="lbl" style="margin-top:6px;">Piloto</div>
+          <div class="val">{{ f.piloto.nome_piloto if f.piloto else '—' }}</div>
         </div>
 
-        {% if f.carro %}
-        <div class="te-person-info">
-          <div class="label-sm">Carro</div>
-          <div class="value">{{ f.carro.chassi or '—' }}</div>
-          <div class="sub-value">{{ f.carro.modelo or '' }}</div>
+        <div class="te-info">
+          <div class="lbl">Autônomo</div>
+          <div class="val">{{ f.autonomo.nome_autonomo if f.autonomo else '—' }}</div>
+          <div class="sub">{{ f.funcao_autonomo or '—' }}</div>
+          {% if salvo %}
+            <div style="margin-top:6px;"><span class="saved-tag">✓ registrado</span></div>
+          {% endif %}
         </div>
-        {% endif %}
 
         <!-- Formulário de motivo -->
         <form class="te-form" method="post" action="/troca-etapas/registrar">
-          <input type="hidden" name="id_etapa_anterior" value="{{ etapa_ant }}">
-          <input type="hidden" name="id_etapa_proxima" value="{{ etapa_prox }}">
+          <input type="hidden" name="id_etapa_anterior" value="{{ ant.id_etapa }}">
+          <input type="hidden" name="id_etapa_proxima" value="{{ prox.id_etapa }}">
           <input type="hidden" name="id_fato" value="{{ f.id_fato }}">
 
-          <div class="te-form-row">
-            <div>
-              <label class="label" style="font-size:11px;color:#64748b;text-transform:uppercase;">Motivo de troca</label>
-              <select class="input" name="id_motivo_troca">
-                <option value="">— sem motivo —</option>
-                {% for m in motivos %}
-                  <option value="{{ m.id_motivo_troca }}"
-                    {% if salvo and salvo.id_motivo_troca == m.id_motivo_troca %}selected{% endif %}>
-                    {{ m.motivo_troca }}
-                  </option>
-                {% endfor %}
-              </select>
-            </div>
-            <div>
-              <label class="label" style="font-size:11px;color:#64748b;text-transform:uppercase;">Justificativa</label>
-              <input class="input" type="text" name="justificativa"
-                placeholder="Detalhes (opcional)"
-                value="{{ salvo.justificativa if salvo else '' }}">
-            </div>
+          <div>
+            <span class="lbl-f">Motivo de troca</span>
+            <select class="input" name="id_motivo_troca">
+              <option value="">— sem motivo —</option>
+              {% for m in motivos %}
+                <option value="{{ m.id_motivo_troca }}"
+                  {% if salvo and salvo.id_motivo_troca == m.id_motivo_troca %}selected{% endif %}>
+                  {{ m.motivo_troca }}
+                </option>
+              {% endfor %}
+            </select>
           </div>
 
-          <div style="display:flex;gap:8px;margin-top:4px;">
-            <button type="submit" class="btn-te-save">
-              {{ '🔄 Atualizar' if salvo else '💾 Registrar' }}
+          <div>
+            <span class="lbl-f">Justificativa</span>
+            <input class="input" type="text" name="justificativa"
+              placeholder="Detalhes (opcional)"
+              value="{{ salvo.justificativa if salvo else '' }}">
+          </div>
+
+          <div class="te-form-btns">
+            <button type="submit" class="btn-save">
+              {{ '↺ Atualizar' if salvo else '💾 Salvar' }}
             </button>
-            {% if salvo %}
-              <form method="post" action="/troca-etapas/excluir" style="margin:0;">
-                <input type="hidden" name="id_etapa_anterior" value="{{ etapa_ant }}">
-                <input type="hidden" name="id_etapa_proxima" value="{{ etapa_prox }}">
-                <input type="hidden" name="id_fato" value="{{ f.id_fato }}">
-                <button type="submit" class="btn-te-clear"
-                  onclick="return confirm('Remover este motivo?')">✕ Limpar</button>
-              </form>
-            {% endif %}
           </div>
         </form>
+
+        {% if salvo %}
+          <form method="post" action="/troca-etapas/excluir" style="margin:0;display:flex;align-items:flex-end;">
+            <input type="hidden" name="id_etapa_anterior" value="{{ ant.id_etapa }}">
+            <input type="hidden" name="id_etapa_proxima" value="{{ prox.id_etapa }}">
+            <input type="hidden" name="id_fato" value="{{ f.id_fato }}">
+            <button type="submit" class="btn-clear"
+              onclick="return confirm('Remover motivo registrado?')">✕</button>
+          </form>
+        {% endif %}
+
       </div>
-    </div>
-  {% endfor %}
+    {% endfor %}
 
-{% else %}
-  <div class="panel">
-    <div class="te-empty">
-      <div class="te-empty-icon">✅</div>
-      <h3>Nenhuma ausência</h3>
-      <p>Todos os autônomos da etapa anterior têm registro na etapa seguinte.</p>
-    </div>
-  </div>
-{% endif %}
+  {% else %}
+    <div class="te-ok-msg">Nenhuma ausência — todos os autônomos da etapa anterior estão presentes na seguinte.</div>
+  {% endif %}
 
-{% endif %}
+{% endfor %}
 {% endblock %}
