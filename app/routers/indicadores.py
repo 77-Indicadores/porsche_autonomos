@@ -1,4 +1,4 @@
-"""Módulo Indicadores — dashboards analíticos com dados do Feedz via OData."""
+﻿"""Módulo Indicadores — dashboards analíticos com dados do Feedz via OData."""
 
 from __future__ import annotations
 
@@ -2855,7 +2855,7 @@ def _build_hora_extra_html(rows: list[dict], all_rows: list[dict] | None = None,
     def _svg_stacked():
         if not meses_sorted:
             return "<p style='color:#888;text-align:center;padding:20px'>Sem dados</p>"
-        PL, PR, PT, PB = 32, 8, 28, 28
+        PL, PR, PT, PB = 8, 8, 28, 28
         CW, CH = 400, 200
         iw, ih = CW - PL - PR, CH - PT - PB
         n       = len(meses_sorted)
@@ -2865,13 +2865,6 @@ def _build_hora_extra_html(rows: list[dict], all_rows: list[dict] | None = None,
         slot_w  = iw / n
         p = [f'<svg viewBox="0 0 {CW} {CH}" xmlns="http://www.w3.org/2000/svg"'
              f' style="width:100%;max-height:200px;display:block">']
-        for tick in range(5):
-            tv = int(tick / 4 * max_t)
-            ty = PT + ih - int(tick / 4 * ih)
-            p.append(f'<line x1="{PL}" y1="{ty}" x2="{CW-PR}" y2="{ty}"'
-                     f' stroke="#e5e7eb" stroke-width="1"/>')
-            p.append(f'<text x="{PL-4}" y="{ty+4}" text-anchor="end" font-size="9"'
-                     f' fill="#bbb" font-family="Inter,sans-serif">{tv}</text>')
         for i, mes in enumerate(meses_sorted):
             rows_m  = por_mes[mes]
             total_m = len(rows_m)
@@ -2904,7 +2897,7 @@ def _build_hora_extra_html(rows: list[dict], all_rows: list[dict] | None = None,
     def _svg_line():
         if not meses_sorted:
             return "<p style='color:#888;text-align:center;padding:20px'>Sem dados</p>"
-        PL, PR, PT, PB = 50, 8, 24, 28
+        PL, PR, PT, PB = 8, 8, 24, 28
         CW, CH  = 400, 200
         iw, ih  = CW - PL - PR, CH - PT - PB
         n       = len(meses_sorted)
@@ -2918,14 +2911,6 @@ def _build_hora_extra_html(rows: list[dict], all_rows: list[dict] | None = None,
                    f" {pts[-1][0]:.1f},{PT+ih}")
         p = [f'<svg viewBox="0 0 {CW} {CH}" xmlns="http://www.w3.org/2000/svg"'
              f' style="width:100%;max-height:200px;display:block">']
-        for tick in range(5):
-            tv_m  = int(tick / 4 * max_h)
-            tv_l  = f"{tv_m//60}:{tv_m%60:02d}"
-            ty    = PT + ih - int(tick / 4 * ih)
-            p.append(f'<line x1="{PL}" y1="{ty}" x2="{CW-PR}" y2="{ty}"'
-                     f' stroke="#e5e7eb" stroke-width="1"/>')
-            p.append(f'<text x="{PL-4}" y="{ty+4}" text-anchor="end" font-size="8"'
-                     f' fill="#bbb" font-family="Inter,sans-serif">{tv_l}</text>')
         p.append(f'<polygon points="{area}" fill="rgba(227,24,55,.07)"/>')
         p.append(f'<polyline points="{lp}" fill="none" stroke="#e31837"'
                  f' stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>')
@@ -2963,7 +2948,8 @@ def _build_hora_extra_html(rows: list[dict], all_rows: list[dict] | None = None,
         for i, (label, val) in enumerate(itens):
             y  = PT + i * (BAR_H + GAP)
             bw = int(val / max_v * ba) if max_v else 0
-            short = (label[:13] + "…") if len(label) > 14 else label
+            disp  = label.title()
+            short = (disp[:13] + "…") if len(disp) > 14 else disp
             p.append(f'<rect x="{LBL_W}" y="{y}" width="{ba}" height="{BAR_H}"'
                      f' fill="#f5f5f5" rx="3"/>')
             if bw > 0:
@@ -2975,6 +2961,58 @@ def _build_hora_extra_html(rows: list[dict], all_rows: list[dict] | None = None,
             p.append(f'<text x="{LBL_W+ba+4}" y="{my:.1f}" text-anchor="start"'
                      f' font-size="11" fill="#333" font-weight="700"'
                      f' font-family="Inter,sans-serif">{val}</text>')
+        p.append('</svg>')
+        return "".join(p)
+
+    def _svg_donut_empresa() -> str:
+        import math as _math  # noqa: PLC0415
+        itens = sorted([(k, len(v)) for k, v in por_empresa.items() if k],
+                       key=lambda x: -x[1])[:6]
+        if not itens:
+            return "<p style='color:#888;padding:16px'>Sem dados</p>"
+        total = sum(v for _, v in itens)
+        COLORS = ["#e31837", "#374151", "#9ca3af", "#60a5fa", "#7f1d1d", "#f59e0b"]
+        CW, CH = 380, 210
+        cx, cy = 105, 100
+        R, ri  = 82, 46
+        p = [f'<svg viewBox="0 0 {CW} {CH}" xmlns="http://www.w3.org/2000/svg"'
+             f' style="width:100%;display:block">']
+        start = -_math.pi / 2
+        for i, (label, val) in enumerate(itens):
+            frac  = val / total
+            sweep = 2 * _math.pi * frac
+            end   = start + sweep
+            large = 1 if sweep > _math.pi else 0
+            x1  = cx + R  * _math.cos(start);  y1  = cy + R  * _math.sin(start)
+            x2  = cx + R  * _math.cos(end);    y2  = cy + R  * _math.sin(end)
+            xi1 = cx + ri * _math.cos(end);    yi1 = cy + ri * _math.sin(end)
+            xi2 = cx + ri * _math.cos(start);  yi2 = cy + ri * _math.sin(start)
+            col = COLORS[i % len(COLORS)]
+            if frac > 0.9999:
+                p.append(f'<circle cx="{cx}" cy="{cy}" r="{R}" fill="{col}"/>')
+                p.append(f'<circle cx="{cx}" cy="{cy}" r="{ri}" fill="#fff"/>')
+            else:
+                d = (f"M {x1:.2f},{y1:.2f} A {R},{R} 0 {large},1 {x2:.2f},{y2:.2f}"
+                     f" L {xi1:.2f},{yi1:.2f} A {ri},{ri} 0 {large},0 {xi2:.2f},{yi2:.2f} Z")
+                p.append(f'<path d="{d}" fill="{col}"/>')
+            start = end
+        p.append(f'<text x="{cx}" y="{cy-8}" text-anchor="middle" font-size="20"'
+                 f' font-weight="900" fill="#111" font-family="Inter,sans-serif">{total}</text>')
+        p.append(f'<text x="{cx}" y="{cy+10}" text-anchor="middle" font-size="9"'
+                 f' fill="#888" font-family="Inter,sans-serif">ocorrências</text>')
+        lx = cx + R + 18
+        for i, (label, val) in enumerate(itens):
+            pct = round(val / total * 100)
+            col = COLORS[i % len(COLORS)]
+            ly  = 26 + i * 26
+            disp = label.title()
+            short = (disp[:18] + "…") if len(disp) > 19 else disp
+            p.append(f'<rect x="{lx}" y="{ly-11}" width="11" height="11"'
+                     f' fill="{col}" rx="2"/>')
+            p.append(f'<text x="{lx+15}" y="{ly-2}" font-size="11" fill="#333"'
+                     f' font-weight="700" font-family="Inter,sans-serif">{val}</text>')
+            p.append(f'<text x="{lx+15}" y="{ly+10}" font-size="10" fill="#888"'
+                     f' font-family="Inter,sans-serif">{short} · {pct}%</text>')
         p.append('</svg>')
         return "".join(p)
 
@@ -3044,7 +3082,7 @@ def _build_hora_extra_html(rows: list[dict], all_rows: list[dict] | None = None,
     # ── generate all SVGs ──────────────────────────────────────────────────────
     svg_stacked   = _svg_stacked()
     svg_line      = _svg_line()
-    svg_emp       = _svg_hbars(por_empresa, top=8)
+    svg_emp       = _svg_donut_empresa()
     svg_dep       = _svg_hbars(por_depto,   top=8)
     svg_f_cnt     = _svg_faixa_count()
     svg_f_hrs     = _svg_faixa_hours()
@@ -3183,10 +3221,7 @@ def _build_hora_extra_html(rows: list[dict], all_rows: list[dict] | None = None,
 
 <div class="he-row-mid">
   <div class="he-panel">
-    <div class="he-panel-head">
-      Ocorrências por mês
-      <div class="he-panel-head-right">{leg_faixas}</div>
-    </div>
+    <div class="he-panel-head">Ocorrências por mês</div>
     <div class="he-panel-body">{svg_stacked}</div>
   </div>
 
@@ -3302,6 +3337,472 @@ def _parse_dt_afas(s) -> "datetime | None":
     return None
 
 
+def _build_afastamentos_html(  # noqa: C901
+    rows: list[dict],
+    all_rows: list[dict] | None = None,
+    empresa_sel: str = "",
+    dep_sel: str = "",
+    tipo_sel: str = "",
+    ano_sel: str = "",
+) -> str:
+    import json as _json  # noqa: PLC0415
+
+    def _to_iso(s: str) -> str:
+        s = str(s or "").strip().split(" ")[0]
+        if len(s) == 10 and s[2] == "/":
+            return f"{s[6:]}-{s[3:5]}-{s[0:2]}"
+        if len(s) == 10 and s[4] == "-":
+            return s
+        return ""
+
+    records_js = _json.dumps([{
+        "id":         str(r.get("matricula", "")),
+        "name":       r.get("nome_colaborador", ""),
+        "company":    r.get("empresa", ""),
+        "department": r.get("departamento", ""),
+        "role":       r.get("cargo", ""),
+        "type":       r.get("tipo_atestado", ""),
+        "date":       _to_iso(str(r.get("data_atestado", ""))),
+        "start":      _to_iso(str(r.get("data_inicio_afastamento", ""))),
+        "end":        _to_iso(str(r.get("data_fim_afastamento", ""))),
+        "days":       r.get("dias") or 0,
+        "cid":        r.get("cid", ""),
+    } for r in rows], ensure_ascii=False)
+
+    css = """<style>
+.af2{--red:#d5001c;--red2:#a90017;--line:#e4e6e9;--green:#15966a;
+  --amber:#d58a13;--orange:#ef6b2e;--purple:#7157c8;--muted:#70747c;
+  --shadow:0 12px 34px rgba(12,16,24,.08);--radius:18px;
+  font-family:Inter,ui-sans-serif,system-ui,sans-serif;color:#16181c}
+.af2 button,.af2 select,.af2 input{font:inherit}
+.af2 button{cursor:pointer}
+/* hero */
+.af2 .af2-hero{display:flex;align-items:flex-end;justify-content:space-between;
+  gap:18px;margin-bottom:20px;flex-wrap:wrap}
+.af2 .af2-hero h2{margin:0;font-size:26px;letter-spacing:-.03em;font-weight:900}
+.af2 .af2-hero p{margin:6px 0 0;color:var(--muted);font-size:13px}
+.af2 .af2-updated{display:flex;align-items:center;gap:8px;color:#565b64;
+  font-size:12px;background:#fff;border:1px solid var(--line);
+  border-radius:999px;padding:8px 14px;white-space:nowrap}
+.af2 .af2-updated i{width:8px;height:8px;border-radius:50%;background:var(--green);
+  box-shadow:0 0 0 4px rgba(21,150,106,.14)}
+/* filters */
+.af2 .af2-filters{display:grid;grid-template-columns:repeat(5,minmax(130px,1fr)) auto;
+  gap:12px;padding:16px;margin-bottom:18px;background:#fff;
+  border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow)}
+.af2 .af2-field label{display:block;color:#777c84;font-size:10px;font-weight:850;
+  letter-spacing:.08em;text-transform:uppercase;margin:0 0 7px 2px}
+.af2 .af2-sw{position:relative}
+.af2 .af2-field select{width:100%;height:42px;padding:0 36px 0 12px;
+  border:1px solid var(--line);border-radius:11px;color:#2a2e34;
+  background:#fafafa;outline:none;appearance:none}
+.af2 .af2-field select:focus{background:#fff;border-color:#aeb2b9;
+  box-shadow:0 0 0 3px rgba(0,0,0,.04)}
+.af2 .af2-sw::after{content:"⌄";position:absolute;right:12px;top:50%;
+  transform:translateY(-58%);color:#7f838a;pointer-events:none}
+.af2 .af2-reset{align-self:end;height:42px;padding:0 16px;border-radius:11px;
+  border:1px solid #e2b5bb;background:#fff5f6;color:var(--red2);
+  font-weight:800;font-size:12px}
+/* kpis */
+.af2 .af2-kpis{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));
+  gap:14px;margin-bottom:18px}
+.af2 .af2-kpi{position:relative;overflow:hidden;min-height:120px;
+  padding:17px 17px 14px;background:#fff;border:1px solid var(--line);
+  border-radius:var(--radius);box-shadow:var(--shadow)}
+.af2 .af2-kpi::after{content:"";position:absolute;right:-28px;top:-32px;
+  width:96px;height:96px;border-radius:50%;background:var(--ks,rgba(213,0,28,.07))}
+.af2 .af2-kpi-top{position:relative;z-index:1;display:flex;align-items:center;
+  justify-content:space-between;gap:10px}
+.af2 .af2-kpi-icon{width:36px;height:36px;border-radius:10px;display:grid;
+  place-items:center;color:var(--kc,var(--red));background:var(--ks,rgba(213,0,28,.08))}
+.af2 .af2-kpi-icon svg{width:18px;height:18px}
+.af2 .af2-kpi small{color:#7c8189;font-size:11px;font-weight:750}
+.af2 .af2-kpi-val{position:relative;z-index:1;margin-top:12px;font-size:28px;
+  line-height:1;letter-spacing:-.04em;font-weight:900}
+.af2 .af2-kpi-lbl{position:relative;z-index:1;margin-top:6px;
+  color:#686d75;font-size:12px;font-weight:650}
+/* grid */
+.af2 .af2-grid{display:grid;grid-template-columns:1.1fr .9fr .95fr;
+  gap:16px;margin-bottom:18px}
+.af2 .af2-card{min-width:0;background:#fff;border:1px solid var(--line);
+  border-radius:var(--radius);box-shadow:var(--shadow)}
+.af2 .af2-card-head{display:flex;align-items:flex-start;justify-content:space-between;
+  gap:12px;padding:17px 18px 10px}
+.af2 .af2-card-head h3{margin:0;font-size:14px;letter-spacing:-.015em}
+.af2 .af2-card-head p{margin:4px 0 0;color:#858990;font-size:11px}
+.af2 .af2-badge{padding:6px 9px;border-radius:999px;color:#5f646c;
+  background:#f4f5f6;font-size:10px;font-weight:800;white-space:nowrap}
+.af2 .af2-card-body{padding:8px 18px 18px}
+/* donut */
+.af2 .af2-rl{display:grid;grid-template-columns:148px minmax(0,1fr);
+  gap:18px;align-items:center;min-height:210px}
+.af2 .af2-donut{width:136px;height:136px;border-radius:50%;
+  background:conic-gradient(#d5001c 0 40%,#ef6b2e 40% 65%,#d58a13 65% 82%,
+  #7157c8 82% 94%,#15171b 94% 100%);
+  position:relative;display:grid;place-items:center;margin:auto}
+.af2 .af2-donut::after{content:"";position:absolute;width:86px;height:86px;
+  border-radius:50%;background:#fff;box-shadow:0 0 0 1px var(--line)}
+.af2 .af2-dc{position:relative;z-index:2;text-align:center}
+.af2 .af2-dc strong{display:block;font-size:22px;line-height:1;font-weight:900}
+.af2 .af2-dc span{display:block;margin-top:5px;color:#80848b;font-size:10px}
+.af2 .af2-leg{display:grid;gap:9px}
+.af2 .af2-lr{display:grid;grid-template-columns:8px minmax(0,1fr) auto;
+  align-items:center;gap:8px;font-size:11px}
+.af2 .af2-lr i{width:8px;height:8px;border-radius:3px}
+.af2 .af2-lr span{color:#686d75}
+/* bars */
+.af2 .af2-bars{display:grid;gap:10px}
+.af2 .af2-dept-scroll{max-height:250px;overflow:auto;padding:8px 18px 18px}
+.af2 .af2-dept-scroll::-webkit-scrollbar{width:5px}
+.af2 .af2-dept-scroll::-webkit-scrollbar-thumb{background:#d5d8dc;border-radius:999px}
+.af2 .af2-br{display:grid;gap:5px}
+.af2 .af2-bm{display:flex;align-items:center;justify-content:space-between;
+  gap:10px;font-size:11px}
+.af2 .af2-bm span{color:#5f646b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.af2 .af2-bm strong{font-size:11px;white-space:nowrap}
+.af2 .af2-bt{height:8px;border-radius:999px;background:#f0f1f3;overflow:hidden}
+.af2 .af2-bf{height:100%;border-radius:999px;
+  background:linear-gradient(90deg,var(--red),#ff3f56);
+  transform-origin:left;animation:af2grow .6s ease both}
+@keyframes af2grow{from{transform:scaleX(0)}to{transform:scaleX(1)}}
+/* types */
+.af2 .af2-types{display:grid;gap:9px}
+.af2 .af2-ti{display:grid;grid-template-columns:38px minmax(0,1fr) auto;
+  gap:10px;align-items:center;padding:9px 10px;
+  border:1px solid #eceef0;border-radius:12px;background:#fbfbfc}
+.af2 .af2-tico{width:34px;height:34px;border-radius:10px;display:grid;
+  place-items:center;background:#fff0f2;color:var(--red);font-size:14px;font-weight:900}
+.af2 .af2-ti span{font-size:11px;color:#545961;font-weight:700}
+.af2 .af2-ti strong{font-size:15px}
+/* second grid */
+.af2 .af2-grid2{display:grid;grid-template-columns:1fr 1.8fr;gap:16px;margin-bottom:18px}
+.af2 .af2-trend-wrap{padding:4px 18px 18px}
+.af2 .af2-svg{width:100%;height:220px;display:block;overflow:visible}
+.af2 .af2-gl{stroke:#eceef0;stroke-width:1}
+.af2 .af2-area{fill:url(#af2Grad)}
+.af2 .af2-line{fill:none;stroke:var(--red);stroke-width:3;stroke-linecap:round;stroke-linejoin:round}
+.af2 .af2-dot{fill:#fff;stroke:var(--red);stroke-width:3}
+.af2 .af2-al{fill:#8a8e95;font-size:10px}
+.af2 .af2-vl{fill:#292d32;font-size:10px;font-weight:800}
+/* responsive */
+@media(max-width:1200px){
+  .af2 .af2-filters{grid-template-columns:repeat(3,minmax(130px,1fr))}
+  .af2 .af2-grid{grid-template-columns:1fr 1fr}
+  .af2 .af2-grid .af2-card:last-child{grid-column:1/-1}
+  .af2 .af2-grid2{grid-template-columns:1fr}}
+@media(max-width:860px){
+  .af2 .af2-filters{grid-template-columns:1fr 1fr}
+  .af2 .af2-kpis{grid-template-columns:repeat(2,1fr)}
+  .af2 .af2-grid,.af2 .af2-grid2{grid-template-columns:1fr}
+  .af2 .af2-grid .af2-card:last-child{grid-column:auto}}
+@media(max-width:560px){
+  .af2 .af2-filters{grid-template-columns:1fr}
+  .af2 .af2-kpis{grid-template-columns:1fr}
+  .af2 .af2-rl{grid-template-columns:1fr}}
+</style>"""
+
+    html_main = """<div class="af2">
+<div class="af2-hero">
+  <div>
+    <h2>Painel de saúde ocupacional</h2>
+    <p>Acompanhe frequência, duração, concentração e evolução dos afastamentos.</p>
+  </div>
+  <div class="af2-updated"><i></i>Dados atualizados</div>
+</div>
+
+<section class="af2-filters">
+  <div class="af2-field"><label>Empresa</label>
+    <div class="af2-sw"><select id="af2Company"></select></div></div>
+  <div class="af2-field"><label>Departamento</label>
+    <div class="af2-sw"><select id="af2Dept"></select></div></div>
+  <div class="af2-field"><label>Tipo</label>
+    <div class="af2-sw"><select id="af2Type"></select></div></div>
+  <div class="af2-field"><label>Ano</label>
+    <div class="af2-sw"><select id="af2Year"></select></div></div>
+  <div class="af2-field"><label>Faixa de dias</label>
+    <div class="af2-sw"><select id="af2Range">
+      <option value="">Todas as faixas</option>
+      <option value="1 dia">1 dia</option>
+      <option value="2–3 dias">2–3 dias</option>
+      <option value="4–7 dias">4–7 dias</option>
+      <option value="8–15 dias">8–15 dias</option>
+      <option value="16+ dias">16+ dias</option>
+    </select></div></div>
+  <button class="af2-reset" onclick="af2Reset()">Limpar</button>
+</section>
+
+<section class="af2-kpis">
+  <article class="af2-kpi" style="--kc:#d5001c;--ks:rgba(213,0,28,.08)">
+    <div class="af2-kpi-top">
+      <div class="af2-kpi-icon">
+        <svg fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+          <rect x="3" y="4" width="18" height="17" rx="2"/><path d="M8 2v4m8-4v4M3 10h18"/>
+        </svg>
+      </div><small>Ocorrências</small>
+    </div>
+    <div class="af2-kpi-val" id="af2KR">—</div>
+    <div class="af2-kpi-lbl">Registros</div>
+  </article>
+  <article class="af2-kpi" style="--kc:#7157c8;--ks:rgba(113,87,200,.10)">
+    <div class="af2-kpi-top">
+      <div class="af2-kpi-icon">
+        <svg fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+          <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z"/><path d="M9 12h6M12 9v6"/>
+        </svg>
+      </div><small>Com período</small>
+    </div>
+    <div class="af2-kpi-val" id="af2KL">—</div>
+    <div class="af2-kpi-lbl">Com afastamento</div>
+  </article>
+  <article class="af2-kpi" style="--kc:#15966a;--ks:rgba(21,150,106,.10)">
+    <div class="af2-kpi-top">
+      <div class="af2-kpi-icon">
+        <svg fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+          <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/>
+          <circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/>
+        </svg>
+      </div><small>Pessoas</small>
+    </div>
+    <div class="af2-kpi-val" id="af2KP">—</div>
+    <div class="af2-kpi-lbl">Colaboradores únicos</div>
+  </article>
+  <article class="af2-kpi" style="--kc:#d58a13;--ks:rgba(213,138,19,.11)">
+    <div class="af2-kpi-top">
+      <div class="af2-kpi-icon">
+        <svg fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+          <circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>
+        </svg>
+      </div><small>Impacto</small>
+    </div>
+    <div class="af2-kpi-val" id="af2KD">—</div>
+    <div class="af2-kpi-lbl">Dias afastados (total)</div>
+  </article>
+  <article class="af2-kpi" style="--kc:#ef6b2e;--ks:rgba(239,107,46,.10)">
+    <div class="af2-kpi-top">
+      <div class="af2-kpi-icon">
+        <svg fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+          <path d="M4 19V9m5 10V5m5 14v-7m5 7V3"/>
+        </svg>
+      </div><small>Duração</small>
+    </div>
+    <div class="af2-kpi-val" id="af2KA">—</div>
+    <div class="af2-kpi-lbl">Média de dias / ocorrência</div>
+  </article>
+</section>
+
+<section class="af2-grid">
+  <article class="af2-card">
+    <div class="af2-card-head">
+      <div><h3>Faixa de dias afastados</h3><p>Distribuição por duração</p></div>
+      <span class="af2-badge" id="af2RT">— ocorrências</span>
+    </div>
+    <div class="af2-card-body af2-rl">
+      <div class="af2-donut" id="af2Donut">
+        <div class="af2-dc"><strong id="af2DT">—</strong><span>registros</span></div>
+      </div>
+      <div class="af2-leg" id="af2Leg"></div>
+    </div>
+  </article>
+
+  <article class="af2-card">
+    <div class="af2-card-head">
+      <div><h3>Por departamento</h3><p>Top 10 áreas com mais ocorrências</p></div>
+      <span class="af2-badge">Ranking</span>
+    </div>
+    <div class="af2-dept-scroll">
+      <div class="af2-bars" id="af2DeptBars"></div>
+    </div>
+  </article>
+
+  <article class="af2-card">
+    <div class="af2-card-head">
+      <div><h3>Por tipo de atestado</h3><p>Composição dos registros filtrados</p></div>
+      <span class="af2-badge">Classificação</span>
+    </div>
+    <div class="af2-card-body">
+      <div class="af2-types" id="af2Types"></div>
+    </div>
+  </article>
+</section>
+
+<section class="af2-grid2">
+  <article class="af2-card">
+    <div class="af2-card-head">
+      <div><h3>Evolução mensal</h3><p>Ocorrências por mês</p></div>
+      <span class="af2-badge" id="af2TY">—</span>
+    </div>
+    <div class="af2-trend-wrap" id="af2Trend"></div>
+  </article>
+  <article class="af2-card">
+    <div class="af2-card-head">
+      <div><h3>Leitura de criticidade</h3><p>Concentração por área e duração</p></div>
+      <span class="af2-badge">Atenção ≥ 8 dias</span>
+    </div>
+    <div class="af2-card-body">
+      <div class="af2-bars" id="af2Crit"></div>
+    </div>
+  </article>
+</section>
+</div>"""
+
+    js_code = r"""
+const AF2_COLORS = ["#d5001c","#ef6b2e","#d58a13","#7157c8","#15171b"];
+const AF2_RANGES = ["1 dia","2–3 dias","4–7 dias","8–15 dias","16+ dias"];
+const AF2_ICONS  = {"Médico":"✚","Odontológico":"◉","Declaração de Horas":"⌚","Saúde Ocupacional":"◇","Saúde":"♡"};
+
+function af2El(id){return document.getElementById(id)}
+function af2Uniq(arr,k){return[...new Set(arr.map(x=>x[k]).filter(Boolean))].sort((a,b)=>String(a).localeCompare(String(b),"pt-BR"))}
+function af2RangeOf(d){if(d===1)return AF2_RANGES[0];if(d<=3)return AF2_RANGES[1];if(d<=7)return AF2_RANGES[2];if(d<=15)return AF2_RANGES[3];return AF2_RANGES[4]}
+function af2TitleCase(s){return s?s.split(" ").map(w=>w?w[0].toUpperCase()+w.slice(1).toLowerCase():"").join(" "):""}
+
+function af2FillSel(id,vals,lbl){
+  const el=af2El(id);if(!el)return;
+  el.innerHTML='<option value="">'+lbl+'</option>'+vals.map(v=>'<option value="'+v+'">'+v+'</option>').join("")
+}
+
+function af2Setup(){
+  af2FillSel("af2Company",af2Uniq(af2Records,"company"),"Todas as empresas");
+  af2FillSel("af2Dept",af2Uniq(af2Records,"department"),"Todos os departamentos");
+  af2FillSel("af2Type",af2Uniq(af2Records,"type"),"Todos os tipos");
+  af2FillSel("af2Year",[...new Set(af2Records.map(r=>r.date.slice(0,4)).filter(Boolean))].sort().reverse(),"Todos os anos");
+  ["af2Company","af2Dept","af2Type","af2Year","af2Range"].forEach(id=>{
+    const el=af2El(id);if(el)el.addEventListener("change",af2Render);
+  });
+}
+
+function af2Filtered(){
+  const co=af2El("af2Company")?.value||"",de=af2El("af2Dept")?.value||"",
+        ty=af2El("af2Type")?.value||"",yr=af2El("af2Year")?.value||"",
+        rg=af2El("af2Range")?.value||"";
+  return af2Records.filter(r=>
+    (!co||r.company===co)&&(!de||r.department===de)&&
+    (!ty||r.type===ty)&&(!yr||r.date.startsWith(yr))&&
+    (!rg||af2RangeOf(r.days)===rg));
+}
+
+function af2KPIs(data){
+  const tot=data.length,days=data.reduce((s,r)=>s+r.days,0);
+  const avg=tot?(days/tot).toFixed(1).replace(".",","):"0,0";
+  const set=el=>({t,v})=>{const x=af2El(el);if(x)x.textContent=v};
+  if(af2El("af2KR"))af2El("af2KR").textContent=tot;
+  if(af2El("af2KL"))af2El("af2KL").textContent=data.filter(r=>r.start&&r.end).length;
+  if(af2El("af2KP"))af2El("af2KP").textContent=new Set(data.map(r=>r.id)).size;
+  if(af2El("af2KD"))af2El("af2KD").textContent=days;
+  if(af2El("af2KA"))af2El("af2KA").textContent=avg;
+}
+
+function af2Ranges(data){
+  const cnt=Object.fromEntries(AF2_RANGES.map(k=>[k,0]));
+  data.forEach(r=>cnt[af2RangeOf(r.days)]++);
+  const tot=data.length||1;
+  const pct=AF2_RANGES.map(k=>cnt[k]/tot*100);
+  let acc=0;const stops=pct.map(v=>{acc+=v;return acc});
+  const dn=af2El("af2Donut");
+  if(dn)dn.style.background="conic-gradient("+
+    AF2_COLORS[0]+" 0 "+stops[0].toFixed(2)+"%, "+
+    AF2_COLORS[1]+" "+stops[0].toFixed(2)+"% "+stops[1].toFixed(2)+"%, "+
+    AF2_COLORS[2]+" "+stops[1].toFixed(2)+"% "+stops[2].toFixed(2)+"%, "+
+    AF2_COLORS[3]+" "+stops[2].toFixed(2)+"% "+stops[3].toFixed(2)+"%, "+
+    AF2_COLORS[4]+" "+stops[3].toFixed(2)+"% 100%)";
+  const dt=af2El("af2DT");if(dt)dt.textContent=data.length;
+  const rt=af2El("af2RT");if(rt)rt.textContent=data.length+" ocorrências";
+  const leg=af2El("af2Leg");
+  if(leg)leg.innerHTML=AF2_RANGES.map((k,i)=>
+    '<div class="af2-lr"><i style="background:'+AF2_COLORS[i]+'"></i>'+
+    '<span>'+k+'</span><strong>'+cnt[k]+
+    ' &middot; '+(data.length?Math.round(cnt[k]/data.length*100):0)+'%</strong></div>').join("");
+}
+
+function af2Depts(data){
+  const map={};
+  data.forEach(r=>{const k=af2TitleCase(r.department||"");map[k]=(map[k]||0)+1});
+  const rows=Object.entries(map).sort((a,b)=>b[1]-a[1]).slice(0,10);
+  const max=rows[0]?.[1]||1;
+  const el=af2El("af2DeptBars");
+  if(!el)return;
+  el.innerHTML=rows.length?rows.map(([n,v])=>
+    '<div class="af2-br"><div class="af2-bm"><span title="'+n+'">'+n+'</span>'+
+    '<strong>'+v+'</strong></div>'+
+    '<div class="af2-bt"><div class="af2-bf" style="width:'+(v/max*100).toFixed(1)+'%"></div></div>'+
+    '</div>').join(""):'<p style="color:#888;font-size:12px;padding:8px 0">Sem dados</p>';
+}
+
+function af2Types(data){
+  const map={};data.forEach(r=>map[r.type]=(map[r.type]||0)+1);
+  const el=af2El("af2Types");if(!el)return;
+  el.innerHTML=Object.entries(map).sort((a,b)=>b[1]-a[1]).map(([k,v])=>
+    '<div class="af2-ti"><div class="af2-tico">'+(AF2_ICONS[k]||"•")+'</div>'+
+    '<span>'+k+'</span><strong>'+v+'</strong></div>').join("")||
+    '<p style="color:#888;font-size:12px">Sem dados</p>';
+}
+
+function af2Trend(data){
+  const MN=["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"];
+  const vals=Array(12).fill(0);
+  data.forEach(r=>{if(r.date)vals[+r.date.slice(5,7)-1]++});
+  const yr=af2El("af2Year")?.value||new Date().getFullYear().toString();
+  const ty=af2El("af2TY");if(ty)ty.textContent=yr;
+  const W=580,H=210,pl=14,pr=12,pt=16,pb=30;
+  const max=Math.max(3,...vals);
+  const xf=i=>pl+i*((W-pl-pr)/11);
+  const yf=v=>H-pb-v*((H-pt-pb)/max);
+  const pts=vals.map((v,i)=>xf(i)+","+yf(v)).join(" ");
+  const aPts=pl+","+(H-pb)+" "+pts+" "+xf(11)+","+(H-pb);
+  const dots=vals.map((v,i)=>
+    '<circle class="af2-dot" cx="'+xf(i)+'" cy="'+yf(v)+'" r="4"/>'+
+    (v?'<text class="af2-vl" x="'+xf(i)+'" y="'+(yf(v)-9)+'" text-anchor="middle">'+v+'</text>':"")
+  ).join("");
+  const lbls=MN.map((m,i)=>'<text class="af2-al" x="'+xf(i)+'" y="'+(H-7)+'" text-anchor="middle">'+m+'</text>').join("");
+  const el=af2El("af2Trend");if(!el)return;
+  el.innerHTML='<svg class="af2-svg" viewBox="0 0 '+W+' '+H+'" preserveAspectRatio="none">'+
+    '<defs><linearGradient id="af2Grad" x1="0" y1="0" x2="0" y2="1">'+
+    '<stop offset="0%" stop-color="#d5001c" stop-opacity=".22"/>'+
+    '<stop offset="100%" stop-color="#d5001c" stop-opacity=".02"/></linearGradient></defs>'+
+    '<polygon class="af2-area" points="'+aPts+'"/>'+
+    '<polyline class="af2-line" points="'+pts+'"/>'+dots+lbls+'</svg>';
+}
+
+function af2Critical(data){
+  const map={};
+  data.filter(r=>r.days>=8).forEach(r=>{
+    const k=af2TitleCase(r.department||"");
+    if(!map[k])map[k]={occ:0,days:0};
+    map[k].occ++;map[k].days+=r.days;
+  });
+  const rows=Object.entries(map).sort((a,b)=>b[1].days-a[1].days);
+  const max=rows[0]?.[1].days||1;
+  const el=af2El("af2Crit");if(!el)return;
+  el.innerHTML=rows.length?rows.map(([n,v])=>
+    '<div class="af2-br"><div class="af2-bm"><span title="'+n+'">'+n+'</span>'+
+    '<strong>'+v.days+' dias &middot; '+v.occ+' ocorr.</strong></div>'+
+    '<div class="af2-bt"><div class="af2-bf" style="width:'+(v.days/max*100).toFixed(1)+
+    '%;background:linear-gradient(90deg,#17191d,#d5001c)"></div></div></div>').join(""):
+    '<p style="color:#888;font-size:12px;padding:8px 0">Nenhum afastamento crítico no recorte.</p>';
+}
+
+function af2Render(){
+  const d=af2Filtered();
+  af2KPIs(d);af2Ranges(d);af2Depts(d);af2Types(d);af2Trend(d);af2Critical(d);
+}
+
+function af2Reset(){
+  ["af2Company","af2Dept","af2Type","af2Year","af2Range"].forEach(id=>{
+    const el=af2El(id);if(el)el.value="";});
+  af2Render();
+}
+
+af2Setup();af2Render();
+"""
+
+    return (
+        f"<script>const af2Records={records_js};</script>"
+        + css + html_main
+        + "<script>" + js_code + "</script>"
+    )
+
+
+
+
 @router.get("/indicadores/afastamentos")
 def afastamentos_indicador(
     request: Request,
@@ -3311,7 +3812,6 @@ def afastamentos_indicador(
     ano: str = "",
 ):
     from app.database import engine as _eng
-    from collections import Counter
 
     with _eng.connect() as conn:
         rows_raw = conn.execute(
@@ -3345,50 +3845,8 @@ def afastamentos_indicador(
             "mes_nome":                _MESES_PT_AFAS[data_at.month - 1] if data_at else "",
         })
 
-    empresas      = sorted({r["empresa"]       for r in rows if r["empresa"]})
-    departamentos = sorted({r["departamento"]  for r in rows if r["departamento"]})
-    tipos         = sorted({r["tipo_atestado"] for r in rows if r["tipo_atestado"]})
-    anos          = sorted({r["ano"]           for r in rows if r["ano"]}, reverse=True)
-
-    filtered = rows
-    if empresa:
-        filtered = [r for r in filtered if r["empresa"] == empresa]
-    if departamento:
-        filtered = [r for r in filtered if r["departamento"] == departamento]
-    if tipo:
-        filtered = [r for r in filtered if r["tipo_atestado"] == tipo]
-    if ano:
-        filtered = [r for r in filtered if r["ano"] == ano]
-
-    total           = len(filtered)
-    com_afas        = [r for r in filtered if r["data_inicio_afastamento"]]
-    colab_unicos    = len({r["nome_colaborador"] for r in com_afas})
-    total_dias      = sum(r["dias"] for r in com_afas if r["dias"] is not None)
-    media_dias      = round(total_dias / len(com_afas), 1) if com_afas else 0
-
-    por_tipo  = dict(Counter(r["tipo_atestado"] for r in filtered).most_common())
-    por_depto = dict(Counter(r["departamento"]  for r in filtered).most_common(10))
-    max_tipo  = max(por_tipo.values(),  default=1)
-    max_depto = max(por_depto.values(), default=1)
-
+    dash_html = _build_afastamentos_html(rows)
     return templates.TemplateResponse("indicadores/afastamentos.html", {
-        "request":        request,
-        "rows":           filtered,
-        "total":          total,
-        "com_afas":       len(com_afas),
-        "colab_unicos":   colab_unicos,
-        "total_dias":     total_dias,
-        "media_dias":     media_dias,
-        "por_tipo":       por_tipo,
-        "por_depto":      por_depto,
-        "max_tipo":       max_tipo,
-        "max_depto":      max_depto,
-        "empresas":       empresas,
-        "departamentos":  departamentos,
-        "tipos":          tipos,
-        "anos":           anos,
-        "empresa_sel":    empresa,
-        "dep_sel":        departamento,
-        "tipo_sel":       tipo,
-        "ano_sel":        ano,
+        "request":   request,
+        "dash_html": dash_html,
     })
