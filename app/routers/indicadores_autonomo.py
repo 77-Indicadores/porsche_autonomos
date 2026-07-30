@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, Request
 from sqlalchemy.orm import Session, joinedload
 
 from app.database import get_db
-from app.models import FatoPilotoAutonomoProva
+from app.models import FatoPilotoAutonomoProva, DimProva
 from app.template_config import templates
 
 router = APIRouter(tags=["indicadores_autonomo"])
@@ -21,6 +21,7 @@ def _fetch(db: Session) -> str:
             joinedload(FatoPilotoAutonomoProva.piloto),
             joinedload(FatoPilotoAutonomoProva.etapa),
             joinedload(FatoPilotoAutonomoProva.carro),
+            joinedload(FatoPilotoAutonomoProva.prova).joinedload(DimProva.tipo_prova),
         )
         .all()
     )
@@ -45,7 +46,7 @@ def _fetch(db: Session) -> str:
             "piloto":     pil.nome_piloto   if pil else "",
             "piloto_id":  f.id_piloto,
             "carro_id":   f.id_carro or 0,
-            "categoria":  (car.categoria_padrao or "") if car else "",
+            "categoria":  (f.prova.tipo_prova.nome_tipo_prova if f.prova and f.prova.tipo_prova else None) or (car.categoria_padrao if car else "") or "",
             "valor":      float(f.valor_fechado_etapa or 0),
             "dias":       f.dias_trabalhados or 0,
             "status":     str(f.status_pagamento or ""),
@@ -65,16 +66,18 @@ def _build_geral(records_js: str) -> str:
 .acg .acg-hero{margin-bottom:20px}
 .acg .acg-hero h2{margin:0;font-size:26px;font-weight:900;letter-spacing:-.03em}
 .acg .acg-hero p{margin:6px 0 0;color:#70747c;font-size:13px}
-.acg .acg-filt{display:flex;gap:12px;flex-wrap:wrap;align-items:center;
-  padding:14px 16px;margin-bottom:18px;background:#fff;
-  border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow)}
-.acg .acg-filt label{font-size:11px;font-weight:800;color:#777;text-transform:uppercase;
-  letter-spacing:.07em;margin-right:6px}
-.acg .acg-filt select{height:38px;padding:0 32px 0 10px;border:1px solid var(--line);
-  border-radius:10px;background:#fafafa;color:#2a2e34;appearance:none;
-  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24'%3E%3Cpath fill='%23777' d='M7 10l5 5 5-5z'/%3E%3C/svg%3E");
-  background-repeat:no-repeat;background-position:right 8px center}
-.acg .acg-filt select:focus{outline:none;border-color:#aaa;background-color:#fff}
+.acg .acg-filt{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:18px}
+.acg .acg-fi{position:relative;display:flex;flex-direction:column;gap:3px;
+  padding:8px 36px 8px 12px;border:1px solid var(--line);border-radius:12px;
+  background:#fff;box-shadow:0 2px 8px rgba(12,16,24,.06);min-width:130px}
+.acg .acg-fi::after{content:"";position:absolute;right:10px;top:50%;
+  transform:translateY(-50%);width:16px;height:16px;pointer-events:none;
+  background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='%23888' d='M7 10l5 5 5-5z'/%3E%3C/svg%3E") no-repeat center/contain}
+.acg .acg-fi-lbl{font-size:10px;font-weight:800;color:#9ca3af;
+  text-transform:uppercase;letter-spacing:.07em;line-height:1;pointer-events:none}
+.acg .acg-fi-sel{border:none;outline:none;background:transparent;
+  font-size:14px;font-weight:600;color:#16181c;appearance:none;
+  cursor:pointer;padding:0;line-height:1.3;width:100%}
 .acg .acg-kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));
   gap:14px;margin-bottom:18px}
 .acg .acg-kpi{position:relative;overflow:hidden;padding:18px;background:#fff;
@@ -141,10 +144,14 @@ def _build_geral(records_js: str) -> str:
   <p>Investimento total, médias e ranking por piloto</p>
 </div>
 <div class="acg-filt">
-  <label>Temporada</label>
-  <select id="acgYear"></select>
-  <label style="margin-left:8px">Categoria</label>
-  <select id="acgCat"></select>
+  <div class="acg-fi">
+    <span class="acg-fi-lbl">Temporada</span>
+    <select class="acg-fi-sel" id="acgYear"></select>
+  </div>
+  <div class="acg-fi">
+    <span class="acg-fi-lbl">Categoria</span>
+    <select class="acg-fi-sel" id="acgCat"></select>
+  </div>
 </div>
 <section class="acg-kpis">
   <article class="acg-kpi" style="--kc:#d5001c;--ks:rgba(213,0,28,.08)">
@@ -294,16 +301,18 @@ def _build_evolucao(records_js: str) -> str:
 .ace .ace-hero{margin-bottom:20px}
 .ace .ace-hero h2{margin:0;font-size:26px;font-weight:900;letter-spacing:-.03em}
 .ace .ace-hero p{margin:6px 0 0;color:#70747c;font-size:13px}
-.ace .ace-filt{display:flex;gap:12px;flex-wrap:wrap;align-items:center;
-  padding:14px 16px;margin-bottom:18px;background:#fff;
-  border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow)}
-.ace .ace-filt label{font-size:11px;font-weight:800;color:#777;
-  text-transform:uppercase;letter-spacing:.07em;margin-right:6px}
-.ace .ace-filt select{height:38px;padding:0 32px 0 10px;border:1px solid var(--line);
-  border-radius:10px;background:#fafafa;color:#2a2e34;appearance:none;
-  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24'%3E%3Cpath fill='%23777' d='M7 10l5 5 5-5z'/%3E%3C/svg%3E");
-  background-repeat:no-repeat;background-position:right 8px center}
-.ace .ace-filt select:focus{outline:none;border-color:#aaa;background-color:#fff}
+.ace .ace-filt{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:18px}
+.ace .ace-fi{position:relative;display:flex;flex-direction:column;gap:3px;
+  padding:8px 36px 8px 12px;border:1px solid var(--line);border-radius:12px;
+  background:#fff;box-shadow:0 2px 8px rgba(12,16,24,.06);min-width:130px}
+.ace .ace-fi::after{content:"";position:absolute;right:10px;top:50%;
+  transform:translateY(-50%);width:16px;height:16px;pointer-events:none;
+  background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='%23888' d='M7 10l5 5 5-5z'/%3E%3C/svg%3E") no-repeat center/contain}
+.ace .ace-fi-lbl{font-size:10px;font-weight:800;color:#9ca3af;
+  text-transform:uppercase;letter-spacing:.07em;line-height:1;pointer-events:none}
+.ace .ace-fi-sel{border:none;outline:none;background:transparent;
+  font-size:14px;font-weight:600;color:#16181c;appearance:none;
+  cursor:pointer;padding:0;line-height:1.3;width:100%}
 .ace .ace-comp{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));
   gap:14px;margin-bottom:18px}
 .ace .ace-kpi{padding:18px;background:#fff;border:1px solid var(--line);
@@ -338,8 +347,10 @@ def _build_evolucao(records_js: str) -> str:
   <p>Comparativo de custo médio por carro entre temporadas</p>
 </div>
 <div class="ace-filt">
-  <label>Categoria</label>
-  <select id="aceCat"></select>
+  <div class="ace-fi">
+    <span class="ace-fi-lbl">Categoria</span>
+    <select class="ace-fi-sel" id="aceCat"></select>
+  </div>
 </div>
 <div class="ace-comp">
   <div class="ace-kpi">
@@ -474,16 +485,18 @@ def _build_pagamentos(records_js: str) -> str:
 .acp .acp-hero{margin-bottom:20px}
 .acp .acp-hero h2{margin:0;font-size:26px;font-weight:900;letter-spacing:-.03em}
 .acp .acp-hero p{margin:6px 0 0;color:#70747c;font-size:13px}
-.acp .acp-filt{display:flex;gap:12px;flex-wrap:wrap;align-items:center;
-  padding:14px 16px;margin-bottom:18px;background:#fff;
-  border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow)}
-.acp .acp-filt label{font-size:11px;font-weight:800;color:#777;
-  text-transform:uppercase;letter-spacing:.07em;margin-right:6px}
-.acp .acp-filt select{height:38px;padding:0 32px 0 10px;border:1px solid var(--line);
-  border-radius:10px;background:#fafafa;color:#2a2e34;appearance:none;
-  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24'%3E%3Cpath fill='%23777' d='M7 10l5 5 5-5z'/%3E%3C/svg%3E");
-  background-repeat:no-repeat;background-position:right 8px center}
-.acp .acp-filt select:focus{outline:none;border-color:#aaa;background-color:#fff}
+.acp .acp-filt{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:18px}
+.acp .acp-fi{position:relative;display:flex;flex-direction:column;gap:3px;
+  padding:8px 36px 8px 12px;border:1px solid var(--line);border-radius:12px;
+  background:#fff;box-shadow:0 2px 8px rgba(12,16,24,.06);min-width:130px}
+.acp .acp-fi::after{content:"";position:absolute;right:10px;top:50%;
+  transform:translateY(-50%);width:16px;height:16px;pointer-events:none;
+  background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='%23888' d='M7 10l5 5 5-5z'/%3E%3C/svg%3E") no-repeat center/contain}
+.acp .acp-fi-lbl{font-size:10px;font-weight:800;color:#9ca3af;
+  text-transform:uppercase;letter-spacing:.07em;line-height:1;pointer-events:none}
+.acp .acp-fi-sel{border:none;outline:none;background:transparent;
+  font-size:14px;font-weight:600;color:#16181c;appearance:none;
+  cursor:pointer;padding:0;line-height:1.3;width:100%}
 .acp .acp-kpis{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));
   gap:14px;margin-bottom:18px}
 .acp .acp-kpi{padding:18px;background:#fff;border:1px solid var(--line);
@@ -552,10 +565,14 @@ def _build_pagamentos(records_js: str) -> str:
   <p>Status, formas de pagamento e pendências</p>
 </div>
 <div class="acp-filt">
-  <label>Temporada</label>
-  <select id="acpYear"></select>
-  <label style="margin-left:8px">Categoria</label>
-  <select id="acpCat"></select>
+  <div class="acp-fi">
+    <span class="acp-fi-lbl">Temporada</span>
+    <select class="acp-fi-sel" id="acpYear"></select>
+  </div>
+  <div class="acp-fi">
+    <span class="acp-fi-lbl">Categoria</span>
+    <select class="acp-fi-sel" id="acpCat"></select>
+  </div>
 </div>
 <section class="acp-kpis">
   <div class="acp-kpi">
