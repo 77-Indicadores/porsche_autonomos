@@ -55,7 +55,17 @@
       <input class="input" name="custo_total" id="custo_total" placeholder="Ex.: 4545,00">
     </div>
 
-    <div class="span-3">
+    <div>
+      <label class="label">Tipo de documento</label>
+      <select class="input" name="tipo_documento" id="tipo_documento">
+        <option value="">— Não informado —</option>
+        <option value="Nota Fiscal">Nota Fiscal</option>
+        <option value="RPA">RPA</option>
+        <option value="Recibo">Recibo</option>
+      </select>
+    </div>
+
+    <div class="span-2">
       <label class="label">Observações</label>
       <input class="input" name="observacoes" id="observacoes" placeholder="Opcional">
     </div>
@@ -80,6 +90,7 @@
           <th>Nome / Função</th>
           <th>Qtd.</th>
           <th>Custo Total</th>
+          <th>Documento</th>
           <th>Etapa</th>
           <th>Categoria</th>
           <th>Observações</th>
@@ -98,6 +109,7 @@
               R$ {{ "{:,.2f}".format(e.custo_total).replace(",","X").replace(".","," ).replace("X",".") }}
             {% else %}—{% endif %}
           </td>
+          <td>{{ e.tipo_documento or "—" }}</td>
           <td>
             {% for et in etapas %}{% if et.id_etapa == e.id_etapa %}{{ et.nome_etapa }}{% endif %}{% endfor %}
             {% if not e.id_etapa %}—{% endif %}
@@ -118,6 +130,7 @@
               data-etapa="{{ e.id_etapa or '' }}"
               data-prova="{{ e.id_prova or '' }}"
               data-custo="{{ e.custo_total or '' }}"
+              data-doc="{{ e.tipo_documento or '' }}"
               data-obs="{{ e.observacoes or '' }}"
             >Editar</button>
 
@@ -128,7 +141,7 @@
         </tr>
         {% else %}
         <tr>
-          <td colspan="8" class="empty">Nenhuma equipe cadastrada.</td>
+          <td colspan="9" class="empty">Nenhuma equipe cadastrada.</td>
         </tr>
         {% endfor %}
       </tbody>
@@ -184,6 +197,7 @@ function editarEquipe(btn) {
   setValue("id_etapa",        d.etapa);
   filtrarProvas(d.etapa, d.prova);
   setValue("custo_total",     d.custo ? String(d.custo).replace(".", ",") : "");
+  setValue("tipo_documento",  d.doc || "");
   setValue("observacoes",     d.obs);
 
   const titulo = document.getElementById("titulo-form-equipe");

@@ -38,6 +38,7 @@ equipe_geral = Table(
     Column("nome_equipe", String(160), nullable=False),
     Column("qtd_pessoas", Float, nullable=False, default=1),
     Column("custo_total", Float, nullable=True),
+    Column("tipo_documento", String(40), nullable=True),
     Column("observacoes", Text),
     Column("criado_em", DateTime, default=datetime.utcnow),
     Column("atualizado_em", DateTime, default=datetime.utcnow),
@@ -76,10 +77,17 @@ def garantir_schema():
                     ALTER COLUMN observacoes TYPE TEXT
                 """))
 
+                conn.execute(text("""
+                    ALTER TABLE IF EXISTS equipe_geral
+                    ADD COLUMN IF NOT EXISTS tipo_documento VARCHAR(40)
+                """))
+
             elif dialect == "sqlite":
                 cols = [row[1] for row in conn.execute(text("PRAGMA table_info(equipe_geral)")).fetchall()]
                 if "qtd_pessoas" not in cols:
                     conn.execute(text("ALTER TABLE equipe_geral ADD COLUMN qtd_pessoas REAL DEFAULT 1"))
+                if "tipo_documento" not in cols:
+                    conn.execute(text("ALTER TABLE equipe_geral ADD COLUMN tipo_documento TEXT"))
 
     except Exception as exc:
         print(f"AVISO - não consegui ajustar schema equipe_geral: {exc}")
@@ -131,6 +139,7 @@ def salvar_equipe(
     id_prova: str = Form(""),
     qtd_pessoas: str = Form("1"),
     custo_total: str = Form(""),
+    tipo_documento: str = Form(""),
     observacoes: str = Form(""),
     db: Session = Depends(get_db),
 ):
@@ -156,6 +165,7 @@ def salvar_equipe(
         "id_prova": _parse_int(id_prova),
         "qtd_pessoas": _parse_float(qtd_pessoas) or 1,
         "custo_total": _parse_float(custo_total),
+        "tipo_documento": str(tipo_documento or "").strip() or None,
         "observacoes": str(observacoes or "").strip(),
         "atualizado_em": datetime.utcnow(),
     }
