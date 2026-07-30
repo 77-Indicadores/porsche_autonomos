@@ -400,6 +400,20 @@ except Exception as exc:
     print(traceback.format_exc())
 
 # ============================================================
+# Router Indicadores Autônomos (custo)
+# ============================================================
+try:
+    import importlib
+    indicadores_autonomo_runtime = importlib.import_module("app.routers.indicadores_autonomo")
+    app.include_router(indicadores_autonomo_runtime.router)
+    print("OK - Router indicadores_autonomo registrado.")
+except Exception as exc:
+    import traceback
+    print("ERRO AO REGISTRAR indicadores_autonomo")
+    print(exc)
+    print(traceback.format_exc())
+
+# ============================================================
 # Router Atestados Médicos (deve vir ANTES de folha_pagamento
 # para que /folha/atestados não seja capturado por /folha/{id_arquivo})
 # ============================================================

@@ -60,6 +60,10 @@
         <div class="nav-subsection-title">DHO</div>
         <a class="nav-link {% if request.url.path == '/indicadores/treinamentos' %}active{% endif %}" href="/indicadores/treinamentos">🎓 Treinamentos</a>
         <a class="nav-link {% if request.url.path == '/indicadores/vagas' %}active{% endif %}" href="/indicadores/vagas">💼 Vagas</a>
+        <div class="nav-subsection-title">Autônomos</div>
+        <a class="nav-link {% if request.url.path == '/indicadores/autonomo-custo' %}active{% endif %}" href="/indicadores/autonomo-custo">🏎️ Custo · Visão Geral</a>
+        <a class="nav-link {% if request.url.path == '/indicadores/autonomo-custo-evolucao' %}active{% endif %}" href="/indicadores/autonomo-custo-evolucao">📈 Custo · Evolução</a>
+        <a class="nav-link {% if request.url.path == '/indicadores/autonomo-custo-pagamentos' %}active{% endif %}" href="/indicadores/autonomo-custo-pagamentos">💳 Custo · Pagamentos</a>
       </div>
 
       {% elif request.url.path.startswith('/facilities') %}
