@@ -156,6 +156,11 @@ def troca_etapas_index(request: Request, db: Session = Depends(get_db)):
                 ids_piloto_nao_correu.add(f.id_fato)
             else:
                 subs = substitutos_map.get((f.id_piloto, f.id_carro, nome, f.funcao_autonomo or ""), [])
+                if not subs:
+                    # Fallback: funcao_autonomo pode diferir entre etapas — ignora a função
+                    for (pid, cid, pnome, _fn), names in substitutos_map.items():
+                        if pid == f.id_piloto and cid == f.id_carro and pnome == nome:
+                            subs = subs + names
                 if subs:
                     substitutos[f.id_fato] = subs
 
