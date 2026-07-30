@@ -507,13 +507,13 @@ def motivos_troca(request: Request, db: Session = Depends(get_db)):
 def salvar_motivo(
     request: Request,
     id_motivo_troca: str = Form(""),
-    current_id_motivo_troca: str = "",
+    current_id_motivo_troca: str = Form(""),
     motivo_troca: str = Form(...),
     descricao: str = Form(""),
     status: str = Form("Ativo"),
     db: Session = Depends(get_db),
 ):
-    current_id_motivo_troca = (current_id_motivo_troca or request.query_params.get("current_id_motivo_troca", "")).strip()
+    current_id_motivo_troca = current_id_motivo_troca.strip()
     motivo = db.get(DimMotivoTroca, int(current_id_motivo_troca or id_motivo_troca)) if (current_id_motivo_troca or id_motivo_troca) else DimMotivoTroca()
     try:
         aplicar_id_manual(db, motivo, DimMotivoTroca, "id_motivo_troca", id_motivo_troca, current_id_motivo_troca)

@@ -3,11 +3,7 @@
 {% block header %}Motivos de Troca
 <script>
 function novoCadastro() {
-  const form = document.querySelector("form[method='post']");
-  if (form) form.action = "/motivos-troca";
-  form?.reset();
-
-
+  limparMotivo();
   window.scrollTo({ top: 0, behavior: "smooth" });
 }
 </script>
@@ -32,7 +28,8 @@ function novoCadastro() {
     <button class="btn-muted" type="button" onclick="limparMotivo()">Novo</button>
   </div>
 
-  <form method="post" class="form-grid">
+  <form method="post" action="/motivos-troca" class="form-grid">
+    <input type="hidden" name="current_id_motivo_troca" id="current_id_motivo_troca" value="">
 
     <div>
       <label class="label">Motivo</label>
@@ -110,14 +107,9 @@ function editarMotivo(btn) {
   document.getElementById("motivo_troca").value = btn.dataset.motivo || "";
   document.getElementById("status").value = btn.dataset.status || "Ativo";
   document.getElementById("descricao").value = btn.dataset.descricao || "";
+  document.getElementById("current_id_motivo_troca").value = btn.dataset.id || "";
   document.getElementById("form-title").innerText = "Editar motivo de troca";
   document.getElementById("btn-salvar").innerText = "Atualizar motivo";
-
-  const form = document.querySelector("form[method='post']");
-  if (form && btn.dataset.id) {
-    form.action = "/motivos-troca?" + "current_id_motivo_troca=" + encodeURIComponent(btn.dataset.id);
-  }
-
   window.scrollTo({ top: 0, behavior: "smooth" });
 }
 
@@ -125,6 +117,7 @@ function limparMotivo() {
   document.getElementById("motivo_troca").value = "";
   document.getElementById("status").value = "Ativo";
   document.getElementById("descricao").value = "";
+  document.getElementById("current_id_motivo_troca").value = "";
   document.getElementById("form-title").innerText = "Novo motivo de troca";
   document.getElementById("btn-salvar").innerText = "Salvar motivo";
 }
