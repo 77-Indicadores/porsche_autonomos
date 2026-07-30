@@ -829,9 +829,10 @@ function evBarChart(d){
     const v1=map1[et]||0,v2=map2[et]||0;
     const x1=(cx-bw-2).toFixed(1),x2=(cx+2).toFixed(1);
     const bwS=bw.toFixed(1);
-    if(v1){const h=(v1/maxV*(H-pT-pB)).toFixed(1);bars+='<rect x="'+x1+'" y="'+yS(v1).toFixed(1)+'" width="'+bwS+'" height="'+h+'" rx="4" fill="#aeb5c1"/>';}
-    if(v2){const h=(v2/maxV*(H-pT-pB)).toFixed(1);bars+='<rect x="'+x2+'" y="'+yS(v2).toFixed(1)+'" width="'+bwS+'" height="'+h+'" rx="4" fill="#d71920"/>';}
-    if(v2)lbls+='<text x="'+(+x2+bw/2).toFixed(1)+'" y="'+(yS(v2)-4).toFixed(1)+'" text-anchor="middle" class="blbl">'+fmt(v2)+'</text>';
+    if(v1){const h=(v1/maxV*(H-pT-pB)).toFixed(1);bars+='<rect x="'+x1+'" y="'+yS(v1).toFixed(1)+'" width="'+bwS+'" height="'+h+'" rx="4" fill="#aeb5c1"/>';
+      lbls+='<text x="'+(+x1+bw/2).toFixed(1)+'" y="'+(yS(v1)-4).toFixed(1)+'" text-anchor="middle" class="blbl">'+fmt(v1)+'</text>';}
+    if(v2){const h=(v2/maxV*(H-pT-pB)).toFixed(1);bars+='<rect x="'+x2+'" y="'+yS(v2).toFixed(1)+'" width="'+bwS+'" height="'+h+'" rx="4" fill="#d71920"/>';
+      lbls+='<text x="'+(+x2+bw/2).toFixed(1)+'" y="'+(yS(v2)-4).toFixed(1)+'" text-anchor="middle" class="blbl">'+fmt(v2)+'</text>';}
     const sn=et.replace(/^\d+ET\d+\s*[-–]\s*/,"").slice(0,9);
     xl+='<text x="'+cx.toFixed(1)+'" y="'+(H-6)+'" text-anchor="middle">'+sn+'</text>';
   });
@@ -901,7 +902,7 @@ function evGridChart(d){
   const yS=v=>pT+(1-v/maxV)*(H-pT-pB);
   const yN=n=>pT+(1-n/maxN)*(H-pT-pB);
   const fmt=v=>v>=1000?Math.round(v/1000)+"k":Math.round(v).toString();
-  let grid="",bars="",line="",dots="",xl="";
+  let grid="",bars="",lbls="",line="",dots="",xl="";
   for(let i=0;i<=3;i++){
     const v=maxV*i/3,y=yS(v).toFixed(1);
     grid+='<line x1="'+pL+'" y1="'+y+'" x2="'+(W-pR)+'" y2="'+y+'" stroke="#eef1f5"/>';
@@ -911,6 +912,7 @@ function evGridChart(d){
     const cx=pL+i*slotW+slotW/2,bx=(cx-bW/2).toFixed(1);
     const by=yS(r.val).toFixed(1),bh=Math.max(H-pB-yS(r.val),2).toFixed(1);
     bars+='<rect x="'+bx+'" y="'+by+'" width="'+bW.toFixed(1)+'" height="'+bh+'" rx="6" fill="#d71920"/>';
+    lbls+='<text x="'+cx.toFixed(1)+'" y="'+(yS(r.val)-4).toFixed(1)+'" text-anchor="middle" class="blbl">'+fmt(r.val)+'</text>';
     const ly=yN(r.n).toFixed(1);
     line+=(i===0?"M":"L")+cx.toFixed(1)+","+ly+" ";
     dots+='<circle cx="'+cx.toFixed(1)+'" cy="'+ly+'" r="3.5" fill="#fff" stroke="#7b61c9" stroke-width="2"/>';
@@ -918,7 +920,7 @@ function evGridChart(d){
     xl+='<text x="'+cx.toFixed(1)+'" y="'+(H-6)+'" text-anchor="middle">'+sn+'</text>';
   });
   wrap.innerHTML='<svg class="ev-svg" viewBox="0 0 '+W+' '+H+'" width="100%" style="min-width:'+Math.min(W,400)+'px;min-height:'+H+'px">'+
-    grid+'<line x1="'+pL+'" y1="'+pT+'" x2="'+pL+'" y2="'+(H-pB)+'" stroke="#e4e8ee"/>'+bars+
+    grid+'<line x1="'+pL+'" y1="'+pT+'" x2="'+pL+'" y2="'+(H-pB)+'" stroke="#e4e8ee"/>'+bars+lbls+
     '<polyline fill="none" stroke="#7b61c9" stroke-width="2.5" stroke-linejoin="round" points="'+line.trim()+'"/>'+dots+xl+'</svg>';
 }
 
@@ -1036,7 +1038,7 @@ def _build_pagamentos(records_js: str) -> str:
 .acp .acp-pend-head h3{margin:0;font-size:14px}
 .acp .acp-pend-list{background:#fff;border:1px solid var(--line);border-top:none;
   border-radius:0 0 var(--radius) var(--radius);overflow:hidden}
-.acp .acp-pend-row{display:grid;grid-template-columns:minmax(0,1fr) 120px 110px;
+.acp .acp-pend-row{display:grid;grid-template-columns:minmax(0,1fr) 120px;
   gap:10px;padding:11px 18px;font-size:12px;border-bottom:1px solid #f0f1f3}
 .acp .acp-pend-row:last-child{border-bottom:none}
 .acp .acp-pend-row.hdr{background:#f8f9fa;font-weight:800;font-size:10px;
@@ -1109,7 +1111,7 @@ def _build_pagamentos(records_js: str) -> str:
   </div>
   <div class="acp-pend-list">
     <div class="acp-pend-row hdr">
-      <span>Autônomo</span><span>Valor</span><span>Status</span>
+      <span>Autônomo</span><span>Valor</span>
     </div>
     <div id="acpPendRows"></div>
   </div>
@@ -1195,8 +1197,7 @@ function acpRender(){
   if(pr2)pr2.innerHTML=pendRows.length?pendRows.map(([n,v])=>{
     const stClass=v.status==="Pendente"?"acp-st-pend":v.status==="Pago"?"acp-st-pago":"acp-st-sem";
     return'<div class="acp-pend-row"><span title="'+n+'">'+n+'</span>'+
-      '<strong>'+acpFmt(v.valor)+'</strong>'+
-      '<span class="acp-status '+stClass+'">'+v.status+'</span></div>';}).join(""):
+      '<strong>'+acpFmt(v.valor)+'</strong></div>';}).join(""):
     '<div class="acp-pend-row" style="color:#888;font-size:12px;padding:16px 18px">Nenhum pagamento pendente.</div>';
 }
 acpSetup();acpRender();
@@ -1288,13 +1289,13 @@ def _fetch_planejamento(db: Session) -> str:
     # Expected composition per etapa/carro/cargo
     try:
         comp_rows = db.execute(_text("""
-            SELECT cp.id_etapa, cp.id_carro, cp.id_cargo, cp.qtd_esperada,
+            SELECT cp.id_etapa, cp.id_carro, cp.id_cargo_autonomo, cp.qtd_esperada,
                    e.nome_etapa, e.data_inicio, e.data_fim, e.temporada,
                    ca.nome_cargo_autonomo,
                    c.numero_carro
             FROM composicao_padrao_equipe cp
             LEFT JOIN dim_etapas e ON e.id_etapa = cp.id_etapa
-            LEFT JOIN dim_cargos_autonomos ca ON ca.id_cargo_autonomo = cp.id_cargo
+            LEFT JOIN dim_cargos_autonomos ca ON ca.id_cargo_autonomo = cp.id_cargo_autonomo
             LEFT JOIN dim_carros c ON c.id_carro = cp.id_carro
         """)).fetchall()
         composicao = [{"id_etapa": r[0], "id_carro": r[1], "id_cargo": r[2],
@@ -1307,13 +1308,14 @@ def _fetch_planejamento(db: Session) -> str:
     # Actual allocations aggregated per etapa/carro/cargo
     try:
         aloc_rows = db.execute(_text("""
-            SELECT f.id_etapa, f.id_carro, f.id_cargo_autonomo,
+            SELECT f.id_etapa, f.id_carro, da.id_cargo_autonomo,
                    COUNT(DISTINCT f.id_autonomo) as qtd_aloc,
                    e.nome_etapa, e.temporada
             FROM fato_piloto_autonomo_prova f
             LEFT JOIN dim_etapas e ON e.id_etapa = f.id_etapa
+            LEFT JOIN dim_autonomos da ON da.id_autonomo = f.id_autonomo
             WHERE f.id_carro IS NOT NULL
-            GROUP BY f.id_etapa, f.id_carro, f.id_cargo_autonomo
+            GROUP BY f.id_etapa, f.id_carro, da.id_cargo_autonomo, e.nome_etapa, e.temporada
         """)).fetchall()
         alocacoes = [{"id_etapa": r[0], "id_carro": r[1], "id_cargo": r[2],
                       "qtd_aloc": int(r[3] or 0), "etapa": r[4] or "",
@@ -1822,9 +1824,10 @@ def _fetch_trocas(db: Session) -> str:
         pass
     try:
         rows2 = db.execute(_text("""
-            SELECT id_etapa, id_autonomo, temporada
-            FROM fato_piloto_autonomo_prova
-            GROUP BY id_etapa, id_autonomo, temporada
+            SELECT f.id_etapa, f.id_autonomo, COALESCE(e.temporada, '') AS temporada
+            FROM fato_piloto_autonomo_prova f
+            LEFT JOIN dim_etapas e ON e.id_etapa = f.id_etapa
+            GROUP BY f.id_etapa, f.id_autonomo, e.temporada
         """)).fetchall()
         for r in rows2:
             continuidade.append({
@@ -2117,7 +2120,7 @@ function tr5KPIs(t){
   const aFilt=yr?A.filter(r=>r.temporada===yr):A;
   const totalAloc=new Set(aFilt.map(r=>r.aut_id)).size;
   const taxaSub=totalAloc?(totalSubs/totalAloc*100):0;
-  const mantPct=totalAloc&&totalSubs?((totalAloc-totalSubs)/totalAloc*100):0;
+  const mantPct=totalAloc?(totalSubs?((totalAloc-totalSubs)/totalAloc*100):100):0;
   // etapa transitions
   const etapas=[...new Set(A.map(r=>r.etapa_id))].sort();
   const mantidos=etapas.length>1?new Set(
