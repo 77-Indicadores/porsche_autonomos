@@ -1206,6 +1206,42 @@ acpSetup();acpRender();
             + "<script>" + js + "</script>")
 
 
+# ── Page combined – Custo (Evolução + Pagamentos) ─────────────────────────────
+
+def _build_custo(records_js: str, sede_js: str = "{}") -> str:
+    """Combines Evolução and Pagamentos into one tabbed page."""
+    ev = _build_evolucao(records_js, sede_js)
+    pag = _build_pagamentos(records_js)
+    tab_css = """<style>
+.custo-tabs-wrap *{box-sizing:border-box}
+.custo-tabs{display:flex;gap:4px;margin-bottom:16px;background:#fff;
+  border:1px solid #e3e7ee;border-radius:14px;padding:5px;
+  box-shadow:0 4px 14px rgba(24,32,44,.06)}
+.custo-tab{flex:1;padding:10px 16px;border:none;background:none;border-radius:10px;
+  font-size:13px;font-weight:700;color:#6f7886;cursor:pointer;transition:.18s;font-family:inherit}
+.custo-tab.active{background:#d71920;color:#fff;box-shadow:0 4px 14px rgba(215,25,32,.22)}
+.custo-tab:hover:not(.active){background:#f5f7fa;color:#18202c}
+.custo-pane{display:none}.custo-pane.active{display:block}
+</style>"""
+    tab_html = (
+        '<div class="custo-tabs-wrap">'
+        '<div class="custo-tabs">'
+        '<button class="custo-tab active" onclick="custoTab(0,this)">📈 Custos &amp; Comparativos</button>'
+        '<button class="custo-tab" onclick="custoTab(1,this)">💳 Pagamentos</button>'
+        '</div>'
+        '<div class="custo-pane active" id="custoPane0">' + ev + '</div>'
+        '<div class="custo-pane" id="custoPane1">' + pag + '</div>'
+        '</div>'
+    )
+    tab_js = """<script>
+function custoTab(idx,btn){
+  document.querySelectorAll('.custo-tab').forEach((b,i)=>b.classList.toggle('active',i===idx));
+  document.querySelectorAll('.custo-pane').forEach((p,i)=>p.classList.toggle('active',i===idx));
+}
+</script>"""
+    return tab_css + tab_html + tab_js
+
+
 # ── Routes ─────────────────────────────────────────────────────────────────────
 
 @router.get("/indicadores/autonomo-custo")
@@ -1230,7 +1266,7 @@ def autonomo_custo_evolucao(request: Request, db: Session = Depends(get_db)):
     try:
         rj = _fetch(db)
         sj = _fetch_sede(db)
-        dash_html = _build_evolucao(rj, sj)
+        dash_html = _build_custo(rj, sj)
     except Exception as exc:
         erro = f"Erro ao carregar dados: {exc}"
     return templates.TemplateResponse("indicadores/autonomo_custo_evolucao.html", {
@@ -1239,17 +1275,9 @@ def autonomo_custo_evolucao(request: Request, db: Session = Depends(get_db)):
 
 
 @router.get("/indicadores/autonomo-custo-pagamentos")
-def autonomo_custo_pagamentos(request: Request, db: Session = Depends(get_db)):
-    erro = None
-    dash_html = None
-    try:
-        rj = _fetch(db)
-        dash_html = _build_pagamentos(rj)
-    except Exception as exc:
-        erro = f"Erro ao carregar dados: {exc}"
-    return templates.TemplateResponse("indicadores/autonomo_custo_pagamentos.html", {
-        "request": request, "dash_html": dash_html, "erro": erro,
-    })
+def autonomo_custo_pagamentos(request: Request):
+    from fastapi.responses import RedirectResponse
+    return RedirectResponse("/indicadores/autonomo-custo-evolucao", status_code=301)
 
 
 # ── Page 4 – Planejamento e Cobertura ─────────────────────────────────────────

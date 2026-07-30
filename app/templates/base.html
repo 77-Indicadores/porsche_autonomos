@@ -61,9 +61,8 @@
         <a class="nav-link {% if request.url.path == '/indicadores/treinamentos' %}active{% endif %}" href="/indicadores/treinamentos">🎓 Treinamentos</a>
         <a class="nav-link {% if request.url.path == '/indicadores/vagas' %}active{% endif %}" href="/indicadores/vagas">💼 Vagas</a>
         <div class="nav-subsection-title">Autônomos</div>
-        <a class="nav-link {% if request.url.path == '/indicadores/autonomo-custo' %}active{% endif %}" href="/indicadores/autonomo-custo">🏎️ Custo · Visão Geral</a>
-        <a class="nav-link {% if request.url.path == '/indicadores/autonomo-custo-evolucao' %}active{% endif %}" href="/indicadores/autonomo-custo-evolucao">📈 Custo · Evolução</a>
-        <a class="nav-link {% if request.url.path == '/indicadores/autonomo-custo-pagamentos' %}active{% endif %}" href="/indicadores/autonomo-custo-pagamentos">💳 Custo · Pagamentos</a>
+        <a class="nav-link {% if request.url.path == '/indicadores/autonomo-custo' %}active{% endif %}" href="/indicadores/autonomo-custo">🏎️ Visão Geral</a>
+        <a class="nav-link {% if request.url.path == '/indicadores/autonomo-custo-evolucao' or request.url.path == '/indicadores/autonomo-custo-pagamentos' %}active{% endif %}" href="/indicadores/autonomo-custo-evolucao">💰 Custo</a>
         <a class="nav-link {% if request.url.path == '/indicadores/autonomo-disponibilidade' %}active{% endif %}" href="/indicadores/autonomo-disponibilidade">📋 Planejamento e Cobertura</a>
         <a class="nav-link {% if request.url.path == '/indicadores/autonomo-trocas' %}active{% endif %}" href="/indicadores/autonomo-trocas">↻ Trocas e Continuidade</a>
       </div>
