@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+
+{% block header %}Autônomos · Trocas e Continuidade{% endblock %}
+{% block subtitle %}Substituições, permanência da equipe, entradas, saídas e motivos de troca entre etapas{% endblock %}
+
+{% block content %}
+
+{% if erro %}
+<div class="alert alert-error mb-6">{{ erro }}</div>
+{% endif %}
+
+{% if dash_html %}
+{{ dash_html | safe }}
+{% elif not erro %}
+<section class="panel">
+  <p class="text-zinc-500">Nenhum dado encontrado.</p>
+</section>
+{% endif %}
+
+{% endblock %}

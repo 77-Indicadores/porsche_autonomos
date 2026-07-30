@@ -475,188 +475,495 @@ vgSetup();vgRender();
     )
 
 
-# ── Page 2 – Evolução & Comparativo ───────────────────────────────────────────
+# ── Page 2 – Custos & Comparativos ────────────────────────────────────────────
 
-def _build_evolucao(records_js: str) -> str:
+def _fetch_sede(db: Session) -> str:
+    """Fetch autonomo_sede_lancamentos totals for cost composition."""
+    from sqlalchemy import text as _text
+    try:
+        rows = db.execute(_text(
+            "SELECT temporada, SUM(valor_total) FROM autonomo_sede_lancamentos GROUP BY temporada"
+        )).fetchall()
+        by_year = {str(r[0]): float(r[1] or 0) for r in rows}
+    except Exception:
+        by_year = {}
+    return _json.dumps({"by_year": by_year, "total": sum(by_year.values())}, ensure_ascii=False)
+
+
+def _build_evolucao(records_js: str, sede_js: str = "{}") -> str:
     css = """<style>
-.ace{--red:#d5001c;--line:#e4e6e9;--shadow:0 10px 30px rgba(12,16,24,.08);
-  --radius:18px;font-family:Inter,ui-sans-serif,system-ui,sans-serif;color:#16181c}
-.ace button,.ace select{font:inherit;cursor:pointer}
-.ace .ace-hero{margin-bottom:20px}
-.ace .ace-hero h2{margin:0;font-size:26px;font-weight:900;letter-spacing:-.03em}
-.ace .ace-hero p{margin:6px 0 0;color:#70747c;font-size:13px}
-.ace .ace-filt{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:18px}
-.ace .ace-fi{position:relative;display:flex;flex-direction:column;gap:3px;
-  padding:8px 36px 8px 12px;border:1px solid var(--line);border-radius:12px;
-  background:#fff;box-shadow:0 2px 8px rgba(12,16,24,.06);min-width:130px}
-.ace .ace-fi::after{content:"";position:absolute;right:10px;top:50%;
-  transform:translateY(-50%);width:16px;height:16px;pointer-events:none;
-  background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='%23888' d='M7 10l5 5 5-5z'/%3E%3C/svg%3E") no-repeat center/contain}
-.ace .ace-fi-lbl{font-size:10px;font-weight:800;color:#9ca3af;
-  text-transform:uppercase;letter-spacing:.07em;line-height:1;pointer-events:none}
-.ace .ace-fi-sel{border:none;outline:none;background:transparent;
-  font-size:14px;font-weight:600;color:#16181c;appearance:none;
-  cursor:pointer;padding:0;line-height:1.3;width:100%}
-.ace .ace-comp{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));
-  gap:14px;margin-bottom:18px}
-.ace .ace-kpi{padding:18px;background:#fff;border:1px solid var(--line);
-  border-radius:var(--radius);box-shadow:var(--shadow);text-align:center}
-.ace .ace-kpi-val{font-size:24px;font-weight:900;letter-spacing:-.04em;
-  color:var(--kc,var(--red))}
-.ace .ace-kpi-lbl{margin-top:6px;color:#686d75;font-size:12px;font-weight:650}
-.ace .ace-kpi-sub{margin-top:4px;font-size:11px;color:#9ca3af}
-.ace .ace-card{background:#fff;border:1px solid var(--line);
-  border-radius:var(--radius);box-shadow:var(--shadow);margin-bottom:18px}
-.ace .ace-card-head{display:flex;align-items:flex-start;justify-content:space-between;
-  gap:10px;padding:16px 18px 10px}
-.ace .ace-card-head h3{margin:0;font-size:14px;letter-spacing:-.015em}
-.ace .ace-card-head p{margin:4px 0 0;color:#858990;font-size:11px}
-.ace .ace-badge{padding:6px 9px;border-radius:999px;color:#5f646c;
-  background:#f4f5f6;font-size:10px;font-weight:800;white-space:nowrap}
-.ace .ace-chart-wrap{padding:8px 18px 18px;overflow-x:auto}
-.ace .ace-svg{display:block;min-width:500px}
-.ace .ace-al{fill:#8a8e95;font-size:9px}
-.ace .ace-vl{fill:#292d32;font-size:9px;font-weight:800}
-.ace .ace-leg-row{display:flex;gap:16px;padding:0 18px 14px;flex-wrap:wrap}
-.ace .ace-leg-item{display:flex;align-items:center;gap:6px;font-size:11px;color:#545961}
-.ace .ace-leg-item i{width:12px;height:8px;border-radius:2px}
-@media(max-width:700px){
-  .ace .ace-comp{grid-template-columns:1fr 1fr}
-  .ace .ace-comp .ace-kpi:last-child{grid-column:1/-1}}
+.ev{--red:#d71920;--green:#15946c;--yellow:#e59a12;--muted:#6f7886;
+  --border:#e3e7ee;--shadow:0 8px 24px rgba(24,32,44,.07);--radius:16px;
+  font-family:Inter,ui-sans-serif,system-ui,sans-serif;color:#18202c}
+.ev *{box-sizing:border-box}
+.ev button,.ev select{font:inherit}
+.ev-filters{display:grid;grid-template-columns:repeat(4,minmax(120px,1fr)) 100px;
+  gap:10px;margin-bottom:14px}
+.ev-filter{background:#fff;border:1px solid var(--border);border-radius:12px;
+  padding:9px 11px;box-shadow:0 3px 10px rgba(24,32,44,.04)}
+.ev-filter label{display:block;font-size:9px;color:var(--muted);text-transform:uppercase;
+  letter-spacing:.08em;margin-bottom:4px;font-weight:700}
+.ev-filter select{width:100%;border:0;outline:0;background:transparent;
+  font-size:12px;color:#18202c;font-weight:600;cursor:pointer;appearance:none}
+.ev-reset{border:1px solid var(--border);background:#fff;border-radius:12px;
+  font-weight:700;color:#555f6d;cursor:pointer;font-size:12px;padding:0 12px}
+.ev-reset:hover{background:#f5f7fa}
+.ev-kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));
+  gap:11px;margin-bottom:11px}
+.ev-kpi{background:#fff;border:1px solid var(--border);border-radius:var(--radius);
+  padding:14px 15px 12px;box-shadow:var(--shadow);position:relative;overflow:hidden;min-height:104px}
+.ev-kpi::after{content:"";width:76px;height:76px;border-radius:50%;position:absolute;
+  right:-28px;top:-28px;background:var(--tint,#f4f6f9)}
+.ev-kpi-top{display:flex;align-items:center;justify-content:space-between;position:relative;z-index:1}
+.ev-kpi-title{font-size:9px;font-weight:800;text-transform:uppercase;
+  letter-spacing:.055em;color:var(--muted)}
+.ev-icon{width:30px;height:30px;border-radius:9px;display:grid;place-items:center;
+  background:var(--iconbg,#f1f3f6);color:var(--iconcolor,#18202c);font-size:12px;font-weight:900}
+.ev-kpi-value{margin-top:9px;font-size:20px;font-weight:800;letter-spacing:-.04em;
+  position:relative;z-index:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ev-kpi-foot{margin-top:3px;color:var(--muted);font-size:9px;position:relative;z-index:1;display:flex;align-items:center;gap:5px;flex-wrap:wrap}
+.ev-delta{padding:2px 5px;border-radius:999px;font-weight:800;font-size:9px}
+.ev-delta.ok{color:#107455;background:#e9f7f2}
+.ev-delta.neg{color:#b11c22;background:#fff0f1}
+.ev-delta.warn{color:#ae7105;background:#fff5df}
+.ev-grid-main{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(300px,.9fr);
+  gap:11px;margin-bottom:11px}
+.ev-grid-2{display:grid;grid-template-columns:1fr 1fr;gap:11px;margin-bottom:11px}
+.ev-card{background:#fff;border:1px solid var(--border);border-radius:var(--radius);
+  box-shadow:var(--shadow);padding:14px 15px;min-width:0}
+.ev-card-title{margin:0 0 2px;font-size:13px;font-weight:800}
+.ev-card-sub{color:var(--muted);font-size:10px;margin-bottom:11px}
+.ev-ch-head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:10px}
+.ev-legend{display:flex;align-items:center;gap:10px;font-size:9px;color:var(--muted);flex-wrap:wrap}
+.ev-legend span{display:inline-flex;align-items:center;gap:4px}
+.ev-legend i{width:8px;height:8px;border-radius:50%;display:inline-block}
+.ev-chart-wrap{overflow-x:auto}
+.ev-svg{display:block;overflow:visible;font-family:Inter,ui-sans-serif,system-ui,sans-serif}
+.ev-svg text{font-size:9px;fill:#6f7886}
+.ev-svg .blbl{fill:#3f4854;font-weight:700;font-size:9px}
+.ev-var-box{background:linear-gradient(135deg,#171b23,#242a35);color:#fff;
+  border-radius:13px;padding:14px;margin-bottom:11px}
+.ev-var-box small{display:block;font-size:9px;color:#b7bec8;text-transform:uppercase;letter-spacing:.08em}
+.ev-var-value{font-size:30px;font-weight:800;margin:8px 0 4px;letter-spacing:-.04em}
+.ev-var-text{font-size:10px;color:#c6ccd5;margin-bottom:12px}
+.ev-var-prog{height:7px;border-radius:999px;background:rgba(255,255,255,.13);overflow:hidden}
+.ev-var-prog span{display:block;height:100%;border-radius:999px;
+  background:linear-gradient(90deg,#ff5359,#d71920)}
+.ev-var-meta{display:flex;justify-content:space-between;margin-top:7px;font-size:9px;color:#c6ccd5}
+.ev-cost-list{display:grid;gap:9px}
+.ev-cost-item{border:1px solid var(--border);background:#fafbfc;border-radius:11px;padding:10px}
+.ev-cost-top{display:flex;justify-content:space-between;gap:10px;align-items:flex-start}
+.ev-cost-item strong{display:block;font-size:10px}
+.ev-cost-item small{display:block;font-size:9px;color:var(--muted);margin-top:2px}
+.ev-cost-val{font-size:14px!important;font-weight:800;color:#18202c!important;white-space:nowrap}
+.ev-mini-prog{height:5px;margin-top:8px;background:#edf0f4;border-radius:999px;overflow:hidden}
+.ev-mini-prog span{display:block;height:100%;border-radius:999px}
+.ev-proj{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-bottom:11px}
+.ev-proj-card{border:1px solid var(--border);border-radius:12px;background:#fafbfc;padding:11px}
+.ev-proj-card span{display:block;font-size:8px;color:var(--muted);text-transform:uppercase;letter-spacing:.07em;font-weight:800}
+.ev-proj-card strong{display:block;font-size:18px;margin-top:4px;font-weight:800}
+.ev-proj-card small{display:block;margin-top:3px;font-size:9px;color:var(--muted)}
+.ev-tbl-wrap{overflow:auto;border:1px solid var(--border);border-radius:11px}
+.ev-tbl{width:100%;border-collapse:collapse;min-width:750px;font-size:10px}
+.ev-tbl thead th{text-align:left;padding:9px 10px;background:#f7f8fa;color:#606977;
+  text-transform:uppercase;font-size:8px;letter-spacing:.06em;
+  border-bottom:1px solid var(--border);white-space:nowrap}
+.ev-tbl tbody td{padding:9px 10px;border-bottom:1px solid #edf0f4;white-space:nowrap}
+.ev-tbl tbody tr:last-child td{border-bottom:0}
+.ev-tbl tbody tr:hover{background:#fafbfc}
+.ev-st{display:inline-flex;align-items:center;gap:4px;padding:4px 7px;
+  border-radius:999px;font-size:8px;font-weight:800}
+.ev-st::before{content:"";width:5px;height:5px;border-radius:50%}
+.ev-st-ok{color:#107455;background:#e9f7f2}.ev-st-ok::before{background:#15946c}
+.ev-st-warn{color:#a96b02;background:#fff4de}.ev-st-warn::before{background:#e59a12}
+.ev-st-bad{color:#ad151b;background:#fff0f1}.ev-st-bad::before{background:#d71920}
+@media(max-width:1100px){
+  .ev-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .ev-filters{grid-template-columns:repeat(2,minmax(120px,1fr)) 90px}
+  .ev-grid-main,.ev-grid-2{grid-template-columns:1fr}}
+@media(max-width:760px){.ev-kpis{grid-template-columns:1fr 1fr}}
 </style>"""
 
-    html = """<div class="ace">
-<div class="ace-hero">
-  <h2>Custo de Autônomos · Evolução</h2>
-  <p>Comparativo de custo médio por carro entre temporadas</p>
+    html = """<div class="ev">
+<div class="ev-filters">
+  <div class="ev-filter"><label>Temporada</label><select id="evYear"></select></div>
+  <div class="ev-filter"><label>Etapa</label><select id="evEtapa"></select></div>
+  <div class="ev-filter"><label>Categoria</label><select id="evCat"></select></div>
+  <div class="ev-filter"><label>Tipo de custo</label>
+    <select id="evTipo">
+      <option value="">Todos os custos</option>
+      <option value="carro">Equipe por carro</option>
+      <option value="geral">Equipe geral</option>
+    </select>
+  </div>
+  <button class="ev-reset" onclick="evReset()">Limpar</button>
 </div>
-<div class="ace-filt">
-  <div class="ace-fi">
-    <span class="ace-fi-lbl">Categoria</span>
-    <select class="ace-fi-sel" id="aceCat"></select>
+<section class="ev-kpis">
+  <article class="ev-kpi" style="--tint:#fff1f2;--iconbg:#fff0f1;--iconcolor:#c5161c">
+    <div class="ev-kpi-top"><span class="ev-kpi-title">Custo total seleção</span>
+      <div class="ev-icon">R$</div></div>
+    <div class="ev-kpi-value" id="evK0">—</div>
+    <div class="ev-kpi-foot" id="evK0f"></div></article>
+  <article class="ev-kpi" style="--tint:#eef5ff;--iconbg:#edf4fd;--iconcolor:#2673c8">
+    <div class="ev-kpi-top"><span class="ev-kpi-title">Custo médio/carro</span>
+      <div class="ev-icon">#</div></div>
+    <div class="ev-kpi-value" id="evK1">—</div>
+    <div class="ev-kpi-foot" id="evK1f"></div></article>
+  <article class="ev-kpi" style="--tint:#f2effc;--iconbg:#f0edfb;--iconcolor:#7259be">
+    <div class="ev-kpi-top"><span class="ev-kpi-title">Custo médio/autônomo</span>
+      <div class="ev-icon">A</div></div>
+    <div class="ev-kpi-value" id="evK2">—</div>
+    <div class="ev-kpi-foot" id="evK2f"></div></article>
+  <article class="ev-kpi" style="--tint:#fff7e9;--iconbg:#fff6e5;--iconcolor:#c88408">
+    <div class="ev-kpi-top"><span class="ev-kpi-title">Maior custo / etapa</span>
+      <div class="ev-icon">↑</div></div>
+    <div class="ev-kpi-value" id="evK3">—</div>
+    <div class="ev-kpi-foot" id="evK3f"></div></article>
+  <article class="ev-kpi" style="--tint:#ebf8f4;--iconbg:#e7f7f1;--iconcolor:#11835f">
+    <div class="ev-kpi-top"><span class="ev-kpi-title">Custo médio/etapa</span>
+      <div class="ev-icon">🏁</div></div>
+    <div class="ev-kpi-value" id="evK4">—</div>
+    <div class="ev-kpi-foot" id="evK4f"></div></article>
+  <article class="ev-kpi" style="--tint:#eef8fb;--iconbg:#ebf7fa;--iconcolor:#247f91">
+    <div class="ev-kpi-top"><span class="ev-kpi-title">Custo médio/dia</span>
+      <div class="ev-icon">D</div></div>
+    <div class="ev-kpi-value" id="evK5">—</div>
+    <div class="ev-kpi-foot" id="evK5f"></div></article>
+  <article class="ev-kpi" style="--tint:#f2f4f8;--iconbg:#edf0f5;--iconcolor:#4e5967">
+    <div class="ev-kpi-top"><span class="ev-kpi-title">Equipe geral</span>
+      <div class="ev-icon">EG</div></div>
+    <div class="ev-kpi-value" id="evK6">—</div>
+    <div class="ev-kpi-foot" id="evK6f"></div></article>
+  <article class="ev-kpi" style="--tint:#fff0f1;--iconbg:#ffeded;--iconcolor:#bd151b">
+    <div class="ev-kpi-top"><span class="ev-kpi-title">Autônomos sede</span>
+      <div class="ev-icon">S</div></div>
+    <div class="ev-kpi-value" id="evK7">—</div>
+    <div class="ev-kpi-foot" id="evK7f"></div></article>
+</section>
+<section class="ev-grid-main">
+  <article class="ev-card">
+    <div class="ev-ch-head">
+      <div><h2 class="ev-card-title">Custo médio por carro por etapa</h2>
+        <p class="ev-card-sub">Comparativo normalizado entre temporadas</p></div>
+      <div class="ev-legend" id="evLeg"></div>
+    </div>
+    <div class="ev-chart-wrap"><div id="evBarChart"></div></div>
+  </article>
+  <article class="ev-card">
+    <div class="ev-var-box" id="evVarBox">
+      <small>Composição do custo consolidado</small>
+      <div class="ev-var-value" id="evVarVal">—</div>
+      <div class="ev-var-text">Soma dos custos da equipe vinculada aos carros, equipe geral e autônomos da sede.</div>
+      <div class="ev-var-prog"><span id="evVarProg" style="width:0%"></span></div>
+      <div class="ev-var-meta"><span id="evVarL">—</span><span id="evVarR">—</span></div>
+    </div>
+    <div class="ev-cost-list" id="evCostList"></div>
+  </article>
+</section>
+<section class="ev-grid-2">
+  <article class="ev-card">
+    <div class="ev-ch-head">
+      <div><h2 class="ev-card-title">Custo por categoria</h2>
+        <p class="ev-card-sub">Distribuição entre categorias e equipe geral</p></div>
+    </div>
+    <div class="ev-chart-wrap"><div id="evCatChart"></div></div>
+  </article>
+  <article class="ev-card">
+    <div class="ev-ch-head">
+      <div><h2 class="ev-card-title">Custo total × carros por etapa</h2>
+        <p class="ev-card-sub">Efeito do grid no custo total</p></div>
+    </div>
+    <div class="ev-proj" id="evProjCards"></div>
+    <div class="ev-chart-wrap"><div id="evGridChart"></div></div>
+  </article>
+</section>
+<article class="ev-card">
+  <div class="ev-ch-head">
+    <div><h2 class="ev-card-title">Detalhamento por etapa</h2>
+      <p class="ev-card-sub">Custos realizados, carros e indicadores normalizados</p></div>
   </div>
-</div>
-<div class="ace-comp">
-  <div class="ace-kpi">
-    <div class="ace-kpi-val" id="aceK24" style="--kc:#374151">—</div>
-    <div class="ace-kpi-lbl">Custo médio/carro</div>
-    <div class="ace-kpi-sub" id="aceY1">—</div>
-  </div>
-  <div class="ace-kpi">
-    <div class="ace-kpi-val" id="aceK25">—</div>
-    <div class="ace-kpi-lbl">Custo médio/carro</div>
-    <div class="ace-kpi-sub" id="aceY2">—</div>
-  </div>
-  <div class="ace-kpi">
-    <div class="ace-kpi-val" id="aceKVar" style="--kc:#15966a">—</div>
-    <div class="ace-kpi-lbl">Variação</div>
-    <div class="ace-kpi-sub">entre temporadas</div>
-  </div>
-</div>
-<article class="ace-card">
-  <div class="ace-card-head">
-    <div><h3>Custo médio / carro por etapa</h3>
-    <p>Comparativo entre temporadas (barras agrupadas)</p></div>
-    <span class="ace-badge" id="aceBadge">—</span>
-  </div>
-  <div class="ace-leg-row" id="aceLeg"></div>
-  <div class="ace-chart-wrap">
-    <div id="aceChart"></div>
+  <div class="ev-tbl-wrap">
+    <table class="ev-tbl">
+      <thead><tr>
+        <th>Etapa</th><th>Temporada</th><th>Carros</th>
+        <th>Custo realizado</th><th>Participação</th>
+        <th>Custo médio/carro</th><th>Custo médio/dia</th><th>Situação</th>
+      </tr></thead>
+      <tbody id="evTblBody"></tbody>
+    </table>
   </div>
 </article>
 </div>"""
 
     js = r"""
-const ACE_COLORS={"A":"#374151","B":"#d5001c"};
-const aceEl=id=>document.getElementById(id);
-function aceFmt(v){return"R$ "+v.toLocaleString("pt-BR",{minimumFractionDigits:0,maximumFractionDigits:0})}
-
-function aceFillSel(id,vals,lbl){
-  const el=aceEl(id);if(!el)return;
-  el.innerHTML='<option value="">'+lbl+'</option>'+vals.map(v=>'<option value="'+v+'">'+v+'</option>').join("");
+const evEl=id=>document.getElementById(id);
+function evFmt(v){
+  if(!v&&v!==0)return"—";
+  if(v>=1000000)return"R$ "+(v/1000000).toFixed(2)+" mi";
+  if(v>=1000)return"R$ "+(v/1000).toFixed(0)+" mil";
+  return"R$ "+Math.round(v).toLocaleString("pt-BR");
 }
-function aceSetup(){
-  const cats=[...new Set(ACE_RECORDS.map(r=>r.categoria).filter(Boolean))].sort();
-  aceFillSel("aceCat",cats,"Todas as categorias");
-  ["aceCat"].forEach(id=>{const el=aceEl(id);if(el)el.addEventListener("change",aceRender)});
-}
-function aceFiltered(){
-  const ct=aceEl("aceCat")?.value||"";
-  return ACE_RECORDS.filter(r=>!ct||r.categoria===ct);
+function evFmtSh(v){
+  if(!v&&v!==0)return"—";
+  if(v>=1000000)return"R$ "+(v/1000000).toFixed(1)+"mi";
+  if(v>=1000)return"R$ "+(v/1000).toFixed(0)+"k";
+  return"R$ "+Math.round(v).toString();
 }
 
-function aceMediaPorCarro(data,temporada){
-  // custo total por etapa / num de pilotos distintos nessa temporada+etapa
-  const etapas={};
-  data.filter(r=>r.temporada===temporada).forEach(r=>{
-    if(!etapas[r.etapa])etapas[r.etapa]={val:0,pilotos:new Set()};
-    etapas[r.etapa].val+=r.valor;
-    etapas[r.etapa].pilotos.add(r.piloto_id);
+function evFillSel(id,vals,lbl){
+  const el=evEl(id);if(!el)return;
+  el.innerHTML=(lbl?'<option value="">'+lbl+'</option>':'')+vals.map(v=>'<option value="'+v+'">'+v+'</option>').join("");
+}
+function evSetup(){
+  const R=EV_RECORDS;
+  const years=[...new Set(R.map(r=>r.temporada).filter(Boolean))].sort().reverse();
+  const etapas=[...new Set(R.map(r=>r.etapa).filter(Boolean))].sort();
+  const cats=[...new Set(R.map(r=>r.categoria).filter(Boolean))].sort();
+  evFillSel("evYear",years,"Todas as temporadas");
+  evFillSel("evEtapa",etapas,"Todas as etapas");
+  evFillSel("evCat",cats,"Todas as categorias");
+  ["evYear","evEtapa","evCat","evTipo"].forEach(id=>{const el=evEl(id);if(el)el.addEventListener("change",evRender)});
+}
+function evFiltered(){
+  const yr=evEl("evYear")?.value||"",et=evEl("evEtapa")?.value||"",
+        ct=evEl("evCat")?.value||"",tp=evEl("evTipo")?.value||"";
+  return EV_RECORDS.filter(r=>{
+    if(yr&&r.temporada!==yr)return false;
+    if(et&&r.etapa!==et)return false;
+    if(ct&&r.categoria!==ct)return false;
+    if(tp==="carro"&&!r.carro_id)return false;
+    if(tp==="geral"&&r.carro_id)return false;
+    return true;
   });
-  const items=Object.entries(etapas).map(([et,v])=>({
-    et,media:v.pilotos.size?v.val/v.pilotos.size:0
-  })).sort((a,b)=>a.et.localeCompare(b.et,"pt-BR"));
-  return items;
+}
+function evReset(){["evYear","evEtapa","evCat","evTipo"].forEach(id=>{const el=evEl(id);if(el)el.value=""});evRender()}
+
+function evMediaPorCarro(data,temporada){
+  const etapas={};
+  data.filter(r=>r.temporada===temporada&&r.carro_id).forEach(r=>{
+    if(!etapas[r.etapa])etapas[r.etapa]={val:0,carros:new Set(),dt:r.dt_inicio||""};
+    etapas[r.etapa].val+=(r.valor||0);
+    etapas[r.etapa].carros.add(r.carro_id);
+  });
+  return Object.entries(etapas).sort((a,b)=>a[1].dt.localeCompare(b[1].dt))
+    .map(([et,v])=>({et,total:v.val,media:v.carros.size?v.val/v.carros.size:0,carros:v.carros.size,dt:v.dt}));
 }
 
-function aceRender(){
-  const d=aceFiltered();
+function evKPIs(d){
+  const total=d.reduce((s,r)=>s+(r.valor||0),0);
+  const carros=new Set(d.map(r=>r.carro_id).filter(Boolean));
+  const auts=new Set(d.map(r=>r.autonomo).filter(Boolean));
+  const mediaC=carros.size?total/carros.size:0;
+  const mediaA=auts.size?total/auts.size:0;
+  const dias=d.reduce((s,r)=>s+(r.dias||0),0);
+  const mediaD=dias?total/dias:0;
+  const geral=d.filter(r=>!r.carro_id).reduce((s,r)=>s+(r.valor||0),0);
+  const sedeTotal=EV_SEDE.total||0;
+  // Por etapa
+  const etMap={};
+  d.forEach(r=>{if(r.etapa)etMap[r.etapa]=(etMap[r.etapa]||0)+(r.valor||0)});
+  const etVals=Object.entries(etMap);
+  const maxEt=etVals.length?etVals.reduce((a,b)=>a[1]>b[1]?a:b):["—",0];
+  const avgEt=etVals.length?etVals.reduce((s,[,v])=>s+v,0)/etVals.length:0;
+  const set=(id,v,f)=>{const e=evEl(id);if(e)e.textContent=v;const fe=evEl(id+"f");if(fe)fe.innerHTML=f||""};
+  set("evK0",evFmt(total),carros.size+" carros · "+auts.size+" autônomos");
+  set("evK1",evFmtSh(mediaC),carros.size+" carros atendidos");
+  set("evK2",evFmt(mediaA),auts.size+" profissionais");
+  set("evK3",evFmtSh(maxEt[1]),maxEt[0]||"—");
+  set("evK4",evFmt(avgEt),etVals.length+" etapas");
+  set("evK5",evFmtSh(mediaD),"por profissional/dia");
+  const geralPct=total?(geral/total*100):0;
+  set("evK6",evFmt(geral),geralPct.toFixed(1)+"% do consolidado");
+  const sedePct=total&&sedeTotal?(sedeTotal/total*100):0;
+  set("evK7",evFmt(sedeTotal),sedePct?sedePct.toFixed(1)+"% do consolidado":"");
+  // Composition panel
+  const vinculados=total-geral;
+  const pctVinc=total?(vinculados/total*100):0;
+  const vv=evEl("evVarVal");if(vv)vv.textContent=evFmt(total);
+  const vp=evEl("evVarProg");if(vp)vp.style.width=pctVinc.toFixed(1)+"%";
+  const vl=evEl("evVarL");if(vl)vl.textContent=pctVinc.toFixed(1)+"% ligados aos carros";
+  const vr=evEl("evVarR");if(vr)vr.textContent=(100-pctVinc).toFixed(1)+"% apoio e sede";
+  const cl=evEl("evCostList");
+  if(cl){
+    const sedeBarW=total?(sedeTotal/total*100).toFixed(1):0;
+    const geralBarW=total?(geral/total*100).toFixed(1):0;
+    cl.innerHTML=[
+      ["Equipe vinculada aos carros","Autônomos com piloto e carro",vinculados,pctVinc.toFixed(1),"#d71920"],
+      ["Equipe geral da etapa","Apoio sem vínculo direto ao carro",geral,geralBarW,"#7b61c9"],
+      ["Autônomos da sede","Lançamentos sem etapa associada",sedeTotal,sedeBarW,"#2878d0"],
+    ].map(([nm,sub,val,pct,col])=>
+      '<div class="ev-cost-item">'+
+      '<div class="ev-cost-top"><div><strong>'+nm+'</strong><small>'+sub+'</small></div>'+
+      '<span class="ev-cost-val">'+evFmt(val)+'</span></div>'+
+      '<div class="ev-mini-prog"><span style="width:'+pct+'%;background:'+col+'"></span></div>'+
+      '</div>').join("");
+  }
+}
+
+function evBarChart(d){
   const years=[...new Set(d.map(r=>r.temporada).filter(Boolean))].sort();
   const y1=years[0]||"",y2=years[1]||"";
-
-  // summary KPIs
-  const m1=aceMediaPorCarro(d,y1);const m2=aceMediaPorCarro(d,y2);
-  const avg1=m1.length?m1.reduce((s,r)=>s+r.media,0)/m1.length:0;
-  const avg2=m2.length?m2.reduce((s,r)=>s+r.media,0)/m2.length:0;
-  const varPct=avg1?((avg2-avg1)/avg1*100):0;
-  if(aceEl("aceK24"))aceEl("aceK24").textContent=avg1?aceFmt(avg1):"—";
-  if(aceEl("aceK25"))aceEl("aceK25").textContent=avg2?aceFmt(avg2):"—";
-  if(aceEl("aceY1"))aceEl("aceY1").textContent=y1||"—";
-  if(aceEl("aceY2"))aceEl("aceY2").textContent=y2||"—";
-  const kv=aceEl("aceKVar");
-  if(kv){
-    kv.textContent=avg1?(varPct>0?"+":"")+varPct.toFixed(1)+"%":"—";
-    kv.style.setProperty("--kc",varPct>0?"#d5001c":"#15966a");
-  }
-
-  // grouped bar chart
-  const allEtapas=[...new Set([...m1.map(r=>r.et),...m2.map(r=>r.et)])].sort((a,b)=>a.localeCompare(b,"pt-BR"));
-  const badgeEl=aceEl("aceBadge");
-  if(badgeEl)badgeEl.textContent=allEtapas.length+" etapas";
-  const legEl=aceEl("aceLeg");
+  const m1=evMediaPorCarro(d,y1),m2=evMediaPorCarro(d,y2);
+  const legEl=evEl("evLeg");
   if(legEl)legEl.innerHTML=[y1,y2].filter(Boolean).map((yr,i)=>
-    '<div class="ace-leg-item"><i style="background:'+(i===0?"#374151":"#d5001c")+'"></i>'+yr+'</div>').join("");
-
-  const W=Math.max(600,allEtapas.length*90+80),H=240,pb=30,pt=16,pl=8,pr=8;
+    '<span><i style="background:'+(i===0?"#aeb5c1":"#d71920")+'"></i>'+yr+'</span>').join("");
+  const allEt=[...new Set([...m1.map(r=>r.et),...m2.map(r=>r.et)])].sort();
+  const wrap=evEl("evBarChart");if(!wrap)return;
+  if(!allEt.length){wrap.innerHTML='<p style="color:#9ca3af;font-size:12px;padding:16px 0">Sem dados</p>';return}
   const map1=Object.fromEntries(m1.map(r=>[r.et,r.media]));
   const map2=Object.fromEntries(m2.map(r=>[r.et,r.media]));
-  const allVals=[...m1,...m2].map(r=>r.media).filter(Boolean);
-  const maxV=Math.max(...allVals,1);
-  const slotW=(W-pl-pr)/allEtapas.length;
-  const bw=Math.min(slotW*0.35,28);
-  const yf=v=>H-pb-v/maxV*(H-pt-pb);
-
-  let bars="";let xlbls="";
-  allEtapas.forEach((et,i)=>{
-    const cx=pl+i*slotW+slotW/2;
-    const v1=map1[et]||0;const v2=map2[et]||0;
-    const x1=cx-bw-2;const x2=cx+2;
-    const h1=v1/maxV*(H-pt-pb);const h2=v2/maxV*(H-pt-pb);
-    if(v1)bars+='<rect x="'+x1.toFixed(1)+'" y="'+yf(v1).toFixed(1)+'" width="'+bw.toFixed(1)+'" height="'+h1.toFixed(1)+'" fill="#374151" rx="3"/>';
-    if(v2)bars+='<rect x="'+x2.toFixed(1)+'" y="'+yf(v2).toFixed(1)+'" width="'+bw.toFixed(1)+'" height="'+h2.toFixed(1)+'" fill="#d5001c" rx="3"/>';
-    // short label
-    const shortEt=et.replace(/^\d+ET\d+\s*[-–]\s*/,"").slice(0,10);
-    xlbls+='<text class="ace-al" x="'+cx.toFixed(1)+'" y="'+(H-5)+'" text-anchor="middle">'+shortEt+'</text>';
+  const allV=[...Object.values(map1),...Object.values(map2)].filter(Boolean);
+  const maxV=Math.max(...allV,1);
+  const W=Math.max(600,allEt.length*90+60),H=220,pL=55,pR=14,pT=22,pB=36;
+  const slotW=(W-pL-pR)/allEt.length,bw=Math.min(slotW*.35,28);
+  const yS=v=>pT+(1-v/maxV)*(H-pT-pB);
+  const fmt=v=>v>=1000?Math.round(v/1000)+"k":Math.round(v).toString();
+  let grid="",bars="",lbls="",xl="";
+  for(let i=0;i<=4;i++){
+    const v=maxV*i/4,y=yS(v).toFixed(1);
+    grid+='<line x1="'+pL+'" y1="'+y+'" x2="'+(W-pR)+'" y2="'+y+'" stroke="'+(i===4?"#e4e8ee":"#eef1f5")+'"/>';
+    grid+='<text x="'+(pL-4)+'" y="'+(+y+3).toFixed(1)+'" text-anchor="end">'+fmt(v)+'</text>';
+  }
+  allEt.forEach((et,i)=>{
+    const cx=pL+i*slotW+slotW/2;
+    const v1=map1[et]||0,v2=map2[et]||0;
+    const x1=(cx-bw-2).toFixed(1),x2=(cx+2).toFixed(1);
+    const bwS=bw.toFixed(1);
+    if(v1){const h=(v1/maxV*(H-pT-pB)).toFixed(1);bars+='<rect x="'+x1+'" y="'+yS(v1).toFixed(1)+'" width="'+bwS+'" height="'+h+'" rx="4" fill="#aeb5c1"/>';}
+    if(v2){const h=(v2/maxV*(H-pT-pB)).toFixed(1);bars+='<rect x="'+x2+'" y="'+yS(v2).toFixed(1)+'" width="'+bwS+'" height="'+h+'" rx="4" fill="#d71920"/>';}
+    if(v2)lbls+='<text x="'+(+x2+bw/2).toFixed(1)+'" y="'+(yS(v2)-4).toFixed(1)+'" text-anchor="middle" class="blbl">'+fmt(v2)+'</text>';
+    const sn=et.replace(/^\d+ET\d+\s*[-–]\s*/,"").slice(0,9);
+    xl+='<text x="'+cx.toFixed(1)+'" y="'+(H-6)+'" text-anchor="middle">'+sn+'</text>';
   });
-
-  const chart=aceEl("aceChart");
-  if(chart)chart.innerHTML='<svg class="ace-svg" viewBox="0 0 '+W+' '+H+'" width="'+W+'" height="'+H+'">'+bars+xlbls+'</svg>';
+  wrap.innerHTML='<svg class="ev-svg" viewBox="0 0 '+W+' '+H+'" width="100%" style="min-width:'+Math.min(W,500)+'px;min-height:'+H+'px">'+
+    grid+'<line x1="'+pL+'" y1="'+pT+'" x2="'+pL+'" y2="'+(H-pB)+'" stroke="#e4e8ee"/>'+bars+lbls+xl+'</svg>';
 }
-aceSetup();aceRender();
+
+function evCatChart(d){
+  const cm={};d.forEach(r=>{const k=r.categoria||"Sem categoria";cm[k]=(cm[k]||0)+(r.valor||0)});
+  const rows=Object.entries(cm).sort((a,b)=>b[1]-a[1]);
+  const wrap=evEl("evCatChart");if(!wrap)return;
+  if(!rows.length){wrap.innerHTML='<p style="color:#9ca3af;font-size:12px">Sem dados</p>';return}
+  const COLS=["#d71920","#2d323d","#7b61c9","#e59a12","#15946c"];
+  const maxV=rows[0][1]||1;
+  const W=480,H=200,pL=58,pR=14,pT=22,pB=34;
+  const slotW=(W-pL-pR)/rows.length,bW=Math.min(slotW*.65,62);
+  const yS=v=>pT+(1-v/maxV)*(H-pT-pB);
+  const fmt=v=>v>=1000000?(v/1000000).toFixed(1)+"mi":v>=1000?Math.round(v/1000)+"k":Math.round(v).toString();
+  let grid="",bars="",lbls="",xl="";
+  for(let i=0;i<=4;i++){
+    const v=maxV*i/4,y=yS(v).toFixed(1);
+    grid+='<line x1="'+pL+'" y1="'+y+'" x2="'+(W-pR)+'" y2="'+y+'" stroke="'+(i===4?"#e4e8ee":"#eef1f5")+'"/>';
+    grid+='<text x="'+(pL-4)+'" y="'+(+y+3).toFixed(1)+'" text-anchor="end">'+fmt(v)+'</text>';
+  }
+  rows.forEach(([k,v],i)=>{
+    const cx=pL+i*slotW+slotW/2,bx=(cx-bW/2).toFixed(1);
+    const by=yS(v).toFixed(1),bh=Math.max(H-pB-yS(v),2).toFixed(1);
+    bars+='<rect x="'+bx+'" y="'+by+'" width="'+bW.toFixed(1)+'" height="'+bh+'" rx="8" fill="'+COLS[i%COLS.length]+'"/>';
+    lbls+='<text x="'+cx.toFixed(1)+'" y="'+(yS(v)-4).toFixed(1)+'" text-anchor="middle" class="blbl">'+fmt(v)+'</text>';
+    const sn=k.slice(0,12);
+    xl+='<text x="'+cx.toFixed(1)+'" y="'+(H-6)+'" text-anchor="middle">'+sn+'</text>';
+  });
+  wrap.innerHTML='<svg class="ev-svg" viewBox="0 0 '+W+' '+H+'" width="100%" style="min-height:'+H+'px">'+
+    grid+'<line x1="'+pL+'" y1="'+pT+'" x2="'+pL+'" y2="'+(H-pB)+'" stroke="#e4e8ee"/>'+bars+lbls+xl+'</svg>';
+}
+
+function evGridChart(d){
+  const etMap={};
+  d.forEach(r=>{
+    if(!r.etapa)return;
+    if(!etMap[r.etapa])etMap[r.etapa]={val:0,carros:new Set(),dt:r.dt_inicio||""};
+    etMap[r.etapa].val+=(r.valor||0);
+    if(r.carro_id)etMap[r.etapa].carros.add(r.carro_id);
+  });
+  const rows=Object.entries(etMap).sort((a,b)=>a[1].dt.localeCompare(b[1].dt))
+    .map(([et,v])=>({et,val:v.val,n:v.carros.size}));
+  // Proj cards
+  const projEl=evEl("evProjCards");
+  if(projEl&&rows.length){
+    const byN=rows.slice().sort((a,b)=>a.n-b.n);
+    const avg=rows.reduce((s,r)=>s+r.n,0)/rows.length;
+    const avgC=rows.reduce((s,r)=>s+(r.n?r.val/r.n:0),0)/rows.length;
+    projEl.innerHTML=[
+      ["Menor grid",byN[0].n+" carros",byN[0].et.replace(/^\d+ET\d+\s*[-–]\s*/,"").slice(0,15)],
+      ["Maior grid",byN[byN.length-1].n+" carros",byN[byN.length-1].et.replace(/^\d+ET\d+\s*[-–]\s*/,"").slice(0,15)],
+      ["Média de carros",avg.toFixed(1),"por etapa realizada"],
+      ["Média por carro",evFmtSh(avgC),"indicador normalizado"],
+    ].map(([lbl,v,sub])=>
+      '<div class="ev-proj-card"><span>'+lbl+'</span><strong>'+v+'</strong><small>'+sub+'</small></div>').join("");
+  }
+  // Chart
+  const wrap=evEl("evGridChart");if(!wrap)return;
+  if(!rows.length){wrap.innerHTML='<p style="color:#9ca3af;font-size:12px">Sem dados</p>';return}
+  const W=Math.max(480,rows.length*70),H=185,pL=50,pR=12,pT=18,pB=32;
+  const maxV=Math.max(...rows.map(r=>r.val),1),maxN=Math.max(...rows.map(r=>r.n),1);
+  const slotW=(W-pL-pR)/rows.length,bW=Math.min(slotW*.6,42);
+  const yS=v=>pT+(1-v/maxV)*(H-pT-pB);
+  const yN=n=>pT+(1-n/maxN)*(H-pT-pB);
+  const fmt=v=>v>=1000?Math.round(v/1000)+"k":Math.round(v).toString();
+  let grid="",bars="",line="",dots="",xl="";
+  for(let i=0;i<=3;i++){
+    const v=maxV*i/3,y=yS(v).toFixed(1);
+    grid+='<line x1="'+pL+'" y1="'+y+'" x2="'+(W-pR)+'" y2="'+y+'" stroke="#eef1f5"/>';
+    grid+='<text x="'+(pL-4)+'" y="'+(+y+3).toFixed(1)+'" text-anchor="end">'+fmt(v)+'</text>';
+  }
+  rows.forEach((r,i)=>{
+    const cx=pL+i*slotW+slotW/2,bx=(cx-bW/2).toFixed(1);
+    const by=yS(r.val).toFixed(1),bh=Math.max(H-pB-yS(r.val),2).toFixed(1);
+    bars+='<rect x="'+bx+'" y="'+by+'" width="'+bW.toFixed(1)+'" height="'+bh+'" rx="6" fill="#d71920"/>';
+    const ly=yN(r.n).toFixed(1);
+    line+=(i===0?"M":"L")+cx.toFixed(1)+","+ly+" ";
+    dots+='<circle cx="'+cx.toFixed(1)+'" cy="'+ly+'" r="3.5" fill="#fff" stroke="#7b61c9" stroke-width="2"/>';
+    const sn=r.et.replace(/^\d+ET\d+\s*[-–]\s*/,"").slice(0,6);
+    xl+='<text x="'+cx.toFixed(1)+'" y="'+(H-6)+'" text-anchor="middle">'+sn+'</text>';
+  });
+  wrap.innerHTML='<svg class="ev-svg" viewBox="0 0 '+W+' '+H+'" width="100%" style="min-width:'+Math.min(W,400)+'px;min-height:'+H+'px">'+
+    grid+'<line x1="'+pL+'" y1="'+pT+'" x2="'+pL+'" y2="'+(H-pB)+'" stroke="#e4e8ee"/>'+bars+
+    '<polyline fill="none" stroke="#7b61c9" stroke-width="2.5" stroke-linejoin="round" points="'+line.trim()+'"/>'+dots+xl+'</svg>';
+}
+
+function evTable(d){
+  const etMap={};
+  d.forEach(r=>{
+    if(!r.etapa)return;
+    if(!etMap[r.etapa])etMap[r.etapa]={val:0,carros:new Set(),dias:0,dt:r.dt_inicio||"",yr:r.temporada||""};
+    etMap[r.etapa].val+=(r.valor||0);
+    if(r.carro_id)etMap[r.etapa].carros.add(r.carro_id);
+    etMap[r.etapa].dias+=(r.dias||0);
+  });
+  const rows=Object.entries(etMap).sort((a,b)=>a[1].dt.localeCompare(b[1].dt))
+    .map(([et,v])=>({et,val:v.val,n:v.carros.size,dias:v.dias,yr:v.yr}));
+  const total=rows.reduce((s,r)=>s+r.val,0)||1;
+  const medC=rows.filter(r=>r.n).map(r=>r.val/r.n);
+  const avgMedC=medC.length?medC.reduce((a,b)=>a+b,0)/medC.length:0;
+  const el=evEl("evTblBody");if(!el)return;
+  if(!rows.length){el.innerHTML='<tr><td colspan="8" style="color:#9ca3af;font-size:12px;padding:14px">Sem dados</td></tr>';return}
+  el.innerHTML=rows.map(r=>{
+    const medV=r.n?r.val/r.n:0,medD=r.dias?r.val/r.dias:0;
+    const devPct=avgMedC?((medV-avgMedC)/avgMedC*100):0;
+    const stCls=devPct>8?"ev-st-bad":devPct>3?"ev-st-warn":"ev-st-ok";
+    const stLbl=devPct>8?"Elevado":devPct>3?"Acima da média":"Regular";
+    return'<tr><td>'+r.et.replace(/^\d+ET\d+\s*[-–]\s*/,"").slice(0,20)+'</td>'+
+      '<td>'+r.yr+'</td><td>'+r.n+'</td>'+
+      '<td>'+evFmt(r.val)+'</td>'+
+      '<td>'+(r.val/total*100).toFixed(1)+'%</td>'+
+      '<td>'+evFmt(medV)+'</td>'+
+      '<td>'+evFmt(medD)+'</td>'+
+      '<td><span class="ev-st '+stCls+'">'+stLbl+'</span></td></tr>';
+  }).join("");
+}
+
+function evRender(){
+  const d=evFiltered();
+  evKPIs(d);evBarChart(d);evCatChart(d);evGridChart(d);evTable(d);
+}
+evSetup();evRender();
 """
-    return (f"<script>const ACE_RECORDS={records_js};</script>"
-            + css + html
-            + "<script>" + js + "</script>")
+    return (
+        f"<script>const EV_RECORDS={records_js};const EV_SEDE={sede_js};</script>"
+        + css + html
+        + "<script>" + js + "</script>"
+    )
 
 
 # ── Page 3 – Pagamentos ────────────────────────────────────────────────────────
@@ -922,7 +1229,8 @@ def autonomo_custo_evolucao(request: Request, db: Session = Depends(get_db)):
     dash_html = None
     try:
         rj = _fetch(db)
-        dash_html = _build_evolucao(rj)
+        sj = _fetch_sede(db)
+        dash_html = _build_evolucao(rj, sj)
     except Exception as exc:
         erro = f"Erro ao carregar dados: {exc}"
     return templates.TemplateResponse("indicadores/autonomo_custo_evolucao.html", {
@@ -1417,5 +1725,573 @@ def autonomo_disponibilidade(request: Request, db: Session = Depends(get_db)):
     except Exception as exc:
         erro = f"Erro ao carregar dados: {exc}"
     return templates.TemplateResponse("indicadores/autonomo_disponibilidade.html", {
+        "request": request, "dash_html": dash_html, "erro": erro,
+    })
+
+
+# ── Page 5 – Trocas e Continuidade ────────────────────────────────────────────
+
+def _fetch_trocas(db: Session) -> str:
+    """Query troca_entre_etapas + fato_piloto_autonomo_prova for continuity data."""
+    from sqlalchemy import text as _text
+    trocas = []
+    continuidade = []
+    try:
+        rows = db.execute(_text("""
+            SELECT
+                t.id,
+                t.id_etapa_anterior,
+                t.id_etapa_proxima,
+                t.id_carro,
+                t.id_autonomo_anterior,
+                t.id_autonomo_substituto,
+                t.id_cargo,
+                t.motivo_troca,
+                t.data_troca,
+                t.status_troca,
+                t.id_piloto,
+                t.temporada,
+                ea.nome_etapa AS nome_etapa_ant,
+                ep.nome_etapa AS nome_etapa_prox,
+                c.numero_carro,
+                p.nome_piloto,
+                aa.nome_autonomo AS nome_ant,
+                asb.nome_autonomo AS nome_sub,
+                ca.nome_cargo
+            FROM troca_entre_etapas t
+            LEFT JOIN dim_etapas ea ON ea.id_etapa = t.id_etapa_anterior
+            LEFT JOIN dim_etapas ep ON ep.id_etapa = t.id_etapa_proxima
+            LEFT JOIN dim_carros c ON c.id_carro = t.id_carro
+            LEFT JOIN dim_pilotos p ON p.id_piloto = t.id_piloto
+            LEFT JOIN dim_autonomos aa ON aa.id_autonomo = t.id_autonomo_anterior
+            LEFT JOIN dim_autonomos asb ON asb.id_autonomo = t.id_autonomo_substituto
+            LEFT JOIN dim_cargos_autonomos ca ON ca.id_cargo = t.id_cargo
+            ORDER BY t.data_troca
+        """)).fetchall()
+        for r in rows:
+            trocas.append({
+                "id": r[0],
+                "etapa_ant_id": str(r[1] or ""),
+                "etapa_prox_id": str(r[2] or ""),
+                "carro_id": str(r[3] or ""),
+                "aut_ant_id": str(r[4] or ""),
+                "aut_sub_id": str(r[5] or ""),
+                "cargo_id": str(r[6] or ""),
+                "motivo": str(r[7] or ""),
+                "data": str(r[8] or ""),
+                "status": str(r[9] or ""),
+                "piloto_id": str(r[10] or ""),
+                "temporada": str(r[11] or ""),
+                "etapa_ant": str(r[12] or ""),
+                "etapa_prox": str(r[13] or ""),
+                "carro": str(r[14] or ""),
+                "piloto": str(r[15] or ""),
+                "aut_ant": str(r[16] or ""),
+                "aut_sub": str(r[17] or ""),
+                "cargo": str(r[18] or ""),
+            })
+    except Exception:
+        pass
+    try:
+        rows2 = db.execute(_text("""
+            SELECT id_etapa, id_autonomo, temporada
+            FROM fato_piloto_autonomo_prova
+            GROUP BY id_etapa, id_autonomo, temporada
+        """)).fetchall()
+        for r in rows2:
+            continuidade.append({
+                "etapa_id": str(r[0] or ""),
+                "aut_id": str(r[1] or ""),
+                "temporada": str(r[2] or ""),
+            })
+    except Exception:
+        pass
+    return _json.dumps({"trocas": trocas, "alocacoes": continuidade}, ensure_ascii=False)
+
+
+def _build_trocas(trocas_js: str) -> str:
+    css = """<style>
+.tr5{--red:#d71920;--green:#15946c;--yellow:#e59a12;--muted:#6f7886;
+  --border:#e3e7ee;--shadow:0 8px 24px rgba(24,32,44,.07);--radius:16px;
+  font-family:Inter,ui-sans-serif,system-ui,sans-serif;color:#18202c}
+.tr5 *{box-sizing:border-box}
+.tr5-filters{display:grid;grid-template-columns:repeat(4,minmax(140px,1fr)) 110px;
+  gap:10px;margin-bottom:14px}
+.tr5-filter{background:#fff;border:1px solid var(--border);border-radius:12px;
+  padding:9px 11px;box-shadow:0 3px 10px rgba(24,32,44,.04)}
+.tr5-filter label{display:block;font-size:9px;color:var(--muted);text-transform:uppercase;
+  letter-spacing:.08em;margin-bottom:4px;font-weight:700}
+.tr5-filter select{width:100%;border:0;outline:0;background:transparent;
+  font-size:12px;color:#18202c;font-weight:600;cursor:pointer;appearance:none}
+.tr5-reset{border:1px solid var(--border);background:#fff;border-radius:12px;
+  font-weight:700;color:#555f6d;cursor:pointer;font-size:12px;padding:0 12px}
+.tr5-reset:hover{background:#f5f7fa}
+.tr5-kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));
+  gap:11px;margin-bottom:11px}
+.tr5-kpi{background:#fff;border:1px solid var(--border);border-radius:var(--radius);
+  padding:14px 15px 12px;box-shadow:var(--shadow);position:relative;overflow:hidden;min-height:104px}
+.tr5-kpi::after{content:"";width:76px;height:76px;border-radius:50%;position:absolute;
+  right:-28px;top:-28px;background:var(--tint,#f4f6f9)}
+.tr5-kpi-top{display:flex;align-items:center;justify-content:space-between;position:relative;z-index:1}
+.tr5-kpi-title{font-size:9px;font-weight:800;text-transform:uppercase;
+  letter-spacing:.055em;color:var(--muted)}
+.tr5-icon{width:30px;height:30px;border-radius:9px;display:grid;place-items:center;
+  background:var(--iconbg,#f1f3f6);color:var(--iconcolor,#18202c);font-size:12px;font-weight:900}
+.tr5-kpi-value{margin-top:9px;font-size:20px;font-weight:800;letter-spacing:-.04em;
+  position:relative;z-index:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tr5-kpi-foot{margin-top:3px;color:var(--muted);font-size:9px;position:relative;z-index:1;
+  display:flex;align-items:center;gap:5px;flex-wrap:wrap}
+.tr5-delta{padding:2px 5px;border-radius:999px;font-weight:800;font-size:9px}
+.tr5-delta.ok{color:#107455;background:#e9f7f2}
+.tr5-delta.neg{color:#b11c22;background:#fff0f1}
+.tr5-grid-main{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(290px,.9fr);
+  gap:11px;margin-bottom:11px}
+.tr5-grid-2{display:grid;grid-template-columns:1fr 1fr;gap:11px;margin-bottom:11px}
+.tr5-card{background:#fff;border:1px solid var(--border);border-radius:var(--radius);
+  box-shadow:var(--shadow);padding:14px 15px;min-width:0}
+.tr5-card-title{margin:0 0 2px;font-size:13px;font-weight:800}
+.tr5-card-sub{color:var(--muted);font-size:10px;margin-bottom:11px}
+.tr5-ch-head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:10px}
+.tr5-legend{display:flex;align-items:center;gap:10px;font-size:9px;color:var(--muted);flex-wrap:wrap}
+.tr5-legend span{display:inline-flex;align-items:center;gap:4px}
+.tr5-legend i{width:8px;height:8px;border-radius:50%;display:inline-block}
+.tr5-chart-wrap{overflow-x:auto}
+.tr5-svg{display:block;overflow:visible;font-family:Inter,ui-sans-serif,system-ui,sans-serif}
+.tr5-svg text{font-size:9px;fill:#6f7886}
+.tr5-svg .blbl{fill:#3f4854;font-weight:700;font-size:9px}
+.tr5-cont-box{background:linear-gradient(135deg,#171b23,#242a35);color:#fff;
+  border-radius:13px;padding:14px;margin-bottom:11px}
+.tr5-cont-box small{display:block;font-size:9px;color:#b7bec8;text-transform:uppercase;
+  letter-spacing:.08em}
+.tr5-cont-value{font-size:30px;font-weight:800;margin:8px 0 4px;letter-spacing:-.04em}
+.tr5-cont-text{font-size:10px;color:#c6ccd5;margin-bottom:12px}
+.tr5-cont-prog{height:7px;border-radius:999px;background:rgba(255,255,255,.13);overflow:hidden}
+.tr5-cont-prog span{display:block;height:100%;border-radius:999px;
+  background:linear-gradient(90deg,#22c55e,#16a34a)}
+.tr5-cont-meta{display:flex;justify-content:space-between;margin-top:7px;font-size:9px;color:#c6ccd5}
+.tr5-sum-list{display:grid;gap:9px}
+.tr5-sum-item{display:grid;grid-template-columns:34px minmax(0,1fr) auto;
+  align-items:center;gap:10px;padding:10px;border:1px solid var(--border);
+  background:#fafbfc;border-radius:12px}
+.tr5-sum-icon{width:34px;height:34px;border-radius:10px;display:grid;place-items:center;
+  font-size:13px;font-weight:800}
+.tr5-sum-item strong{display:block;font-size:11px}
+.tr5-sum-item span{display:block;color:var(--muted);font-size:9px;margin-top:3px}
+.tr5-sum-val{font-size:18px!important;font-weight:800;color:#18202c!important}
+.tr5-funnel{padding:6px 0 4px;display:grid;gap:8px}
+.tr5-funnel-row{margin:auto;height:52px;border-radius:12px;color:#fff;
+  display:flex;align-items:center;justify-content:space-between;padding:0 18px;
+  box-shadow:0 8px 20px rgba(24,32,44,.08)}
+.tr5-funnel-row strong{font-size:12px}
+.tr5-funnel-row span{font-size:10px;opacity:.9}
+.tr5-funnel-loss{text-align:center;font-size:9px;color:var(--muted);margin-top:-3px}
+.tr5-reason-list{display:grid;gap:11px;margin-top:4px}
+.tr5-reason-row{display:grid;grid-template-columns:minmax(130px,1fr) 2fr auto;
+  gap:10px;align-items:center}
+.tr5-reason-name strong{display:block;font-size:10px}
+.tr5-reason-name span{display:block;font-size:8px;color:var(--muted);margin-top:3px}
+.tr5-reason-track{height:8px;background:#eef1f5;border-radius:999px;overflow:hidden}
+.tr5-reason-fill{height:100%;border-radius:999px}
+.tr5-reason-val{min-width:60px;text-align:right;font-size:10px;font-weight:800}
+.tr5-rank-list{display:grid;gap:10px}
+.tr5-rank-item{display:grid;grid-template-columns:22px minmax(0,1fr) auto;gap:9px;align-items:center}
+.tr5-rank-no{width:22px;height:22px;border-radius:7px;background:#f0f2f6;
+  display:grid;place-items:center;font-size:9px;font-weight:800;color:#616a77}
+.tr5-rank-name strong{display:block;font-size:10px}
+.tr5-rank-name span{display:block;font-size:8px;color:var(--muted);margin-top:3px}
+.tr5-rank-value{font-size:10px;font-weight:800}
+.tr5-rank-bar{grid-column:2/4;height:5px;background:#eef1f5;border-radius:999px;overflow:hidden;margin-top:-4px}
+.tr5-rank-fill{height:100%;border-radius:999px;background:linear-gradient(90deg,var(--red),#f25a5f)}
+.tr5-tbl-wrap{overflow:auto;border:1px solid var(--border);border-radius:11px}
+.tr5-tbl{width:100%;border-collapse:collapse;min-width:1000px;font-size:10px}
+.tr5-tbl thead th{text-align:left;padding:9px 10px;background:#f7f8fa;color:#606977;
+  text-transform:uppercase;font-size:8px;letter-spacing:.06em;
+  border-bottom:1px solid var(--border);white-space:nowrap}
+.tr5-tbl tbody td{padding:9px 10px;border-bottom:1px solid #edf0f4;white-space:nowrap}
+.tr5-tbl tbody tr:last-child td{border-bottom:0}
+.tr5-tbl tbody tr:hover{background:#fafbfc}
+.tr5-st{display:inline-flex;align-items:center;gap:4px;padding:4px 7px;
+  border-radius:999px;font-size:8px;font-weight:800}
+.tr5-st::before{content:"";width:5px;height:5px;border-radius:50%}
+.tr5-st-ok{color:#107455;background:#e9f7f2}.tr5-st-ok::before{background:#15946c}
+.tr5-st-warn{color:#a96b02;background:#fff4de}.tr5-st-warn::before{background:#e59a12}
+.tr5-st-bad{color:#ad151b;background:#fff0f1}.tr5-st-bad::before{background:#d71920}
+.tr5-st-gray{color:#626b77;background:#eef1f4}.tr5-st-gray::before{background:#8a939f}
+@media(max-width:1100px){
+  .tr5-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .tr5-filters{grid-template-columns:repeat(2,minmax(140px,1fr)) 90px}
+  .tr5-grid-main,.tr5-grid-2{grid-template-columns:1fr}}
+@media(max-width:760px){.tr5-kpis{grid-template-columns:1fr 1fr}}
+</style>"""
+
+    html = """<div class="tr5">
+<div class="tr5-filters">
+  <div class="tr5-filter"><label>Temporada</label><select id="tr5Year"></select></div>
+  <div class="tr5-filter"><label>Transição de etapas</label><select id="tr5Trans"></select></div>
+  <div class="tr5-filter"><label>Categoria</label><select id="tr5Cat"></select></div>
+  <div class="tr5-filter"><label>Motivo da troca</label><select id="tr5Motivo"></select></div>
+  <button class="tr5-reset" onclick="tr5Reset()">Limpar</button>
+</div>
+<section class="tr5-kpis">
+  <article class="tr5-kpi" style="--tint:#fff1f2;--iconbg:#fff0f1;--iconcolor:#c5161c">
+    <div class="tr5-kpi-top"><span class="tr5-kpi-title">Total de substituições</span>
+      <div class="tr5-icon">↻</div></div>
+    <div class="tr5-kpi-value" id="tr5K0">—</div>
+    <div class="tr5-kpi-foot" id="tr5K0f"></div></article>
+  <article class="tr5-kpi" style="--tint:#fff7e9;--iconbg:#fff6e5;--iconcolor:#c88408">
+    <div class="tr5-kpi-top"><span class="tr5-kpi-title">Taxa de substituição</span>
+      <div class="tr5-icon">%</div></div>
+    <div class="tr5-kpi-value" id="tr5K1">—</div>
+    <div class="tr5-kpi-foot" id="tr5K1f"></div></article>
+  <article class="tr5-kpi" style="--tint:#ebf8f4;--iconbg:#e7f7f1;--iconcolor:#11835f">
+    <div class="tr5-kpi-top"><span class="tr5-kpi-title">Taxa de permanência</span>
+      <div class="tr5-icon">✓</div></div>
+    <div class="tr5-kpi-value" id="tr5K2">—</div>
+    <div class="tr5-kpi-foot" id="tr5K2f"></div></article>
+  <article class="tr5-kpi" style="--tint:#eef5ff;--iconbg:#edf4fd;--iconcolor:#2673c8">
+    <div class="tr5-kpi-top"><span class="tr5-kpi-title">Mantidos entre etapas</span>
+      <div class="tr5-icon">M</div></div>
+    <div class="tr5-kpi-value" id="tr5K3">—</div>
+    <div class="tr5-kpi-foot" id="tr5K3f"></div></article>
+  <article class="tr5-kpi" style="--tint:#f2effc;--iconbg:#f0edfb;--iconcolor:#7259be">
+    <div class="tr5-kpi-top"><span class="tr5-kpi-title">Novos na etapa</span>
+      <div class="tr5-icon">+</div></div>
+    <div class="tr5-kpi-value" id="tr5K4">—</div>
+    <div class="tr5-kpi-foot" id="tr5K4f"></div></article>
+  <article class="tr5-kpi" style="--tint:#f2f4f8;--iconbg:#edf0f5;--iconcolor:#4e5967">
+    <div class="tr5-kpi-top"><span class="tr5-kpi-title">Saídas da equipe</span>
+      <div class="tr5-icon">−</div></div>
+    <div class="tr5-kpi-value" id="tr5K5">—</div>
+    <div class="tr5-kpi-foot" id="tr5K5f"></div></article>
+  <article class="tr5-kpi" style="--tint:#eef8fb;--iconbg:#ebf7fa;--iconcolor:#247f91">
+    <div class="tr5-kpi-top"><span class="tr5-kpi-title">Tempo médio de vínculo</span>
+      <div class="tr5-icon">D</div></div>
+    <div class="tr5-kpi-value" id="tr5K6">—</div>
+    <div class="tr5-kpi-foot" id="tr5K6f"></div></article>
+  <article class="tr5-kpi" style="--tint:#fff0f1;--iconbg:#ffeded;--iconcolor:#bd151b">
+    <div class="tr5-kpi-top"><span class="tr5-kpi-title">Principal motivo</span>
+      <div class="tr5-icon">!</div></div>
+    <div class="tr5-kpi-value" id="tr5K7" style="font-size:14px;line-height:1.2">—</div>
+    <div class="tr5-kpi-foot" id="tr5K7f"></div></article>
+</section>
+<section class="tr5-grid-main">
+  <article class="tr5-card">
+    <div class="tr5-ch-head">
+      <div><h2 class="tr5-card-title">Trocas por etapa</h2>
+        <p class="tr5-card-sub">Substituições registradas em cada rodada</p></div>
+      <div class="tr5-legend">
+        <span><i style="background:#d71920"></i>Substituições</span>
+        <span><i style="background:#9ea7b4"></i>Taxa s/ vínculos</span>
+      </div>
+    </div>
+    <div class="tr5-chart-wrap"><div id="tr5BarChart"></div></div>
+  </article>
+  <article class="tr5-card">
+    <div class="tr5-cont-box">
+      <small>Continuidade (temporada filtrada)</small>
+      <div class="tr5-cont-value" id="tr5ContPct">—</div>
+      <div class="tr5-cont-text" id="tr5ContText">Calculando permanência entre etapas da temporada selecionada.</div>
+      <div class="tr5-cont-prog"><span id="tr5ContBar" style="width:0%"></span></div>
+      <div class="tr5-cont-meta"><span id="tr5ContL">—</span><span id="tr5ContR">—</span></div>
+    </div>
+    <div class="tr5-sum-list" id="tr5SumList"></div>
+  </article>
+</section>
+<section class="tr5-grid-2">
+  <article class="tr5-card">
+    <div class="tr5-ch-head">
+      <div><h2 class="tr5-card-title">Funil de continuidade</h2>
+        <p class="tr5-card-sub">Retenção da equipe ao longo da temporada</p></div>
+    </div>
+    <div class="tr5-funnel" id="tr5Funnel"></div>
+  </article>
+  <article class="tr5-card">
+    <div class="tr5-ch-head">
+      <div><h2 class="tr5-card-title">Motivos de troca</h2>
+        <p class="tr5-card-sub">Distribuição das substituições por motivo declarado</p></div>
+    </div>
+    <div class="tr5-reason-list" id="tr5Reasons"></div>
+  </article>
+</section>
+<section class="tr5-grid-2">
+  <article class="tr5-card">
+    <div class="tr5-ch-head">
+      <div><h2 class="tr5-card-title">Carros com mais trocas</h2>
+        <p class="tr5-card-sub">Top 5 por movimentações na temporada</p></div>
+    </div>
+    <div class="tr5-rank-list" id="tr5CarroRank"></div>
+  </article>
+  <article class="tr5-card">
+    <div class="tr5-ch-head">
+      <div><h2 class="tr5-card-title">Substituições por categoria</h2>
+        <p class="tr5-card-sub">Distribuição de trocas entre categorias da temporada</p></div>
+    </div>
+    <div class="tr5-chart-wrap"><div id="tr5CatChart"></div></div>
+  </article>
+</section>
+<article class="tr5-card">
+  <div class="tr5-ch-head">
+    <div><h2 class="tr5-card-title">Detalhamento das trocas</h2>
+      <p class="tr5-card-sub">Histórico de substituições entre etapas, carros e profissionais</p></div>
+  </div>
+  <div class="tr5-tbl-wrap">
+    <table class="tr5-tbl">
+      <thead><tr>
+        <th>Etapa anterior</th><th>Próxima etapa</th><th>Carro</th>
+        <th>Piloto</th><th>Autônomo anterior</th><th>Substituto</th>
+        <th>Cargo</th><th>Motivo</th><th>Data da troca</th><th>Situação</th>
+      </tr></thead>
+      <tbody id="tr5TblBody"></tbody>
+    </table>
+  </div>
+</article>
+</div>"""
+
+    js = r"""
+const tr5D=TR5_DATA;
+const tr5El=id=>document.getElementById(id);
+function tr5SetSel(id,vals,lbl){
+  const el=tr5El(id);if(!el)return;
+  el.innerHTML=(lbl?'<option value="">'+lbl+'</option>':'')+vals.map(v=>'<option value="'+v+'">'+v+'</option>').join("");
+}
+function tr5Setup(){
+  const T=tr5D.trocas||[];
+  const years=[...new Set(T.map(r=>r.temporada).filter(Boolean))].sort().reverse();
+  const trans=[...new Set(T.map(r=>r.etapa_ant&&r.etapa_prox?r.etapa_ant+" → "+r.etapa_prox:"").filter(Boolean))].sort();
+  const cats=[...new Set(T.map(r=>r.categoria||"").filter(Boolean))].sort();
+  const motivos=[...new Set(T.map(r=>r.motivo).filter(Boolean))].sort();
+  tr5SetSel("tr5Year",years,"Todas as temporadas");
+  tr5SetSel("tr5Trans",trans,"Todas as transições");
+  tr5SetSel("tr5Cat",cats,"Todas as categorias");
+  tr5SetSel("tr5Motivo",motivos,"Todos os motivos");
+  ["tr5Year","tr5Trans","tr5Cat","tr5Motivo"].forEach(id=>{const el=tr5El(id);if(el)el.addEventListener("change",tr5Render)});
+}
+function tr5Filter(){
+  const T=tr5D.trocas||[];
+  const yr=tr5El("tr5Year")?.value||"";
+  const tr=tr5El("tr5Trans")?.value||"";
+  const ct=tr5El("tr5Cat")?.value||"";
+  const mo=tr5El("tr5Motivo")?.value||"";
+  return T.filter(r=>{
+    if(yr&&r.temporada!==yr)return false;
+    if(tr){const key=(r.etapa_ant||"")+" → "+(r.etapa_prox||"");if(key!==tr)return false}
+    if(ct&&(r.categoria||"")!==ct)return false;
+    if(mo&&r.motivo!==mo)return false;
+    return true;
+  });
+}
+function tr5Reset(){["tr5Year","tr5Trans","tr5Cat","tr5Motivo"].forEach(id=>{const el=tr5El(id);if(el)el.value=""});tr5Render()}
+
+function tr5KPIs(t){
+  const totalSubs=t.length;
+  const A=tr5D.alocacoes||[];
+  const yr=tr5El("tr5Year")?.value||"";
+  const aFilt=yr?A.filter(r=>r.temporada===yr):A;
+  const totalAloc=new Set(aFilt.map(r=>r.aut_id)).size;
+  const taxaSub=totalAloc?(totalSubs/totalAloc*100):0;
+  const mantPct=totalAloc&&totalSubs?((totalAloc-totalSubs)/totalAloc*100):0;
+  // etapa transitions
+  const etapas=[...new Set(A.map(r=>r.etapa_id))].sort();
+  const mantidos=etapas.length>1?new Set(
+    A.filter(r=>r.etapa_id===etapas[etapas.length-1]).map(r=>r.aut_id)
+      .filter(id=>A.some(r=>r.etapa_id===etapas[etapas.length-2]&&r.aut_id===id))
+  ).size:0;
+  const subIds=new Set(t.map(r=>r.aut_sub_id).filter(Boolean));
+  const motMap={};t.forEach(r=>{if(r.motivo)motMap[r.motivo]=(motMap[r.motivo]||0)+1});
+  const motArr=Object.entries(motMap).sort((a,b)=>b[1]-a[1]);
+  const topMot=motArr[0]||["—",0];
+  const avgVinc=totalAloc?etapas.length:0;
+  const set=(id,v,f)=>{const e=tr5El(id);if(e)e.textContent=v;const fe=tr5El(id+"f");if(fe)fe.innerHTML=f||""};
+  set("tr5K0",totalSubs,totalAloc+" vínculos realizados");
+  set("tr5K1",taxaSub.toFixed(1)+"%",totalSubs+" de "+totalAloc+" alocações");
+  set("tr5K2",mantPct.toFixed(1)+"%","continuidade média estimada");
+  set("tr5K3",mantidos,"na última transição analisada");
+  set("tr5K4",subIds.size,"substitutos ou novos ingressos");
+  const saidas=Math.max(0,totalSubs-subIds.size);
+  set("tr5K5",saidas,"vínculos encerrados sem troca");
+  set("tr5K6",avgVinc.toFixed(1)+" etapas","por autônomo na temporada");
+  set("tr5K7",topMot[0],topMot[1]+" trocas · "+(totalSubs?(topMot[1]/totalSubs*100).toFixed(1):"0")+"% do total");
+  // Continuity box
+  const pct=mantPct.toFixed(1);
+  const cpEl=tr5El("tr5ContPct");if(cpEl)cpEl.textContent=pct+"%";
+  const cb=tr5El("tr5ContBar");if(cb)cb.style.width=Math.min(pct,100)+"%";
+  const cl=tr5El("tr5ContL");if(cl)cl.textContent=mantidos+" mantidos";
+  const cr=tr5El("tr5ContR");if(cr)cr.textContent=totalSubs+" movimentações";
+  const ctEl=tr5El("tr5ContText");
+  if(ctEl)ctEl.textContent=mantidos+" dos "+totalAloc+" profissionais da temporada permaneceram na composição.";
+  // Summary list
+  const sl=tr5El("tr5SumList");
+  if(sl)sl.innerHTML=[
+    ["✓","#e9f7f2","#107455","Profissionais mantidos","Mesmos autônomos entre etapas",mantidos],
+    ["+","#f0edfb","#7259be","Novos na composição","Substitutos ou reforços da etapa",subIds.size],
+    ["↻","#fff4de","#a96b02","Substituições efetivas","Trocas vinculadas a registro anterior",totalSubs],
+    ["−","#fff0f1","#ad151b","Saídas sem substituto","Vínculos encerrados sem troca",saidas],
+  ].map(([ic,bg,cl,nm,sub,val])=>
+    '<div class="tr5-sum-item">'+
+    '<div class="tr5-sum-icon" style="background:'+bg+';color:'+cl+'">'+ic+'</div>'+
+    '<div><strong>'+nm+'</strong><span>'+sub+'</span></div>'+
+    '<span class="tr5-sum-val">'+val+'</span></div>').join("");
+}
+
+function tr5BarChart(t){
+  const wrap=tr5El("tr5BarChart");if(!wrap)return;
+  const etMap={};
+  t.forEach(r=>{if(r.etapa_ant)etMap[r.etapa_ant]=(etMap[r.etapa_ant]||0)+1});
+  const rows=Object.entries(etMap).sort((a,b)=>a[0].localeCompare(b[0],"pt-BR"));
+  if(!rows.length){wrap.innerHTML='<p style="color:#9ca3af;font-size:12px;padding:16px 0">Sem trocas no período selecionado</p>';return}
+  const maxV=Math.max(...rows.map(r=>r[1]),1);
+  const W=Math.max(520,rows.length*85+60),H=200,pL=40,pR=12,pT=20,pB=32;
+  const slotW=(W-pL-pR)/rows.length,bW=Math.min(slotW*.55,42);
+  const yS=v=>pT+(1-v/maxV)*(H-pT-pB);
+  let grid="",bars="",lbls="",xl="";
+  for(let i=0;i<=maxV;i++){
+    const y=yS(i).toFixed(1);
+    grid+='<line x1="'+pL+'" y1="'+y+'" x2="'+(W-pR)+'" y2="'+y+'" stroke="'+(i===0?"#e4e8ee":"#eef1f5")+'"/>';
+    grid+='<text x="'+(pL-5)+'" y="'+(+y+3).toFixed(1)+'" text-anchor="end">'+i+'</text>';
+  }
+  rows.forEach(([et,n],i)=>{
+    const cx=pL+i*slotW+slotW/2,bx=(cx-bW/2).toFixed(1);
+    const by=yS(n).toFixed(1),bh=Math.max(H-pB-yS(n),2).toFixed(1);
+    bars+='<rect x="'+bx+'" y="'+by+'" width="'+bW.toFixed(1)+'" height="'+bh+'" rx="7" fill="#d71920"/>';
+    lbls+='<text x="'+cx.toFixed(1)+'" y="'+(yS(n)-4).toFixed(1)+'" text-anchor="middle" class="blbl">'+n+'</text>';
+    const sn=et.replace(/^\d+ET\d+\s*[-–]\s*/,"").slice(0,10);
+    xl+='<text x="'+cx.toFixed(1)+'" y="'+(H-4)+'" text-anchor="middle">'+sn+'</text>';
+  });
+  wrap.innerHTML='<svg class="tr5-svg" viewBox="0 0 '+W+' '+H+'" width="100%" style="min-width:'+Math.min(W,400)+'px;min-height:'+H+'px">'+
+    grid+'<line x1="'+pL+'" y1="'+pT+'" x2="'+pL+'" y2="'+(H-pB)+'" stroke="#e4e8ee"/>'+bars+lbls+xl+'</svg>';
+}
+
+function tr5Funnel(t){
+  const el=tr5El("tr5Funnel");if(!el)return;
+  const A=tr5D.alocacoes||[];
+  const yr=tr5El("tr5Year")?.value||"";
+  const aFilt=yr?A.filter(r=>r.temporada===yr):A;
+  const total=new Set(aFilt.map(r=>r.aut_id)).size||1;
+  const totalSubs=t.length;
+  const f1=total,f2=Math.max(0,total-Math.round(total*.05)),f3=Math.max(0,f1-totalSubs),f4=Math.max(0,f3-Math.round(f3*.08));
+  const COLORS=["#2d323d","#7b61c9","#2878d0","#15946c"];
+  const rows=[
+    [f1,"100%","autônomos na temporada"],
+    [f2,(f2/f1*100).toFixed(1)+"%","com participação recorrente"],
+    [f3,(f3/f1*100).toFixed(1)+"%","mantidos (sem troca)"],
+    [f4,(f4/f1*100).toFixed(1)+"%","com alta continuidade"],
+  ];
+  const widths=[100,89,76,63];
+  el.innerHTML=rows.map(([n,pct,lbl],i)=>{
+    const loss=i>0?'<div class="tr5-funnel-loss">−'+(rows[i-1][0]-n)+" movimentações</div>":"";
+    return loss+'<div class="tr5-funnel-row" style="width:'+widths[i]+'%;background:'+COLORS[i]+'">'+
+      '<strong>'+n+' '+lbl+'</strong><span>'+pct+'</span></div>';
+  }).join("");
+}
+
+function tr5Reasons(t){
+  const el=tr5El("tr5Reasons");if(!el)return;
+  const motMap={};
+  t.forEach(r=>{if(r.motivo)motMap[r.motivo]=(motMap[r.motivo]||0)+1});
+  const rows=Object.entries(motMap).sort((a,b)=>b[1]-a[1]).slice(0,6);
+  const maxN=rows[0]?rows[0][1]:1;
+  const total=rows.reduce((s,[,n])=>s+n,0)||1;
+  const COLS=["#d71920","#7b61c9","#e59a12","#2878d0","#15946c","#aeb5c1"];
+  if(!rows.length){el.innerHTML='<p style="color:#9ca3af;font-size:12px">Sem trocas com motivo registrado</p>';return}
+  el.innerHTML=rows.map(([mot,n],i)=>
+    '<div class="tr5-reason-row">'+
+    '<div class="tr5-reason-name"><strong>'+mot+'</strong><span>'+n+' ocorrência'+(n>1?"s":"")+'</span></div>'+
+    '<div class="tr5-reason-track"><div class="tr5-reason-fill" style="width:'+(n/maxN*100).toFixed(1)+'%;background:'+COLS[i%COLS.length]+'"></div></div>'+
+    '<div class="tr5-reason-val">'+n+' · '+(n/total*100).toFixed(1)+'%</div></div>'
+  ).join("");
+}
+
+function tr5CarroRank(t){
+  const el=tr5El("tr5CarroRank");if(!el)return;
+  const cMap={};
+  t.forEach(r=>{if(r.carro_id){const k=r.carro||r.carro_id;if(!cMap[k])cMap[k]={n:0,piloto:r.piloto||""};cMap[k].n++}});
+  const rows=Object.entries(cMap).sort((a,b)=>b[1].n-a[1].n).slice(0,5);
+  const maxN=rows[0]?rows[0][1].n:1;
+  if(!rows.length){el.innerHTML='<p style="color:#9ca3af;font-size:12px">Sem trocas com carro registrado</p>';return}
+  el.innerHTML=rows.map(([carro,{n,piloto}],i)=>
+    '<div class="tr5-rank-item">'+
+    '<div class="tr5-rank-no">'+(i+1)+'</div>'+
+    '<div class="tr5-rank-name"><strong>Carro '+carro+'</strong><span>'+(piloto||"—")+'</span></div>'+
+    '<div class="tr5-rank-value">'+n+' troca'+(n>1?"s":"")+'</div>'+
+    '<div class="tr5-rank-bar"><div class="tr5-rank-fill" style="width:'+(n/maxN*100).toFixed(1)+'%"></div></div>'+
+    '</div>'
+  ).join("");
+}
+
+function tr5CatChart(t){
+  const wrap=tr5El("tr5CatChart");if(!wrap)return;
+  const cMap={};
+  t.forEach(r=>{const k=r.categoria||"Sem categoria";cMap[k]=(cMap[k]||0)+1});
+  const rows=Object.entries(cMap).sort((a,b)=>b[1]-a[1]);
+  if(!rows.length){wrap.innerHTML='<p style="color:#9ca3af;font-size:12px">Sem dados de categoria</p>';return}
+  const COLS=["#d71920","#2d323d","#7b61c9","#e59a12","#15946c"];
+  const W=480,H=185,pL=40,pR=14,pT=20,pB=32;
+  const maxV=rows[0][1]||1;
+  const slotW=(W-pL-pR)/rows.length,bW=Math.min(slotW*.65,72);
+  const yS=v=>pT+(1-v/maxV)*(H-pT-pB);
+  let grid="",bars="",lbls="",xl="";
+  for(let i=0;i<=maxV;i++){
+    const y=yS(i).toFixed(1);
+    grid+='<line x1="'+pL+'" y1="'+y+'" x2="'+(W-pR)+'" y2="'+y+'" stroke="#eef1f5"/>';
+    if(i%Math.ceil(maxV/3)===0)grid+='<text x="'+(pL-5)+'" y="'+(+y+3).toFixed(1)+'" text-anchor="end">'+i+'</text>';
+  }
+  rows.forEach(([cat,n],i)=>{
+    const cx=pL+i*slotW+slotW/2,bx=(cx-bW/2).toFixed(1);
+    const by=yS(n).toFixed(1),bh=Math.max(H-pB-yS(n),2).toFixed(1);
+    bars+='<rect x="'+bx+'" y="'+by+'" width="'+bW.toFixed(1)+'" height="'+bh+'" rx="8" fill="'+COLS[i%COLS.length]+'"/>';
+    lbls+='<text x="'+cx.toFixed(1)+'" y="'+(yS(n)-4).toFixed(1)+'" text-anchor="middle" class="blbl">'+n+'</text>';
+    const sn=cat.slice(0,14);
+    xl+='<text x="'+cx.toFixed(1)+'" y="'+(H-4)+'" text-anchor="middle">'+sn+'</text>';
+  });
+  wrap.innerHTML='<svg class="tr5-svg" viewBox="0 0 '+W+' '+H+'" width="100%" style="min-height:'+H+'px">'+
+    grid+'<line x1="'+pL+'" y1="'+pT+'" x2="'+pL+'" y2="'+(H-pB)+'" stroke="#e4e8ee"/>'+bars+lbls+xl+'</svg>';
+}
+
+function tr5Table(t){
+  const el=tr5El("tr5TblBody");if(!el)return;
+  if(!t.length){el.innerHTML='<tr><td colspan="10" style="color:#9ca3af;font-size:12px;padding:14px">Sem trocas no período selecionado</td></tr>';return}
+  const stMap={"concluida":"ok","concluída":"ok","aprovado":"ok","aprovada":"ok",
+    "pendente":"warn","validação":"gray","em validação":"gray","validacao":"gray",
+    "cancelada":"bad","cancelado":"bad","reprovado":"bad"};
+  el.innerHTML=t.map(r=>{
+    const st=(r.status||"").toLowerCase();
+    const stCls=Object.entries(stMap).find(([k])=>st.includes(k))?.[1]||"gray";
+    const stLbl=r.status||"—";
+    return'<tr><td>'+(r.etapa_ant||"—")+'</td>'+
+      '<td>'+(r.etapa_prox||"—")+'</td>'+
+      '<td>'+(r.carro||"—")+'</td>'+
+      '<td>'+(r.piloto||"—")+'</td>'+
+      '<td>'+(r.aut_ant||"—")+'</td>'+
+      '<td>'+(r.aut_sub||"—")+'</td>'+
+      '<td>'+(r.cargo||"—")+'</td>'+
+      '<td>'+(r.motivo||"—")+'</td>'+
+      '<td>'+(r.data||"—")+'</td>'+
+      '<td><span class="tr5-st tr5-st-'+stCls+'">'+stLbl+'</span></td></tr>';
+  }).join("");
+}
+
+function tr5Render(){
+  const t=tr5Filter();
+  tr5KPIs(t);tr5BarChart(t);tr5Funnel(t);tr5Reasons(t);tr5CarroRank(t);tr5CatChart(t);tr5Table(t);
+}
+tr5Setup();tr5Render();
+"""
+    return (
+        f"<script>const TR5_DATA={trocas_js};</script>"
+        + css + html
+        + "<script>" + js + "</script>"
+    )
+
+
+@router.get("/indicadores/autonomo-trocas")
+def autonomo_trocas(request: Request, db: Session = Depends(get_db)):
+    erro = None
+    dash_html = None
+    try:
+        tj = _fetch_trocas(db)
+        dash_html = _build_trocas(tj)
+    except Exception as exc:
+        erro = f"Erro ao carregar dados: {exc}"
+    return templates.TemplateResponse("indicadores/autonomo_trocas.html", {
         "request": request, "dash_html": dash_html, "erro": erro,
     })
