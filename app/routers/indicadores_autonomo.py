@@ -273,15 +273,16 @@ def _build_geral(records_js: str, meta_js: str, eg_js: str = "[]") -> str:
     <div class="vg-chart-wrap"><div id="vgEtChart"></div></div>
   </article>
   <article class="vg-card">
-    <h2 class="vg-card-title">Pagamentos</h2>
-    <p class="vg-card-sub">Distribuição por status de pagamento</p>
+    <h2 class="vg-card-title">Formas de pagamento</h2>
+    <p class="vg-card-sub">Participação NF / RPA / Recibo · meta 60% NF</p>
     <div class="vg-donut-wrap">
       <div class="vg-donut-host">
         <div class="vg-donut" id="vgDn"></div>
-        <div class="vg-donut-center"><strong id="vgDnPct">—</strong><span>pago</span></div>
+        <div class="vg-donut-center"><strong id="vgDnPct">—</strong><span>via NF</span></div>
       </div>
       <div class="vg-donut-legend" id="vgDnLeg"></div>
     </div>
+    <div id="vgMeta"></div>
   </article>
 </section>
 <section class="vg-grid-bottom">
@@ -413,20 +414,40 @@ function vgEtapaChart(d){
     dots+xlbl+'</svg>';
 }
 
-function vgDonut(d){
-  d=d.filter(r=>!r.eg);
-  const pago=d.filter(r=>vgNormSt(r.status)==="Pago").reduce((s,r)=>s+(r.valor||0),0);
-  const pend=d.filter(r=>vgNormSt(r.status)==="Pendente").reduce((s,r)=>s+(r.valor||0),0);
-  const sem=d.filter(r=>vgNormSt(r.status)==="Sem status").reduce((s,r)=>s+(r.valor||0),0);
-  const tot=pago+pend+sem||1;
-  const pp=pago/tot*100,pe=pend/tot*100;
-  const dn=vgEl("vgDn");
-  if(dn)dn.style.background="conic-gradient(#15946c 0 "+pp.toFixed(2)+"%, #e59a12 "+pp.toFixed(2)+"% "+(pp+pe).toFixed(2)+"%, #d1d5db "+(pp+pe).toFixed(2)+"% 100%)";
-  const pc=vgEl("vgDnPct");if(pc)pc.textContent=pp.toFixed(1)+"%";
-  const leg=vgEl("vgDnLeg");
-  if(leg)leg.innerHTML=[["#15946c","Pago",pago],["#e59a12","Pendente",pend],["#d1d5db","Sem status",sem]]
-    .filter(([,,v])=>v>0).map(([c,l,v])=>
-      '<div class="vg-donut-row"><span><span class="vg-dot" style="background:'+c+'"></span>'+l+'</span><strong>'+vgFmt(v)+'</strong></div>').join("");
+function vgFormaNorm(s){
+  s=(s||"").trim().toUpperCase();
+  if(s==="NF"||s==="NOTA FISCAL")return"NF";
+  if(s==="RPA")return"RPA";
+  if(s==="RECIBO")return"Recibo";
+  return s?s.charAt(0)+s.slice(1).toLowerCase():"";
+}
+function vgFormas(d){
+  // participação por forma de pagamento (nº de contratações), autônomos + Outras Equipes
+  const COL={"NF":"#15946c","RPA":"#e59a12","Recibo":"#2673c8"};
+  const cnt={};let tot=0;
+  d.forEach(r=>{const k=vgFormaNorm(r.forma);if(!k)return;cnt[k]=(cnt[k]||0)+1;tot++;});
+  const dn=vgEl("vgDn"),pc=vgEl("vgDnPct"),leg=vgEl("vgDnLeg"),mt=vgEl("vgMeta");
+  if(!tot){
+    if(dn)dn.style.background="#eef1f5";
+    if(pc)pc.textContent="—";
+    if(leg)leg.innerHTML='<div style="color:#9ca3af;font-size:11px">Sem forma de pagamento registrada</div>';
+    if(mt)mt.innerHTML="";
+    return;
+  }
+  const base=["NF","RPA","Recibo"];
+  const order=base.filter(k=>cnt[k]).concat(Object.keys(cnt).filter(k=>!base.includes(k)));
+  let acc=0;const seg=[];
+  order.forEach(k=>{const p=cnt[k]/tot*100;seg.push((COL[k]||"#9ca3af")+" "+acc.toFixed(2)+"% "+(acc+p).toFixed(2)+"%");acc+=p;});
+  if(dn)dn.style.background="conic-gradient("+seg.join(",")+")";
+  const nfPct=(cnt["NF"]||0)/tot*100;
+  if(pc)pc.textContent=nfPct.toFixed(0)+"%";
+  if(leg)leg.innerHTML=order.map(k=>
+    '<div class="vg-donut-row"><span><span class="vg-dot" style="background:'+(COL[k]||"#9ca3af")+'"></span>'+k+'</span>'+
+    '<strong>'+(cnt[k]/tot*100).toFixed(0)+'% ('+cnt[k]+')</strong></div>').join("");
+  const meta=60,diff=nfPct-meta;
+  if(mt)mt.innerHTML='<div style="margin-top:8px;padding-top:8px;border-top:1px solid #eef1f5;font-size:11.5px;display:flex;justify-content:space-between;align-items:center">'+
+    '<span><b>Meta NF</b> '+meta+'% · Realizado '+nfPct.toFixed(0)+'%</span>'+
+    '<span style="font-weight:800;color:'+(diff>=0?"#15946c":"#d71920")+'">'+(diff>=0?"+":"")+diff.toFixed(0)+'%</span></div>';
 }
 
 function vgCatBars(d){
@@ -491,7 +512,7 @@ function vgProxEtapa(){
 
 function vgRender(){
   const d=vgFiltered();
-  vgKPIs(d);vgEtapaChart(d);vgDonut(d);vgCatBars(d);vgRanking(d);vgProxEtapa();
+  vgKPIs(d);vgEtapaChart(d);vgFormas(d);vgCatBars(d);vgRanking(d);vgProxEtapa();
 }
 vgSetup();vgRender();
 """
