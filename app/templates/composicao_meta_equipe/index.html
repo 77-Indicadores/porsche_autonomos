@@ -38,6 +38,32 @@
 .tbl th{background:#f9fafb;padding:.38rem .6rem;text-align:left;font-size:.71rem;font-weight:700;color:#6b7280;text-transform:uppercase;border-bottom:2px solid #e5e7eb;white-space:nowrap}
 .tbl td{padding:.32rem .6rem;border-bottom:1px solid #f3f4f6;vertical-align:middle}
 .tbl tr:hover td{background:#fafafa}
+
+/* painel de disponibilidade */
+.kpi-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:16px}
+.kpi{background:#fff;border:1px solid #e5e7eb;border-left:4px solid var(--c,#6b7280);border-radius:10px;padding:.7rem .9rem}
+.kpi .lbl{font-size:.68rem;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:.03em}
+.kpi .val{font-size:1.6rem;font-weight:800;color:#111827;line-height:1.1;margin-top:2px}
+.kpi .sub{font-size:.66rem;color:#9ca3af}
+.bar-wrap{margin:2px 0 16px}
+.bar-title{font-size:.82rem;font-weight:700;color:#374151;margin-bottom:6px}
+.stack{display:flex;height:26px;border-radius:6px;overflow:hidden;background:#f3f4f6;font-size:.72rem;font-weight:700;color:#fff}
+.stack .seg{display:flex;align-items:center;justify-content:center;min-width:0;white-space:nowrap}
+.seg-esc{background:#16a34a}
+.seg-res{background:#f59e0b}
+.legend{display:flex;gap:14px;margin-top:6px;font-size:.72rem;color:#6b7280;flex-wrap:wrap}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:4px;vertical-align:middle}
+.fn-tbl{width:100%;border-collapse:collapse;font-size:.8rem}
+.fn-tbl th{background:#f9fafb;padding:.35rem .55rem;text-align:left;font-size:.68rem;font-weight:700;color:#6b7280;text-transform:uppercase;border-bottom:2px solid #e5e7eb}
+.fn-tbl td{padding:.3rem .55rem;border-bottom:1px solid #f3f4f6}
+.fn-tbl td.num{text-align:center;font-weight:700}
+.mini{height:8px;border-radius:4px;background:#f3f4f6;display:flex;overflow:hidden;min-width:80px}
+.mini .m-esc{background:#16a34a}
+.mini .m-res{background:#f59e0b}
+.status-sel{padding:.2rem .4rem;border-radius:5px;border:1px solid #d1d5db;font-size:.74rem;font-weight:600;cursor:pointer}
+.st-Escalado{background:#dcfce7;color:#166534;border-color:#86efac}
+.st-Não_escalado{background:#fef9c3;color:#854d0e;border-color:#fde047}
+.st-Treinamento{background:#dbeafe;color:#1e40af;border-color:#93c5fd}
 </style>
 
 <!-- ── TOPO: só exportar modelo ── -->
@@ -87,12 +113,12 @@
 </div>
 {% endif %}
 
-<!-- ── FILTROS + TABELA ── -->
-<div class="panel">
+<!-- ── FILTROS ── -->
+<div class="panel" style="margin-bottom:16px">
   <div class="filterbar">
     <div>
       <label>Etapa</label>
-      <select name="etapa_sel" onchange="filtrar(this)" id="f_etapa">
+      <select onchange="goFilter('etapa_sel', this.value)">
         <option value="">Todas</option>
         {% for e in etapas %}
         <option value="{{ e.id_etapa }}" {% if etapa_sel|string == e.id_etapa|string %}selected{% endif %}>
@@ -103,17 +129,109 @@
     </div>
     <div>
       <label>Temporada</label>
-      <select onchange="filtrarTemp(this)" id="f_temp">
+      <select onchange="goFilter('temp_sel', this.value)">
         <option value="">Todas</option>
         {% for t in temporadas %}
         <option value="{{ t }}" {% if temp_sel == t %}selected{% endif %}>{{ t }}</option>
         {% endfor %}
       </select>
     </div>
+    <div>
+      <label>Função</label>
+      <select onchange="goFilter('funcao_sel', this.value)">
+        <option value="">Todas</option>
+        {% for f in funcoes %}
+        <option value="{{ f }}" {% if funcao_sel == f %}selected{% endif %}>{{ f }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div>
+      <label>Status</label>
+      <select onchange="goFilter('status_sel', this.value)">
+        <option value="">Todos</option>
+        {% for s in status_opcoes %}
+        <option value="{{ s }}" {% if status_sel == s %}selected{% endif %}>{{ s }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    {% if etapa_sel or temp_sel or funcao_sel or status_sel %}
+    <a class="btn-outline" href="/composicao-meta-equipe">✖ Limpar filtros</a>
+    {% endif %}
+  </div>
+</div>
+
+<!-- ── PAINEL DE DISPONIBILIDADE ── -->
+{% set p = painel %}
+<div class="panel" style="margin-bottom:16px">
+  <div style="font-size:.82rem;color:#6b7280;margin-bottom:10px">
+    📊 Painel de disponibilidade —
+    {% if etapa_sel %}{% for e in etapas %}{% if etapa_sel|string == e.id_etapa|string %}{{ e.temporada }} · {{ e.nome_etapa }}{% endif %}{% endfor %}
+    {% elif temp_sel %}Temporada {{ temp_sel }}{% else %}todas as etapas{% endif %}
+    {% if funcao_sel %} · função: <b>{{ funcao_sel }}</b>{% endif %}
+  </div>
+
+  <div class="kpi-row">
+    <div class="kpi" style="--c:#0ea5e9"><div class="lbl">Total Disponíveis</div><div class="val">{{ p.disponiveis }}</div><div class="sub">Escalados + Reserva</div></div>
+    <div class="kpi" style="--c:#16a34a"><div class="lbl">Escalados</div><div class="val">{{ p.escalados }}</div><div class="sub">na etapa</div></div>
+    <div class="kpi" style="--c:#f59e0b"><div class="lbl">Banco de Reserva</div><div class="val">{{ p.reserva }}</div><div class="sub">não escalados</div></div>
+    <div class="kpi" style="--c:#6366f1"><div class="lbl">Em Treinamento</div><div class="val">{{ p.treinamento }}</div><div class="sub">fora dos disponíveis</div></div>
+  </div>
+
+  {% if p.disponiveis %}
+  <div class="bar-wrap">
+    <div class="bar-title">Disponíveis: Escalados × Banco de Reserva</div>
+    <div class="stack">
+      {% if p.escalados %}<div class="seg seg-esc" style="width:{{ (p.escalados / p.disponiveis * 100)|round(1) }}%">{{ p.escalados }}</div>{% endif %}
+      {% if p.reserva %}<div class="seg seg-res" style="width:{{ (p.reserva / p.disponiveis * 100)|round(1) }}%">{{ p.reserva }}</div>{% endif %}
+    </div>
+    <div class="legend">
+      <span><i style="background:#16a34a"></i>Escalados ({{ p.escalados }})</span>
+      <span><i style="background:#f59e0b"></i>Banco de Reserva ({{ p.reserva }})</span>
+      {% if p.treinamento %}<span><i style="background:#6366f1"></i>Treinamento ({{ p.treinamento }}) — não disponível</span>{% endif %}
+    </div>
+  </div>
+  {% endif %}
+
+  {% if p.por_funcao %}
+  <div class="bar-title" style="margin-top:6px">Distribuição por função</div>
+  <table class="fn-tbl">
+    <thead>
+      <tr><th>Função</th><th>Disponíveis</th><th>Escalados</th><th>Reserva</th><th>Treinamento</th><th style="width:150px">Escalados × Reserva</th></tr>
+    </thead>
+    <tbody>
+      {% for f in p.por_funcao %}
+      <tr>
+        <td style="font-weight:600">{{ f.funcao }}</td>
+        <td class="num">{{ f.disponiveis }}</td>
+        <td class="num" style="color:#16a34a">{{ f.escalados }}</td>
+        <td class="num" style="color:#b45309">{{ f.reserva }}</td>
+        <td class="num" style="color:#4338ca">{{ f.treinamento }}</td>
+        <td>
+          <div class="mini">
+            {% if f.disponiveis %}
+            {% if f.escalados %}<div class="m-esc" style="width:{{ (f.escalados / f.disponiveis * 100)|round(1) }}%"></div>{% endif %}
+            {% if f.reserva %}<div class="m-res" style="width:{{ (f.reserva / f.disponiveis * 100)|round(1) }}%"></div>{% endif %}
+            {% endif %}
+          </div>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% endif %}
+
+  <div style="font-size:.7rem;color:#9ca3af;margin-top:12px">
+    O painel considera <b>Etapa</b>, <b>Temporada</b> e <b>Função</b>. O filtro de <b>Status</b> afeta apenas a lista abaixo.
+  </div>
+</div>
+
+<!-- ── TABELA ── -->
+<div class="panel">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;gap:10px;flex-wrap:wrap">
+    <span style="font-size:.82rem;font-weight:700;color:#374151">Lista de autônomos ({{ linhas|length }})</span>
     {% if linhas %}
     <a class="btn-outline" href="/composicao-meta-equipe/exportar?etapa_sel={{ etapa_sel }}&temp_sel={{ temp_sel }}">📤 Exportar tabela</a>
     {% endif %}
-    <span style="font-size:.78rem;color:#6b7280;align-self:flex-end">{{ linhas|length }} registro(s)</span>
   </div>
 
   {% if linhas %}
@@ -123,7 +241,9 @@
         <th>Etapa</th>
         <th>ID</th>
         <th>Nome</th>
+        <th>Função</th>
         <th>Data Inclusão</th>
+        <th>Status (etapa)</th>
         <th>Importado em</th>
         <th></th>
       </tr>
@@ -134,13 +254,29 @@
         <td style="color:#6b7280;font-size:.78rem">{{ l.nome_etapa or '-' }}</td>
         <td style="color:#9ca3af;font-size:.78rem">{{ l.id_autonomo or '-' }}</td>
         <td style="font-weight:600">{{ l.nome_autonomo }}</td>
+        <td style="font-size:.78rem;color:#4b5563">{{ l.funcao or '—' }}</td>
         <td>{{ l.data_inclusao or '-' }}</td>
+        <td>
+          <form method="post" action="/composicao-meta-equipe/linha/{{ l.id }}/status" style="margin:0">
+            <input type="hidden" name="etapa_sel" value="{{ etapa_sel }}">
+            <input type="hidden" name="temp_sel" value="{{ temp_sel }}">
+            <input type="hidden" name="funcao_sel" value="{{ funcao_sel }}">
+            <input type="hidden" name="status_sel" value="{{ status_sel }}">
+            <select name="status" class="status-sel st-{{ l.status_disponibilidade|replace(' ', '_') }}" onchange="this.form.submit()">
+              {% for s in status_opcoes %}
+              <option value="{{ s }}" {% if l.status_disponibilidade == s %}selected{% endif %}>{{ s }}</option>
+              {% endfor %}
+            </select>
+          </form>
+        </td>
         <td style="font-size:.74rem;color:#9ca3af;white-space:nowrap">{{ l.criado_em }}</td>
         <td>
           <form method="post" action="/composicao-meta-equipe/linha/{{ l.id }}/excluir"
                 onsubmit="return confirm('Remover?')" style="margin:0">
             <input type="hidden" name="etapa_sel" value="{{ etapa_sel }}">
             <input type="hidden" name="temp_sel" value="{{ temp_sel }}">
+            <input type="hidden" name="funcao_sel" value="{{ funcao_sel }}">
+            <input type="hidden" name="status_sel" value="{{ status_sel }}">
             <button class="btn-sm-outline" type="submit">🗑️</button>
           </form>
         </td>
@@ -150,22 +286,17 @@
   </table>
   {% else %}
   <p style="color:#9ca3af;font-style:italic;text-align:center;padding:1.5rem">
-    {% if etapa_sel or temp_sel %}Nenhum registro para o filtro selecionado.{% else %}Importe uma planilha em algum card acima para ver os dados aqui.{% endif %}
+    {% if etapa_sel or temp_sel or funcao_sel or status_sel %}Nenhum registro para o filtro selecionado.{% else %}Importe uma planilha em algum card acima para ver os dados aqui.{% endif %}
   </p>
   {% endif %}
 </div>
 
 <script>
-function filtrar(sel) {
+function goFilter(param, value) {
   const url = new URL(window.location.href);
-  url.searchParams.set('etapa_sel', sel.value);
-  url.searchParams.delete('temp_sel');
-  window.location.href = url.toString();
-}
-function filtrarTemp(sel) {
-  const url = new URL(window.location.href);
-  url.searchParams.set('temp_sel', sel.value);
-  url.searchParams.delete('etapa_sel');
+  if (value) url.searchParams.set(param, value); else url.searchParams.delete(param);
+  if (param === 'etapa_sel') url.searchParams.delete('temp_sel');
+  if (param === 'temp_sel') url.searchParams.delete('etapa_sel');
   window.location.href = url.toString();
 }
 </script>

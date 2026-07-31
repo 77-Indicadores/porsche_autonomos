@@ -29,6 +29,7 @@ def _garantir_tabela():
                     id_autonomo INTEGER,
                     nome_autonomo VARCHAR(200),
                     data_inclusao VARCHAR(20),
+                    status_disponibilidade VARCHAR(20) DEFAULT 'Não escalado',
                     criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )
             """))
@@ -40,6 +41,7 @@ def _garantir_tabela():
                     id_autonomo INTEGER,
                     nome_autonomo VARCHAR(200),
                     data_inclusao VARCHAR(20),
+                    status_disponibilidade VARCHAR(20) DEFAULT 'Não escalado',
                     criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )
             """))
@@ -49,29 +51,41 @@ _garantir_tabela()
 
 def _migrar_tabela():
     """Adiciona colunas que podem estar faltando em tabelas criadas antes de alterações."""
+    colunas = {
+        "data_inclusao": "VARCHAR(20)",
+        "status_disponibilidade": "VARCHAR(20) DEFAULT 'Não escalado'",
+    }
     with engine.connect() as conn:
         dialect = conn.dialect.name
-        if dialect == "postgresql":
-            conn.execute(text("""
-                ALTER TABLE planejamento_equipe_etapa
-                ADD COLUMN IF NOT EXISTS data_inclusao VARCHAR(20)
-            """))
-            conn.commit()
-        else:
-            # SQLite: testa primeiro, pois não suporta ADD COLUMN IF NOT EXISTS
-            try:
-                conn.execute(text("SELECT data_inclusao FROM planejamento_equipe_etapa LIMIT 1"))
-            except Exception:
-                conn.rollback()
-                conn.execute(text("ALTER TABLE planejamento_equipe_etapa ADD COLUMN data_inclusao VARCHAR(20)"))
+        for col, tipo in colunas.items():
+            if dialect == "postgresql":
+                conn.execute(text(f"ALTER TABLE planejamento_equipe_etapa ADD COLUMN IF NOT EXISTS {col} {tipo}"))
                 conn.commit()
+            else:
+                # SQLite: testa primeiro, pois não suporta ADD COLUMN IF NOT EXISTS
+                try:
+                    conn.execute(text(f"SELECT {col} FROM planejamento_equipe_etapa LIMIT 1"))
+                except Exception:
+                    conn.rollback()
+                    conn.execute(text(f"ALTER TABLE planejamento_equipe_etapa ADD COLUMN {col} {tipo}"))
+                    conn.commit()
 
 _migrar_tabela()
 
 
+# valores válidos de status de disponibilidade por etapa
+STATUS_DISPONIBILIDADE = ["Escalado", "Não escalado", "Treinamento"]
+
+
+def _funcao_expr() -> str:
+    """Expressão SQL para a função do autônomo (cargo cadastrado, com fallback)."""
+    return "COALESCE(ca.nome_cargo, da.tipo_autonomo, '—')"
+
+
 # ─── página única ─────────────────────────────────────────────────────
 @router.get("/composicao-meta-equipe")
-def index(request: Request, etapa_sel: str = "", temp_sel: str = "", db: Session = Depends(get_db)):
+def index(request: Request, etapa_sel: str = "", temp_sel: str = "",
+          funcao_sel: str = "", status_sel: str = "", db: Session = Depends(get_db)):
     etapas = (
         db.query(DimEtapa)
         .order_by(DimEtapa.temporada.desc(), DimEtapa.data_inicio.asc())
@@ -85,7 +99,71 @@ def index(request: Request, etapa_sel: str = "", temp_sel: str = "", db: Session
     ).mappings().all()
     etapas_com_plano = {r["id_etapa"]: r["qtd"] for r in contagem}
 
-    # tabela inferior com filtros
+    func = _funcao_expr()
+    join = """
+        FROM planejamento_equipe_etapa p
+        LEFT JOIN dim_etapas e ON e.id_etapa = p.id_etapa
+        LEFT JOIN dim_autonomos da ON da.id_autonomo = p.id_autonomo
+        LEFT JOIN dim_cargos_autonomos ca ON ca.id_cargo_autonomo = da.id_cargo_autonomo
+    """
+    status_expr = "COALESCE(NULLIF(TRIM(p.status_disponibilidade), ''), 'Não escalado')"
+
+    # lista de funções disponíveis (para o filtro)
+    funcoes = [r[0] for r in db.execute(
+        text(f"SELECT DISTINCT {func} AS f {join} ORDER BY f")
+    ).all() if r[0]]
+
+    # ── PAINEL: agregados por status/função (respeita etapa/temporada/função, NÃO o status) ──
+    panel_where = "WHERE 1=1"
+    panel_params: dict = {}
+    if etapa_sel:
+        panel_where += " AND p.id_etapa = :eid"
+        panel_params["eid"] = int(etapa_sel)
+    if temp_sel:
+        panel_where += " AND e.temporada = :temp"
+        panel_params["temp"] = temp_sel
+    if funcao_sel:
+        panel_where += f" AND {func} = :func"
+        panel_params["func"] = funcao_sel
+
+    agg = db.execute(
+        text(f"""
+            SELECT {func} AS funcao, {status_expr} AS status, COUNT(*) AS qtd
+            {join}
+            {panel_where}
+            GROUP BY {func}, {status_expr}
+        """), panel_params
+    ).mappings().all()
+
+    escalados = sum(r["qtd"] for r in agg if r["status"] == "Escalado")
+    reserva = sum(r["qtd"] for r in agg if r["status"] == "Não escalado")
+    treinamento = sum(r["qtd"] for r in agg if r["status"] == "Treinamento")
+    disponiveis = escalados + reserva  # treinamento NÃO conta como disponível
+
+    # distribuição por função (ordenada por total desc)
+    por_funcao_map: dict = {}
+    for r in agg:
+        f = r["funcao"] or "—"
+        d = por_funcao_map.setdefault(f, {"funcao": f, "escalados": 0, "reserva": 0, "treinamento": 0})
+        if r["status"] == "Escalado":
+            d["escalados"] += r["qtd"]
+        elif r["status"] == "Treinamento":
+            d["treinamento"] += r["qtd"]
+        else:
+            d["reserva"] += r["qtd"]
+    for d in por_funcao_map.values():
+        d["disponiveis"] = d["escalados"] + d["reserva"]
+    por_funcao = sorted(por_funcao_map.values(), key=lambda d: (-(d["disponiveis"] + d["treinamento"]), d["funcao"]))
+
+    painel = {
+        "disponiveis": disponiveis,
+        "escalados": escalados,
+        "reserva": reserva,
+        "treinamento": treinamento,
+        "por_funcao": por_funcao,
+    }
+
+    # ── TABELA: respeita todos os filtros (inclusive status) ──
     where = "WHERE 1=1"
     params: dict = {}
     if etapa_sel:
@@ -94,13 +172,20 @@ def index(request: Request, etapa_sel: str = "", temp_sel: str = "", db: Session
     if temp_sel:
         where += " AND e.temporada = :temp"
         params["temp"] = temp_sel
+    if funcao_sel:
+        where += f" AND {func} = :func"
+        params["func"] = funcao_sel
+    if status_sel:
+        where += f" AND {status_expr} = :status"
+        params["status"] = status_sel
 
     linhas = db.execute(
         text(f"""
             SELECT p.id, p.id_etapa, e.nome_etapa, p.id_autonomo,
-                   p.nome_autonomo, p.data_inclusao, p.criado_em
-            FROM planejamento_equipe_etapa p
-            LEFT JOIN dim_etapas e ON e.id_etapa = p.id_etapa
+                   p.nome_autonomo, p.data_inclusao, p.criado_em,
+                   {status_expr} AS status_disponibilidade,
+                   {func} AS funcao
+            {join}
             {where}
             ORDER BY e.temporada DESC, e.data_inicio, p.nome_autonomo
         """), params
@@ -113,6 +198,11 @@ def index(request: Request, etapa_sel: str = "", temp_sel: str = "", db: Session
         "etapas_com_plano": etapas_com_plano,
         "etapa_sel": etapa_sel,
         "temp_sel": temp_sel,
+        "funcao_sel": funcao_sel,
+        "status_sel": status_sel,
+        "funcoes": funcoes,
+        "status_opcoes": STATUS_DISPONIBILIDADE,
+        "painel": painel,
         "linhas": linhas,
         **_flash(request),
     })
@@ -335,12 +425,30 @@ async def upload_planejamento(
     return redirect_with_message(f"/composicao-meta-equipe?etapa_sel={id_etapa}", success=msg)
 
 
+# ─── atualizar status de disponibilidade ──────────────────────────────
+@router.post("/composicao-meta-equipe/linha/{linha_id}/status")
+def atualizar_status(linha_id: int, status: str = Form(...),
+                     etapa_sel: str = Form(""), temp_sel: str = Form(""),
+                     funcao_sel: str = Form(""), status_sel: str = Form(""),
+                     db: Session = Depends(get_db)):
+    if status not in STATUS_DISPONIBILIDADE:
+        status = "Não escalado"
+    db.execute(
+        text("UPDATE planejamento_equipe_etapa SET status_disponibilidade = :s WHERE id = :id"),
+        {"s": status, "id": linha_id},
+    )
+    db.commit()
+    qs = f"etapa_sel={etapa_sel}&temp_sel={temp_sel}&funcao_sel={funcao_sel}&status_sel={status_sel}"
+    return redirect_with_message(f"/composicao-meta-equipe?{qs}", success="Status atualizado.")
+
+
 # ─── excluir linha ────────────────────────────────────────────────────
 @router.post("/composicao-meta-equipe/linha/{linha_id}/excluir")
-def excluir_linha(linha_id: int, etapa_sel: str = Form(""), temp_sel: str = Form(""), db: Session = Depends(get_db)):
+def excluir_linha(linha_id: int, etapa_sel: str = Form(""), temp_sel: str = Form(""),
+                  funcao_sel: str = Form(""), status_sel: str = Form(""), db: Session = Depends(get_db)):
     db.execute(text("DELETE FROM planejamento_equipe_etapa WHERE id = :id"), {"id": linha_id})
     db.commit()
-    qs = f"etapa_sel={etapa_sel}&temp_sel={temp_sel}"
+    qs = f"etapa_sel={etapa_sel}&temp_sel={temp_sel}&funcao_sel={funcao_sel}&status_sel={status_sel}"
     return redirect_with_message(f"/composicao-meta-equipe?{qs}", success="Linha removida.")
 
 
