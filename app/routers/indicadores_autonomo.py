@@ -1181,6 +1181,13 @@ const ACP_FORMA_COLORS=["#d5001c","#374151","#7157c8","#d58a13","#ef6b2e"];
 const acpEl=id=>document.getElementById(id);
 function acpFmt(v){return"R$ "+v.toLocaleString("pt-BR",{minimumFractionDigits:0,maximumFractionDigits:0})}
 function acpTc(s){return s?s.split(" ").map(w=>w?w[0].toUpperCase()+w.slice(1).toLowerCase():"").join(" "):""}
+function acpFormaNorm(s){
+  s=(s||"").trim().toUpperCase();
+  if(s==="NF"||s==="NOTA FISCAL")return"NF";
+  if(s==="RPA")return"RPA";
+  if(s==="RECIBO")return"Recibo";
+  return s?s.charAt(0)+s.slice(1).toLowerCase():"";
+}
 function acpNormSt(s){
   if(!s||s.trim()==="")return"Sem status";
   const l=s.toLowerCase();
@@ -1232,9 +1239,10 @@ function acpRender(){
 
   // forma bars
   const fMap={};
-  d.filter(r=>r.forma).forEach(r=>{const k=r.forma;fMap[k]=(fMap[k]||0)+r.valor});
-  // inclui Outras Equipes (equipe_geral) pela forma/tipo de documento
-  (typeof ACP_EG!=="undefined"?ACP_EG:[]).filter(r=>r.forma).forEach(r=>{const k=r.forma;fMap[k]=(fMap[k]||0)+(r.valor||0)});
+  // normaliza formas (NF/Nota Fiscal -> NF; RECIBO/Recibo -> Recibo) e inclui Outras Equipes
+  const addForma=r=>{const k=acpFormaNorm(r.forma);if(!k)return;fMap[k]=(fMap[k]||0)+(r.valor||0)};
+  d.forEach(addForma);
+  (typeof ACP_EG!=="undefined"?ACP_EG:[]).forEach(addForma);
   const fRows=Object.entries(fMap).sort((a,b)=>b[1]-a[1]);
   const fMax=fRows[0]?.[1]||1;
   const fb=acpEl("acpFormaBars");
