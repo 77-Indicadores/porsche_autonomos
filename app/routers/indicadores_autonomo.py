@@ -1291,7 +1291,7 @@ def _fetch_planejamento(db: Session) -> str:
         comp_rows = db.execute(_text("""
             SELECT cp.id_etapa, cp.id_carro, cp.id_cargo_autonomo, cp.qtd_esperada,
                    e.nome_etapa, e.data_inicio, e.data_fim, e.temporada,
-                   ca.nome_cargo_autonomo,
+                   ca.nome_cargo,
                    c.numero_carro
             FROM composicao_padrao_equipe cp
             LEFT JOIN dim_etapas e ON e.id_etapa = cp.id_etapa
