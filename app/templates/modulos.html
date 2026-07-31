@@ -323,7 +323,12 @@
       </div>
     </aside>
 
+    {% set _cu = request.state.current_user %}
+    {% set _perfil = _cu.perfil if _cu else '' %}
+    {% set _mods = _cu._modulos if _cu else [] %}
+    {% set _all = _perfil == 'admin' or not _mods %}
     <div class="modulos-grid-full">
+      {% if _all or 'autonomos' in _mods %}
       <a class="modulo-card-full" href="/autonomos/dashboard">
         <div class="modulo-card-top">
           <div class="modulo-icon-full">🏎️</div>
@@ -343,7 +348,9 @@
           <span>Importações</span>
         </div>
       </a>
+      {% endif %}
 
+      {% if _all or 'dho' in _mods %}
       <a class="modulo-card-full" href="/dho">
         <div class="modulo-card-top">
           <div class="modulo-icon-full">🧭</div>
@@ -363,7 +370,9 @@
           <span>Importações DHO</span>
         </div>
       </a>
+      {% endif %}
 
+      {% if _all or 'facilities' in _mods %}
       <a class="modulo-card-full" href="/facilities">
         <div class="modulo-card-top">
           <div class="modulo-icon-full">🏢</div>
@@ -382,7 +391,9 @@
           <span>Diagnóstico</span>
         </div>
       </a>
+      {% endif %}
 
+      {% if _all or 'folha' in _mods %}
       <a class="modulo-card-full" href="/folha">
         <div class="modulo-card-top">
           <div class="modulo-icon-full">📄</div>
@@ -401,7 +412,9 @@
           <span>Descontos</span>
         </div>
       </a>
+      {% endif %}
 
+      {% if _all or _mods %}
       <a class="modulo-card-full" href="/indicadores">
         <div class="modulo-card-top">
           <div class="modulo-icon-full">📊</div>
@@ -420,7 +433,9 @@
           <span>Dashboards</span>
         </div>
       </a>
+      {% endif %}
 
+      {% if _perfil == 'admin' %}
       <a class="modulo-card-full" href="/usuarios">
         <div class="modulo-card-top">
           <div class="modulo-icon-full">👥</div>
@@ -439,6 +454,7 @@
           <span>Acesso</span>
         </div>
       </a>
+      {% endif %}
 
     </div>
   </div>

@@ -2261,6 +2261,21 @@ def _build_folha_custo_colab_html(
 
 # ─── rotas ────────────────────────────────────────────────────────────────────
 
+@router.get("/sem-acesso")
+def sem_acesso(request: Request, modulo: str = ""):
+    nomes = {
+        "dho": "DHO / RH",
+        "folha": "Folha de Pagamento",
+        "facilities": "Facilities",
+        "autonomos": "Autônomos",
+    }
+    return templates.TemplateResponse("sem_acesso.html", {
+        "request": request,
+        "modulo": modulo,
+        "modulo_nome": nomes.get(modulo, modulo or "este módulo"),
+    })
+
+
 @router.get("/indicadores")
 def indicadores_home(request: Request):
     return templates.TemplateResponse("indicadores/index.html", {"request": request})

@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+
+{% block title %}Acesso Restrito{% endblock %}
+{% block header %}Acesso Restrito{% endblock %}
+{% block subtitle %}Você não tem permissão para acessar este módulo.{% endblock %}
+
+{% block content %}
+<section class="panel" style="max-width:520px;margin:40px auto;text-align:center">
+  <div style="font-size:3rem;margin-bottom:16px">🔒</div>
+  <h2 style="margin:0 0 8px">Sem permissão de acesso</h2>
+  <p style="color:#6b7280;margin:0 0 24px">
+    {% if modulo_nome %}
+      Seu usuário não tem acesso ao módulo <strong>{{ modulo_nome }}</strong>.
+    {% else %}
+      Seu usuário não tem acesso a esta área.
+    {% endif %}
+    <br>Fale com o administrador do sistema para solicitar permissão.
+  </p>
+  <a href="/" class="btn-primary" style="display:inline-block;text-decoration:none">← Voltar ao início</a>
+</section>
+{% endblock %}

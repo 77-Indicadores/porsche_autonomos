@@ -1,3 +1,4 @@
+import json
 import os
 # reload trigger
 from fastapi import FastAPI
@@ -6,7 +7,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 from starlette.responses import RedirectResponse
 
-from app.auth import SESSION_COOKIE, read_session_token
+from app.auth import SESSION_COOKIE, read_session_token, tem_acesso_modulo
 from app.database import Base, engine, garantir_schema_usuarios, limpar_datas_vazias_sqlite
 from app.routers import alocacoes, auth, cadastros, dashboard, relatorios, usuarios, referencias_importacao, pesquisas, composicao_padrao, equipe_geral, dho, facilities, composicao_meta_equipe, budget, export
 
@@ -14,6 +15,36 @@ from app.routers import alocacoes, auth, cadastros, dashboard, relatorios, usuar
 Base.metadata.create_all(bind=engine)
 garantir_schema_usuarios()
 limpar_datas_vazias_sqlite()
+
+# ── Mapeamento rota → módulo necessário ──────────────────────────────────────
+MODULO_ROUTES: dict[str, list[str]] = {
+    "dho": [
+        "/indicadores/headcount",
+        "/indicadores/turnover",
+        "/indicadores/banco-horas",
+        "/indicadores/horas-extras",
+        "/indicadores/afastamentos",
+        "/indicadores/treinamentos",
+        "/indicadores/vagas",
+    ],
+    "folha": [
+        "/indicadores/folha-visao-custo",
+        "/indicadores/folha-holerite",
+        "/indicadores/folha-lista",
+        "/indicadores/folha-simulacao",
+        "/indicadores/folha-custo-colaborador",
+    ],
+    "facilities": [
+        "/indicadores/facilities",
+    ],
+    "autonomos": [
+        "/indicadores/autonomo-custo",
+        "/indicadores/autonomo-custo-evolucao",
+        "/indicadores/autonomo-custo-pagamentos",
+        "/indicadores/autonomo-disponibilidade",
+        "/indicadores/autonomo-trocas",
+    ],
+}
 
 app = FastAPI(title="Porsche Cup Autonomos")
 
@@ -58,14 +89,31 @@ class AuthMiddleware(BaseHTTPMiddleware):
                 "nome": os.getenv("AUTO_LOGIN_NOME", "Administrador Local"),
                 "perfil": "admin",
                 "is_authenticated": True,
+                "_modulos": [],
             }
             return await call_next(request)
 
         token = request.cookies.get(SESSION_COOKIE)
         session_user = read_session_token(token) if token else None
+
+        if session_user:
+            raw = session_user.get("modulos_acesso", "[]")
+            try:
+                session_user["_modulos"] = json.loads(raw) if raw else []
+            except Exception:
+                session_user["_modulos"] = []
+
         request.state.current_user = session_user
         if session_user is None:
             return RedirectResponse("/auth/login", status_code=303)
+
+        # Verificação de acesso por módulo para rotas de indicadores
+        path = request.url.path
+        for modulo, paths in MODULO_ROUTES.items():
+            if path in paths:
+                if not tem_acesso_modulo(request, modulo):
+                    return RedirectResponse(f"/sem-acesso?modulo={modulo}", status_code=303)
+                break
 
         return await call_next(request)
 

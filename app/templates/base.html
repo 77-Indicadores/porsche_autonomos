@@ -40,31 +40,45 @@
         <a class="nav-link {% if request.url.path.startswith('/dho/aplicacoes-treinamento') %}active{% endif %}" href="/dho/aplicacoes-treinamento">✅ Aplicar Treinamento</a>
       </div>
 
-      {% elif request.url.path.startswith('/indicadores') %}
+      {% elif request.url.path.startswith('/indicadores') or request.url.path == '/sem-acesso' %}
+      {% set _cu = request.state.current_user %}
+      {% set _perfil = _cu.perfil if _cu else '' %}
+      {% set _mods = _cu._modulos if _cu else [] %}
+      {% set _all = _perfil == 'admin' or not _mods %}
       <div class="nav-section">
         <div class="nav-section-title">Indicadores</div>
+        {% if _all or 'dho' in _mods %}
         <div class="nav-subsection-title">Headcount</div>
         <a class="nav-link {% if request.url.path == '/indicadores/headcount' %}active{% endif %}" href="/indicadores/headcount">👥 Headcount Ativo</a>
         <a class="nav-link {% if request.url.path == '/indicadores/turnover' %}active{% endif %}" href="/indicadores/turnover">📉 Turnover</a>
         <a class="nav-link {% if request.url.path == '/indicadores/banco-horas' %}active{% endif %}" href="/indicadores/banco-horas">🏦 Banco de Horas</a>
         <a class="nav-link {% if request.url.path == '/indicadores/horas-extras' %}active{% endif %}" href="/indicadores/horas-extras">⏱️ Horas Extras</a>
         <a class="nav-link {% if request.url.path == '/indicadores/afastamentos' %}active{% endif %}" href="/indicadores/afastamentos">🏥 Afastamentos</a>
+        {% endif %}
+        {% if _all or 'folha' in _mods %}
         <div class="nav-subsection-title">Folha de Pagamento</div>
         <a class="nav-link {% if request.url.path == '/indicadores/folha-visao-custo' %}active{% endif %}" href="/indicadores/folha-visao-custo">💰 Visão Custo Empresa</a>
         <a class="nav-link {% if request.url.path == '/indicadores/folha-holerite' %}active{% endif %}" href="/indicadores/folha-holerite">🧾 Holerite Colaborador</a>
         <a class="nav-link {% if request.url.path == '/indicadores/folha-lista' %}active{% endif %}" href="/indicadores/folha-lista">📋 Holerite · Lista</a>
         <a class="nav-link {% if request.url.path == '/indicadores/folha-simulacao' %}active{% endif %}" href="/indicadores/folha-simulacao">📈 Simulação de Aumento</a>
         <a class="nav-link {% if request.url.path == '/indicadores/folha-custo-colaborador' %}active{% endif %}" href="/indicadores/folha-custo-colaborador">👤 Custo por Colaborador</a>
+        {% endif %}
+        {% if _all or 'facilities' in _mods %}
         <div class="nav-subsection-title">Facilities</div>
         <a class="nav-link {% if request.url.path == '/indicadores/facilities' %}active{% endif %}" href="/indicadores/facilities">🏢 Facilities</a>
+        {% endif %}
+        {% if _all or 'dho' in _mods %}
         <div class="nav-subsection-title">DHO</div>
         <a class="nav-link {% if request.url.path == '/indicadores/treinamentos' %}active{% endif %}" href="/indicadores/treinamentos">🎓 Treinamentos</a>
         <a class="nav-link {% if request.url.path == '/indicadores/vagas' %}active{% endif %}" href="/indicadores/vagas">💼 Vagas</a>
+        {% endif %}
+        {% if _all or 'autonomos' in _mods %}
         <div class="nav-subsection-title">Autônomos</div>
         <a class="nav-link {% if request.url.path == '/indicadores/autonomo-custo' %}active{% endif %}" href="/indicadores/autonomo-custo">🏎️ Visão Geral</a>
         <a class="nav-link {% if request.url.path == '/indicadores/autonomo-custo-evolucao' or request.url.path == '/indicadores/autonomo-custo-pagamentos' %}active{% endif %}" href="/indicadores/autonomo-custo-evolucao">💰 Custo</a>
         <a class="nav-link {% if request.url.path == '/indicadores/autonomo-disponibilidade' %}active{% endif %}" href="/indicadores/autonomo-disponibilidade">📋 Planejamento e Cobertura</a>
         <a class="nav-link {% if request.url.path == '/indicadores/autonomo-trocas' %}active{% endif %}" href="/indicadores/autonomo-trocas">↻ Trocas e Continuidade</a>
+        {% endif %}
       </div>
 
       {% elif request.url.path.startswith('/facilities') %}
