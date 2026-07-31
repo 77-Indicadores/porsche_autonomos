@@ -28,7 +28,7 @@ def _fetch(db: Session) -> str:
     seen: set = set()
     rows: list = []
     for f in fatos:
-        if not (f.valor_fechado_etapa or f.status_pagamento):
+        if not (f.valor_fechado_etapa or f.status_pagamento or f.id_autonomo_substituto):
             continue
         key = (f.id_etapa, f.id_autonomo, f.id_piloto, f.id_carro)
         if key in seen:
@@ -53,6 +53,7 @@ def _fetch(db: Session) -> str:
             "forma":      str(f.forma_pagamento  or ""),
             "dt_pag":     str(f.data_pagamento   or ""),
             "foi_sub":    str(getattr(f, "foi_substituido", "") or ""),
+            "id_sub":     f.id_autonomo_substituto or 0,
         })
     return _json.dumps(rows, ensure_ascii=False)
 
@@ -213,11 +214,6 @@ def _build_geral(records_js: str, meta_js: str) -> str:
       <div class="vg-icon">✓</div></div>
     <div class="vg-kpi-value" id="vgK2">—</div>
     <div class="vg-kpi-foot" id="vgK2f"></div></article>
-  <article class="vg-kpi" style="--tint:#fff7e9;--iconbg:#fff6e5;--iconcolor:#c88408">
-    <div class="vg-kpi-top"><span class="vg-kpi-title">Valor pendente</span>
-      <div class="vg-icon">!</div></div>
-    <div class="vg-kpi-value" id="vgK3">—</div>
-    <div class="vg-kpi-foot" id="vgK3f"></div></article>
   <article class="vg-kpi" style="--tint:#f2effc;--iconbg:#f0edfb;--iconcolor:#7259be">
     <div class="vg-kpi-top"><span class="vg-kpi-title">Autônomos ativos</span>
       <div class="vg-icon">&#9823;</div></div>
@@ -328,17 +324,15 @@ function vgKPIs(d){
   const carros=new Set(d.map(r=>r.carro_id).filter(Boolean));
   const pilotos=new Set(d.map(r=>r.piloto_id).filter(Boolean));
   const media=carros.size?total/carros.size:0;
-  const pago=d.filter(r=>vgNormSt(r.status)==="Pago").reduce((s,r)=>s+(r.valor||0),0);
-  const pend=d.filter(r=>vgNormSt(r.status)==="Pendente").reduce((s,r)=>s+(r.valor||0),0);
+  const pago=total; // todos os lançamentos representam pagamentos já realizados
   const auts=new Set(d.map(r=>r.autonomo).filter(Boolean)).size;
   const dias=d.reduce((s,r)=>s+(r.dias||0),0);
   const mediaDia=dias?total/dias:0;
-  const subs=d.filter(r=>r.foi_sub==="Sim").length;
+  const subs=d.filter(r=>((r.foi_sub||"").trim().toLowerCase()==="sim")||r.id_sub).length;
   const set=(id,v,f)=>{const e=vgEl(id);if(e)e.textContent=v;const fe=vgEl(id+"f");if(fe)fe.innerHTML=f||""};
   set("vgK0",vgFmt(total),carros.size+" carros · "+pilotos.size+" pilotos");
   set("vgK1",vgFmt(media),carros.size+" carros atendidos");
-  set("vgK2",vgFmt(pago),total?'<span class="vg-delta">'+((pago/total)*100).toFixed(1)+'%</span> do total':"");
-  set("vgK3",vgFmt(pend),total?(pend/total*100).toFixed(1)+"% do total":"");
+  set("vgK2",vgFmt(pago),"valor efetivamente pago");
   set("vgK4",auts,pilotos.size+" pilotos");
   set("vgK5",carros.size,"carros cobertos na seleção");
   set("vgK6",vgFmt(mediaDia),"por profissional/dia");
@@ -482,7 +476,8 @@ def _fetch_sede(db: Session) -> str:
     from sqlalchemy import text as _text
     try:
         rows = db.execute(_text(
-            "SELECT temporada, SUM(valor_total) FROM autonomo_sede_lancamentos GROUP BY temporada"
+            "SELECT substr(competencia, 1, 4) AS ano, SUM(valor) FROM autonomo_sede_lancamentos "
+            "WHERE competencia IS NOT NULL AND competencia <> '' GROUP BY substr(competencia, 1, 4)"
         )).fetchall()
         by_year = {str(r[0]): float(r[1] or 0) for r in rows}
     except Exception:
@@ -1106,7 +1101,7 @@ def _build_pagamentos(records_js: str) -> str:
 </div>
 <div class="acp-pend">
   <div class="acp-pend-head">
-    <h3>Pagamentos pendentes por autônomo</h3>
+    <h3>Pagamentos realizados por autônomo</h3>
     <span class="acp-badge" id="acpPendBadge">—</span>
   </div>
   <div class="acp-pend-list">
@@ -1184,21 +1179,20 @@ function acpRender(){
     '<div class="acp-bt"><div class="acp-bf" style="width:'+(v/fMax*100).toFixed(1)+'%;background:'+ACP_FORMA_COLORS[i%ACP_FORMA_COLORS.length]+'"></div></div></div>').join(""):
     '<p style="color:#888;font-size:12px">Sem dados de forma de pagamento</p>';
 
-  // pendentes list
+  // pagamentos realizados por autônomo (todos os lançamentos = pagamentos realizados)
   const pendMap={};
-  d.filter(r=>acpNormSt(r.status)!=="Pago").forEach(r=>{
+  d.forEach(r=>{
     const k=acpTc(r.autonomo)||"—";
-    if(!pendMap[k])pendMap[k]={valor:0,status:acpNormSt(r.status)};
+    if(!pendMap[k])pendMap[k]={valor:0};
     pendMap[k].valor+=r.valor;
   });
   const pendRows=Object.entries(pendMap).sort((a,b)=>b[1].valor-a[1].valor);
   const pb2=acpEl("acpPendBadge");if(pb2)pb2.textContent=pendRows.length+" autônomos";
   const pr2=acpEl("acpPendRows");
   if(pr2)pr2.innerHTML=pendRows.length?pendRows.map(([n,v])=>{
-    const stClass=v.status==="Pendente"?"acp-st-pend":v.status==="Pago"?"acp-st-pago":"acp-st-sem";
     return'<div class="acp-pend-row"><span title="'+n+'">'+n+'</span>'+
       '<strong>'+acpFmt(v.valor)+'</strong></div>';}).join(""):
-    '<div class="acp-pend-row" style="color:#888;font-size:12px;padding:16px 18px">Nenhum pagamento pendente.</div>';
+    '<div class="acp-pend-row" style="color:#888;font-size:12px;padding:16px 18px">Nenhum pagamento registrado.</div>';
 }
 acpSetup();acpRender();
 """
