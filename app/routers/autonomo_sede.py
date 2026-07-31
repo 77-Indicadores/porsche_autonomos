@@ -42,6 +42,32 @@ SETORES = [
     "Outros",
 ]
 
+# cache dos departamentos vindos do Feedz (setores)
+_CACHE_SETORES: dict = {"lista": None}
+
+
+def _setores_feedz() -> list[str]:
+    """Lista de setores = departamentos do Feedz (rel_colab_77).
+
+    Busca uma vez e mantém em cache; se a API do Feedz falhar, usa a lista
+    fixa SETORES como fallback (sem cachear, para tentar de novo depois).
+    """
+    if _CACHE_SETORES["lista"]:
+        return _CACHE_SETORES["lista"]
+    try:
+        from app.routers.indicadores import _fetch_feedz
+        rows = _fetch_feedz("rel_colab_77")
+        deps = sorted({
+            str(r.get("departamento") or r.get("setor") or r.get("area") or "").strip().upper()
+            for r in rows
+        } - {"", "NÃO INFORMADO"})
+        if deps:
+            _CACHE_SETORES["lista"] = deps
+            return deps
+    except Exception as exc:
+        print(f"AVISO - não consegui buscar departamentos do Feedz: {exc}")
+    return SETORES
+
 # ─── migração automática ────────────────────────────────────────────
 def _garantir_tabela():
     with engine.begin() as conn:
@@ -197,7 +223,7 @@ def sede_index(request: Request, competencia: str = "", comp_de: str = "",
         "setor_sel": setor_sel,
         "total": total,
         "motivos": MOTIVOS,
-        "setores": SETORES,
+        "setores": _setores_feedz(),
         "indicadores": indicadores,
         **_flash(request),
     })
