@@ -68,7 +68,11 @@ def redirect_with_message(url: str, success: str | None = None, error: str | Non
         params["success"] = success
     if error:
         params["error"] = error
-    suffix = f"?{urlencode(params)}" if params else ""
+    if params:
+        sep = "&" if "?" in url else "?"
+        suffix = f"{sep}{urlencode(params)}"
+    else:
+        suffix = ""
     return RedirectResponse(f"{url}{suffix}", status_code=303)
 
 

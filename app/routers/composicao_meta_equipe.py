@@ -86,6 +86,9 @@ def _funcao_expr() -> str:
 @router.get("/composicao-meta-equipe")
 def index(request: Request, etapa_sel: str = "", temp_sel: str = "",
           funcao_sel: str = "", status_sel: str = "", db: Session = Depends(get_db)):
+    # blindagem: ignora etapa_sel não-numérico (evita 500 com URL malformada)
+    if etapa_sel and not str(etapa_sel).strip().isdigit():
+        etapa_sel = ""
     etapas = (
         db.query(DimEtapa)
         .order_by(DimEtapa.temporada.desc(), DimEtapa.data_inicio.asc())
