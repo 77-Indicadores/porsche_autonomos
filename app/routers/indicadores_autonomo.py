@@ -81,9 +81,34 @@ def _fetch_meta(db: Session) -> str:
     return _json.dumps({"etapas": etapas, "cobertura": cobertura}, ensure_ascii=False)
 
 
+def _fetch_equipe_geral(db: Session) -> str:
+    """Fetch equipe_geral (Outras Equipes) para consolidar nos indicadores de custo."""
+    from sqlalchemy import text as _text
+    try:
+        rows = db.execute(_text("""
+            SELECT eg.custo_total, eg.tipo_documento,
+                   e.nome_etapa, e.temporada, tp.nome_tipo_prova
+            FROM equipe_geral eg
+            LEFT JOIN dim_etapas e ON e.id_etapa = eg.id_etapa
+            LEFT JOIN dim_categorias pr ON pr.id_prova = eg.id_prova
+            LEFT JOIN dim_tipos_categoria tp ON tp.id_tipo_prova = pr.id_tipo_prova
+        """)).fetchall()
+        recs = [{
+            "etapa":     r[2] or "",
+            "temporada": str(r[3] or ""),
+            "categoria": r[4] or "Outras Equipes",
+            "valor":     float(r[0] or 0),
+            "forma":     str(r[1] or ""),
+            "eg":        1,
+        } for r in rows]
+    except Exception:
+        recs = []
+    return _json.dumps(recs, ensure_ascii=False)
+
+
 # ── Page 1 – Visão Geral ───────────────────────────────────────────────────────
 
-def _build_geral(records_js: str, meta_js: str) -> str:
+def _build_geral(records_js: str, meta_js: str, eg_js: str = "[]") -> str:
     css = """<style>
 .vg{--red:#d71920;--green:#15946c;--yellow:#e59a12;--muted:#6f7886;
   --border:#e3e7ee;--shadow:0 8px 24px rgba(24,32,44,.07);--radius:16px;
@@ -299,7 +324,7 @@ function vgFillSel(id,vals,lbl){
   el.innerHTML='<option value="">'+lbl+'</option>'+vals.map(v=>'<option value="'+v+'">'+v+'</option>').join("");
 }
 function vgSetup(){
-  const R=VG_RECORDS;
+  const R=VG_RECORDS.concat(VG_EG);
   const years=[...new Set(R.map(r=>r.temporada).filter(Boolean))].sort().reverse();
   const etapas=[...new Set(R.map(r=>r.etapa).filter(Boolean))].sort();
   const cats=[...new Set(R.map(r=>r.categoria).filter(Boolean))].sort();
@@ -313,30 +338,37 @@ function vgSetup(){
 function vgFiltered(){
   const yr=vgEl("vgYear")?.value||"",et=vgEl("vgEtapa")?.value||"",
         ct=vgEl("vgCat")?.value||"",st=vgEl("vgStatus")?.value||"";
-  return VG_RECORDS.filter(r=>
+  const fato=VG_RECORDS.filter(r=>
     (!yr||r.temporada===yr)&&(!et||r.etapa===et)&&
     (!ct||r.categoria===ct)&&(!st||vgNormSt(r.status)===st));
+  // Outras Equipes (equipe_geral) — não tem status; segue os demais filtros
+  const eg=VG_EG.filter(r=>
+    (!yr||r.temporada===yr)&&(!et||r.etapa===et)&&(!ct||r.categoria===ct));
+  return fato.concat(eg);
 }
 function vgReset(){["vgYear","vgEtapa","vgCat","vgStatus"].forEach(id=>{const el=vgEl(id);if(el)el.value=""});vgRender()}
 
 function vgKPIs(d){
-  const total=d.reduce((s,r)=>s+(r.valor||0),0);
-  const carros=new Set(d.map(r=>r.carro_id).filter(Boolean));
-  const pilotos=new Set(d.map(r=>r.piloto_id).filter(Boolean));
-  const media=carros.size?total/carros.size:0;
+  const fato=d.filter(r=>!r.eg);
+  const total=d.reduce((s,r)=>s+(r.valor||0),0);         // consolidado (inclui Outras Equipes)
+  const fatoTotal=fato.reduce((s,r)=>s+(r.valor||0),0);  // só autônomos
+  const egTotal=total-fatoTotal;
+  const carros=new Set(fato.map(r=>r.carro_id).filter(Boolean));
+  const pilotos=new Set(fato.map(r=>r.piloto_id).filter(Boolean));
+  const media=carros.size?fatoTotal/carros.size:0;
   const pago=total; // todos os lançamentos representam pagamentos já realizados
-  const auts=new Set(d.map(r=>r.autonomo).filter(Boolean)).size;
-  const dias=d.reduce((s,r)=>s+(r.dias||0),0);
-  const mediaDia=dias?total/dias:0;
-  const subs=d.filter(r=>((r.foi_sub||"").trim().toLowerCase()==="sim")||r.id_sub).length;
+  const auts=new Set(fato.map(r=>r.autonomo).filter(Boolean)).size;
+  const dias=fato.reduce((s,r)=>s+(r.dias||0),0);
+  const mediaDia=dias?fatoTotal/dias:0;
+  const subs=fato.filter(r=>((r.foi_sub||"").trim().toLowerCase()==="sim")||r.id_sub).length;
   const set=(id,v,f)=>{const e=vgEl(id);if(e)e.textContent=v;const fe=vgEl(id+"f");if(fe)fe.innerHTML=f||""};
-  set("vgK0",vgFmt(total),carros.size+" carros · "+pilotos.size+" pilotos");
+  set("vgK0",vgFmt(total),carros.size+" carros · "+pilotos.size+" pilotos"+(egTotal>0?" · Outras Equipes "+vgFmt(egTotal):""));
   set("vgK1",vgFmt(media),carros.size+" carros atendidos");
   set("vgK2",vgFmt(pago),"valor efetivamente pago");
   set("vgK4",auts,pilotos.size+" pilotos");
   set("vgK5",carros.size,"carros cobertos na seleção");
   set("vgK6",vgFmt(mediaDia),"por profissional/dia");
-  set("vgK7",subs,d.length?"taxa "+(subs/d.length*100).toFixed(1)+"%":"");
+  set("vgK7",subs,fato.length?"taxa "+(subs/fato.length*100).toFixed(1)+"%":"");
 }
 
 function vgEtapaChart(d){
@@ -382,6 +414,7 @@ function vgEtapaChart(d){
 }
 
 function vgDonut(d){
+  d=d.filter(r=>!r.eg);
   const pago=d.filter(r=>vgNormSt(r.status)==="Pago").reduce((s,r)=>s+(r.valor||0),0);
   const pend=d.filter(r=>vgNormSt(r.status)==="Pendente").reduce((s,r)=>s+(r.valor||0),0);
   const sem=d.filter(r=>vgNormSt(r.status)==="Sem status").reduce((s,r)=>s+(r.valor||0),0);
@@ -410,7 +443,7 @@ function vgCatBars(d){
 
 function vgRanking(d){
   const pm={};
-  d.forEach(r=>{
+  d.filter(r=>!r.eg).forEach(r=>{
     const k=r.piloto||"—";
     if(!pm[k])pm[k]={val:0,cats:new Set()};
     pm[k].val+=(r.valor||0);
@@ -463,7 +496,7 @@ function vgRender(){
 vgSetup();vgRender();
 """
     return (
-        f"<script>const VG_RECORDS={records_js};const VG_META={meta_js};</script>"
+        f"<script>const VG_RECORDS={records_js};const VG_META={meta_js};const VG_EG={eg_js};</script>"
         + css + html
         + "<script>" + js + "</script>"
     )
@@ -965,7 +998,7 @@ evSetup();evRender();
 
 # ── Page 3 – Pagamentos ────────────────────────────────────────────────────────
 
-def _build_pagamentos(records_js: str) -> str:
+def _build_pagamentos(records_js: str, eg_js: str = "[]") -> str:
     css = """<style>
 .acp{--red:#d5001c;--line:#e4e6e9;--shadow:0 10px 30px rgba(12,16,24,.08);
   --radius:18px;font-family:Inter,ui-sans-serif,system-ui,sans-serif;color:#16181c}
@@ -1171,6 +1204,8 @@ function acpRender(){
   // forma bars
   const fMap={};
   d.filter(r=>r.forma).forEach(r=>{const k=r.forma;fMap[k]=(fMap[k]||0)+r.valor});
+  // inclui Outras Equipes (equipe_geral) pela forma/tipo de documento
+  (typeof ACP_EG!=="undefined"?ACP_EG:[]).filter(r=>r.forma).forEach(r=>{const k=r.forma;fMap[k]=(fMap[k]||0)+(r.valor||0)});
   const fRows=Object.entries(fMap).sort((a,b)=>b[1]-a[1]);
   const fMax=fRows[0]?.[1]||1;
   const fb=acpEl("acpFormaBars");
@@ -1196,17 +1231,17 @@ function acpRender(){
 }
 acpSetup();acpRender();
 """
-    return (f"<script>const ACP_RECORDS={records_js};</script>"
+    return (f"<script>const ACP_RECORDS={records_js};const ACP_EG={eg_js};</script>"
             + css + html
             + "<script>" + js + "</script>")
 
 
 # ── Page combined – Custo (Evolução + Pagamentos) ─────────────────────────────
 
-def _build_custo(records_js: str, sede_js: str = "{}") -> str:
+def _build_custo(records_js: str, sede_js: str = "{}", eg_js: str = "[]") -> str:
     """Combines Evolução and Pagamentos into one tabbed page."""
     ev = _build_evolucao(records_js, sede_js)
-    pag = _build_pagamentos(records_js)
+    pag = _build_pagamentos(records_js, eg_js)
     tab_css = """<style>
 .custo-tabs-wrap *{box-sizing:border-box}
 .custo-tabs{display:flex;gap:4px;margin-bottom:16px;background:#fff;
@@ -1246,7 +1281,8 @@ def autonomo_custo_geral(request: Request, db: Session = Depends(get_db)):
     try:
         rj = _fetch(db)
         mj = _fetch_meta(db)
-        dash_html = _build_geral(rj, mj)
+        egj = _fetch_equipe_geral(db)
+        dash_html = _build_geral(rj, mj, egj)
     except Exception as exc:
         erro = f"Erro ao carregar dados: {exc}"
     return templates.TemplateResponse("indicadores/autonomo_custo_geral.html", {
@@ -1261,7 +1297,8 @@ def autonomo_custo_evolucao(request: Request, db: Session = Depends(get_db)):
     try:
         rj = _fetch(db)
         sj = _fetch_sede(db)
-        dash_html = _build_custo(rj, sj)
+        egj = _fetch_equipe_geral(db)
+        dash_html = _build_custo(rj, sj, egj)
     except Exception as exc:
         erro = f"Erro ao carregar dados: {exc}"
     return templates.TemplateResponse("indicadores/autonomo_custo_evolucao.html", {
