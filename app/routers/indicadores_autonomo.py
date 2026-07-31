@@ -539,7 +539,7 @@ def _fetch_sede(db: Session) -> str:
     return _json.dumps({"by_year": by_year, "total": sum(by_year.values())}, ensure_ascii=False)
 
 
-def _build_evolucao(records_js: str, sede_js: str = "{}") -> str:
+def _build_evolucao(records_js: str, sede_js: str = "{}", eg_js: str = "[]") -> str:
     css = """<style>
 .ev{--red:#d71920;--green:#15946c;--yellow:#e59a12;--muted:#6f7886;
   --border:#e3e7ee;--shadow:0 8px 24px rgba(24,32,44,.07);--radius:16px;
@@ -642,7 +642,7 @@ def _build_evolucao(records_js: str, sede_js: str = "{}") -> str:
     <select id="evTipo">
       <option value="">Todos os custos</option>
       <option value="carro">Equipe por carro</option>
-      <option value="geral">Equipe geral</option>
+      <option value="geral">Autônomos s/ carro</option>
     </select>
   </div>
   <button class="ev-reset" onclick="evReset()">Limpar</button>
@@ -679,7 +679,7 @@ def _build_evolucao(records_js: str, sede_js: str = "{}") -> str:
     <div class="ev-kpi-value" id="evK5">—</div>
     <div class="ev-kpi-foot" id="evK5f"></div></article>
   <article class="ev-kpi" style="--tint:#f2f4f8;--iconbg:#edf0f5;--iconcolor:#4e5967">
-    <div class="ev-kpi-top"><span class="ev-kpi-title">Equipe geral</span>
+    <div class="ev-kpi-top"><span class="ev-kpi-title">Outras Equipes</span>
       <div class="ev-icon">EG</div></div>
     <div class="ev-kpi-value" id="evK6">—</div>
     <div class="ev-kpi-foot" id="evK6f"></div></article>
@@ -808,6 +808,11 @@ function evKPIs(d){
   const mediaD=dias?total/dias:0;
   const geral=d.filter(r=>!r.carro_id).reduce((s,r)=>s+(r.valor||0),0);
   const sedeTotal=EV_SEDE.total||0;
+  // Outras Equipes (tabela equipe_geral), respeitando os filtros do dashboard
+  const _yr=evEl("evYear")?.value||"",_et=evEl("evEtapa")?.value||"",_ct=evEl("evCat")?.value||"";
+  const outrasEquipes=(typeof EV_EG!=="undefined"?EV_EG:[])
+    .filter(r=>(!_yr||r.temporada===_yr)&&(!_et||r.etapa===_et)&&(!_ct||r.categoria===_ct))
+    .reduce((s,r)=>s+(r.valor||0),0);
   // Por etapa
   const etMap={};
   d.forEach(r=>{if(r.etapa)etMap[r.etapa]=(etMap[r.etapa]||0)+(r.valor||0)});
@@ -821,8 +826,9 @@ function evKPIs(d){
   set("evK3",evFmtSh(maxEt[1]),maxEt[0]||"—");
   set("evK4",evFmt(avgEt),etVals.length+" etapas");
   set("evK5",evFmtSh(mediaD),"por profissional/dia");
-  const geralPct=total?(geral/total*100):0;
-  set("evK6",evFmt(geral),geralPct.toFixed(1)+"% do consolidado");
+  const consolid=total+sedeTotal+outrasEquipes;
+  const oePct=consolid?(outrasEquipes/consolid*100):0;
+  set("evK6",evFmt(outrasEquipes),oePct.toFixed(1)+"% do consolidado");
   const sedePct=total&&sedeTotal?(sedeTotal/total*100):0;
   set("evK7",evFmt(sedeTotal),sedePct?sedePct.toFixed(1)+"% do consolidado":"");
   // Composition panel
@@ -836,10 +842,12 @@ function evKPIs(d){
   if(cl){
     const sedeBarW=total?(sedeTotal/total*100).toFixed(1):0;
     const geralBarW=total?(geral/total*100).toFixed(1):0;
+    const oeBarW=total?(outrasEquipes/total*100).toFixed(1):0;
     cl.innerHTML=[
       ["Equipe vinculada aos carros","Autônomos com piloto e carro",vinculados,pctVinc.toFixed(1),"#d71920"],
-      ["Equipe geral da etapa","Apoio sem vínculo direto ao carro",geral,geralBarW,"#7b61c9"],
-      ["Autônomos da sede","Lançamentos sem etapa associada",sedeTotal,sedeBarW,"#2878d0"],
+      ["Apoio (autônomos s/ carro)","Autônomos sem vínculo direto ao carro",geral,geralBarW,"#7b61c9"],
+      ["Autônomos da sede","Lançamentos da sede",sedeTotal,sedeBarW,"#2878d0"],
+      ["Outras Equipes","Tabela Outras Equipes (equipe_geral)",outrasEquipes,oeBarW,"#15946c"],
     ].map(([nm,sub,val,pct,col])=>
       '<div class="ev-cost-item">'+
       '<div class="ev-cost-top"><div><strong>'+nm+'</strong><small>'+sub+'</small></div>'+
@@ -1011,7 +1019,7 @@ function evRender(){
 evSetup();evRender();
 """
     return (
-        f"<script>const EV_RECORDS={records_js};const EV_SEDE={sede_js};</script>"
+        f"<script>const EV_RECORDS={records_js};const EV_SEDE={sede_js};const EV_EG={eg_js};</script>"
         + css + html
         + "<script>" + js + "</script>"
     )
@@ -1261,7 +1269,7 @@ acpSetup();acpRender();
 
 def _build_custo(records_js: str, sede_js: str = "{}", eg_js: str = "[]") -> str:
     """Combines Evolução and Pagamentos into one tabbed page."""
-    ev = _build_evolucao(records_js, sede_js)
+    ev = _build_evolucao(records_js, sede_js, eg_js)
     pag = _build_pagamentos(records_js, eg_js)
     tab_css = """<style>
 .custo-tabs-wrap *{box-sizing:border-box}
