@@ -16,54 +16,158 @@
   .input:focus{outline:none;border-color:#dc2626}
   .btn-primary{padding:.5rem 1.4rem;background:#dc2626;color:#fff;border:none;border-radius:7px;font-weight:600;cursor:pointer;font-size:.85rem;text-decoration:none;display:inline-block}
   .btn-secondary{padding:.5rem 1rem;background:#fff;color:#374151;border:1px solid #d1d5db;border-radius:7px;font-weight:600;font-size:.85rem;text-decoration:none;display:inline-block;cursor:pointer}
+  .btn-xs{padding:.2rem .5rem;font-size:.74rem}
   .btn-danger{padding:.2rem .5rem;background:transparent;border:1px solid #fca5a5;color:#dc2626;border-radius:5px;font-size:.75rem;cursor:pointer}
   .sede-tbl{width:100%;border-collapse:collapse;font-size:.82rem}
   .sede-tbl th{background:#f9fafb;padding:.4rem .6rem;text-align:left;font-size:.75rem;font-weight:700;color:#6b7280;text-transform:uppercase;border-bottom:2px solid #e5e7eb;white-space:nowrap}
   .sede-tbl td{padding:.35rem .6rem;border-bottom:1px solid #f3f4f6;vertical-align:middle}
   .sede-tbl td.num{text-align:right;font-variant-numeric:tabular-nums}
   .sede-tbl tr:hover td{background:#fafafa}
-  .kpi-box{display:flex;gap:14px;margin-bottom:14px;flex-wrap:wrap}
-  .kpi{background:#fff;border:1px solid #e5e7eb;border-radius:8px;padding:.6rem 1rem;min-width:140px}
-  .kpi span{font-size:.7rem;color:#6b7280;display:block}
-  .kpi strong{font-size:1.1rem;color:#111}
   .upload-hint{font-size:.72rem;color:#6b7280;margin-top:.3rem;line-height:1.5}
   .divider{border:none;border-top:1px solid #e5e7eb;margin:1.1rem 0}
+
+  /* filtros */
+  .filterbar{display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap}
+  .filterbar label{font-size:.74rem;font-weight:700;color:#374151;display:block;margin-bottom:.2rem}
+  .filterbar select,.filterbar input{padding:.4rem .55rem;border:1px solid #d1d5db;border-radius:6px;font-size:.82rem}
+
+  /* indicadores */
+  .kpi-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:16px}
+  .kpi{background:#fff;border:1px solid #e5e7eb;border-left:4px solid var(--c,#6b7280);border-radius:10px;padding:.7rem .95rem}
+  .kpi .lbl{font-size:.68rem;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:.03em}
+  .kpi .val{font-size:1.55rem;font-weight:800;color:#111827;line-height:1.15;margin-top:2px}
+  .kpi .sub{font-size:.66rem;color:#9ca3af}
+  .ind-grid{display:grid;grid-template-columns:1.4fr 1fr;gap:16px}
+  @media(max-width:900px){.ind-grid{grid-template-columns:1fr}}
+  .st-tbl{width:100%;border-collapse:collapse;font-size:.82rem}
+  .st-tbl th{background:#f9fafb;padding:.35rem .55rem;text-align:left;font-size:.68rem;font-weight:700;color:#6b7280;text-transform:uppercase;border-bottom:2px solid #e5e7eb}
+  .st-tbl td{padding:.32rem .55rem;border-bottom:1px solid #f3f4f6}
+  .st-tbl td.num{text-align:right;font-variant-numeric:tabular-nums;font-weight:700}
+  .barcell{position:relative;min-width:90px}
+  .barcell .bar{height:7px;border-radius:4px;background:#dc2626;opacity:.85}
+  .rank{list-style:none;margin:0;padding:0}
+  .rank li{display:flex;align-items:center;gap:10px;padding:.4rem 0;border-bottom:1px solid #f3f4f6}
+  .rank li:last-child{border-bottom:none}
+  .rank .pos{width:22px;height:22px;border-radius:50%;background:#dc2626;color:#fff;font-size:.72rem;font-weight:800;display:grid;place-items:center;flex-shrink:0}
+  .rank .nm{font-weight:600;color:#111827;flex:1}
+  .rank .vl{font-weight:700;color:#374151;white-space:nowrap;font-size:.82rem}
+  .subtitle{font-size:.82rem;font-weight:700;color:#111827;margin:0 0 .6rem}
 </style>
 
-<div class="kpi-box">
-  <div class="kpi">
-    <span>Total lançado</span>
-    <strong>R$ {{ "%.2f"|format(total)|replace(".", "X")|replace(",", ".")|replace("X", ",") }}</strong>
+<!-- ── FILTROS ── -->
+<div class="panel" style="margin-bottom:16px">
+  <div class="filterbar">
+    <div>
+      <label>Competência (mês)</label>
+      <select onchange="goFilter('competencia', this.value, true)">
+        <option value="">Todas</option>
+        {% for c in competencias %}
+        <option value="{{ c }}" {% if filtro_competencia == c %}selected{% endif %}>{{ c }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div>
+      <label>Período — de</label>
+      <input type="month" value="{{ comp_de }}" onchange="goFilter('comp_de', this.value)">
+    </div>
+    <div>
+      <label>Período — até</label>
+      <input type="month" value="{{ comp_ate }}" onchange="goFilter('comp_ate', this.value)">
+    </div>
+    <div>
+      <label>Setor</label>
+      <select onchange="goFilter('setor_sel', this.value)">
+        <option value="">Todos</option>
+        {% for s in setores %}
+        <option value="{{ s }}" {% if setor_sel == s %}selected{% endif %}>{{ s }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    {% if filtro_competencia or comp_de or comp_ate or setor_sel %}
+    <a class="btn-secondary" href="/autonomo-sede">✖ Limpar filtros</a>
+    {% endif %}
   </div>
-  <div class="kpi">
-    <span>Registros</span>
-    <strong>{{ lancamentos|length }}</strong>
+  <div style="font-size:.7rem;color:#9ca3af;margin-top:8px">
+    Ao escolher uma <b>Competência</b>, o Período é ignorado. Use o Período para intervalos de meses.
   </div>
 </div>
 
+<!-- ── INDICADORES ── -->
+{% set ind = indicadores %}
+<div class="panel" style="margin-bottom:16px">
+  <div class="kpi-row">
+    <div class="kpi" style="--c:#0ea5e9"><div class="lbl">Autônomos no período</div><div class="val">{{ ind.qtd_autonomos }}</div><div class="sub">profissionais distintos</div></div>
+    <div class="kpi" style="--c:#16a34a"><div class="lbl">Custo Total</div><div class="val" style="font-size:1.25rem">{{ (ind.total or 0)|money_br }}</div><div class="sub">valor pago no período</div></div>
+    <div class="kpi" style="--c:#6366f1"><div class="lbl">Lançamentos</div><div class="val">{{ ind.registros }}</div><div class="sub">registros no período</div></div>
+  </div>
+
+  {% if ind.por_setor_custo %}
+  {% set maxc = ind.por_setor_custo|map(attribute='custo')|map('float')|max %}
+  <div class="ind-grid">
+    <!-- Distribuição / Custo por setor -->
+    <div>
+      <p class="subtitle">Distribuição e custo por setor</p>
+      <table class="st-tbl">
+        <thead><tr><th>Setor</th><th style="text-align:right">Profissionais</th><th style="text-align:right">Custo</th><th style="width:110px">Peso</th></tr></thead>
+        <tbody>
+          {% for s in ind.por_setor_custo %}
+          <tr>
+            <td style="font-weight:600">{{ s.setor }}</td>
+            <td class="num">{{ s.qtd }}</td>
+            <td class="num">{{ s.custo|money_br }}</td>
+            <td class="barcell"><div class="bar" style="width:{{ ((s.custo|float / maxc * 100) if maxc else 0)|round(1) }}%"></div></td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Rankings -->
+    <div>
+      <p class="subtitle">🏆 Top 5 setores — nº de autônomos</p>
+      <ul class="rank">
+        {% for s in ind.top5_qtd %}
+        <li><span class="pos">{{ loop.index }}</span><span class="nm">{{ s.setor }}</span><span class="vl">{{ s.qtd }}</span></li>
+        {% endfor %}
+      </ul>
+      <p class="subtitle" style="margin-top:1rem">💰 Top 5 setores — maior custo</p>
+      <ul class="rank">
+        {% for s in ind.top5_custo %}
+        <li><span class="pos">{{ loop.index }}</span><span class="nm">{{ s.setor }}</span><span class="vl">{{ s.custo|money_br }}</span></li>
+        {% endfor %}
+      </ul>
+    </div>
+  </div>
+  {% else %}
+  <p style="color:#9ca3af;font-style:italic;text-align:center;padding:1rem">Sem dados para os filtros selecionados.</p>
+  {% endif %}
+</div>
+
+<!-- ── FORMULÁRIO + UPLOAD ── -->
 <div class="sede-grid">
-  <!-- Formulário manual -->
+  <!-- Formulário manual / edição -->
   <div class="panel">
-    <h3>➕ Novo lançamento manual</h3>
-    <form method="post" action="/autonomo-sede/novo">
+    <h3 id="form-title">➕ Novo lançamento manual</h3>
+    <form method="post" action="/autonomo-sede/salvar">
+      <input type="hidden" name="id" id="f_id">
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
         <div>
           <label class="label">ID do Autônomo</label>
-          <input class="input" name="id_autonomo" placeholder="Ex: 1042">
+          <input class="input" name="id_autonomo" id="f_id_autonomo" placeholder="Ex: 1042">
         </div>
         <div>
           <label class="label">Competência</label>
-          <input class="input" name="competencia" placeholder="Ex: 2026-07">
+          <input class="input" name="competencia" id="f_competencia" placeholder="Ex: 2026-07">
         </div>
       </div>
       <div style="margin-bottom:10px">
         <label class="label">Nome do Autônomo</label>
-        <input class="input" name="nome_autonomo" placeholder="Nome completo">
+        <input class="input" name="nome_autonomo" id="f_nome" placeholder="Nome completo">
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
         <div>
           <label class="label">Motivo</label>
-          <select class="input" name="motivo">
+          <select class="input" name="motivo" id="f_motivo">
             <option value="">Selecione...</option>
             {% for m in motivos %}
             <option value="{{ m }}">{{ m }}</option>
@@ -71,15 +175,27 @@
           </select>
         </div>
         <div>
-          <label class="label">Valor (R$)</label>
-          <input class="input" name="valor" type="number" step="0.01" min="0" placeholder="0,00">
+          <label class="label">Setor *</label>
+          <select class="input" name="setor" id="f_setor" required>
+            <option value="">Selecione...</option>
+            {% for s in setores %}
+            <option value="{{ s }}">{{ s }}</option>
+            {% endfor %}
+          </select>
         </div>
       </div>
-      <div style="margin-bottom:12px">
-        <label class="label">Observação</label>
-        <input class="input" name="observacao" placeholder="Opcional">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
+        <div>
+          <label class="label">Valor (R$)</label>
+          <input class="input" name="valor" id="f_valor" type="number" step="0.01" min="0" placeholder="0,00">
+        </div>
+        <div>
+          <label class="label">Observação</label>
+          <input class="input" name="observacao" id="f_observacao" placeholder="Opcional">
+        </div>
       </div>
       <button class="btn-primary" type="submit">💾 Salvar</button>
+      <button class="btn-secondary" type="button" id="btn-cancelar" style="display:none" onclick="cancelarEdicao()">Cancelar edição</button>
     </form>
   </div>
 
@@ -88,7 +204,7 @@
     <h3>⬇️ Baixar modelo Excel</h3>
     <p style="font-size:.82rem;color:#6b7280;margin:.2rem 0 .9rem">
       O modelo já vem com todos os autônomos <strong>ativos</strong> pré-preenchidos (ID e Nome).
-      Preencha Motivo, Valor, Competência e Observação.
+      Preencha Motivo, Valor, Competência, Setor e Observação.
     </p>
     <a class="btn-primary" href="/autonomo-sede/modelo">⬇️ Baixar modelo (.xlsx)</a>
 
@@ -100,7 +216,7 @@
         <label class="label">Arquivo CSV ou Excel (.xlsx)</label>
         <input class="input" type="file" name="arquivo" accept=".csv,.xlsx,.xls" required>
         <p class="upload-hint">
-          Colunas esperadas: <b>id_autonomo, nome_autonomo, motivo, valor, competencia, observacao</b><br>
+          Colunas esperadas: <b>id_autonomo, nome_autonomo, motivo, valor, competencia, setor, observacao</b><br>
           Linhas sem ID e sem nome são ignoradas.
         </p>
       </div>
@@ -118,6 +234,7 @@
         <th>Competência</th>
         <th>ID</th>
         <th>Nome</th>
+        <th>Setor</th>
         <th>Motivo</th>
         <th class="num">Valor</th>
         <th>Observação</th>
@@ -131,12 +248,22 @@
         <td>{{ l.competencia or '-' }}</td>
         <td>{{ l.id_autonomo or '-' }}</td>
         <td>{{ l.nome_autonomo or '-' }}</td>
+        <td>{{ l.setor or '—' }}</td>
         <td>{{ l.motivo or '-' }}</td>
-        <td class="num">R$ {{ "%.2f"|format(l.valor or 0)|replace(".", "X")|replace(",", ".")|replace("X", ",") }}</td>
+        <td class="num">{{ (l.valor or 0)|money_br }}</td>
         <td style="color:#6b7280;font-size:.78rem">{{ l.observacao or '' }}</td>
         <td style="font-size:.75rem;color:#9ca3af;white-space:nowrap">{{ l.criado_em }}</td>
-        <td>
-          <form method="post" action="/autonomo-sede/{{ l.id }}/excluir" style="margin:0"
+        <td style="white-space:nowrap">
+          <button class="btn-secondary btn-xs editar-btn" type="button"
+            data-id="{{ l.id }}"
+            data-id_autonomo="{{ l.id_autonomo or '' }}"
+            data-nome="{{ l.nome_autonomo or '' }}"
+            data-motivo="{{ l.motivo or '' }}"
+            data-valor="{{ l.valor or 0 }}"
+            data-competencia="{{ l.competencia or '' }}"
+            data-observacao="{{ l.observacao or '' }}"
+            data-setor="{{ l.setor or '' }}">✏️ Editar</button>
+          <form method="post" action="/autonomo-sede/{{ l.id }}/excluir" style="margin:0;display:inline"
                 onsubmit="return confirm('Excluir este lançamento?')">
             <button class="btn-danger" type="submit">🗑️</button>
           </form>
@@ -146,17 +273,52 @@
     </tbody>
     <tfoot>
       <tr>
-        <td colspan="4" style="text-align:right;font-weight:700;font-size:.82rem;padding:.4rem .6rem;border-top:2px solid #e5e7eb">Total</td>
-        <td class="num" style="font-weight:700;border-top:2px solid #e5e7eb">R$ {{ "%.2f"|format(total)|replace(".", "X")|replace(",", ".")|replace("X", ",") }}</td>
+        <td colspan="5" style="text-align:right;font-weight:700;font-size:.82rem;padding:.4rem .6rem;border-top:2px solid #e5e7eb">Total</td>
+        <td class="num" style="font-weight:700;border-top:2px solid #e5e7eb">{{ (total or 0)|money_br }}</td>
         <td colspan="3" style="border-top:2px solid #e5e7eb"></td>
       </tr>
     </tfoot>
   </table>
   {% else %}
   <p style="color:#9ca3af;font-style:italic;text-align:center;padding:2rem">
-    Nenhum lançamento encontrado. Use o formulário ou importe uma planilha.
+    Nenhum lançamento encontrado para os filtros. Use o formulário ou importe uma planilha.
   </p>
   {% endif %}
 </div>
+
+<script>
+function goFilter(param, value, exclusive) {
+  const url = new URL(window.location.href);
+  if (value) url.searchParams.set(param, value); else url.searchParams.delete(param);
+  // competência (mês) e período são mutuamente exclusivos
+  if (param === 'competencia' && value) { url.searchParams.delete('comp_de'); url.searchParams.delete('comp_ate'); }
+  if ((param === 'comp_de' || param === 'comp_ate') && value) { url.searchParams.delete('competencia'); }
+  window.location.href = url.toString();
+}
+
+function setVal(id, v) { const el = document.getElementById(id); if (el) el.value = v || ''; }
+
+function cancelarEdicao() {
+  ['f_id','f_id_autonomo','f_nome','f_motivo','f_valor','f_competencia','f_observacao','f_setor'].forEach(function(i){ setVal(i, ''); });
+  document.getElementById('form-title').textContent = '➕ Novo lançamento manual';
+  document.getElementById('btn-cancelar').style.display = 'none';
+}
+
+document.querySelectorAll('.editar-btn').forEach(function(b) {
+  b.addEventListener('click', function() {
+    setVal('f_id', b.dataset.id);
+    setVal('f_id_autonomo', b.dataset.id_autonomo);
+    setVal('f_nome', b.dataset.nome);
+    setVal('f_motivo', b.dataset.motivo);
+    setVal('f_valor', b.dataset.valor);
+    setVal('f_competencia', b.dataset.competencia);
+    setVal('f_observacao', b.dataset.observacao);
+    setVal('f_setor', b.dataset.setor);
+    document.getElementById('form-title').textContent = '✏️ Editar lançamento #' + b.dataset.id;
+    document.getElementById('btn-cancelar').style.display = 'inline-block';
+    document.getElementById('form-title').scrollIntoView({behavior:'smooth', block:'center'});
+  });
+});
+</script>
 
 {% endblock %}
