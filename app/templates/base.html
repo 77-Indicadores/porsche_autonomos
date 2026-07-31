@@ -117,18 +117,18 @@
         <a class="nav-link {% if request.url.path.startswith('/cargos-autonomos') %}active{% endif %}" href="/cargos-autonomos">🪪 Cargos Autônomo</a>
         <a class="nav-link {% if request.url.path.startswith('/pilotos') %}active{% endif %}" href="/pilotos">👨‍✈️ Piloto</a>
         <a class="nav-link {% if request.url.path == '/autonomos' %}active{% endif %}" href="/autonomos">🧰 Autônomo</a>
-        <a class="nav-link {% if request.url.path.startswith('/equipe-geral') %}active{% endif %}" href="/equipe-geral">👥 Equipe Disponível</a>
-        <a class="nav-link {% if request.url.path.startswith('/autonomo-sede') %}active{% endif %}" href="/autonomo-sede">🏢 Autônomo Sede</a>
+        <a class="nav-link {% if request.url.path.startswith('/composicao-meta-equipe') %}active{% endif %}" href="/composicao-meta-equipe">🧩 Disponibilidade Autônomos</a>
       </div>
 
       <div class="nav-section">
         <div class="nav-section-title">Operação</div>
         <a class="nav-link {% if request.url.path.startswith('/alocacoes') %}active{% endif %}" href="/alocacoes">📋 Gestão de Alocação</a>
         <a class="nav-link {% if request.url.path.startswith('/composicao-padrao') %}active{% endif %}" href="/composicao-padrao">🧩 Composição Padrão</a>
-        <a class="nav-link {% if request.url.path.startswith('/composicao-meta-equipe') %}active{% endif %}" href="/composicao-meta-equipe">🧩 Composição Meta Equipe</a>
         <a class="nav-link {% if request.url.path.startswith('/equipes') %}active{% endif %}" href="/equipes">👥 Equipes Alocadas</a>
-        <a class="nav-link {% if request.url.path.startswith('/troca-etapas') %}active{% endif %}" href="/troca-etapas">🔄 Troca de Etapas</a>
+        <a class="nav-link {% if request.url.path.startswith('/troca-etapas') %}active{% endif %}" href="/troca-etapas">🔄 Troca de Equipes</a>
         <a class="nav-link {% if request.url.path.startswith('/pesquisas') %}active{% endif %}" href="/pesquisas">📝 Pesquisas</a>
+        <a class="nav-link {% if request.url.path.startswith('/equipe-geral') %}active{% endif %}" href="/equipe-geral">👥 Outras Equipes</a>
+        <a class="nav-link {% if request.url.path.startswith('/autonomo-sede') %}active{% endif %}" href="/autonomo-sede">🏢 Autônomo Sede</a>
       </div>
       {% endif %}
 
@@ -143,7 +143,7 @@
         {% elif request.url.path.startswith('/folha') %}
           {# Folha faz upload de PDF na própria tela; sem listas de apoio. #}
         {% else %}
-          <a class="nav-link {% if request.url.path.startswith('/excel') %}active{% endif %}" href="/excel/">📥 Importações Autônomos</a>
+          <a class="nav-link {% if request.url.path.startswith('/excel') %}active{% endif %}" href="/excel/">📥 Importações</a>
           <a class="nav-link {% if request.url.path.startswith('/autonomos/atualizar') %}active{% endif %}" href="/autonomos/atualizar-excel">🔄 Atualizar Cadastros</a>
           <a class="nav-link {% if request.url.path.startswith('/ids-importacao') %}active{% endif %}" href="/ids-importacao">IDs para Importação</a>
           <a class="nav-link {% if request.url.path.startswith('/setup') %}active{% endif %}" href="/setup">⚙️ Listas de Apoio</a>
