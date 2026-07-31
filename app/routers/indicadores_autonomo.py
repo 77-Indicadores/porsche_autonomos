@@ -107,13 +107,13 @@ def _build_geral(records_js: str, meta_js: str) -> str:
 .vg-kpi::after{content:"";width:76px;height:76px;border-radius:50%;
   position:absolute;right:-28px;top:-28px;background:var(--tint,#f4f6f9)}
 .vg-kpi-top{display:flex;align-items:center;justify-content:space-between;position:relative;z-index:1}
-.vg-kpi-title{font-size:9px;font-weight:800;text-transform:uppercase;
+.vg-kpi-title{font-size:10px;font-weight:800;text-transform:uppercase;
   letter-spacing:.055em;color:var(--muted)}
 .vg-icon{width:30px;height:30px;border-radius:9px;display:grid;place-items:center;
   background:var(--iconbg,#f1f3f6);color:var(--iconcolor,#18202c);font-size:13px;font-weight:900}
 .vg-kpi-value{margin-top:9px;font-size:21px;font-weight:800;letter-spacing:-.04em;
   position:relative;z-index:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.vg-kpi-foot{margin-top:3px;color:var(--muted);font-size:9px;position:relative;z-index:1}
+.vg-kpi-foot{margin-top:3px;color:var(--muted);font-size:10px;position:relative;z-index:1}
 .vg-delta{color:var(--green);background:#eaf8f3;padding:2px 5px;
   border-radius:999px;font-weight:800;font-size:9px}
 .vg-grid-main{display:grid;grid-template-columns:minmax(0,1.65fr) minmax(240px,.85fr);
@@ -515,13 +515,13 @@ def _build_evolucao(records_js: str, sede_js: str = "{}") -> str:
 .ev-kpi::after{content:"";width:76px;height:76px;border-radius:50%;position:absolute;
   right:-28px;top:-28px;background:var(--tint,#f4f6f9)}
 .ev-kpi-top{display:flex;align-items:center;justify-content:space-between;position:relative;z-index:1}
-.ev-kpi-title{font-size:9px;font-weight:800;text-transform:uppercase;
+.ev-kpi-title{font-size:10px;font-weight:800;text-transform:uppercase;
   letter-spacing:.055em;color:var(--muted)}
 .ev-icon{width:30px;height:30px;border-radius:9px;display:grid;place-items:center;
   background:var(--iconbg,#f1f3f6);color:var(--iconcolor,#18202c);font-size:12px;font-weight:900}
 .ev-kpi-value{margin-top:9px;font-size:20px;font-weight:800;letter-spacing:-.04em;
   position:relative;z-index:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.ev-kpi-foot{margin-top:3px;color:var(--muted);font-size:9px;position:relative;z-index:1;display:flex;align-items:center;gap:5px;flex-wrap:wrap}
+.ev-kpi-foot{margin-top:3px;color:var(--muted);font-size:10px;position:relative;z-index:1;display:flex;align-items:center;gap:5px;flex-wrap:wrap}
 .ev-delta{padding:2px 5px;border-radius:999px;font-weight:800;font-size:9px}
 .ev-delta.ok{color:#107455;background:#e9f7f2}
 .ev-delta.neg{color:#b11c22;background:#fff0f1}
@@ -1371,13 +1371,13 @@ def _build_planejamento(plan_js: str) -> str:
 .pl-kpi::after{content:"";width:72px;height:72px;border-radius:50%;position:absolute;
   right:-26px;top:-26px;background:var(--tint,#f4f6f9)}
 .pl-kpi-top{display:flex;align-items:center;justify-content:space-between;position:relative;z-index:1}
-.pl-kpi-title{font-size:9px;font-weight:800;text-transform:uppercase;
+.pl-kpi-title{font-size:10px;font-weight:800;text-transform:uppercase;
   letter-spacing:.055em;color:var(--muted)}
 .pl-icon{width:29px;height:29px;border-radius:8px;display:grid;place-items:center;
   background:var(--iconbg,#f1f3f6);color:var(--iconcolor,#18202c);font-size:12px;font-weight:900}
 .pl-kpi-value{margin-top:8px;font-size:22px;font-weight:800;letter-spacing:-.04em;
   position:relative;z-index:1}
-.pl-kpi-foot{margin-top:3px;color:var(--muted);font-size:9px;position:relative;z-index:1}
+.pl-kpi-foot{margin-top:3px;color:var(--muted);font-size:10px;position:relative;z-index:1}
 .pl-delta{padding:2px 5px;border-radius:999px;font-weight:800;font-size:9px}
 .pl-delta.ok{color:#107455;background:#e9f7f2}
 .pl-delta.warn{color:#ae7105;background:#fff5df}
@@ -1864,13 +1864,13 @@ def _build_trocas(trocas_js: str) -> str:
 .tr5-kpi::after{content:"";width:76px;height:76px;border-radius:50%;position:absolute;
   right:-28px;top:-28px;background:var(--tint,#f4f6f9)}
 .tr5-kpi-top{display:flex;align-items:center;justify-content:space-between;position:relative;z-index:1}
-.tr5-kpi-title{font-size:9px;font-weight:800;text-transform:uppercase;
+.tr5-kpi-title{font-size:10px;font-weight:800;text-transform:uppercase;
   letter-spacing:.055em;color:var(--muted)}
 .tr5-icon{width:30px;height:30px;border-radius:9px;display:grid;place-items:center;
   background:var(--iconbg,#f1f3f6);color:var(--iconcolor,#18202c);font-size:12px;font-weight:900}
 .tr5-kpi-value{margin-top:9px;font-size:20px;font-weight:800;letter-spacing:-.04em;
   position:relative;z-index:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.tr5-kpi-foot{margin-top:3px;color:var(--muted);font-size:9px;position:relative;z-index:1;
+.tr5-kpi-foot{margin-top:3px;color:var(--muted);font-size:10px;position:relative;z-index:1;
   display:flex;align-items:center;gap:5px;flex-wrap:wrap}
 .tr5-delta{padding:2px 5px;border-radius:999px;font-weight:800;font-size:9px}
 .tr5-delta.ok{color:#107455;background:#e9f7f2}
