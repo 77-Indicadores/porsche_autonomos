@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import io
+import re
 from datetime import datetime
 from decimal import Decimal, InvalidOperation
 
@@ -122,6 +123,59 @@ def _migrar_tabela():
                     conn.commit()
 
 _migrar_tabela()
+
+
+_RE_COMP_ISO = re.compile(r"^(\d{4})-(\d{1,2})")          # 2026-05 / 2026-05-01 00:00:00
+_RE_COMP_BR = re.compile(r"^(\d{1,2})/(\d{1,2})/(\d{4})")  # 01/05/2026
+_RE_COMP_MES_ANO = re.compile(r"^(\d{1,2})/(\d{4})$")      # 05/2026
+_RE_COMP_ANO_MES = re.compile(r"^(\d{4})/(\d{1,2})$")      # 2026/05
+
+
+def _norm_competencia(s: str) -> str:
+    """Converte qualquer formato aceito para o padrão AAAA-MM."""
+    s = (s or "").strip()
+    if not s:
+        return ""
+
+    def _fmt(ano, mes):
+        mes = int(mes)
+        return f"{int(ano):04d}-{mes:02d}" if 1 <= mes <= 12 else s
+
+    m = _RE_COMP_ISO.match(s)
+    if m:
+        return _fmt(m.group(1), m.group(2))
+    m = _RE_COMP_BR.match(s)
+    if m:
+        return _fmt(m.group(3), m.group(2))
+    m = _RE_COMP_MES_ANO.match(s)
+    if m:
+        return _fmt(m.group(2), m.group(1))
+    m = _RE_COMP_ANO_MES.match(s)
+    if m:
+        return _fmt(m.group(1), m.group(2))
+    return s
+
+
+def _normalizar_competencias_existentes():
+    """Padroniza para AAAA-MM os lançamentos gravados antes da normalização."""
+    try:
+        with engine.begin() as conn:
+            rows = conn.execute(text(
+                "SELECT id, competencia FROM autonomo_sede_lancamentos "
+                "WHERE competencia IS NOT NULL AND competencia <> ''"
+            )).mappings().all()
+            for r in rows:
+                novo = _norm_competencia(r["competencia"])
+                if novo != r["competencia"]:
+                    conn.execute(
+                        text("UPDATE autonomo_sede_lancamentos SET competencia=:c WHERE id=:id"),
+                        {"c": novo, "id": r["id"]},
+                    )
+    except Exception as exc:
+        print(f"AVISO - não consegui normalizar competências: {exc}")
+
+
+_normalizar_competencias_existentes()
 
 
 # expressão SQL do setor com fallback
@@ -248,7 +302,7 @@ def sede_salvar(
         "nome": nome_autonomo.strip(),
         "motivo": motivo.strip(),
         "valor": _parse_valor(valor),
-        "comp": competencia.strip(),
+        "comp": _norm_competencia(competencia),
         "obs": observacao.strip(),
         "setor": setor.strip(),
     }
@@ -350,9 +404,7 @@ def _inserir_linha(db: Session, row: dict) -> bool:
     obs = _get("observacao", "observação")
     setor = _get("setor")
 
-    # normaliza competência: "2026-05-01 00:00:00" → "2026-05"
-    if comp and len(comp) >= 7 and comp[4] == "-":
-        comp = comp[:7]
+    comp = _norm_competencia(comp)
 
     valor = _parse_valor(valor_str)
     if not id_a and not nome:

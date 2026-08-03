@@ -18,6 +18,35 @@
       </a>
     </div>
 
+    {#- Links de indicadores de um módulo, reaproveitados dentro do próprio módulo -#}
+    {% macro ind_links(mod, path) %}
+      {%- if mod == 'dho' %}
+        <div class="nav-subsection-title">Headcount</div>
+        <a class="nav-link {% if path == '/indicadores/headcount' %}active{% endif %}" href="/indicadores/headcount">👥 Headcount Ativo</a>
+        <a class="nav-link {% if path == '/indicadores/turnover' %}active{% endif %}" href="/indicadores/turnover">📉 Turnover</a>
+        <a class="nav-link {% if path == '/indicadores/banco-horas' %}active{% endif %}" href="/indicadores/banco-horas">🏦 Banco de Horas</a>
+        <a class="nav-link {% if path == '/indicadores/horas-extras' %}active{% endif %}" href="/indicadores/horas-extras">⏱️ Horas Extras</a>
+        <a class="nav-link {% if path == '/indicadores/afastamentos' %}active{% endif %}" href="/indicadores/afastamentos">🏥 Afastamentos</a>
+        <div class="nav-subsection-title">DHO</div>
+        <a class="nav-link {% if path == '/indicadores/treinamentos' %}active{% endif %}" href="/indicadores/treinamentos">🎓 Treinamentos</a>
+        <a class="nav-link {% if path == '/indicadores/vagas' %}active{% endif %}" href="/indicadores/vagas">💼 Vagas</a>
+      {%- elif mod == 'folha' %}
+        <a class="nav-link {% if path == '/indicadores/folha-visao-custo' %}active{% endif %}" href="/indicadores/folha-visao-custo">💰 Visão Custo Empresa</a>
+        <a class="nav-link {% if path == '/indicadores/folha-holerite' %}active{% endif %}" href="/indicadores/folha-holerite">🧾 Holerite Colaborador</a>
+        <a class="nav-link {% if path == '/indicadores/folha-lista' %}active{% endif %}" href="/indicadores/folha-lista">📋 Holerite · Lista</a>
+        <a class="nav-link {% if path == '/indicadores/folha-simulacao' %}active{% endif %}" href="/indicadores/folha-simulacao">📈 Simulação de Aumento</a>
+        <a class="nav-link {% if path == '/indicadores/folha-custo-colaborador' %}active{% endif %}" href="/indicadores/folha-custo-colaborador">👤 Custo por Colaborador</a>
+      {%- elif mod == 'facilities' %}
+        <a class="nav-link {% if path == '/indicadores/facilities' %}active{% endif %}" href="/indicadores/facilities">🏢 Facilities</a>
+      {%- elif mod == 'autonomos' %}
+        <a class="nav-link {% if path == '/indicadores/autonomo-custo' %}active{% endif %}" href="/indicadores/autonomo-custo">🏎️ Visão Geral</a>
+        <a class="nav-link {% if path == '/indicadores/autonomo-custo-evolucao' or path == '/indicadores/autonomo-custo-pagamentos' %}active{% endif %}" href="/indicadores/autonomo-custo-evolucao">💰 Custo</a>
+        <a class="nav-link {% if path == '/indicadores/autonomo-disponibilidade' %}active{% endif %}" href="/indicadores/autonomo-disponibilidade">📋 Planejamento e Cobertura</a>
+        <a class="nav-link {% if path == '/indicadores/autonomo-trocas' %}active{% endif %}" href="/indicadores/autonomo-trocas">↻ Trocas e Continuidade</a>
+        <a class="nav-link {% if path.startswith('/autonomo-sede') %}active{% endif %}" href="/autonomo-sede">🏢 Autônomo Sede</a>
+      {%- endif %}
+    {% endmacro %}
+
     <nav class="sidebar-nav">
       {% if request.url.path != '/' %}
       <div class="nav-section">
@@ -40,6 +69,11 @@
         <a class="nav-link {% if request.url.path.startswith('/dho/aplicacoes-treinamento') %}active{% endif %}" href="/dho/aplicacoes-treinamento">✅ Aplicar Treinamento</a>
       </div>
 
+      <div class="nav-section">
+        <div class="nav-section-title">Indicadores</div>
+        {{ ind_links('dho', request.url.path) }}
+      </div>
+
       {% elif request.url.path.startswith('/indicadores') or request.url.path == '/sem-acesso' %}
       {% set _cu = request.state.current_user %}
       {% set _perfil = _cu.perfil if _cu else '' %}
@@ -47,37 +81,18 @@
       {% set _all = _perfil == 'admin' or not _mods %}
       <div class="nav-section">
         <div class="nav-section-title">Indicadores</div>
-        {% if _all or 'dho' in _mods %}
-        <div class="nav-subsection-title">Headcount</div>
-        <a class="nav-link {% if request.url.path == '/indicadores/headcount' %}active{% endif %}" href="/indicadores/headcount">👥 Headcount Ativo</a>
-        <a class="nav-link {% if request.url.path == '/indicadores/turnover' %}active{% endif %}" href="/indicadores/turnover">📉 Turnover</a>
-        <a class="nav-link {% if request.url.path == '/indicadores/banco-horas' %}active{% endif %}" href="/indicadores/banco-horas">🏦 Banco de Horas</a>
-        <a class="nav-link {% if request.url.path == '/indicadores/horas-extras' %}active{% endif %}" href="/indicadores/horas-extras">⏱️ Horas Extras</a>
-        <a class="nav-link {% if request.url.path == '/indicadores/afastamentos' %}active{% endif %}" href="/indicadores/afastamentos">🏥 Afastamentos</a>
-        {% endif %}
+        {% if _all or 'dho' in _mods %}{{ ind_links('dho', request.url.path) }}{% endif %}
         {% if _all or 'folha' in _mods %}
         <div class="nav-subsection-title">Folha de Pagamento</div>
-        <a class="nav-link {% if request.url.path == '/indicadores/folha-visao-custo' %}active{% endif %}" href="/indicadores/folha-visao-custo">💰 Visão Custo Empresa</a>
-        <a class="nav-link {% if request.url.path == '/indicadores/folha-holerite' %}active{% endif %}" href="/indicadores/folha-holerite">🧾 Holerite Colaborador</a>
-        <a class="nav-link {% if request.url.path == '/indicadores/folha-lista' %}active{% endif %}" href="/indicadores/folha-lista">📋 Holerite · Lista</a>
-        <a class="nav-link {% if request.url.path == '/indicadores/folha-simulacao' %}active{% endif %}" href="/indicadores/folha-simulacao">📈 Simulação de Aumento</a>
-        <a class="nav-link {% if request.url.path == '/indicadores/folha-custo-colaborador' %}active{% endif %}" href="/indicadores/folha-custo-colaborador">👤 Custo por Colaborador</a>
+        {{ ind_links('folha', request.url.path) }}
         {% endif %}
         {% if _all or 'facilities' in _mods %}
         <div class="nav-subsection-title">Facilities</div>
-        <a class="nav-link {% if request.url.path == '/indicadores/facilities' %}active{% endif %}" href="/indicadores/facilities">🏢 Facilities</a>
-        {% endif %}
-        {% if _all or 'dho' in _mods %}
-        <div class="nav-subsection-title">DHO</div>
-        <a class="nav-link {% if request.url.path == '/indicadores/treinamentos' %}active{% endif %}" href="/indicadores/treinamentos">🎓 Treinamentos</a>
-        <a class="nav-link {% if request.url.path == '/indicadores/vagas' %}active{% endif %}" href="/indicadores/vagas">💼 Vagas</a>
+        {{ ind_links('facilities', request.url.path) }}
         {% endif %}
         {% if _all or 'autonomos' in _mods %}
         <div class="nav-subsection-title">Autônomos</div>
-        <a class="nav-link {% if request.url.path == '/indicadores/autonomo-custo' %}active{% endif %}" href="/indicadores/autonomo-custo">🏎️ Visão Geral</a>
-        <a class="nav-link {% if request.url.path == '/indicadores/autonomo-custo-evolucao' or request.url.path == '/indicadores/autonomo-custo-pagamentos' %}active{% endif %}" href="/indicadores/autonomo-custo-evolucao">💰 Custo</a>
-        <a class="nav-link {% if request.url.path == '/indicadores/autonomo-disponibilidade' %}active{% endif %}" href="/indicadores/autonomo-disponibilidade">📋 Planejamento e Cobertura</a>
-        <a class="nav-link {% if request.url.path == '/indicadores/autonomo-trocas' %}active{% endif %}" href="/indicadores/autonomo-trocas">↻ Trocas e Continuidade</a>
+        {{ ind_links('autonomos', request.url.path) }}
         {% endif %}
       </div>
 
@@ -85,6 +100,11 @@
       <div class="nav-section">
         <div class="nav-section-title">Facilities</div>
         <a class="nav-link {% if request.url.path.startswith('/facilities') %}active{% endif %}" href="/facilities">🏢 Gestão Facilities</a>
+      </div>
+
+      <div class="nav-section">
+        <div class="nav-section-title">Indicadores</div>
+        {{ ind_links('facilities', request.url.path) }}
       </div>
 
       {% elif request.url.path.startswith('/folha') %}
@@ -99,6 +119,11 @@
         <a class="nav-link {% if request.url.path.startswith('/folha/budget/cargos-niveis') %}active{% endif %}" href="/folha/budget/cargos-niveis">🧩 Níveis de Cargo</a>
         <div class="nav-subsection-title">Saúde</div>
         <a class="nav-link {% if request.url.path.startswith('/folha/atestados') %}active{% endif %}" href="/folha/atestados">🏥 Atestados Médicos</a>
+      </div>
+
+      <div class="nav-section">
+        <div class="nav-section-title">Indicadores</div>
+        {{ ind_links('folha', request.url.path) }}
       </div>
 
       {% elif request.url.path != '/' %}
@@ -128,7 +153,11 @@
         <a class="nav-link {% if request.url.path.startswith('/troca-etapas') %}active{% endif %}" href="/troca-etapas">🔄 Troca de Equipes</a>
         <a class="nav-link {% if request.url.path.startswith('/pesquisas') %}active{% endif %}" href="/pesquisas">📝 Pesquisas</a>
         <a class="nav-link {% if request.url.path.startswith('/equipe-geral') %}active{% endif %}" href="/equipe-geral">👥 Outras Equipes</a>
-        <a class="nav-link {% if request.url.path.startswith('/autonomo-sede') %}active{% endif %}" href="/autonomo-sede">🏢 Autônomo Sede</a>
+      </div>
+
+      <div class="nav-section">
+        <div class="nav-section-title">Indicadores</div>
+        {{ ind_links('autonomos', request.url.path) }}
       </div>
       {% endif %}
 
