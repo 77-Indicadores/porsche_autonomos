@@ -1,4 +1,4 @@
-﻿"""Módulo Indicadores — dashboards analíticos com dados do Feedz via OData."""
+"""Módulo Indicadores — dashboards analíticos com dados do Feedz via OData."""
 
 from __future__ import annotations
 
@@ -1277,12 +1277,53 @@ _CSS_TRAIN = """<style>
 </style>"""
 
 
-def _build_treinamentos_html() -> str:
+def _filtro_depto_html(acao: str, deptos: list[str], selecionado: str) -> str:
+    """Barra com o filtro de Departamento, para os painéis montados em HTML puro."""
+    sel = (selecionado or "").strip().upper()
+    opts = "<option value=''>Todos</option>" + "".join(
+        f"<option value=\"{d}\"{' selected' if d.upper() == sel else ''}>{d}</option>"
+        for d in deptos
+    )
+    return f"""
+<form method="get" action="{acao}"
+      style="display:flex;align-items:center;gap:10px;margin:0 0 14px;padding:10px 14px;
+             background:#fff;border:1px solid #e3e7ee;border-radius:12px">
+  <label style="font-size:11px;font-weight:700;color:#6f7886;text-transform:uppercase;
+                letter-spacing:.05em">Departamento</label>
+  <select name="departamento" onchange="this.form.submit()"
+          style="border:0;background:transparent;outline:none;color:#252525;
+                 font-size:13px;font-weight:700;cursor:pointer;min-width:200px">
+    {opts}
+  </select>
+</form>
+"""
+
+
+def _build_treinamentos_html(depto_sel: str = "") -> str:
     try:
         treinamentos = _db_rows("SELECT id_treinamento, nome_treinamento, tipo_treinamento, carga_horaria_padrao, status FROM dho_treinamentos")
         aplicacoes   = _db_rows("SELECT id_aplicacao, id_treinamento, pessoa_nome, centro_custo, data_treinamento, carga_horaria, status FROM dho_treinamento_aplicacoes")
+        # o centro de custo pode vir como código; traduz pelo cadastro da folha
+        try:
+            cc_map = {
+                (r["codigo"] or "").strip(): r["nome"]
+                for r in _db_rows("SELECT codigo, nome FROM folha_centros_custo "
+                                  "WHERE COALESCE(status, 'Ativo') = 'Ativo'")
+            }
+        except Exception:
+            cc_map = {}
+        for a in aplicacoes:
+            bruto = (a.get("centro_custo") or "").strip()
+            a["departamento"] = cc_map.get(bruto, bruto) or "Não informado"
     except Exception as e:
         return f"<p style='color:red'>Erro ao carregar dados: {e}</p>"
+
+    todos_deptos = sorted({a["departamento"] for a in aplicacoes
+                           if a.get("departamento") and a["departamento"] != "Não informado"})
+    if depto_sel:
+        aplicacoes = [a for a in aplicacoes
+                      if (a.get("departamento") or "").upper() == depto_sel.strip().upper()]
+    filtro_html = _filtro_depto_html("/indicadores/treinamentos", todos_deptos, depto_sel)
 
     ativos     = [t for t in treinamentos if "ativ" in (t.get("status") or "").lower()]
     realizados = sum(1 for a in aplicacoes if "realiz" in (a.get("status") or "").lower())
@@ -1362,7 +1403,7 @@ def _build_treinamentos_html() -> str:
             f"<div class='ty-foot'>{d['tr']} treinamentos · {d['horas']:.1f}h</div></div>"
         )
 
-    return f"""<div class="tr-wrap">{_CSS_TRAIN}
+    return f"""{filtro_html}<div class="tr-wrap">{_CSS_TRAIN}
 <div class="tr-topbar">
   <div><div class="tr-brand">Porsche · DHO</div><div class="tr-title">Dashboard de Treinamentos</div></div>
   <div class="tr-chips">
@@ -1442,16 +1483,26 @@ _CSS_VAGAS = """<style>
 </style>"""
 
 
-def _build_vagas_html() -> str:
+def _build_vagas_html(depto_sel: str = "") -> str:
     try:
         vagas = _db_rows(
             """SELECT v.id_vaga, v.qtd_vagas, v.status, v.tipo_vaga, v.tipo_recrutamento,
-                      v.data_abertura, v.data_conclusao, d.nome_departamento
+                      v.data_abertura, v.data_conclusao,
+                      COALESCE(NULLIF(TRIM(d.nome_departamento), ''), NULLIF(TRIM(v.area), '')) AS nome_departamento
                FROM dho_vagas v
                LEFT JOIN dho_departamentos d ON d.id_departamento = v.id_departamento"""
         )
     except Exception as e:
         return f"<p style='color:red'>Erro ao carregar dados: {e}</p>"
+
+    todos_deptos = sorted({
+        (v.get("nome_departamento") or "").strip()
+        for v in vagas if (v.get("nome_departamento") or "").strip()
+    })
+    if depto_sel:
+        vagas = [v for v in vagas
+                 if (v.get("nome_departamento") or "").strip().upper() == depto_sel.strip().upper()]
+    filtro_html = _filtro_depto_html("/indicadores/vagas", todos_deptos, depto_sel)
 
     hoje_d = date.today()
 
@@ -1537,7 +1588,7 @@ def _build_vagas_html() -> str:
             for nome, d in sorted_v if d["a"]+d["c"]
         )
 
-    return f"""<div class="vg-wrap">{_CSS_VAGAS}
+    return f"""{filtro_html}<div class="vg-wrap">{_CSS_VAGAS}
 <div class="vg-topbar">
   <div><div class="vg-brand">Porsche · DHO</div><div class="vg-title">Dashboard de Vagas</div></div>
 </div>
@@ -2405,11 +2456,11 @@ def facilities_dash(request: Request):
 
 
 @router.get("/indicadores/treinamentos")
-def treinamentos_dash(request: Request):
+def treinamentos_dash(request: Request, departamento: str = ""):
     erro = None
     dash_html = ""
     try:
-        dash_html = _build_treinamentos_html()
+        dash_html = _build_treinamentos_html(departamento)
     except Exception as exc:
         erro = f"Erro ao carregar dados de Treinamentos: {exc}"
 
@@ -2421,11 +2472,11 @@ def treinamentos_dash(request: Request):
 
 
 @router.get("/indicadores/vagas")
-def vagas_dash(request: Request):
+def vagas_dash(request: Request, departamento: str = ""):
     erro = None
     dash_html = ""
     try:
-        dash_html = _build_vagas_html()
+        dash_html = _build_vagas_html(departamento)
     except Exception as exc:
         erro = f"Erro ao carregar dados de Vagas: {exc}"
 
