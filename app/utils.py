@@ -83,6 +83,34 @@ def flash_from_request(request: Request):
     }
 
 
+# Razão social → nome curto usado nos filtros dos indicadores.
+# A folha grava o nome truncado e sem pontuação, então o match é por trecho.
+_EMPRESAS_CURTAS = (
+    ("DENER", "Dener"),
+    ("PIRES", "Pires"),
+    ("GT3", "GT3"),
+)
+
+
+def empresa_curta(nome) -> str:
+    """Nome curto da empresa; devolve o original quando não reconhece."""
+    bruto = str(nome or "").strip()
+    if not bruto:
+        return ""
+    alvo = bruto.upper()
+    for chave, curto in _EMPRESAS_CURTAS:
+        if chave in alvo:
+            return curto
+
+    # Só encurta o que parece razão social; qualquer outro rótulo fica intacto
+    sufixos = {"LTDA", "LTDA.", "S/A", "S.A.", "SA", "ME", "EPP", "EIRELI"}
+    palavras = bruto.split()
+    if len(palavras) < 3 or not any(p.upper().strip(".") in sufixos for p in palavras):
+        return bruto
+
+    return palavras[0].title()
+
+
 def active_link(request: Request, prefix: str):
     path = request.url.path
     return path == prefix or path.startswith(f"{prefix}/")

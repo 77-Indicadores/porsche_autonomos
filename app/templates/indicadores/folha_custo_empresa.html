@@ -250,7 +250,7 @@ button,select{font:inherit}
         <select name="empresa" onchange="document.getElementById('fcform').submit()">
           <option value="">Todas</option>
           {% for e in todas_empresas %}
-          <option value="{{ e }}" {% if e == empresa_sel %}selected{% endif %}>{{ e }}</option>
+          <option value="{{ e }}" {% if e == empresa_sel %}selected{% endif %}>{{ e|empresa_curta }}</option>
           {% endfor %}
         </select>
       </div>

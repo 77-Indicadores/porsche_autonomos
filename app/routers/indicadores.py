@@ -16,6 +16,7 @@ from fastapi import APIRouter, Request
 from sqlalchemy import select, text
 
 from app.template_config import templates
+from app.utils import empresa_curta
 
 router = APIRouter(tags=["indicadores"])
 
@@ -379,7 +380,7 @@ def _build_headcount_html(
 
     # opções de empresa e departamento
     emp_opts = "<option value=''>Todas</option>" + "".join(
-        f"<option value='{e}'{' selected' if e == (empresa_sel or '').upper() else ''}>{e.title()}</option>"
+        f"<option value='{e}'{' selected' if e == (empresa_sel or '').upper() else ''}>{empresa_curta(e)}</option>"
         for e in (todas_empresas or [])
     )
     dep_opts = "<option value=''>Todos</option>" + "".join(
@@ -855,7 +856,7 @@ def _build_turnover_html(
         for a in anos_opcoes
     )
     emp_opts_tv = "<option value=''>Todas</option>" + "".join(
-        f"<option value='{e}'{' selected' if e == (empresa_sel or '').upper() else ''}>{e.title()}</option>"
+        f"<option value='{e}'{' selected' if e == (empresa_sel or '').upper() else ''}>{empresa_curta(e)}</option>"
         for e in (todas_empresas or [])
     )
     dep_opts_tv = "<option value=''>Todos</option>" + "".join(
@@ -1831,7 +1832,7 @@ def _build_folha_visao_custo_html(
 
     # Seletores
     emp_opts  = "<option value=''>Todas as empresas</option>" + "".join(
-        f"<option value='{e}'{' selected' if e == empresa else ''}>{e.title()}</option>"
+        f"<option value='{e}'{' selected' if e == empresa else ''}>{empresa_curta(e)}</option>"
         for e in todas_empresas
     )
     comp_opts = "<option value=''>Todas as competências</option>" + "".join(
@@ -2026,7 +2027,7 @@ def _build_folha_holerite_html(
 
     # Seletores
     emp_opts  = "<option value=''>Todas</option>" + "".join(
-        f"<option value='{e}'{' selected' if e == empresa else ''}>{e.title()}</option>"
+        f"<option value='{e}'{' selected' if e == empresa else ''}>{empresa_curta(e)}</option>"
         for e in todas_empresas
     )
     comp_opts = "<option value=''>Última</option>" + "".join(
@@ -2163,7 +2164,7 @@ def _build_folha_lista_html(
     )
 
     emp_opts  = "<option value=''>Todas</option>" + "".join(
-        f"<option value='{e}'{' selected' if e == empresa else ''}>{e.title()}</option>"
+        f"<option value='{e}'{' selected' if e == empresa else ''}>{empresa_curta(e)}</option>"
         for e in todas_empresas
     )
     comp_opts = "<option value=''>Todas</option>" + "".join(
@@ -2266,7 +2267,7 @@ def _build_folha_custo_colab_html(
 </div>"""
 
     emp_opts  = "<option value=''>Todas</option>" + "".join(
-        f"<option value='{e}'{' selected' if e == empresa else ''}>{e.title()}</option>"
+        f"<option value='{e}'{' selected' if e == empresa else ''}>{empresa_curta(e)}</option>"
         for e in todas_empresas
     )
     comp_opts = "<option value=''>Todas</option>" + "".join(
@@ -2653,7 +2654,10 @@ def _build_banco_horas_html(rows: list[dict], all_rows: list[dict] | None = None
 
     # ── filtros ──────────────────────────────────────────────────────────────
     def _opt(val, sel): return f'<option value="{val}"{" selected" if val==sel else ""}>{val}</option>'
-    opts_emp  = "".join(_opt(e, empresa_sel)      for e in empresas)
+    opts_emp  = "".join(
+        f'<option value="{e}"{" selected" if e == empresa_sel else ""}>{empresa_curta(e)}</option>'
+        for e in empresas
+    )
     opts_dep  = "".join(_opt(d, departamento_sel) for d in departamentos)
     limpar    = '<a href="/indicadores/banco-horas" class="bh-limpar">✕ Limpar</a>' if (empresa_sel or departamento_sel) else ""
     filtros_html = f"""
@@ -2863,7 +2867,7 @@ def _build_hora_extra_html(rows: list[dict], all_rows: list[dict] | None = None,
     def _opt(val, sel, label=None):
         return f'<option value="{val}"{" selected" if val == sel else ""}>{label or val}</option>'
 
-    opts_emp   = "".join(_opt(e, empresa_sel) for e in empresas)
+    opts_emp   = "".join(_opt(e, empresa_sel, label=empresa_curta(e)) for e in empresas)
     opts_cargo = "".join(_opt(c, cargo_sel)   for c in cargos)
     opts_ano   = "".join(_opt(a, ano_sel) for a in anos)
     opts_mes   = "".join(
@@ -3424,7 +3428,7 @@ def _build_afastamentos_html(  # noqa: C901
     records_js = _json.dumps([{
         "id":         str(r.get("matricula", "")),
         "name":       r.get("nome_colaborador", ""),
-        "company":    r.get("empresa", ""),
+        "company":    empresa_curta(r.get("empresa", "")),
         "department": r.get("departamento", ""),
         "role":       r.get("cargo", ""),
         "type":       r.get("tipo_atestado", ""),

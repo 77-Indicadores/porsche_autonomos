@@ -2,7 +2,7 @@ import json
 
 from fastapi.templating import Jinja2Templates
 
-from app.utils import active_link, format_date, format_money, format_money_input
+from app.utils import active_link, empresa_curta, format_date, format_money, format_money_input
 
 
 class CompatJinja2Templates(Jinja2Templates):
@@ -40,3 +40,4 @@ templates.env.filters["money_br"] = format_money
 templates.env.filters["money_input"] = format_money_input
 templates.env.filters["fromjson"] = lambda s: json.loads(s) if s else []
 templates.env.globals["active_link"] = active_link
+templates.env.filters["empresa_curta"] = empresa_curta
