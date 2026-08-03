@@ -225,7 +225,57 @@ def _opcoes() -> tuple[list[str], list[str]]:
     return empresas, comps
 
 
-def _where(empresa: str, comp_ini: str, comp_fim: str, prefix: str = "") -> tuple[str, dict]:
+def _deptos() -> list[str]:
+    """Departamentos disponíveis, vindos do cadastro de centros de custo."""
+    try:
+        return [r["nome"] for r in _db(
+            "SELECT DISTINCT nome FROM folha_centros_custo "
+            "WHERE COALESCE(status, 'Ativo') = 'Ativo' ORDER BY nome"
+        )]
+    except Exception as exc:
+        print(f"AVISO - lista de departamentos: {exc}")
+        return []
+
+
+def _norm_empresa(s: str) -> str:
+    """Só letras e dígitos, em maiúsculas — para comparar razões sociais."""
+    return "".join(ch for ch in (s or "").upper() if ch.isalnum())
+
+
+def _mesma_empresa(a: str, b: str) -> bool:
+    """A folha grava a razão social truncada e sem pontuação; compara por prefixo."""
+    na, nb = _norm_empresa(a), _norm_empresa(b)
+    if not na or not nb:
+        return False
+    return na.startswith(nb) or nb.startswith(na)
+
+
+def _cond_depto(departamento: str, empresa: str = "") -> tuple[str, dict]:
+    """Condição SQL que restringe centro_custo aos códigos do departamento."""
+    if not departamento:
+        return "", {}
+    try:
+        rows = _db(
+            "SELECT empresa, codigo FROM folha_centros_custo "
+            "WHERE nome = :n AND COALESCE(status, 'Ativo') = 'Ativo'",
+            {"n": departamento},
+        )
+    except Exception as exc:
+        print(f"AVISO - códigos do departamento: {exc}")
+        return "", {}
+
+    if empresa:
+        rows = [r for r in rows if _mesma_empresa(empresa, r["empresa"])]
+    codigos = sorted({r["codigo"] for r in rows})
+
+    if not codigos:
+        return "1=0", {}
+    marcas = ", ".join(f":dcc{i}" for i in range(len(codigos)))
+    return f"centro_custo IN ({marcas})", {f"dcc{i}": c for i, c in enumerate(codigos)}
+
+
+def _where(empresa: str, comp_ini: str, comp_fim: str, prefix: str = "",
+           departamento: str = "") -> tuple[str, dict]:
     conds, p = ["1=1"], {}
     if empresa:
         conds.append("empresa_nome = :empresa")
@@ -236,6 +286,10 @@ def _where(empresa: str, comp_ini: str, comp_fim: str, prefix: str = "") -> tupl
     if comp_fim:
         conds.append("competencia <= :comp_fim")
         p["comp_fim"] = comp_fim
+    cond_d, p_d = _cond_depto(departamento, empresa)
+    if cond_d:
+        conds.append(cond_d)
+        p.update(p_d)
     return " AND ".join(conds), p
 
 
@@ -249,10 +303,12 @@ def folha_custo_empresa(
     empresa: str = "",
     comp_ini: str = "",
     comp_fim: str = "",
+    departamento: str = "",
 ):
     todas_empresas, todas_comps = _opcoes()
+    todos_deptos = _deptos()
 
-    where, params = _where(empresa, comp_ini, comp_fim)
+    where, params = _where(empresa, comp_ini, comp_fim, departamento=departamento)
 
     # KPIs totais
     kpi_row = _db(f"""
@@ -376,9 +432,11 @@ def folha_custo_empresa(
             "request": request,
             "todas_empresas": todas_empresas,
             "todas_comps": todas_comps,
+            "todos_deptos": todos_deptos,
             "empresa_sel": empresa,
             "comp_ini_sel": comp_ini,
             "comp_fim_sel": comp_fim,
+            "depto_sel": departamento,
             "total_empresa": total_empresa,
             "total_prov": total_prov,
             "total_fgts": total_fgts,
@@ -410,8 +468,10 @@ def folha_holerite(
     empresa: str = "",
     competencia: str = "",
     colaborador: str = "",
+    departamento: str = "",
 ):
     todas_empresas, todas_comps = _opcoes()
+    todos_deptos = _deptos()
 
     # Sempre força uma competência selecionada — padrão = a mais recente
     if not competencia and todas_comps:
@@ -426,6 +486,10 @@ def folha_holerite(
     if competencia:
         colab_where.append("competencia = :comp")
         colab_params["comp"] = competencia
+    _cd, _pd = _cond_depto(departamento, empresa)
+    if _cd:
+        colab_where.append(_cd)
+        colab_params.update(_pd)
     w_str = " AND ".join(colab_where)
 
     todos_colabs = [r["nome"] for r in _db(f"""
@@ -595,9 +659,11 @@ def folha_holerite(
             "request":          request,
             "todas_empresas":   todas_empresas,
             "todas_comps":      todas_comps,
+            "todos_deptos":     todos_deptos,
             "todos_colabs":     todos_colabs,
             "empresa_sel":      empresa,
             "comp_sel":         competencia,
+            "depto_sel":        departamento,
             "colab_sel":        colaborador,
             "func":             func,
             "salario_base":     salario_base,
@@ -649,15 +715,20 @@ def folha_lista(
     request: Request,
     empresa: str = "",
     competencia: str = "",
+    departamento: str = "",
 ):
     from collections import defaultdict
 
     todas_empresas, todas_comps = _opcoes()
+    todos_deptos = _deptos()
 
     if not competencia and todas_comps:
         competencia = todas_comps[-1]
 
-    verbas_todas = _db("""
+    _cd_lista, _pd_lista = _cond_depto(departamento, empresa)
+    _and_dep = f" AND {_cd_lista}" if _cd_lista else ""
+
+    verbas_todas = _db(f"""
         SELECT
             nome_empregado,
             descricao_verba          AS descricao,
@@ -667,10 +738,10 @@ def folha_lista(
             MIN(matricula)           AS matricula
         FROM budget_resultado
         WHERE (:empresa = '' OR empresa_nome = :empresa)
-          AND (:comp    = '' OR competencia  = :comp)
+          AND (:comp    = '' OR competencia  = :comp){_and_dep}
         GROUP BY nome_empregado, descricao_verba
         ORDER BY nome_empregado, valor DESC
-    """, {"empresa": empresa, "comp": competencia})
+    """, {"empresa": empresa, "comp": competencia, **_pd_lista})
 
     dep_rows = _db("""
         SELECT matricula, MAX(dependentes) AS dep
@@ -747,8 +818,10 @@ def folha_lista(
             "request":        request,
             "todas_empresas": todas_empresas,
             "todas_comps":    todas_comps,
+            "todos_deptos":   todos_deptos,
             "empresa_sel":    empresa,
             "comp_sel":       competencia,
+            "depto_sel":      departamento,
             "funcionarios":   funcionarios,
             "total_pacote":   total_pacote,
             "brl":            _brl,
@@ -765,8 +838,10 @@ def folha_simulacao(
     competencia: str = "",
     colaborador: str = "",
     aumento: float = 0.0,
+    departamento: str = "",
 ):
     todas_empresas, todas_comps = _opcoes()
+    todos_deptos = _deptos()
 
     if not competencia and todas_comps:
         competencia = todas_comps[-1]
@@ -779,6 +854,10 @@ def folha_simulacao(
     if competencia:
         colab_where.append("competencia = :comp")
         colab_params["comp"] = competencia
+    _cd, _pd = _cond_depto(departamento, empresa)
+    if _cd:
+        colab_where.append(_cd)
+        colab_params.update(_pd)
     w_str = " AND ".join(colab_where)
 
     todos_colabs = [r["nome"] for r in _db(f"""
@@ -869,9 +948,11 @@ def folha_simulacao(
             "request":        request,
             "todas_empresas": todas_empresas,
             "todas_comps":    todas_comps,
+            "todos_deptos":   todos_deptos,
             "todos_colabs":   todos_colabs,
             "empresa_sel":    empresa,
             "comp_sel":       competencia,
+            "depto_sel":      departamento,
             "colab_sel":      colaborador,
             "aumento":        aumento,
             "atual":          atual,
@@ -900,8 +981,10 @@ def custo_colaborador(
     empresa: str = "",
     competencia: str = "",
     colaborador: str = "",
+    departamento: str = "",
 ):
     todas_empresas, todas_comps = _opcoes()
+    todos_deptos = _deptos()
 
     if not competencia and todas_comps:
         competencia = todas_comps[-1]
@@ -914,6 +997,10 @@ def custo_colaborador(
     if competencia:
         colab_where.append("competencia = :comp")
         colab_params["comp"] = competencia
+    _cd, _pd = _cond_depto(departamento, empresa)
+    if _cd:
+        colab_where.append(_cd)
+        colab_params.update(_pd)
     w_str = " AND ".join(colab_where)
 
     todos_colabs = [r["nome"] for r in _db(f"""
@@ -996,9 +1083,11 @@ def custo_colaborador(
             "request":        request,
             "todas_empresas": todas_empresas,
             "todas_comps":    todas_comps,
+            "todos_deptos":   todos_deptos,
             "todos_colabs":   todos_colabs,
             "empresa_sel":    empresa,
             "comp_sel":       competencia,
+            "depto_sel":      departamento,
             "colab_sel":      colaborador,
             "func":           func,
             "categorias":     categorias,

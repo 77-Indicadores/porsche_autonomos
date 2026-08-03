@@ -123,6 +123,15 @@
       </select>
     </div>
     <div class="fg">
+      <label>Departamento</label>
+      <select name="departamento" onchange="this.form.submit()">
+        <option value="">— Todos —</option>
+        {% for d in todos_deptos %}
+        <option value="{{ d }}" {% if d == depto_sel %}selected{% endif %}>{{ d }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="fg">
       <label>Competência</label>
       <select name="competencia" onchange="this.form.submit()">
         {% for c in todas_comps %}
