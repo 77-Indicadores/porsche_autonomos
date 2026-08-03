@@ -275,6 +275,30 @@
   border-radius: 5px;
   margin-bottom: 4px;
 }
+.te-cat-label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: #0f1c33;
+  border-top: 1px solid #1e293b;
+  border-left: 3px solid #3b82f6;
+  padding: 7px 14px;
+  font-size: 12px;
+  font-weight: 800;
+  color: #93c5fd;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+}
+.te-cat-label .te-cat-count {
+  background: #1e3a5f;
+  color: #bfdbfe;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 1px 8px;
+  border-radius: 999px;
+  text-transform: none;
+  letter-spacing: 0;
+}
 .prova-chip {
   display: inline-block;
   background: #1e3a5f;
@@ -472,8 +496,8 @@
   {% set trocas_salvas = grupo.trocas_salvas %}
   {% set ids_piloto_nao_correu = grupo.ids_piloto_nao_correu %}
   {% set substitutos = grupo.substitutos %}
-  {% set trocas_reais = ausentes | rejectattr("id_fato", "in", ids_piloto_nao_correu) | list %}
-  {% set nao_correram = ausentes | selectattr("id_fato", "in", ids_piloto_nao_correu) | list %}
+  {% set trocas_reais = grupo.trocas_reais %}
+  {% set nao_correram = grupo.nao_correram %}
 
   <details id="te-grupo-{{ loop.index }}" class="te-grupo-wrapper" open
            data-grupo="{{ loop.index }}"
@@ -515,10 +539,16 @@
       <div class="te-section-label te-sec-troca">
         <span>Troca de autônomo</span>
       </div>
-      {% for f in trocas_reais %}
+      {% for categoria, fatos_cat in grupo.trocas_por_categoria %}
+      <div class="te-cat-label" data-cat="{{ categoria }}">
+        <span>{{ categoria }}</span>
+        <span class="te-cat-count">{{ fatos_cat | length }} troca{{ 's' if fatos_cat | length != 1 }}</span>
+      </div>
+      {% for f in fatos_cat %}
         {% set salvo = trocas_salvas.get(f.id_fato) %}
         <div class="te-card"
              data-tipo="troca"
+             data-cat="{{ categoria }}"
              data-piloto="{{ (f.piloto.nome_piloto if f.piloto else '') | lower }}"
              data-piloto-nome="{{ f.piloto.nome_piloto if f.piloto else '' }}"
              data-justificado="{{ '1' if salvo else '0' }}">
@@ -579,6 +609,7 @@
             </div>
           </div>
         </div>
+      {% endfor %}
       {% endfor %}
     {% endif %}
 
@@ -780,6 +811,15 @@ function aplicarFiltros() {
       if (show && pilotoSel.length > 0 && !pilotoSel.includes(card.dataset.piloto)) show = false;
       card.style.display = show ? '' : 'none';
       if (show) naoCorreuVis++;
+    });
+
+    grupo.querySelectorAll('.te-cat-label').forEach(function(lbl) {
+      const cat = lbl.dataset.cat;
+      const vis = Array.prototype.some.call(
+        grupo.querySelectorAll('.te-card[data-tipo="troca"][data-cat]'),
+        function(c) { return c.dataset.cat === cat && c.style.display !== 'none'; }
+      );
+      lbl.style.display = vis ? '' : 'none';
     });
 
     const secT = grupo.querySelector('.te-sec-troca');

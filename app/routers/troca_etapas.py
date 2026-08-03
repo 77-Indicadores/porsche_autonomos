@@ -175,6 +175,15 @@ def troca_etapas_index(request: Request, db: Session = Depends(get_db)):
                     "motivo_label": motivos_map.get(t["id_motivo_troca"], ""),
                 }
 
+        trocas_reais = [f for f in ausentes if f.id_fato not in ids_piloto_nao_correu]
+        nao_correram = [f for f in ausentes if f.id_fato in ids_piloto_nao_correu]
+
+        # Quebra por categoria (nome da prova) dentro do par de etapas
+        por_categoria: dict = {}
+        for f in trocas_reais:
+            por_categoria.setdefault(_nome_prova(f) or "Sem categoria", []).append(f)
+        trocas_por_categoria = sorted(por_categoria.items(), key=lambda kv: kv[0])
+
         grupos.append({
             "etapa_ant": ant,
             "etapa_prox": prox,
@@ -182,6 +191,9 @@ def troca_etapas_index(request: Request, db: Session = Depends(get_db)):
             "trocas_salvas": trocas_salvas,
             "ids_piloto_nao_correu": ids_piloto_nao_correu,
             "substitutos": substitutos,
+            "trocas_reais": trocas_reais,
+            "nao_correram": nao_correram,
+            "trocas_por_categoria": trocas_por_categoria,
         })
 
     return templates.TemplateResponse(
