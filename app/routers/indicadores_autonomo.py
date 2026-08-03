@@ -1834,62 +1834,89 @@ def _fetch_trocas(db: Session) -> str:
     from sqlalchemy import text as _text
     trocas = []
     continuidade = []
+    def _linha(r, tipo: str) -> dict:
+        return {
+            "id": r[0],
+            "tipo": tipo,
+            "etapa_ant": str(r[1] or ""),
+            "etapa_prox": str(r[2] or ""),
+            "temporada": str(r[3] or ""),
+            "carro_id": str(r[4] or ""),
+            "carro": str(r[5] or ""),
+            "piloto": str(r[6] or ""),
+            "aut_ant": str(r[7] or ""),
+            "aut_sub": str(r[8] or ""),
+            "cargo": str(r[9] or ""),
+            "motivo": str(r[10] or ""),
+            "data": str(r[11] or "")[:19],
+            "status": "Justificada" if r[12] else "Pendente",
+        }
+
+    # Trocas entre etapas — registradas na tela "Troca de Equipes"
     try:
         rows = db.execute(_text("""
             SELECT
                 t.id,
-                t.id_etapa_anterior,
-                t.id_etapa_proxima,
-                t.id_carro,
-                t.id_autonomo_anterior,
-                t.id_autonomo_substituto,
-                t.id_cargo,
-                t.motivo_troca,
-                t.data_troca,
-                t.status_troca,
-                t.id_piloto,
-                t.temporada,
-                ea.nome_etapa AS nome_etapa_ant,
-                ep.nome_etapa AS nome_etapa_prox,
-                c.numero_carro,
+                ea.nome_etapa,
+                ep.nome_etapa,
+                COALESCE(ea.temporada, ep.temporada, ''),
+                f.id_carro,
+                COALESCE(NULLIF(c.numero_carro, ''), c.chassi, ''),
                 p.nome_piloto,
-                aa.nome_autonomo AS nome_ant,
-                asb.nome_autonomo AS nome_sub,
-                ca.nome_cargo
+                aa.nome_autonomo,
+                asb.nome_autonomo,
+                COALESCE(f.funcao_autonomo, ''),
+                m.motivo_troca,
+                t.registrado_em,
+                t.id_motivo_troca
             FROM troca_entre_etapas t
             LEFT JOIN dim_etapas ea ON ea.id_etapa = t.id_etapa_anterior
             LEFT JOIN dim_etapas ep ON ep.id_etapa = t.id_etapa_proxima
-            LEFT JOIN dim_carros c ON c.id_carro = t.id_carro
-            LEFT JOIN dim_pilotos p ON p.id_piloto = t.id_piloto
-            LEFT JOIN dim_autonomos aa ON aa.id_autonomo = t.id_autonomo_anterior
+            LEFT JOIN fato_piloto_autonomo_prova f ON f.id_fato = t.id_fato
+            LEFT JOIN dim_carros c ON c.id_carro = f.id_carro
+            LEFT JOIN dim_pilotos p ON p.id_piloto = f.id_piloto
+            LEFT JOIN dim_autonomos aa ON aa.id_autonomo = f.id_autonomo
             LEFT JOIN dim_autonomos asb ON asb.id_autonomo = t.id_autonomo_substituto
-            LEFT JOIN dim_cargos_autonomos ca ON ca.id_cargo = t.id_cargo
-            ORDER BY t.data_troca
+            LEFT JOIN dim_motivos_troca m ON m.id_motivo_troca = t.id_motivo_troca
+            ORDER BY t.registrado_em
         """)).fetchall()
         for r in rows:
-            trocas.append({
-                "id": r[0],
-                "etapa_ant_id": str(r[1] or ""),
-                "etapa_prox_id": str(r[2] or ""),
-                "carro_id": str(r[3] or ""),
-                "aut_ant_id": str(r[4] or ""),
-                "aut_sub_id": str(r[5] or ""),
-                "cargo_id": str(r[6] or ""),
-                "motivo": str(r[7] or ""),
-                "data": str(r[8] or ""),
-                "status": str(r[9] or ""),
-                "piloto_id": str(r[10] or ""),
-                "temporada": str(r[11] or ""),
-                "etapa_ant": str(r[12] or ""),
-                "etapa_prox": str(r[13] or ""),
-                "carro": str(r[14] or ""),
-                "piloto": str(r[15] or ""),
-                "aut_ant": str(r[16] or ""),
-                "aut_sub": str(r[17] or ""),
-                "cargo": str(r[18] or ""),
-            })
-    except Exception:
-        pass
+            trocas.append(_linha(r, "Entre etapas"))
+    except Exception as exc:
+        print(f"AVISO - trocas entre etapas: {exc}")
+
+    # Substituições durante a etapa — registradas no próprio fato
+    try:
+        rows = db.execute(_text("""
+            SELECT
+                f.id_fato,
+                e.nome_etapa,
+                '',
+                COALESCE(e.temporada, ''),
+                f.id_carro,
+                COALESCE(NULLIF(c.numero_carro, ''), c.chassi, ''),
+                p.nome_piloto,
+                aa.nome_autonomo,
+                asb.nome_autonomo,
+                COALESCE(f.funcao_autonomo, ''),
+                m.motivo_troca,
+                COALESCE(f.data_troca, f.atualizado_em),
+                f.id_motivo_troca
+            FROM fato_piloto_autonomo_prova f
+            LEFT JOIN dim_etapas e ON e.id_etapa = f.id_etapa
+            LEFT JOIN dim_carros c ON c.id_carro = f.id_carro
+            LEFT JOIN dim_pilotos p ON p.id_piloto = f.id_piloto
+            LEFT JOIN dim_autonomos aa ON aa.id_autonomo = f.id_autonomo
+            LEFT JOIN dim_autonomos asb ON asb.id_autonomo = f.id_autonomo_substituto
+            LEFT JOIN dim_motivos_troca m ON m.id_motivo_troca = f.id_motivo_troca
+            WHERE f.id_autonomo_substituto IS NOT NULL
+               OR UPPER(TRIM(COALESCE(f.foi_substituido, ''))) = 'SIM'
+            ORDER BY f.data_troca
+        """)).fetchall()
+        for r in rows:
+            trocas.append(_linha(r, "Durante a etapa"))
+    except Exception as exc:
+        print(f"AVISO - substituições durante a etapa: {exc}")
     try:
         rows2 = db.execute(_text("""
             SELECT f.id_etapa, f.id_autonomo, COALESCE(e.temporada, '') AS temporada
@@ -2136,7 +2163,7 @@ def _build_trocas(trocas_js: str) -> str:
   <div class="tr5-tbl-wrap">
     <table class="tr5-tbl">
       <thead><tr>
-        <th>Etapa anterior</th><th>Próxima etapa</th><th>Carro</th>
+        <th>Tipo</th><th>Etapa anterior</th><th>Próxima etapa</th><th>Carro</th>
         <th>Piloto</th><th>Autônomo anterior</th><th>Substituto</th>
         <th>Cargo</th><th>Motivo</th><th>Data da troca</th><th>Situação</th>
       </tr></thead>
@@ -2348,7 +2375,7 @@ function tr5CatChart(t){
 
 function tr5Table(t){
   const el=tr5El("tr5TblBody");if(!el)return;
-  if(!t.length){el.innerHTML='<tr><td colspan="10" style="color:#9ca3af;font-size:12px;padding:14px">Sem trocas no período selecionado</td></tr>';return}
+  if(!t.length){el.innerHTML='<tr><td colspan="11" style="color:#9ca3af;font-size:12px;padding:14px">Sem trocas no período selecionado</td></tr>';return}
   const stMap={"concluida":"ok","concluída":"ok","aprovado":"ok","aprovada":"ok",
     "pendente":"warn","validação":"gray","em validação":"gray","validacao":"gray",
     "cancelada":"bad","cancelado":"bad","reprovado":"bad"};
@@ -2356,7 +2383,8 @@ function tr5Table(t){
     const st=(r.status||"").toLowerCase();
     const stCls=Object.entries(stMap).find(([k])=>st.includes(k))?.[1]||"gray";
     const stLbl=r.status||"—";
-    return'<tr><td>'+(r.etapa_ant||"—")+'</td>'+
+    return'<tr><td>'+(r.tipo||"—")+'</td>'+
+      '<td>'+(r.etapa_ant||"—")+'</td>'+
       '<td>'+(r.etapa_prox||"—")+'</td>'+
       '<td>'+(r.carro||"—")+'</td>'+
       '<td>'+(r.piloto||"—")+'</td>'+
