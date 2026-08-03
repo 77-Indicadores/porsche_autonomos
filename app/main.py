@@ -82,6 +82,12 @@ class AuthMiddleware(BaseHTTPMiddleware):
         if request.url.path.startswith("/static") or request.url.path in public_paths:
             return await call_next(request)
 
+        # Módulo a que a rota pertence — usado pelo menu lateral para manter o contexto
+        path = request.url.path
+        request.state.modulo_atual = next(
+            (m for m, paths in MODULO_ROUTES.items() if path in paths), ""
+        )
+
         # Auto-login local: se AUTO_LOGIN_LOCAL=1, injeta usuário admin sem cookie
         if os.getenv("AUTO_LOGIN_LOCAL", "0") == "1":
             request.state.current_user = {
@@ -108,12 +114,9 @@ class AuthMiddleware(BaseHTTPMiddleware):
             return RedirectResponse("/auth/login", status_code=303)
 
         # Verificação de acesso por módulo para rotas de indicadores
-        path = request.url.path
-        for modulo, paths in MODULO_ROUTES.items():
-            if path in paths:
-                if not tem_acesso_modulo(request, modulo):
-                    return RedirectResponse(f"/sem-acesso?modulo={modulo}", status_code=303)
-                break
+        modulo = request.state.modulo_atual
+        if modulo and not tem_acesso_modulo(request, modulo):
+            return RedirectResponse(f"/sem-acesso?modulo={modulo}", status_code=303)
 
         return await call_next(request)
 

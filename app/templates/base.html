@@ -55,7 +55,10 @@
       </div>
       {% endif %}
 
-      {% if request.url.path.startswith('/dho') %}
+      {#- módulo da rota (indicadores herdam o menu do módulo a que pertencem) -#}
+      {% set _mi = request.state.modulo_atual or '' %}
+
+      {% if request.url.path.startswith('/dho') or _mi == 'dho' %}
       <div class="nav-section">
         <div class="nav-section-title">DHO</div>
         <div class="nav-subsection-title">Cadastros</div>
@@ -74,7 +77,18 @@
         {{ ind_links('dho', request.url.path) }}
       </div>
 
-      {% elif request.url.path.startswith('/indicadores') or request.url.path == '/sem-acesso' %}
+      {% elif request.url.path.startswith('/facilities') or _mi == 'facilities' %}
+      <div class="nav-section">
+        <div class="nav-section-title">Facilities</div>
+        <a class="nav-link {% if request.url.path.startswith('/facilities') %}active{% endif %}" href="/facilities">🏢 Gestão Facilities</a>
+      </div>
+
+      <div class="nav-section">
+        <div class="nav-section-title">Indicadores</div>
+        {{ ind_links('facilities', request.url.path) }}
+      </div>
+
+      {% elif not _mi and (request.url.path.startswith('/indicadores') or request.url.path == '/sem-acesso') %}
       {% set _cu = request.state.current_user %}
       {% set _perfil = _cu.perfil if _cu else '' %}
       {% set _mods = _cu._modulos if _cu else [] %}
@@ -96,18 +110,7 @@
         {% endif %}
       </div>
 
-      {% elif request.url.path.startswith('/facilities') %}
-      <div class="nav-section">
-        <div class="nav-section-title">Facilities</div>
-        <a class="nav-link {% if request.url.path.startswith('/facilities') %}active{% endif %}" href="/facilities">🏢 Gestão Facilities</a>
-      </div>
-
-      <div class="nav-section">
-        <div class="nav-section-title">Indicadores</div>
-        {{ ind_links('facilities', request.url.path) }}
-      </div>
-
-      {% elif request.url.path.startswith('/folha') %}
+      {% elif request.url.path.startswith('/folha') or _mi == 'folha' %}
       <div class="nav-section">
         <div class="nav-section-title">Folha de Pagamento</div>
         <a class="nav-link {% if request.url.path == '/folha' %}active{% endif %}" href="/folha">📄 Extratos importados</a>
