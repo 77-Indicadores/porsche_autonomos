@@ -1354,41 +1354,82 @@ def autonomo_custo_pagamentos(request: Request):
 def _fetch_planejamento(db: Session) -> str:
     """Return composicao_padrao_equipe + fato records aggregated for coverage page."""
     from sqlalchemy import text as _text
-    # Expected composition per etapa/carro/cargo
+    # Composição esperada. As regras aceitam etapa/categoria/carro em branco
+    # ("Todos"), então cada regra é expandida para os carros de fato em pista.
+    composicao = []
+    regras_total = 0
     try:
-        comp_rows = db.execute(_text("""
-            SELECT cp.id_etapa, cp.id_carro, cp.id_cargo_autonomo, cp.qtd_esperada,
-                   e.nome_etapa, e.data_inicio, e.data_fim, e.temporada,
-                   ca.nome_cargo,
-                   c.numero_carro
+        regras = db.execute(_text("""
+            SELECT cp.id_etapa, cp.id_prova, cp.id_carro, cp.id_cargo_autonomo,
+                   cp.qtd_esperada, ca.nome_cargo
             FROM composicao_padrao_equipe cp
-            LEFT JOIN dim_etapas e ON e.id_etapa = cp.id_etapa
             LEFT JOIN dim_cargos_autonomos ca ON ca.id_cargo_autonomo = cp.id_cargo_autonomo
-            LEFT JOIN dim_carros c ON c.id_carro = cp.id_carro
+            WHERE COALESCE(cp.status, 'Ativo') <> 'Inativo'
         """)).fetchall()
-        composicao = [{"id_etapa": r[0], "id_carro": r[1], "id_cargo": r[2],
-                       "qtd_esp": float(r[3] or 0), "etapa": r[4] or "",
-                       "dt_ini": str(r[5] or ""), "dt_fim": str(r[6] or ""),
-                       "temporada": str(r[7] or ""), "cargo": r[8] or "",
-                       "carro": str(r[9] or "")} for r in comp_rows]
-    except Exception:
-        composicao = []
+        regras_total = len(regras)
+
+        universo = db.execute(_text("""
+            SELECT DISTINCT f.id_etapa, f.id_prova, f.id_carro,
+                   e.nome_etapa, e.data_inicio, e.data_fim, e.temporada,
+                   COALESCE(NULLIF(c.numero_carro, ''), c.chassi, '')
+            FROM fato_piloto_autonomo_prova f
+            LEFT JOIN dim_etapas e ON e.id_etapa = f.id_etapa
+            LEFT JOIN dim_carros c ON c.id_carro = f.id_carro
+            WHERE f.id_carro IS NOT NULL
+        """)).fetchall()
+
+        # regra mais específica vence para a mesma combinação etapa/carro/cargo
+        melhor: dict = {}
+        for id_et_r, id_pr_r, id_ca_r, id_cargo, qtd, nome_cargo in regras:
+            espec = (id_et_r is not None) + (id_pr_r is not None) + (id_ca_r is not None)
+            for id_et, id_pr, id_ca, nome_et, dt_ini, dt_fim, temporada, num_carro in universo:
+                if id_et_r is not None and id_et_r != id_et:
+                    continue
+                if id_pr_r is not None and id_pr_r != id_pr:
+                    continue
+                if id_ca_r is not None and id_ca_r != id_ca:
+                    continue
+                chave = (id_et, id_ca, id_cargo)
+                atual = melhor.get(chave)
+                if atual and atual["_espec"] > espec:
+                    continue
+                if atual and atual["_espec"] == espec and atual["qtd_esp"] >= float(qtd or 0):
+                    continue
+                melhor[chave] = {
+                    "id_etapa": id_et, "id_carro": id_ca, "id_cargo": id_cargo,
+                    "qtd_esp": float(qtd or 0), "etapa": nome_et or "",
+                    "dt_ini": str(dt_ini or ""), "dt_fim": str(dt_fim or ""),
+                    "temporada": str(temporada or ""), "cargo": nome_cargo or "",
+                    "carro": str(num_carro or ""), "_espec": espec,
+                }
+        for v in melhor.values():
+            v.pop("_espec", None)
+            composicao.append(v)
+    except Exception as exc:
+        print(f"AVISO - composição padrão: {exc}")
     # Actual allocations aggregated per etapa/carro/cargo
     try:
+        # o cargo vem da função exercida na etapa; o cadastro do autônomo é o fallback
         aloc_rows = db.execute(_text("""
-            SELECT f.id_etapa, f.id_carro, da.id_cargo_autonomo,
+            SELECT f.id_etapa, f.id_carro,
+                   COALESCE(cf.id_cargo_autonomo, da.id_cargo_autonomo) AS id_cargo,
                    COUNT(DISTINCT f.id_autonomo) as qtd_aloc,
                    e.nome_etapa, e.temporada
             FROM fato_piloto_autonomo_prova f
             LEFT JOIN dim_etapas e ON e.id_etapa = f.id_etapa
             LEFT JOIN dim_autonomos da ON da.id_autonomo = f.id_autonomo
+            LEFT JOIN dim_cargos_autonomos cf
+                   ON UPPER(TRIM(cf.nome_cargo)) = UPPER(TRIM(f.funcao_autonomo))
             WHERE f.id_carro IS NOT NULL
-            GROUP BY f.id_etapa, f.id_carro, da.id_cargo_autonomo, e.nome_etapa, e.temporada
+            GROUP BY f.id_etapa, f.id_carro,
+                     COALESCE(cf.id_cargo_autonomo, da.id_cargo_autonomo),
+                     e.nome_etapa, e.temporada
         """)).fetchall()
         alocacoes = [{"id_etapa": r[0], "id_carro": r[1], "id_cargo": r[2],
                       "qtd_aloc": int(r[3] or 0), "etapa": r[4] or "",
                       "temporada": str(r[5] or "")} for r in aloc_rows]
-    except Exception:
+    except Exception as exc:
+        print(f"AVISO - alocações da cobertura: {exc}")
         alocacoes = []
     # Pending swaps
     try:
@@ -1412,6 +1453,7 @@ def _fetch_planejamento(db: Session) -> str:
         "alocacoes": alocacoes,
         "trocas_pend": trocas_pend,
         "etapas": etapas,
+        "regras_total": regras_total,
     }, ensure_ascii=False)
 
 
@@ -1624,6 +1666,16 @@ function plSetup(){
 }
 function plReset(){["plYear","plEtapa","plCat"].forEach(id=>{const el=plEl(id);if(el)el.value=""});plRender()}
 
+function plVazio(){
+  const s='color:#9ca3af;font-size:11px';
+  if(!(PL_DATA.regras_total||0))
+    return'<p style="'+s+'">Nenhuma composição padrão cadastrada. Cadastre em '+
+      '<a href="/composicao-padrao" style="color:#d71920">Composição Padrão</a> '+
+      'para acompanhar a cobertura.</p>';
+  return'<p style="'+s+'">As composições cadastradas não batem com nenhum carro em pista '+
+    'na seleção atual.</p>';
+}
+
 function plFilteredComp(){
   const yr=plEl("plYear")?.value||"",et=plEl("plEtapa")?.value||"";
   return PL_DATA.composicao.filter(r=>(!yr||r.temporada===yr)&&(!et||r.etapa===et));
@@ -1687,7 +1739,7 @@ function plRoleList(comp,aloc,cargoMap){
   const COLS=["#15946c","#e59a12","#d71920","#7157c8","#2878d0","#374151"];
   const el=plEl("plRoleList");if(!el)return;
   const rows=Object.entries(cargoMap).sort((a,b)=>b[1].esp-a[1].esp);
-  if(!rows.length){el.innerHTML='<p style="color:#9ca3af;font-size:11px">Sem dados de composição.</p>';return}
+  if(!rows.length){el.innerHTML=plVazio();return}
   el.innerHTML=rows.map(([cargo,v],i)=>{
     const pct=v.esp?Math.min(v.aloc/v.esp*100,100):0;
     const col=pct>=95?"#15946c":pct>=80?"#e59a12":"#d71920";
@@ -1743,7 +1795,7 @@ function plHeatmap(comp,aloc){
   const cargosSet=new Set(comp.map(r=>r.cargo).filter(Boolean));
   const carros=[...new Set(comp.map(r=>r.carro).filter(Boolean))].sort((a,b)=>+a-+b).slice(0,12);
   const cargos=[...cargosSet].sort().slice(0,6);
-  if(!carros.length||!cargos.length){el.innerHTML='<p style="color:#9ca3af;font-size:11px">Sem dados de composição.</p>';return}
+  if(!carros.length||!cargos.length){el.innerHTML=plVazio();return}
   // Build alocMap indexed by etapa+carro+cargo
   const alocMap={};
   aloc.forEach(r=>{
