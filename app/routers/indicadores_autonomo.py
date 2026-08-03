@@ -1352,109 +1352,87 @@ def autonomo_custo_pagamentos(request: Request):
 # ── Page 4 – Planejamento e Cobertura ─────────────────────────────────────────
 
 def _fetch_planejamento(db: Session) -> str:
-    """Return composicao_padrao_equipe + fato records aggregated for coverage page."""
+    """Planejado (Disponibilidade Autonomos) x alocado, por etapa e funcao."""
     from sqlalchemy import text as _text
-    # Composição esperada. As regras aceitam etapa/categoria/carro em branco
-    # ("Todos"), então cada regra é expandida para os carros de fato em pista.
-    composicao = []
-    regras_total = 0
+
+    # Funcao do autonomo: cargo cadastrado, com o tipo como fallback
+    _FUNC = "COALESCE(NULLIF(TRIM(ca.nome_cargo), ''), NULLIF(TRIM(da.tipo_autonomo), ''), '-')"
+
+    # Esperado = autonomos escalados para a etapa na Disponibilidade Autonomos
+    planejado = []
+    planejado_total = 0
     try:
-        regras = db.execute(_text("""
-            SELECT cp.id_etapa, cp.id_prova, cp.id_carro, cp.id_cargo_autonomo,
-                   cp.qtd_esperada, ca.nome_cargo
-            FROM composicao_padrao_equipe cp
-            LEFT JOIN dim_cargos_autonomos ca ON ca.id_cargo_autonomo = cp.id_cargo_autonomo
-            WHERE COALESCE(cp.status, 'Ativo') <> 'Inativo'
+        rows = db.execute(_text(f"""
+            SELECT p.id_etapa,
+                   {_FUNC} AS cargo,
+                   COUNT(DISTINCT p.id_autonomo) AS qtd_esp,
+                   e.nome_etapa,
+                   COALESCE(e.temporada, '')
+            FROM planejamento_equipe_etapa p
+            LEFT JOIN dim_autonomos da ON da.id_autonomo = p.id_autonomo
+            LEFT JOIN dim_cargos_autonomos ca ON ca.id_cargo_autonomo = da.id_cargo_autonomo
+            LEFT JOIN dim_etapas e ON e.id_etapa = p.id_etapa
+            WHERE UPPER(TRIM(COALESCE(p.status_disponibilidade, ''))) = 'ESCALADO'
+            GROUP BY p.id_etapa, {_FUNC}, e.nome_etapa, e.temporada
         """)).fetchall()
-        regras_total = len(regras)
-
-        universo = db.execute(_text("""
-            SELECT DISTINCT f.id_etapa, f.id_prova, f.id_carro,
-                   e.nome_etapa, e.data_inicio, e.data_fim, e.temporada,
-                   COALESCE(NULLIF(c.numero_carro, ''), c.chassi, '')
-            FROM fato_piloto_autonomo_prova f
-            LEFT JOIN dim_etapas e ON e.id_etapa = f.id_etapa
-            LEFT JOIN dim_carros c ON c.id_carro = f.id_carro
-            WHERE f.id_carro IS NOT NULL
-        """)).fetchall()
-
-        # regra mais específica vence para a mesma combinação etapa/carro/cargo
-        melhor: dict = {}
-        for id_et_r, id_pr_r, id_ca_r, id_cargo, qtd, nome_cargo in regras:
-            espec = (id_et_r is not None) + (id_pr_r is not None) + (id_ca_r is not None)
-            for id_et, id_pr, id_ca, nome_et, dt_ini, dt_fim, temporada, num_carro in universo:
-                if id_et_r is not None and id_et_r != id_et:
-                    continue
-                if id_pr_r is not None and id_pr_r != id_pr:
-                    continue
-                if id_ca_r is not None and id_ca_r != id_ca:
-                    continue
-                chave = (id_et, id_ca, id_cargo)
-                atual = melhor.get(chave)
-                if atual and atual["_espec"] > espec:
-                    continue
-                if atual and atual["_espec"] == espec and atual["qtd_esp"] >= float(qtd or 0):
-                    continue
-                melhor[chave] = {
-                    "id_etapa": id_et, "id_carro": id_ca, "id_cargo": id_cargo,
-                    "qtd_esp": float(qtd or 0), "etapa": nome_et or "",
-                    "dt_ini": str(dt_ini or ""), "dt_fim": str(dt_fim or ""),
-                    "temporada": str(temporada or ""), "cargo": nome_cargo or "",
-                    "carro": str(num_carro or ""), "_espec": espec,
-                }
-        for v in melhor.values():
-            v.pop("_espec", None)
-            composicao.append(v)
+        planejado = [{"id_etapa": r[0], "cargo": r[1] or "-",
+                      "qtd_esp": float(r[2] or 0), "etapa": r[3] or "",
+                      "temporada": str(r[4] or "")} for r in rows]
+        planejado_total = sum(p["qtd_esp"] for p in planejado)
     except Exception as exc:
-        print(f"AVISO - composição padrão: {exc}")
-    # Actual allocations aggregated per etapa/carro/cargo
+        print(f"AVISO - planejamento por etapa: {exc}")
+
+    # Realizado = autonomos efetivamente alocados na etapa
+    alocacoes = []
     try:
-        # o cargo vem da função exercida na etapa; o cadastro do autônomo é o fallback
-        aloc_rows = db.execute(_text("""
-            SELECT f.id_etapa, f.id_carro,
-                   COALESCE(cf.id_cargo_autonomo, da.id_cargo_autonomo) AS id_cargo,
-                   COUNT(DISTINCT f.id_autonomo) as qtd_aloc,
-                   e.nome_etapa, e.temporada
+        rows = db.execute(_text(f"""
+            SELECT f.id_etapa,
+                   COALESCE(NULLIF(TRIM(f.funcao_autonomo), ''), {_FUNC}) AS cargo,
+                   COUNT(DISTINCT f.id_autonomo) AS qtd_aloc,
+                   e.nome_etapa,
+                   COALESCE(e.temporada, '')
             FROM fato_piloto_autonomo_prova f
-            LEFT JOIN dim_etapas e ON e.id_etapa = f.id_etapa
             LEFT JOIN dim_autonomos da ON da.id_autonomo = f.id_autonomo
-            LEFT JOIN dim_cargos_autonomos cf
-                   ON UPPER(TRIM(cf.nome_cargo)) = UPPER(TRIM(f.funcao_autonomo))
-            WHERE f.id_carro IS NOT NULL
-            GROUP BY f.id_etapa, f.id_carro,
-                     COALESCE(cf.id_cargo_autonomo, da.id_cargo_autonomo),
+            LEFT JOIN dim_cargos_autonomos ca ON ca.id_cargo_autonomo = da.id_cargo_autonomo
+            LEFT JOIN dim_etapas e ON e.id_etapa = f.id_etapa
+            GROUP BY f.id_etapa,
+                     COALESCE(NULLIF(TRIM(f.funcao_autonomo), ''), {_FUNC}),
                      e.nome_etapa, e.temporada
         """)).fetchall()
-        alocacoes = [{"id_etapa": r[0], "id_carro": r[1], "id_cargo": r[2],
-                      "qtd_aloc": int(r[3] or 0), "etapa": r[4] or "",
-                      "temporada": str(r[5] or "")} for r in aloc_rows]
+        alocacoes = [{"id_etapa": r[0], "cargo": r[1] or "-",
+                      "qtd_aloc": float(r[2] or 0), "etapa": r[3] or "",
+                      "temporada": str(r[4] or "")} for r in rows]
     except Exception as exc:
-        print(f"AVISO - alocações da cobertura: {exc}")
-        alocacoes = []
-    # Pending swaps
+        print(f"AVISO - alocacoes da cobertura: {exc}")
+
+    # Trocas ainda sem substituto definido
     try:
-        troca_rows = db.execute(_text(
+        row = db.execute(_text(
             "SELECT COUNT(*) FROM troca_entre_etapas WHERE id_autonomo_substituto IS NULL"
         )).fetchone()
-        trocas_pend = int(troca_rows[0] or 0) if troca_rows else 0
-    except Exception:
+        trocas_pend = int(row[0] or 0) if row else 0
+    except Exception as exc:
+        print(f"AVISO - trocas pendentes: {exc}")
         trocas_pend = 0
-    # Etapas
+
     try:
-        et_rows = db.execute(_text(
+        rows = db.execute(_text(
             "SELECT id_etapa, nome_etapa, data_inicio, data_fim, temporada FROM dim_etapas ORDER BY data_inicio"
         )).fetchall()
         etapas = [{"id": r[0], "nome": r[1] or "", "dt_ini": str(r[2] or ""),
-                   "dt_fim": str(r[3] or ""), "temporada": str(r[4] or "")} for r in et_rows]
-    except Exception:
+                   "dt_fim": str(r[3] or ""), "temporada": str(r[4] or "")} for r in rows]
+    except Exception as exc:
+        print(f"AVISO - etapas: {exc}")
         etapas = []
+
     return _json.dumps({
-        "composicao": composicao,
+        "planejado": planejado,
         "alocacoes": alocacoes,
         "trocas_pend": trocas_pend,
         "etapas": etapas,
-        "regras_total": regras_total,
+        "planejado_total": planejado_total,
     }, ensure_ascii=False)
+
 
 
 def _build_planejamento(plan_js: str) -> str:
@@ -1569,7 +1547,7 @@ def _build_planejamento(plan_js: str) -> str:
     <div class="pl-kpi-top"><span class="pl-kpi-title">Equipe esperada</span>
       <div class="pl-icon">E</div></div>
     <div class="pl-kpi-value" id="plKEsp">—</div>
-    <div class="pl-kpi-foot">posições na composição padrão</div></article>
+    <div class="pl-kpi-foot">escalados na Disponibilidade Autônomos</div></article>
   <article class="pl-kpi" style="--tint:#ebf8f4;--iconbg:#e7f7f1;--iconcolor:#11835f">
     <div class="pl-kpi-top"><span class="pl-kpi-title">Equipe alocada</span>
       <div class="pl-icon">✓</div></div>
@@ -1581,15 +1559,15 @@ def _build_planejamento(plan_js: str) -> str:
     <div class="pl-kpi-value" id="plKVagas">—</div>
     <div class="pl-kpi-foot" id="plKVagasF"></div></article>
   <article class="pl-kpi" style="--tint:#eef8fb;--iconbg:#ebf7fa;--iconcolor:#247f91">
-    <div class="pl-kpi-top"><span class="pl-kpi-title">Carros completos</span>
+    <div class="pl-kpi-top"><span class="pl-kpi-title">Etapas cobertas</span>
       <div class="pl-icon">▣</div></div>
     <div class="pl-kpi-value" id="plKCarros">—</div>
     <div class="pl-kpi-foot" id="plKCarrosF"></div></article>
   <article class="pl-kpi" style="--tint:#fff7e9;--iconbg:#fff6e5;--iconcolor:#c88408">
-    <div class="pl-kpi-top"><span class="pl-kpi-title">Carros incompletos</span>
+    <div class="pl-kpi-top"><span class="pl-kpi-title">Etapas com déficit</span>
       <div class="pl-icon">C</div></div>
     <div class="pl-kpi-value" id="plKInc">—</div>
-    <div class="pl-kpi-foot">carros com alguma vaga aberta</div></article>
+    <div class="pl-kpi-foot">etapas com alguma vaga aberta</div></article>
   <article class="pl-kpi" style="--tint:#f2effc;--iconbg:#f0edfb;--iconcolor:#7259be">
     <div class="pl-kpi-top"><span class="pl-kpi-title">Cobertura geral</span>
       <div class="pl-icon">%</div></div>
@@ -1623,8 +1601,8 @@ def _build_planejamento(plan_js: str) -> str:
 </section>
 <article class="pl-card" style="margin-bottom:11px">
   <div class="pl-ch-head">
-    <div><h2 class="pl-card-title">Mapa de cobertura por carro</h2>
-      <p class="pl-card-sub">Situação dos cargos por carro na seleção atual</p></div>
+    <div><h2 class="pl-card-title">Mapa de cobertura por etapa</h2>
+      <p class="pl-card-sub">Situação de cada cargo nas etapas da seleção atual</p></div>
     <div class="pl-legend">
       <span><i style="background:#dff4ec"></i>Completo</span>
       <span><i style="background:#fff0ce"></i>Parcial</span>
@@ -1636,13 +1614,13 @@ def _build_planejamento(plan_js: str) -> str:
 <article class="pl-card">
   <div class="pl-ch-head">
     <div><h2 class="pl-card-title">Pendências de cobertura</h2>
-      <p class="pl-card-sub">Combinações carro × cargo com déficit de alocação</p></div>
+      <p class="pl-card-sub">Combinações etapa × cargo com déficit de alocação</p></div>
   </div>
   <div class="pl-tbl-wrap">
     <table class="pl-tbl">
       <thead><tr>
-        <th>Etapa</th><th>Carro</th><th>Cargo</th>
-        <th>Esperado</th><th>Alocado</th><th>Déficit</th><th>Situação</th>
+        <th>Etapa</th><th>Cargo</th>
+        <th>Escalado</th><th>Alocado</th><th>Déficit</th><th>Situação</th>
       </tr></thead>
       <tbody id="plTblBody"></tbody>
     </table>
@@ -1652,13 +1630,14 @@ def _build_planejamento(plan_js: str) -> str:
 
     js = r"""
 const plEl=id=>document.getElementById(id);
+const plNorm=s=>(s||"").trim().toUpperCase();
 function plFillSel(id,vals,lbl){
   const el=plEl(id);if(!el)return;
   el.innerHTML='<option value="">'+lbl+'</option>'+vals.map(v=>'<option value="'+v+'">'+v+'</option>').join("");
 }
 function plSetup(){
   const years=[...new Set(PL_DATA.etapas.map(e=>e.temporada).filter(Boolean))].sort().reverse();
-  const etapas=[...new Set(PL_DATA.composicao.map(r=>r.etapa).filter(Boolean))].sort();
+  const etapas=[...new Set(PL_DATA.planejado.map(r=>r.etapa).filter(Boolean))].sort();
   plFillSel("plYear",years,"Todas as temporadas");
   plFillSel("plEtapa",etapas,"Todas as etapas");
   plFillSel("plCat",[],"Todas as categorias");
@@ -1668,83 +1647,80 @@ function plReset(){["plYear","plEtapa","plCat"].forEach(id=>{const el=plEl(id);i
 
 function plVazio(){
   const s='color:#9ca3af;font-size:11px';
-  if(!(PL_DATA.regras_total||0))
-    return'<p style="'+s+'">Nenhuma composição padrão cadastrada. Cadastre em '+
-      '<a href="/composicao-padrao" style="color:#d71920">Composição Padrão</a> '+
+  if(!(PL_DATA.planejado_total||0))
+    return'<p style="'+s+'">Nenhum autonomo escalado. Importe o planejamento em '+
+      '<a href="/composicao-meta-equipe" style="color:#d71920">Disponibilidade Autonomos</a> '+
       'para acompanhar a cobertura.</p>';
-  return'<p style="'+s+'">As composições cadastradas não batem com nenhum carro em pista '+
-    'na seleção atual.</p>';
+  return'<p style="'+s+'">Nenhum escalado na selecao atual.</p>';
 }
 
-function plFilteredComp(){
+function plFiltra(lista){
   const yr=plEl("plYear")?.value||"",et=plEl("plEtapa")?.value||"";
-  return PL_DATA.composicao.filter(r=>(!yr||r.temporada===yr)&&(!et||r.etapa===et));
+  return lista.filter(r=>(!yr||r.temporada===yr)&&(!et||r.etapa===et));
 }
-function plFilteredAloc(){
-  const yr=plEl("plYear")?.value||"",et=plEl("plEtapa")?.value||"";
-  return PL_DATA.alocacoes.filter(r=>(!yr||r.temporada===yr)&&(!et||r.etapa===et));
-}
+
+/* chave: etapa + cargo normalizado */
+const plKey=r=>r.id_etapa+"|"+plNorm(r.cargo);
 
 function plRender(){
-  const comp=plFilteredComp();
-  const aloc=plFilteredAloc();
-  // Build lookup: etapa+carro+cargo -> {esp, aloc}
-  const key=(et,car,cargo)=>et+"|"+car+"|"+cargo;
-  const espMap={};
-  comp.forEach(r=>{const k=key(r.id_etapa,r.id_carro,r.id_cargo);espMap[k]=(espMap[k]||0)+r.qtd_esp});
-  const alocMap={};
-  aloc.forEach(r=>{const k=key(r.id_etapa,r.id_carro,r.id_cargo);alocMap[k]=(alocMap[k]||0)+r.qtd_aloc});
-  // KPIs
-  const totalEsp=comp.reduce((s,r)=>s+r.qtd_esp,0);
-  const totalAloc=aloc.reduce((s,r)=>s+r.qtd_aloc,0);
+  const plan=plFiltra(PL_DATA.planejado);
+  const aloc=plFiltra(PL_DATA.alocacoes);
+
+  const espMap={},alocMap={};
+  plan.forEach(r=>{espMap[plKey(r)]=(espMap[plKey(r)]||0)+r.qtd_esp});
+  aloc.forEach(r=>{alocMap[plKey(r)]=(alocMap[plKey(r)]||0)+r.qtd_aloc});
+
+  const totalEsp=plan.reduce((s,r)=>s+r.qtd_esp,0);
+  /* so conta o alocado que corresponde a algo escalado */
+  const totalAloc=Object.keys(espMap).reduce((s,k)=>s+Math.min(alocMap[k]||0,espMap[k]),0);
   const deficit=Math.max(totalEsp-totalAloc,0);
   const pct=totalEsp?Math.min(totalAloc/totalEsp*100,100):0;
-  // Carros
-  const carros=new Set(comp.map(r=>r.id_etapa+"|"+r.id_carro));
-  const carrosFull=new Set();const carrosInc=new Set();
-  carros.forEach(ck=>{
-    const [eid,cid]=ck.split("|");
-    const compRows=comp.filter(r=>r.id_etapa==eid&&r.id_carro==cid);
-    const ok=compRows.every(r=>{const k=key(r.id_etapa,r.id_carro,r.id_cargo);return(alocMap[k]||0)>=r.qtd_esp});
-    if(ok)carrosFull.add(ck);else carrosInc.add(ck);
+
+  /* etapas cobertas x com deficit */
+  const etapasSet=new Set(plan.map(r=>r.id_etapa));
+  const etOk=new Set(),etDef=new Set();
+  etapasSet.forEach(eid=>{
+    const linhas=plan.filter(r=>r.id_etapa===eid);
+    const ok=linhas.every(r=>(alocMap[plKey(r)]||0)>=r.qtd_esp);
+    if(ok)etOk.add(eid);else etDef.add(eid);
   });
-  // Cargos descobertos
+
+  /* cobertura por cargo */
   const cargoMap={};
-  comp.forEach(r=>{
-    if(!cargoMap[r.cargo])cargoMap[r.cargo]={esp:0,aloc:0};
-    cargoMap[r.cargo].esp+=r.qtd_esp;
-  });
-  aloc.forEach(r=>{
-    const cn=comp.find(c=>c.id_etapa===r.id_etapa&&c.id_carro===r.id_carro&&c.id_cargo===r.id_cargo);
-    if(cn&&cargoMap[cn.cargo])cargoMap[cn.cargo].aloc+=r.qtd_aloc;
+  plan.forEach(r=>{
+    const n=r.cargo||"-";
+    if(!cargoMap[n])cargoMap[n]={esp:0,aloc:0};
+    cargoMap[n].esp+=r.qtd_esp;
+    cargoMap[n].aloc+=Math.min(alocMap[plKey(r)]||0,r.qtd_esp);
   });
   const cargosDesc=Object.values(cargoMap).filter(v=>v.aloc<v.esp).length;
-  const set=(id,v,f)=>{const e=plEl(id);if(e)e.textContent=v;const fe=plEl(id+"f");if(fe)fe.innerHTML=f||""};
+
+  const set=(id,v,f)=>{const e=plEl(id);if(e)e.textContent=v;const fe=plEl(id+"F");if(fe)fe.innerHTML=f||""};
   set("plKEsp",Math.round(totalEsp));
   set("plKAloc",Math.round(totalAloc),'<span class="pl-delta '+(pct>=95?"ok":pct>=80?"warn":"bad")+'">'+pct.toFixed(1)+'%</span> de cobertura');
-  set("plKVagas",Math.round(deficit),carrosInc.size+" carros com déficit");
-  set("plKCarros",carrosFull.size,"de "+(carrosFull.size+carrosInc.size)+" carros participantes");
-  set("plKInc",carrosInc.size,"");
+  set("plKVagas",Math.round(deficit),etDef.size+" etapas com deficit");
+  set("plKCarros",etOk.size,"de "+(etOk.size+etDef.size)+" etapas planejadas");
+  set("plKInc",etDef.size,"");
   const cobEl=plEl("plKCob");if(cobEl)cobEl.textContent=pct.toFixed(1)+"%";
   const cargosEl=plEl("plKCargos");if(cargosEl)cargosEl.textContent=cargosDesc;
   const trocEl=plEl("plKTrocas");if(trocEl)trocEl.textContent=PL_DATA.trocas_pend;
-  plRoleList(comp,aloc,cargoMap);
+
+  plRoleList(cargoMap);
   plCovBox();
-  plSumList(carrosFull,carrosInc,pct);
-  plHeatmap(comp,aloc);
-  plTable(comp,aloc);
+  plSumList(etOk,etDef,totalEsp,totalAloc);
+  plHeatmap(plan,espMap,alocMap);
+  plTable(plan,espMap,alocMap);
 }
 
-function plRoleList(comp,aloc,cargoMap){
-  const COLS=["#15946c","#e59a12","#d71920","#7157c8","#2878d0","#374151"];
+function plRoleList(cargoMap){
   const el=plEl("plRoleList");if(!el)return;
   const rows=Object.entries(cargoMap).sort((a,b)=>b[1].esp-a[1].esp);
   if(!rows.length){el.innerHTML=plVazio();return}
-  el.innerHTML=rows.map(([cargo,v],i)=>{
+  el.innerHTML=rows.map(([cargo,v])=>{
     const pct=v.esp?Math.min(v.aloc/v.esp*100,100):0;
     const col=pct>=95?"#15946c":pct>=80?"#e59a12":"#d71920";
     return'<div class="pl-role-row">'+
-      '<div class="pl-role-name"><strong>'+cargo+'</strong><small>'+Math.round(v.aloc)+' de '+Math.round(v.esp)+' posições</small></div>'+
+      '<div class="pl-role-name"><strong>'+cargo+'</strong><small>'+Math.round(v.aloc)+' de '+Math.round(v.esp)+' posicoes</small></div>'+
       '<div class="pl-role-track"><div class="pl-role-fill" style="width:'+pct.toFixed(1)+'%;background:'+col+'"></div></div>'+
       '<div class="pl-role-val">'+pct.toFixed(1)+'%</div>'+
       '</div>';}).join("");
@@ -1755,32 +1731,33 @@ function plCovBox(){
   const etapas=(PL_DATA.etapas||[]).filter(e=>e.dt_ini).sort((a,b)=>a.dt_ini.localeCompare(b.dt_ini));
   const prox=etapas.find(e=>e.dt_ini>today)||etapas[etapas.length-1];
   const el=plEl("plCovBox");if(!el||!prox)return;
-  // Coverage for this specific etapa
   const eid=prox.id;
-  const esp=PL_DATA.composicao.filter(r=>r.id_etapa===eid).reduce((s,r)=>s+r.qtd_esp,0);
-  const aloc=PL_DATA.alocacoes.filter(r=>r.id_etapa===eid).reduce((s,r)=>s+r.qtd_aloc,0);
+  const plan=PL_DATA.planejado.filter(r=>r.id_etapa===eid);
+  const alocMap={};
+  PL_DATA.alocacoes.filter(r=>r.id_etapa===eid)
+    .forEach(r=>{alocMap[plKey(r)]=(alocMap[plKey(r)]||0)+r.qtd_aloc});
+  const esp=plan.reduce((s,r)=>s+r.qtd_esp,0);
+  const aloc=plan.reduce((s,r)=>s+Math.min(alocMap[plKey(r)]||0,r.qtd_esp),0);
   const pct=esp?Math.min(aloc/esp*100,100):0;
-  const dtFmt=s=>s?s.slice(8,10)+"/"+s.slice(5,7):"—";
+  const dtFmt=s=>s?s.slice(8,10)+"/"+s.slice(5,7):"-";
   const shortNm=prox.nome.replace(/^\d+ET\d+\s*[-–]\s*/,"").slice(0,20)||prox.nome;
   el.innerHTML='<div class="pl-cov-box">'+
-    '<div class="pl-cov-label">Próxima etapa</div>'+
+    '<div class="pl-cov-label">Proxima etapa</div>'+
     '<div class="pl-cov-title">'+shortNm+(prox.dt_ini?" · "+dtFmt(prox.dt_ini)+(prox.dt_fim?"–"+dtFmt(prox.dt_fim):""):"")+'</div>'+
     '<div class="pl-cov-number">'+(esp?pct.toFixed(1)+"%":aloc+" alocados")+'</div>'+
     (esp?'<div class="pl-progress"><span style="width:'+pct.toFixed(1)+'%"></span></div>'+
-    '<div class="pl-cov-meta"><span>'+Math.round(aloc)+' profissionais alocados</span><span>Meta: '+Math.round(esp)+'</span></div>':"")+
+    '<div class="pl-cov-meta"><span>'+Math.round(aloc)+' profissionais alocados</span><span>Escalados: '+Math.round(esp)+'</span></div>':"")+
     '</div>';
 }
 
-function plSumList(carrosFull,carrosInc,pct){
+function plSumList(etOk,etDef,totalEsp,totalAloc){
   const el=plEl("plSumList");if(!el)return;
   const items=[
-    ["#e9f7f2","#107455","✓","Carros com equipe completa","Todos os cargos previstos cobertos",carrosFull.size],
-    ["#fff4de","#a96b02","!","Carros com equipe incompleta","Há pelo menos uma vaga em aberto",carrosInc.size],
-    ["#fff0f1","#ad151b","−","Déficit total de posições",
-     "Posições esperadas sem alocação",Math.max(
-       PL_DATA.composicao.reduce((s,r)=>s+r.qtd_esp,0)-
-       PL_DATA.alocacoes.reduce((s,r)=>s+r.qtd_aloc,0),0).toFixed(0)],
-    ["#eef1f4","#626b77","↻","Trocas em processamento","Substituições sem substituto definido",PL_DATA.trocas_pend],
+    ["#e9f7f2","#107455","✓","Etapas com equipe completa","Todos os cargos escalados cobertos",etOk.size],
+    ["#fff4de","#a96b02","!","Etapas com equipe incompleta","Ha pelo menos uma vaga em aberto",etDef.size],
+    ["#fff0f1","#ad151b","−","Deficit total de posicoes","Escalados sem alocacao correspondente",
+     Math.max(totalEsp-totalAloc,0).toFixed(0)],
+    ["#eef1f4","#626b77","↻","Trocas em processamento","Substituicoes sem substituto definido",PL_DATA.trocas_pend],
   ];
   el.innerHTML=items.map(([bg,col,ic,lbl,sub,val])=>
     '<div class="pl-sum-item">'+
@@ -1789,36 +1766,27 @@ function plSumList(carrosFull,carrosInc,pct){
     '<span class="pl-sum-val">'+val+'</span></div>').join("");
 }
 
-function plHeatmap(comp,aloc){
+function plHeatmap(plan,espMap,alocMap){
   const el=plEl("plHeatmap");if(!el)return;
-  // Get unique cargos and carros (limit display)
-  const cargosSet=new Set(comp.map(r=>r.cargo).filter(Boolean));
-  const carros=[...new Set(comp.map(r=>r.carro).filter(Boolean))].sort((a,b)=>+a-+b).slice(0,12);
-  const cargos=[...cargosSet].sort().slice(0,6);
-  if(!carros.length||!cargos.length){el.innerHTML=plVazio();return}
-  // Build alocMap indexed by etapa+carro+cargo
-  const alocMap={};
-  aloc.forEach(r=>{
-    const cn=comp.find(c=>c.id_etapa===r.id_etapa&&c.id_carro===r.id_carro&&c.id_cargo===r.id_cargo);
-    if(cn){const k=cn.carro+"|"+cn.cargo;alocMap[k]=(alocMap[k]||0)+r.qtd_aloc}
-  });
-  const espMap2={};
-  comp.forEach(r=>{const k=r.carro+"|"+r.cargo;espMap2[k]=(espMap2[k]||0)+r.qtd_esp});
-  const cols=carros.length;
+  const etapas=[...new Set(plan.map(r=>r.etapa).filter(Boolean))].sort().slice(0,12);
+  const cargos=[...new Set(plan.map(r=>r.cargo).filter(Boolean))].sort().slice(0,8);
+  if(!etapas.length||!cargos.length){el.innerHTML=plVazio();return}
+  const cols=etapas.length;
   el.style.display="grid";
-  el.style.gridTemplateColumns="120px repeat("+cols+",minmax(40px,1fr))";
+  el.style.gridTemplateColumns="150px repeat("+cols+",minmax(52px,1fr))";
   el.style.gap="5px";
   el.style.alignItems="center";
-  el.style.minWidth=(120+cols*45)+"px";
+  el.style.minWidth=(150+cols*58)+"px";
   let out='<div></div>';
-  carros.forEach(c=>{out+='<div class="pl-hm-head">'+c+'</div>'});
+  etapas.forEach(e=>{out+='<div class="pl-hm-head">'+e.replace(/^\d+ET\d+\s*[-–]\s*/,"").slice(0,12)+'</div>'});
   cargos.forEach(cargo=>{
     out+='<div class="pl-hm-label">'+cargo+'</div>';
-    carros.forEach(carro=>{
-      const k=carro+"|"+cargo;
-      const esp=espMap2[k]||0;const a=alocMap[k]||0;
-      if(!esp){out+='<div class="pl-cell pl-na">—</div>';return}
-      const pct=a/esp;
+    etapas.forEach(etNome=>{
+      const linhas=plan.filter(r=>r.etapa===etNome&&r.cargo===cargo);
+      if(!linhas.length){out+='<div class="pl-cell pl-na">-</div>';return}
+      let esp=0,a=0;
+      linhas.forEach(r=>{esp+=r.qtd_esp;a+=Math.min(alocMap[plKey(r)]||0,r.qtd_esp)});
+      const pct=esp?a/esp:0;
       const cls=pct>=1?"pl-full":pct>=0.5?"pl-mid":"pl-low";
       out+='<div class="pl-cell '+cls+'">'+Math.round(a)+'/'+Math.round(esp)+'</div>';
     });
@@ -1826,30 +1794,21 @@ function plHeatmap(comp,aloc){
   el.innerHTML=out;
 }
 
-function plTable(comp,aloc){
+function plTable(plan,espMap,alocMap){
   const el=plEl("plTblBody");if(!el)return;
-  // Find deficit rows
-  const alocMap={};
-  aloc.forEach(r=>{
-    const cn=comp.find(c=>c.id_etapa===r.id_etapa&&c.id_carro===r.id_carro&&c.id_cargo===r.id_cargo);
-    if(cn){const k=cn.etapa+"|"+cn.carro+"|"+cn.cargo;alocMap[k]=(alocMap[k]||0)+r.qtd_aloc}
-  });
   const rows=[];
-  const seen=new Set();
-  comp.forEach(r=>{
-    const k=r.etapa+"|"+r.carro+"|"+r.cargo;
-    if(seen.has(k))return;seen.add(k);
-    const esp=r.qtd_esp;const a=alocMap[k]||0;
+  plan.forEach(r=>{
+    const esp=r.qtd_esp,a=Math.min(alocMap[plKey(r)]||0,esp);
     const def=Math.max(esp-a,0);
-    if(def>0)rows.push({etapa:r.etapa,carro:r.carro,cargo:r.cargo,esp,aloc:a,def});
+    if(def>0)rows.push({etapa:r.etapa,cargo:r.cargo,esp:esp,aloc:a,def:def});
   });
   rows.sort((a,b)=>b.def-a.def);
-  if(!rows.length){el.innerHTML='<tr><td colspan="7" style="color:#9ca3af;font-size:12px;padding:16px">Nenhuma pendência de cobertura.</td></tr>';return}
+  if(!rows.length){el.innerHTML='<tr><td colspan="6" style="color:#9ca3af;font-size:12px;padding:16px">Nenhuma pendencia de cobertura.</td></tr>';return}
   el.innerHTML=rows.slice(0,30).map(r=>{
     const pct=r.esp?r.aloc/r.esp:0;
     const stCls=pct===0?"pl-st-bad":pct<1?"pl-st-warn":"pl-st-ok";
     const stLbl=pct===0?"Em aberto":pct<1?"Incompleto":"Completo";
-    return'<tr><td>'+r.etapa+'</td><td>'+r.carro+'</td><td>'+r.cargo+'</td>'+
+    return'<tr><td>'+r.etapa+'</td><td>'+r.cargo+'</td>'+
       '<td>'+Math.round(r.esp)+'</td><td>'+Math.round(r.aloc)+'</td>'+
       '<td><strong>'+Math.round(r.def)+'</strong></td>'+
       '<td><span class="pl-st '+stCls+'">'+stLbl+'</span></td></tr>';
