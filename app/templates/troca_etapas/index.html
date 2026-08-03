@@ -551,13 +551,13 @@
             {% endif %}
           </div>
 
-          <form class="te-form" method="post" action="/troca-etapas/registrar">
-            <input type="hidden" name="id_etapa_anterior" value="{{ ant.id_etapa }}">
-            <input type="hidden" name="id_etapa_proxima" value="{{ prox.id_etapa }}">
-            <input type="hidden" name="id_fato" value="{{ f.id_fato }}">
+          <div class="te-form"
+               data-etapa-ant="{{ ant.id_etapa }}"
+               data-etapa-prox="{{ prox.id_etapa }}"
+               data-id-fato="{{ f.id_fato }}">
             <div>
               <span class="lbl-f">Motivo de troca</span>
-              <select class="input" name="id_motivo_troca">
+              <select class="input te-motivo" onchange="teAutoSave(this.closest('.te-form'))">
                 <option value="">— sem motivo —</option>
                 {% for m in motivos %}
                   <option value="{{ m.id_motivo_troca }}"
@@ -569,16 +569,15 @@
             </div>
             <div>
               <span class="lbl-f">Justificativa</span>
-              <input class="input" type="text" name="justificativa"
+              <input class="input te-justif" type="text"
                      placeholder="Detalhes (opcional)"
-                     value="{{ salvo.justificativa if salvo else '' }}">
+                     value="{{ salvo.justificativa if salvo else '' }}"
+                     oninput="teDebounce(this.closest('.te-form'))">
             </div>
             <div class="te-form-btns">
-              <button type="submit" class="btn-save">
-                {{ '↺ Atualizar' if salvo else '💾 Salvar' }}
-              </button>
+              <span class="te-status" style="font-size:12px;font-weight:700;"></span>
             </div>
-          </form>
+          </div>
         </div>
       {% endfor %}
     {% endif %}
@@ -796,6 +795,60 @@ function aplicarFiltros() {
     if ((etapaSel.length || statusSel.length || pilotoSel.length) && total > 0) {
       grupo.setAttribute('open', '');
     }
+  });
+}
+
+/* ── Auto-save de motivo/justificativa ── */
+const _teTimers = new WeakMap();
+
+function teDebounce(form) {
+  clearTimeout(_teTimers.get(form));
+  _teTimers.set(form, setTimeout(function() { teAutoSave(form); }, 800));
+}
+
+function teAutoSave(form) {
+  clearTimeout(_teTimers.get(form));
+
+  var data = new FormData();
+  data.append("id_etapa_anterior", form.dataset.etapaAnt);
+  data.append("id_etapa_proxima",  form.dataset.etapaProx);
+  data.append("id_fato",           form.dataset.idFato);
+  data.append("id_motivo_troca",   form.querySelector('.te-motivo').value);
+  data.append("justificativa",     form.querySelector('.te-justif').value);
+
+  var status = form.querySelector('.te-status');
+  status.textContent = "salvando…";
+  status.style.color = "#94a3b8";
+
+  fetch("/troca-etapas/registrar", {
+    method: "POST",
+    headers: {"x-fetch": "1"},
+    body: data
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(j) {
+    if (j.ok) {
+      status.textContent = "✓ salvo";
+      status.style.color = "#86efac";
+
+      var card = form.closest('.te-card');
+      if (card) {
+        card.dataset.justificado = "1";
+        var infoBlock = card.querySelectorAll('.te-info')[1];
+        if (infoBlock && !infoBlock.querySelector('.saved-tag')) {
+          var wrap = document.createElement('div');
+          wrap.style.marginTop = "6px";
+          wrap.innerHTML = '<span class="saved-tag">✓ justificado</span>';
+          infoBlock.appendChild(wrap);
+        }
+      }
+
+      setTimeout(function() { status.textContent = ""; }, 2500);
+    }
+  })
+  .catch(function() {
+    status.textContent = "Erro ao salvar";
+    status.style.color = "#fca5a5";
   });
 }
 

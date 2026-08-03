@@ -2,7 +2,7 @@ import io
 from datetime import datetime
 
 from fastapi import APIRouter, Depends, Form, Request
-from fastapi.responses import StreamingResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 from openpyxl import Workbook
 from openpyxl.styles import Alignment, Font, PatternFill
 from sqlalchemy import (
@@ -339,6 +339,7 @@ def exportar_excel(db: Session = Depends(get_db)):
 
 @router.post("/troca-etapas/registrar")
 def registrar_motivo(
+    request: Request,
     id_etapa_anterior: int = Form(...),
     id_etapa_proxima: int = Form(...),
     id_fato: int = Form(...),
@@ -384,6 +385,8 @@ def registrar_motivo(
         )
 
     db.commit()
+    if request.headers.get("x-fetch") == "1":
+        return JSONResponse({"ok": True})
     return redirect_with_message("/troca-etapas", success="Registrado com sucesso.")
 
 
