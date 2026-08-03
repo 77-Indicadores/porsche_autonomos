@@ -198,7 +198,7 @@
           <td>{{ item.complemento.retrabalho or "-" }}</td>
           <td class="font-bold">{{ item.complemento_custo_fmt }}</td>
           <td>
-            {% if is_admin %}
+            {% if pode_complementar %}
             <button
               type="button"
               class="btn-muted"

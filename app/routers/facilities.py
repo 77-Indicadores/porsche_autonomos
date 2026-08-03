@@ -582,6 +582,7 @@ def index(request: Request, db: Session = Depends(get_db)):
             "sync_error": sync_error,
             "cache_notice": cache_notice,
             "is_admin": _is_admin(request),
+            "pode_complementar": tem_acesso_modulo(request, "facilities"),
             **flash_from_request(request),
         },
     )
