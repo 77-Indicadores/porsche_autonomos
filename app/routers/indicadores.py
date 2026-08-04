@@ -794,17 +794,28 @@ def _build_turnover_html(
     todos_deptos: list[str] | None = None,
     empresa_sel: str = "",
     depto_sel: str = "",
+    mes_sel: str = "",
 ) -> str:
     meses = _turnover_mensal(colabs, ano)
 
-    # totais do ano
-    total_adm  = sum(m["admitidos"] for m in meses)
-    total_dem  = sum(m["demitidos"] for m in meses)
+    # O gráfico mantém os 12 meses; o mês selecionado recorta os indicadores.
+    try:
+        mes_num = int(mes_sel) if mes_sel else 0
+    except ValueError:
+        mes_num = 0
+
+    # colabs demitidos no ano (ou no mês, quando selecionado)
+    dem_ano = [c for c in colabs if c["data_demissa"] and c["data_demissa"].year == ano]
+    if mes_num:
+        dem_ano = [c for c in dem_ano if c["data_demissa"].month == mes_num]
+        meses_ref = [m for m in meses if m["mes"] == mes_num]
+    else:
+        meses_ref = [m for m in meses if not m["futuro"]]
+
+    total_adm  = sum(m["admitidos"] for m in (meses_ref or meses))
+    total_dem  = len(dem_ano) if mes_num else sum(m["demitidos"] for m in meses)
     hc_ref     = next((m["headcount"] for m in reversed(meses) if not m["futuro"]), 0) or 1
     turn_total = total_dem / hc_ref * 100
-
-    # colabs demitidos no ano
-    dem_ano = [c for c in colabs if c["data_demissa"] and c["data_demissa"].year == ano]
 
     # desligamentos < 3 meses
     dem_lt3 = [c for c in dem_ano if c["data_adm"] and c["data_demissa"] and
@@ -863,6 +874,10 @@ def _build_turnover_html(
         f"<option value='{d}'{' selected' if d == (depto_sel or '').upper() else ''}>{d.title()}</option>"
         for d in (todos_deptos or [])
     )
+    mes_opts_tv = "<option value=''>Ano todo</option>" + "".join(
+        f"<option value='{m:02d}'{' selected' if m == mes_num else ''}>{_MES_LABEL[f'{m:02d}']}</option>"
+        for m in range(1, 13)
+    )
 
     return f"""<div class="tv-wrap">{_CSS_TURNOVER}
 
@@ -888,6 +903,12 @@ def _build_turnover_html(
         <label>Ano</label>
         <select name="ano" onchange="this.form.submit()" style="width:100%;border:0;background:transparent;outline:none;color:#252525;font-size:13px;font-weight:700;cursor:pointer">
           {opts_anos}
+        </select>
+      </div>
+      <div class="filter">
+        <label>Mês</label>
+        <select name="mes" onchange="this.form.submit()" style="width:100%;border:0;background:transparent;outline:none;color:#252525;font-size:13px;font-weight:700;cursor:pointer">
+          {mes_opts_tv}
         </select>
       </div>
       <div class="filter">
@@ -1278,29 +1299,58 @@ _CSS_TRAIN = """<style>
 </style>"""
 
 
-def _filtro_depto_html(acao: str, deptos: list[str], selecionado: str) -> str:
-    """Barra com o filtro de Departamento, para os painéis montados em HTML puro."""
+_MES_LABEL = {
+    "01": "Jan", "02": "Fev", "03": "Mar", "04": "Abr", "05": "Mai", "06": "Jun",
+    "07": "Jul", "08": "Ago", "09": "Set", "10": "Out", "11": "Nov", "12": "Dez",
+}
+
+
+def _rotulo_mes(m: str) -> str:
+    """'2026-03' → 'Mar 2026'."""
+    if len(m) >= 7 and m[4] == "-":
+        return f"{_MES_LABEL.get(m[5:7], m[5:7])} {m[:4]}"
+    return m
+
+
+def _filtro_depto_html(acao: str, deptos: list[str], selecionado: str,
+                       meses: list[str] | None = None, mes_sel: str = "") -> str:
+    """Barra de filtros (departamento e mês) dos painéis montados em HTML puro."""
     sel = (selecionado or "").strip().upper()
     opts = "<option value=''>Todos</option>" + "".join(
         f"<option value=\"{d}\"{' selected' if d.upper() == sel else ''}>{d}</option>"
         for d in deptos
     )
+    estilo_sel = ("border:0;background:transparent;outline:none;color:#252525;"
+                  "font-size:13px;font-weight:700;cursor:pointer")
+    estilo_lbl = ("font-size:11px;font-weight:700;color:#6f7886;"
+                  "text-transform:uppercase;letter-spacing:.05em")
+
+    bloco_mes = ""
+    if meses:
+        opts_mes = "<option value=''>Todos</option>" + "".join(
+            f"<option value=\"{m}\"{' selected' if m == mes_sel else ''}>{_rotulo_mes(m)}</option>"
+            for m in meses
+        )
+        bloco_mes = f"""
+  <span style="width:1px;height:22px;background:#e3e7ee"></span>
+  <label style="{estilo_lbl}">Mês</label>
+  <select name="mes" onchange="this.form.submit()" style="{estilo_sel};min-width:130px">
+    {opts_mes}
+  </select>"""
+
     return f"""
 <form method="get" action="{acao}"
       style="display:flex;align-items:center;gap:10px;margin:0 0 14px;padding:10px 14px;
-             background:#fff;border:1px solid #e3e7ee;border-radius:12px">
-  <label style="font-size:11px;font-weight:700;color:#6f7886;text-transform:uppercase;
-                letter-spacing:.05em">Departamento</label>
-  <select name="departamento" onchange="this.form.submit()"
-          style="border:0;background:transparent;outline:none;color:#252525;
-                 font-size:13px;font-weight:700;cursor:pointer;min-width:200px">
+             background:#fff;border:1px solid #e3e7ee;border-radius:12px;flex-wrap:wrap">
+  <label style="{estilo_lbl}">Departamento</label>
+  <select name="departamento" onchange="this.form.submit()" style="{estilo_sel};min-width:200px">
     {opts}
-  </select>
+  </select>{bloco_mes}
 </form>
 """
 
 
-def _build_treinamentos_html(depto_sel: str = "") -> str:
+def _build_treinamentos_html(depto_sel: str = "", mes_sel: str = "") -> str:
     try:
         treinamentos = _db_rows("SELECT id_treinamento, nome_treinamento, tipo_treinamento, carga_horaria_padrao, status FROM dho_treinamentos")
         aplicacoes   = _db_rows("SELECT id_aplicacao, id_treinamento, pessoa_nome, centro_custo, data_treinamento, carga_horaria, status FROM dho_treinamento_aplicacoes")
@@ -1321,10 +1371,17 @@ def _build_treinamentos_html(depto_sel: str = "") -> str:
 
     todos_deptos = sorted({a["departamento"] for a in aplicacoes
                            if a.get("departamento") and a["departamento"] != "Não informado"})
+    todos_meses = sorted({str(a.get("data_treinamento") or "")[:7]
+                          for a in aplicacoes if str(a.get("data_treinamento") or "")[:7]},
+                         reverse=True)
     if depto_sel:
         aplicacoes = [a for a in aplicacoes
                       if (a.get("departamento") or "").upper() == depto_sel.strip().upper()]
-    filtro_html = _filtro_depto_html("/indicadores/treinamentos", todos_deptos, depto_sel)
+    if mes_sel:
+        aplicacoes = [a for a in aplicacoes
+                      if str(a.get("data_treinamento") or "")[:7] == mes_sel]
+    filtro_html = _filtro_depto_html("/indicadores/treinamentos", todos_deptos, depto_sel,
+                                     todos_meses, mes_sel)
 
     ativos     = [t for t in treinamentos if "ativ" in (t.get("status") or "").lower()]
     realizados = sum(1 for a in aplicacoes if "realiz" in (a.get("status") or "").lower())
@@ -1484,7 +1541,7 @@ _CSS_VAGAS = """<style>
 </style>"""
 
 
-def _build_vagas_html(depto_sel: str = "") -> str:
+def _build_vagas_html(depto_sel: str = "", mes_sel: str = "") -> str:
     try:
         vagas = _db_rows(
             """SELECT v.id_vaga, v.qtd_vagas, v.status, v.tipo_vaga, v.tipo_recrutamento,
@@ -1500,10 +1557,16 @@ def _build_vagas_html(depto_sel: str = "") -> str:
         (v.get("nome_departamento") or "").strip()
         for v in vagas if (v.get("nome_departamento") or "").strip()
     })
+    todos_meses = sorted({str(v.get("data_abertura") or "")[:7]
+                          for v in vagas if str(v.get("data_abertura") or "")[:7]},
+                         reverse=True)
     if depto_sel:
         vagas = [v for v in vagas
                  if (v.get("nome_departamento") or "").strip().upper() == depto_sel.strip().upper()]
-    filtro_html = _filtro_depto_html("/indicadores/vagas", todos_deptos, depto_sel)
+    if mes_sel:
+        vagas = [v for v in vagas if str(v.get("data_abertura") or "")[:7] == mes_sel]
+    filtro_html = _filtro_depto_html("/indicadores/vagas", todos_deptos, depto_sel,
+                                     todos_meses, mes_sel)
 
     hoje_d = date.today()
 
@@ -2334,7 +2397,8 @@ def indicadores_home(request: Request):
 
 
 @router.get("/indicadores/turnover")
-def turnover(request: Request, ano: str = "", empresa: str = "", departamento: str = ""):
+def turnover(request: Request, ano: str = "", empresa: str = "", departamento: str = "",
+             mes: str = ""):
     erro = None
     dash_html = ""
 
@@ -2359,7 +2423,7 @@ def turnover(request: Request, ano: str = "", empresa: str = "", departamento: s
             colabs = [c for c in colabs if c["departamento"] == departamento.upper()]
         dash_html = _build_turnover_html(
             colabs, ano_int, anos_opcoes,
-            todas_empresas_tv, todos_deptos_tv, empresa, departamento,
+            todas_empresas_tv, todos_deptos_tv, empresa, departamento, mes,
         )
     except Exception as exc:
         erro = f"Erro ao buscar dados do Feedz: {exc}"
@@ -2457,11 +2521,11 @@ def facilities_dash(request: Request):
 
 
 @router.get("/indicadores/treinamentos")
-def treinamentos_dash(request: Request, departamento: str = ""):
+def treinamentos_dash(request: Request, departamento: str = "", mes: str = ""):
     erro = None
     dash_html = ""
     try:
-        dash_html = _build_treinamentos_html(departamento)
+        dash_html = _build_treinamentos_html(departamento, mes)
     except Exception as exc:
         erro = f"Erro ao carregar dados de Treinamentos: {exc}"
 
@@ -2473,11 +2537,11 @@ def treinamentos_dash(request: Request, departamento: str = ""):
 
 
 @router.get("/indicadores/vagas")
-def vagas_dash(request: Request, departamento: str = ""):
+def vagas_dash(request: Request, departamento: str = "", mes: str = ""):
     erro = None
     dash_html = ""
     try:
-        dash_html = _build_vagas_html(departamento)
+        dash_html = _build_vagas_html(departamento, mes)
     except Exception as exc:
         erro = f"Erro ao carregar dados de Vagas: {exc}"
 
@@ -2647,19 +2711,25 @@ def _fetch_banco_horas() -> list[dict]:
 
 
 def _build_banco_horas_html(rows: list[dict], all_rows: list[dict] | None = None,
-                            empresa_sel: str = "", departamento_sel: str = "") -> str:
+                            empresa_sel: str = "", departamento_sel: str = "",
+                            mes_sel: str = "") -> str:
     all_rows = all_rows or rows
     empresas     = sorted({r["empresa"]     for r in all_rows if r["empresa"]})
     departamentos = sorted({r["departamento"] for r in all_rows if r["departamento"]})
+    meses = sorted({r["data_dt"].strftime("%Y-%m") for r in all_rows if r.get("data_dt")},
+                   reverse=True)
 
     # ── filtros ──────────────────────────────────────────────────────────────
-    def _opt(val, sel): return f'<option value="{val}"{" selected" if val==sel else ""}>{val}</option>'
+    def _opt(val, sel, label=None):
+        return f'<option value="{val}"{" selected" if val==sel else ""}>{label or val}</option>'
     opts_emp  = "".join(
         f'<option value="{e}"{" selected" if e == empresa_sel else ""}>{empresa_curta(e)}</option>'
         for e in empresas
     )
     opts_dep  = "".join(_opt(d, departamento_sel) for d in departamentos)
-    limpar    = '<a href="/indicadores/banco-horas" class="bh-limpar">✕ Limpar</a>' if (empresa_sel or departamento_sel) else ""
+    opts_mes  = "".join(_opt(m, mes_sel, label=_rotulo_mes(m)) for m in meses)
+    limpar    = ('<a href="/indicadores/banco-horas" class="bh-limpar">✕ Limpar</a>'
+                 if (empresa_sel or departamento_sel or mes_sel) else "")
     filtros_html = f"""
 <form method="get" action="/indicadores/banco-horas" class="bh-filtros" id="bhForm">
   <div class="bh-filtros-inner">
@@ -2673,6 +2743,12 @@ def _build_banco_horas_html(rows: list[dict], all_rows: list[dict] | None = None
       <label>Departamento</label>
       <select name="departamento" onchange="this.form.submit()">
         <option value="">Todos os departamentos</option>{opts_dep}
+      </select>
+    </div>
+    <div class="bh-filtro-group">
+      <label>Mês</label>
+      <select name="mes" onchange="this.form.submit()">
+        <option value="">Todos os meses</option>{opts_mes}
       </select>
     </div>
     {limpar}
@@ -3364,7 +3440,7 @@ def horas_extras(request: Request, empresa: str = "", cargo: str = "",
 
 
 @router.get("/indicadores/banco-horas")
-def banco_horas(request: Request, empresa: str = "", departamento: str = ""):
+def banco_horas(request: Request, empresa: str = "", departamento: str = "", mes: str = ""):
     erro = None
     dash_html = ""
     try:
@@ -3374,8 +3450,12 @@ def banco_horas(request: Request, empresa: str = "", departamento: str = ""):
             filtered = [r for r in filtered if r["empresa"] == empresa]
         if departamento:
             filtered = [r for r in filtered if r["departamento"] == departamento]
+        if mes:
+            filtered = [r for r in filtered
+                        if r.get("data_dt") and r["data_dt"].strftime("%Y-%m") == mes]
         dash_html = _build_banco_horas_html(filtered, all_rows=all_rows,
-                                            empresa_sel=empresa, departamento_sel=departamento)
+                                            empresa_sel=empresa, departamento_sel=departamento,
+                                            mes_sel=mes)
     except Exception as exc:
         erro = f"Erro ao buscar dados de banco de horas: {exc}"
     return templates.TemplateResponse("indicadores/banco_horas.html", {
@@ -3589,6 +3669,8 @@ def _build_afastamentos_html(  # noqa: C901
     <div class="af2-sw"><select id="af2Type"></select></div></div>
   <div class="af2-field"><label>Ano</label>
     <div class="af2-sw"><select id="af2Year"></select></div></div>
+  <div class="af2-field"><label>Mês</label>
+    <div class="af2-sw"><select id="af2Month"></select></div></div>
   <div class="af2-field"><label>Faixa de dias</label>
     <div class="af2-sw"><select id="af2Range">
       <option value="">Todas as faixas</option>
@@ -3735,7 +3817,17 @@ function af2Setup(){
   af2FillSel("af2Dept",af2Uniq(af2Records,"department"),"Todos os departamentos");
   af2FillSel("af2Type",af2Uniq(af2Records,"type"),"Todos os tipos");
   af2FillSel("af2Year",[...new Set(af2Records.map(r=>r.date.slice(0,4)).filter(Boolean))].sort().reverse(),"Todos os anos");
-  ["af2Company","af2Dept","af2Type","af2Year","af2Range"].forEach(id=>{
+  /* lista, e nao objeto: chaves "10".."12" sao indices validos e o JS as
+     reordenaria para o inicio, colocando Out/Nov/Dez antes de Jan */
+  const AF2_MESES=[["01","Jan"],["02","Fev"],["03","Mar"],["04","Abr"],
+                   ["05","Mai"],["06","Jun"],["07","Jul"],["08","Ago"],
+                   ["09","Set"],["10","Out"],["11","Nov"],["12","Dez"]];
+  const elM=af2El("af2Month");
+  if(elM){
+    elM.innerHTML='<option value="">Todos os meses</option>'+
+      AF2_MESES.map(m=>'<option value="'+m[0]+'">'+m[1]+'</option>').join("");
+  }
+  ["af2Company","af2Dept","af2Type","af2Year","af2Month","af2Range"].forEach(id=>{
     const el=af2El(id);if(el)el.addEventListener("change",af2Render);
   });
 }
@@ -3743,10 +3835,12 @@ function af2Setup(){
 function af2Filtered(){
   const co=af2El("af2Company")?.value||"",de=af2El("af2Dept")?.value||"",
         ty=af2El("af2Type")?.value||"",yr=af2El("af2Year")?.value||"",
+        mo=af2El("af2Month")?.value||"",
         rg=af2El("af2Range")?.value||"";
   return af2Records.filter(r=>
     (!co||r.company===co)&&(!de||r.department===de)&&
     (!ty||r.type===ty)&&(!yr||r.date.startsWith(yr))&&
+    (!mo||r.date.slice(5,7)===mo)&&
     (!rg||af2RangeOf(r.days)===rg));
 }
 
@@ -3856,7 +3950,7 @@ function af2Render(){
 }
 
 function af2Reset(){
-  ["af2Company","af2Dept","af2Type","af2Year","af2Range"].forEach(id=>{
+  ["af2Company","af2Dept","af2Type","af2Year","af2Month","af2Range"].forEach(id=>{
     const el=af2El(id);if(el)el.value="";});
   af2Render();
 }
