@@ -567,7 +567,7 @@
       </div>
       {% if ausentes %}
         {% set qt_troca      = trocas_reais | length %}
-        {% set qt_nao_correu = nao_correram | length %}
+        {% set qt_nao_correu = grupo.qt_pilotos_nao_correu %}
         {% set qt_justif     = trocas_reais | selectattr("id_fato", "in", trocas_salvas) | list | length %}
         {% set qt_nao_justif = qt_troca - qt_justif %}
         {% if qt_troca %}
@@ -670,7 +670,9 @@
     {# ── Piloto não correu ── #}
     {% if nao_correram %}
       <div class="te-section-label te-sec-nao-correu">
-        <span>Piloto não correu na etapa</span>
+        <span>Piloto não correu na etapa —
+          {{ grupo.qt_pilotos_nao_correu }} piloto{{ 's' if grupo.qt_pilotos_nao_correu != 1 }},
+          {{ nao_correram | length }} autônomo{{ 's' if nao_correram | length != 1 }}</span>
       </div>
       {% for f in nao_correram %}
         <div class="te-card nao-correu-card"

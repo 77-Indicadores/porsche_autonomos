@@ -213,6 +213,8 @@ def troca_etapas_index(request: Request, db: Session = Depends(get_db)):
 
             trocas_reais = [f for f in ausentes if f.id_fato not in ids_piloto_nao_correu]
             nao_correram = [f for f in ausentes if f.id_fato in ids_piloto_nao_correu]
+            # a lista tem uma linha por autônomo, mas quem não correu é o piloto
+            qt_pilotos_nao_correu = len({f.id_piloto for f in nao_correram})
 
             transicoes.append({
                 "etapa_ant": ant,
@@ -224,6 +226,7 @@ def troca_etapas_index(request: Request, db: Session = Depends(get_db)):
                 "trocas_reais": trocas_reais,
                 "destinos": destinos,
                 "nao_correram": nao_correram,
+                "qt_pilotos_nao_correu": qt_pilotos_nao_correu,
             })
 
         if transicoes:
