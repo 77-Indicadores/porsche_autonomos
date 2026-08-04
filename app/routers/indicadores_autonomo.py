@@ -27,6 +27,7 @@ def _fetch(db: Session) -> str:
     )
     seen: set = set()
     rows: list = []
+    grupo_de: list = []  # (id_autonomo, id_etapa) de cada row, para o rateio
     for f in fatos:
         if not (f.valor_fechado_etapa or f.status_pagamento or f.id_autonomo_substituto):
             continue
@@ -34,6 +35,7 @@ def _fetch(db: Session) -> str:
         if key in seen:
             continue
         seen.add(key)
+        grupo_de.append((f.id_autonomo, f.id_etapa))
         et = f.etapa
         aut = f.autonomo
         pil = f.piloto
@@ -55,6 +57,18 @@ def _fetch(db: Session) -> str:
             "foi_sub":    str(getattr(f, "foi_substituido", "") or ""),
             "id_sub":     f.id_autonomo_substituto or 0,
         })
+
+    # Rateio: valor_fechado_etapa é o combinado da ETAPA. Quando o autônomo
+    # atende mais de um carro na mesma etapa, o valor vem lançado em cada
+    # linha e a soma duplicava o custo — divide pelo nº de carros atendidos.
+    from collections import Counter
+    n_por_grupo = Counter(grupo_de)
+    for row, grupo in zip(rows, grupo_de):
+        n = n_por_grupo[grupo]
+        if n > 1 and row["valor"]:
+            row["valor"] = round(row["valor"] / n, 2)
+            row["rateado"] = n
+
     return _json.dumps(rows, ensure_ascii=False)
 
 
