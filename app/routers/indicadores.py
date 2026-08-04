@@ -611,6 +611,8 @@ def _turnover_svg(meses: list[dict]) -> str:
 
 def _bar_chart_html(meses: list[dict]) -> str:
     """Gera barras empilhadas admitidos/demitidos por mês."""
+    if not meses:
+        return "<p style='color:#9ca3af;font-size:12px;padding:12px'>Sem dados no período selecionado.</p>"
     max_val = max((m["admitidos"] + m["demitidos"]) for m in meses) or 1
     BAR_H = 200
     cols = []
@@ -798,23 +800,23 @@ def _build_turnover_html(
 ) -> str:
     meses = _turnover_mensal(colabs, ano)
 
-    # O gráfico mantém os 12 meses; o mês selecionado recorta os indicadores.
     try:
         mes_num = int(mes_sel) if mes_sel else 0
     except ValueError:
         mes_num = 0
 
-    # colabs demitidos no ano (ou no mês, quando selecionado)
+    # O mês selecionado vale para tudo, inclusive os gráficos.
+    meses_ref = [m for m in meses if not m["futuro"]]
+    if mes_num:
+        meses_ref = [m for m in meses_ref if m["mes"] == mes_num]
+
     dem_ano = [c for c in colabs if c["data_demissa"] and c["data_demissa"].year == ano]
     if mes_num:
         dem_ano = [c for c in dem_ano if c["data_demissa"].month == mes_num]
-        meses_ref = [m for m in meses if m["mes"] == mes_num]
-    else:
-        meses_ref = [m for m in meses if not m["futuro"]]
 
-    total_adm  = sum(m["admitidos"] for m in (meses_ref or meses))
-    total_dem  = len(dem_ano) if mes_num else sum(m["demitidos"] for m in meses)
-    hc_ref     = next((m["headcount"] for m in reversed(meses) if not m["futuro"]), 0) or 1
+    total_adm  = sum(m["admitidos"] for m in meses_ref)
+    total_dem  = sum(m["demitidos"] for m in meses_ref)
+    hc_ref     = next((m["headcount"] for m in reversed(meses_ref)), 0) or 1
     turn_total = total_dem / hc_ref * 100
 
     # desligamentos < 3 meses
@@ -874,10 +876,15 @@ def _build_turnover_html(
         f"<option value='{d}'{' selected' if d == (depto_sel or '').upper() else ''}>{d.title()}</option>"
         for d in (todos_deptos or [])
     )
-    mes_opts_tv = "<option value=''>Ano todo</option>" + "".join(
-        f"<option value='{m:02d}'{' selected' if m == mes_num else ''}>{_MES_LABEL[f'{m:02d}']}</option>"
-        for m in range(1, 13)
-    )
+    # só meses já ocorridos: mês futuro não tem o que mostrar
+    _mes_ops = []
+    for m in meses:
+        if m["futuro"]:
+            continue
+        num = m["mes"]
+        sel = " selected" if num == mes_num else ""
+        _mes_ops.append(f"<option value='{num:02d}'{sel}>{_MES_LABEL[f'{num:02d}']}</option>")
+    mes_opts_tv = "<option value=''>Ano todo</option>" + "".join(_mes_ops)
 
     return f"""<div class="tv-wrap">{_CSS_TURNOVER}
 
@@ -972,7 +979,7 @@ def _build_turnover_html(
         <span class="item"><span class="dot gray"></span> Demitidos</span>
       </div>
     </div>
-    <div class="chart-area"><div class="bars-grid">{_bar_chart_html([m for m in meses if not m["futuro"]][-6:])}</div></div>
+    <div class="chart-area"><div class="bars-grid">{_bar_chart_html(meses_ref[-6:])}</div></div>
   </article>
 
   <article class="card">
@@ -980,7 +987,7 @@ def _build_turnover_html(
       <div><h3>Turnover % por mês</h3><p>Evolução mensal do indicador</p></div>
       <div class="legend"><span class="item"><span class="dot red"></span> Turnover %</span></div>
     </div>
-    <div class="line-wrap">{_turnover_svg([m for m in meses if not m["futuro"]][-6:])}</div>
+    <div class="line-wrap">{_turnover_svg(meses_ref[-6:])}</div>
   </article>
 
   <article class="card">
