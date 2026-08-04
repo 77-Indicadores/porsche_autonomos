@@ -105,103 +105,131 @@ def troca_etapas_index(request: Request, db: Session = Depends(get_db)):
         key = (t["id_etapa_anterior"], t["id_etapa_proxima"], t["id_fato"])
         trocas_db[key] = dict(t)
 
-    # Grupos: um por par consecutivo dentro da mesma temporada
-    grupos = []
-    for i in range(len(etapas) - 1):
-        ant = etapas[i]
-        prox = etapas[i + 1]
+    # ── Agrupamento por categoria ───────────────────────────────────────
+    # Cada categoria tem o seu proprio calendario: a Sprint Challenge pode
+    # pular etapas que a Carrera Cup corre. Parear pelo calendario geral
+    # perdia transicoes reais (ex.: etapa 2 -> 5 da Sprint), entao o
+    # pareamento e feito dentro de cada categoria.
+    def _nome_prova(f):
+        return (f.prova.nome_prova if f.prova else None) or ""
 
-        if ant.temporada != prox.temporada:
-            continue
+    etapas_por_id = {e.id_etapa: e for e in etapas}
+    ordem_etapa = {e.id_etapa: i for i, e in enumerate(etapas)}
 
-        fatos_ant = fatos_por_etapa.get(ant.id_etapa, [])
-        fatos_prox_list = fatos_por_etapa.get(prox.id_etapa, [])
+    # categoria -> id_etapa -> fatos
+    por_categoria: dict = {}
+    for f in todos_fatos:
+        cat = _nome_prova(f) or "Sem categoria"
+        por_categoria.setdefault(cat, {}).setdefault(f.id_etapa, []).append(f)
 
-        def _nome_prova(f):
-            return (f.prova.nome_prova if f.prova else None) or ""
+    categorias = []
+    for cat in sorted(por_categoria):
+        etapas_cat = sorted(
+            (etapas_por_id[eid] for eid in por_categoria[cat] if eid in etapas_por_id),
+            key=lambda e: ordem_etapa[e.id_etapa],
+        )
 
-        nomes_na_prox = {_nome_prova(f) for f in fatos_prox_list}
-        chaves_prox = {
-            (f.id_autonomo, f.id_piloto, f.id_carro, _nome_prova(f))
-            for f in fatos_prox_list
-        }
-        pilotos_na_prox = {(f.id_piloto, _nome_prova(f)) for f in fatos_prox_list}
-
-        # Autonomos que já estavam na etapa anterior por (piloto, carro, categoria, função)
-        autonomos_na_ant: dict = {}
-        for f in fatos_ant:
-            chave = (f.id_piloto, f.id_carro, _nome_prova(f), f.funcao_autonomo or "")
-            autonomos_na_ant.setdefault(chave, set()).add(f.id_autonomo)
-
-        # Substituto 1-para-1: novo autonomo na mesma função do ausente
-        substitutos_map: dict = {}
-        for f in fatos_prox_list:
-            chave = (f.id_piloto, f.id_carro, _nome_prova(f), f.funcao_autonomo or "")
-            ja_estava = autonomos_na_ant.get(chave, set())
-            if f.id_autonomo not in ja_estava:
-                nome_aut = getattr(f.autonomo, "nome_autonomo", None) or "—"
-                substitutos_map.setdefault(chave, []).append(nome_aut)
-
-        ausentes = []
-        ids_piloto_nao_correu = set()
-        substitutos: dict = {}  # id_fato → lista de nomes substitutos
-        for f in fatos_ant:
-            nome = _nome_prova(f)
-            if nome not in nomes_na_prox:
+        transicoes = []
+        for i in range(len(etapas_cat) - 1):
+            ant, prox = etapas_cat[i], etapas_cat[i + 1]
+            if ant.temporada != prox.temporada:
                 continue
-            if (f.id_autonomo, f.id_piloto, f.id_carro, nome) in chaves_prox:
-                continue
-            ausentes.append(f)
-            if (f.id_piloto, nome) not in pilotos_na_prox:
-                ids_piloto_nao_correu.add(f.id_fato)
-            else:
-                subs = substitutos_map.get((f.id_piloto, f.id_carro, nome, f.funcao_autonomo or ""), [])
+
+            fatos_ant = por_categoria[cat].get(ant.id_etapa, [])
+            fatos_prox = por_categoria[cat].get(prox.id_etapa, [])
+
+            chaves_prox = {(f.id_autonomo, f.id_piloto, f.id_carro) for f in fatos_prox}
+            pilotos_na_prox = {f.id_piloto for f in fatos_prox}
+
+            # quem ja estava na etapa anterior, por piloto/carro/funcao
+            autonomos_na_ant: dict = {}
+            for f in fatos_ant:
+                chave = (f.id_piloto, f.id_carro, f.funcao_autonomo or "")
+                autonomos_na_ant.setdefault(chave, set()).add(f.id_autonomo)
+
+            # substituto 1-para-1: autonomo novo na mesma funcao
+            substitutos_map: dict = {}
+            for f in fatos_prox:
+                chave = (f.id_piloto, f.id_carro, f.funcao_autonomo or "")
+                if f.id_autonomo not in autonomos_na_ant.get(chave, set()):
+                    nome_aut = getattr(f.autonomo, "nome_autonomo", None) or "—"
+                    substitutos_map.setdefault(chave, []).append(nome_aut)
+
+            ausentes = []
+            ids_piloto_nao_correu = set()
+            substitutos: dict = {}
+            for f in fatos_ant:
+                if (f.id_autonomo, f.id_piloto, f.id_carro) in chaves_prox:
+                    continue
+                ausentes.append(f)
+                if f.id_piloto not in pilotos_na_prox:
+                    ids_piloto_nao_correu.add(f.id_fato)
+                    continue
+                subs = substitutos_map.get((f.id_piloto, f.id_carro, f.funcao_autonomo or ""), [])
                 if not subs:
-                    # Fallback: funcao_autonomo pode diferir entre etapas — ignora a função
-                    for (pid, cid, pnome, _fn), names in substitutos_map.items():
-                        if pid == f.id_piloto and cid == f.id_carro and pnome == nome:
-                            subs = subs + names
+                    # a funcao pode mudar entre etapas; tenta so por piloto e carro
+                    for (pid, cid, _fn), nomes in substitutos_map.items():
+                        if pid == f.id_piloto and cid == f.id_carro:
+                            subs = subs + nomes
                 if subs:
                     substitutos[f.id_fato] = subs
 
-        trocas_salvas: dict = {}
-        for f in ausentes:
-            key = (ant.id_etapa, prox.id_etapa, f.id_fato)
-            if key in trocas_db:
-                t = trocas_db[key]
-                trocas_salvas[f.id_fato] = {
-                    "id_motivo_troca": t["id_motivo_troca"],
-                    "justificativa": t["justificativa"] or "",
-                    "motivo_label": motivos_map.get(t["id_motivo_troca"], ""),
-                }
+            if not ausentes:
+                continue
 
-        trocas_reais = [f for f in ausentes if f.id_fato not in ids_piloto_nao_correu]
-        nao_correram = [f for f in ausentes if f.id_fato in ids_piloto_nao_correu]
+            trocas_salvas: dict = {}
+            for f in ausentes:
+                t = trocas_db.get((ant.id_etapa, prox.id_etapa, f.id_fato))
+                if t:
+                    trocas_salvas[f.id_fato] = {
+                        "id_motivo_troca": t["id_motivo_troca"],
+                        "justificativa": t["justificativa"] or "",
+                        "motivo_label": motivos_map.get(t["id_motivo_troca"], ""),
+                    }
 
-        # Quebra por categoria (nome da prova) dentro do par de etapas
-        por_categoria: dict = {}
-        for f in trocas_reais:
-            por_categoria.setdefault(_nome_prova(f) or "Sem categoria", []).append(f)
-        trocas_por_categoria = sorted(por_categoria.items(), key=lambda kv: kv[0])
+            trocas_reais = [f for f in ausentes if f.id_fato not in ids_piloto_nao_correu]
+            nao_correram = [f for f in ausentes if f.id_fato in ids_piloto_nao_correu]
 
-        grupos.append({
-            "etapa_ant": ant,
-            "etapa_prox": prox,
-            "ausentes": ausentes,
-            "trocas_salvas": trocas_salvas,
-            "ids_piloto_nao_correu": ids_piloto_nao_correu,
-            "substitutos": substitutos,
-            "trocas_reais": trocas_reais,
-            "nao_correram": nao_correram,
-            "trocas_por_categoria": trocas_por_categoria,
-        })
+            transicoes.append({
+                "etapa_ant": ant,
+                "etapa_prox": prox,
+                "ausentes": ausentes,
+                "trocas_salvas": trocas_salvas,
+                "ids_piloto_nao_correu": ids_piloto_nao_correu,
+                "substitutos": substitutos,
+                "trocas_reais": trocas_reais,
+                "nao_correram": nao_correram,
+            })
+
+        if transicoes:
+            categorias.append({
+                "nome": cat,
+                "transicoes": transicoes,
+                "qt_trocas": sum(len(t["trocas_reais"]) for t in transicoes),
+                "qt_justif": sum(
+                    len([f for f in t["trocas_reais"] if f.id_fato in t["trocas_salvas"]])
+                    for t in transicoes
+                ),
+                "etapas_seq": " → ".join(
+                    [transicoes[0]["etapa_ant"].nome_etapa]
+                    + [t["etapa_prox"].nome_etapa for t in transicoes]
+                ),
+            })
+
+    # índice global das transições, usado pelo filtro de etapa no template
+    idx = 0
+    for c in categorias:
+        for t in c["transicoes"]:
+            idx += 1
+            t["idx"] = idx
+            t["label"] = f"{t['etapa_ant'].nome_etapa} → {t['etapa_prox'].nome_etapa}"
 
     return templates.TemplateResponse(
         "troca_etapas/index.html",
         {
             "request": request,
             "motivos": motivos,
-            "grupos": grupos,
+            "categorias": categorias,
         },
     )
 
@@ -267,44 +295,55 @@ def exportar_excel(db: Session = Depends(get_db)):
     def _nome_prova(f):
         return (f.prova.nome_prova if f.prova else None) or ""
 
+    # Mesmo pareamento da tela: dentro de cada categoria, etapas consecutivas
+    # daquela categoria — e não do calendário geral.
+    etapas_por_id = {e.id_etapa: e for e in etapas}
+    ordem_etapa = {e.id_etapa: i for i, e in enumerate(etapas)}
+
+    por_categoria: dict = {}
+    for f in todos_fatos:
+        cat = _nome_prova(f) or "Sem categoria"
+        por_categoria.setdefault(cat, {}).setdefault(f.id_etapa, []).append(f)
+
+    pares = []
+    for cat in sorted(por_categoria):
+        etapas_cat = sorted(
+            (etapas_por_id[eid] for eid in por_categoria[cat] if eid in etapas_por_id),
+            key=lambda e: ordem_etapa[e.id_etapa],
+        )
+        for i in range(len(etapas_cat) - 1):
+            a, p = etapas_cat[i], etapas_cat[i + 1]
+            if a.temporada == p.temporada:
+                pares.append((cat, a, p))
+
     row_num = 2
-    for i in range(len(etapas) - 1):
-        ant = etapas[i]
-        prox = etapas[i + 1]
-        if ant.temporada != prox.temporada:
-            continue
+    for nome, ant, prox in pares:
+        fatos_ant = por_categoria[nome].get(ant.id_etapa, [])
+        fatos_prox_list = por_categoria[nome].get(prox.id_etapa, [])
 
-        fatos_ant = fatos_por_etapa.get(ant.id_etapa, [])
-        fatos_prox_list = fatos_por_etapa.get(prox.id_etapa, [])
-
-        nomes_na_prox = {_nome_prova(f) for f in fatos_prox_list}
-        chaves_prox = {(f.id_autonomo, f.id_piloto, f.id_carro, _nome_prova(f)) for f in fatos_prox_list}
-        pilotos_na_prox = {(f.id_piloto, _nome_prova(f)) for f in fatos_prox_list}
+        chaves_prox = {(f.id_autonomo, f.id_piloto, f.id_carro) for f in fatos_prox_list}
+        pilotos_na_prox = {f.id_piloto for f in fatos_prox_list}
 
         autonomos_na_ant: dict = {}
         for f in fatos_ant:
-            chave = (f.id_piloto, f.id_carro, _nome_prova(f), f.funcao_autonomo or "")
+            chave = (f.id_piloto, f.id_carro, f.funcao_autonomo or "")
             autonomos_na_ant.setdefault(chave, set()).add(f.id_autonomo)
 
         substitutos_map: dict = {}
         for f in fatos_prox_list:
-            chave = (f.id_piloto, f.id_carro, _nome_prova(f), f.funcao_autonomo or "")
-            ja_estava = autonomos_na_ant.get(chave, set())
-            if f.id_autonomo not in ja_estava:
+            chave = (f.id_piloto, f.id_carro, f.funcao_autonomo or "")
+            if f.id_autonomo not in autonomos_na_ant.get(chave, set()):
                 nome_aut = getattr(f.autonomo, "nome_autonomo", None) or "—"
                 substitutos_map.setdefault(chave, []).append(nome_aut)
 
         for f in fatos_ant:
-            nome = _nome_prova(f)
-            if nome not in nomes_na_prox:
-                continue
-            if (f.id_autonomo, f.id_piloto, f.id_carro, nome) in chaves_prox:
+            if (f.id_autonomo, f.id_piloto, f.id_carro) in chaves_prox:
                 continue
 
-            nao_correu = (f.id_piloto, nome) not in pilotos_na_prox
+            nao_correu = f.id_piloto not in pilotos_na_prox
             tipo = "Piloto não correu" if nao_correu else "Troca de autônomo"
 
-            subs_chave = (f.id_piloto, f.id_carro, nome, f.funcao_autonomo or "")
+            subs_chave = (f.id_piloto, f.id_carro, f.funcao_autonomo or "")
             substitutos = ", ".join(substitutos_map.get(subs_chave, [])) or "—"
 
             key = (ant.id_etapa, prox.id_etapa, f.id_fato)

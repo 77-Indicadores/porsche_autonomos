@@ -275,6 +275,34 @@
   border-radius: 5px;
   margin-bottom: 4px;
 }
+.te-cat-bloco { margin-bottom: 26px; }
+.te-cat-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  flex-wrap: wrap;
+  padding: 12px 16px;
+  margin-bottom: 10px;
+  background: linear-gradient(90deg, #1e3a5f 0%, #0f1c33 100%);
+  border-left: 4px solid #e31837;
+  border-radius: 10px;
+}
+.te-cat-header h2 {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 800;
+  color: #f1f5f9;
+  letter-spacing: .01em;
+}
+.te-cat-header p {
+  margin: 3px 0 0;
+  font-size: 11px;
+  color: #93c5fd;
+  font-weight: 600;
+}
+.te-cat-badges { display: flex; gap: 6px; flex-wrap: wrap; }
+
 .te-cat-label {
   display: flex;
   align-items: center;
@@ -394,7 +422,7 @@
 .te-empty-page h3 { font-size: 18px; font-weight: 600; color: #94a3b8; margin: 0 0 8px 0; }
 </style>
 
-{% if not grupos %}
+{% if not categorias %}
   <div class="te-empty-page">
     <div class="icon">📭</div>
     <h3>Nenhuma comparação disponível</h3>
@@ -421,12 +449,12 @@
             <input type="checkbox" value="__all__" onchange="msSelectAll('ms-etapa', this)">
             <label>Selecionar todos</label>
           </label>
-          {% for grupo in grupos %}
+          {% for cat in categorias %}{% for grupo in cat.transicoes %}
             <label class="ms-option">
-              <input type="checkbox" value="{{ loop.index }}" onchange="msChange('ms-etapa')">
-              <label>{{ grupo.etapa_ant.nome_etapa }} → {{ grupo.etapa_prox.nome_etapa }}</label>
+              <input type="checkbox" value="{{ grupo.idx }}" onchange="msChange('ms-etapa')">
+              <label>{{ cat.nome }} · {{ grupo.label }}</label>
             </label>
-          {% endfor %}
+          {% endfor %}{% endfor %}
         </div>
       </div>
     </div>
@@ -488,7 +516,26 @@
   </div>
 </div>
 
-{% for grupo in grupos %}
+{% for cat in categorias %}
+<section class="te-cat-bloco" data-categoria="{{ cat.nome }}">
+  <header class="te-cat-header">
+    <div>
+      <h2>{{ cat.nome }}</h2>
+      <p>{{ cat.etapas_seq }}</p>
+    </div>
+    <div class="te-cat-badges">
+      <span class="te-grupo-badge tem">{{ cat.qt_trocas }} troca{{ 's' if cat.qt_trocas != 1 }}</span>
+      {% if cat.qt_justif %}
+        <span class="te-grupo-badge" style="background:#14532d;color:#86efac;">{{ cat.qt_justif }} justificada{{ 's' if cat.qt_justif != 1 }}</span>
+      {% endif %}
+      {% set _nj = cat.qt_trocas - cat.qt_justif %}
+      {% if _nj > 0 %}
+        <span class="te-grupo-badge" style="background:#431407;color:#fdba74;">{{ _nj }} não justificada{{ 's' if _nj != 1 }}</span>
+      {% endif %}
+    </div>
+  </header>
+
+{% for grupo in cat.transicoes %}
   {# ── ALL variables defined BEFORE the header ── #}
   {% set ant = grupo.etapa_ant %}
   {% set prox = grupo.etapa_prox %}
@@ -499,8 +546,9 @@
   {% set trocas_reais = grupo.trocas_reais %}
   {% set nao_correram = grupo.nao_correram %}
 
-  <details id="te-grupo-{{ loop.index }}" class="te-grupo-wrapper" open
-           data-grupo="{{ loop.index }}"
+  <details id="te-grupo-{{ grupo.idx }}" class="te-grupo-wrapper" open
+           data-grupo="{{ grupo.idx }}"
+           data-categoria="{{ cat.nome }}"
            data-etapa-label="{{ ant.nome_etapa }} → {{ prox.nome_etapa }}">
     <summary>
       <span class="te-chevron">▶</span>
@@ -539,16 +587,11 @@
       <div class="te-section-label te-sec-troca">
         <span>Troca de autônomo</span>
       </div>
-      {% for categoria, fatos_cat in grupo.trocas_por_categoria %}
-      <div class="te-cat-label" data-cat="{{ categoria }}">
-        <span>{{ categoria }}</span>
-        <span class="te-cat-count">{{ fatos_cat | length }} troca{{ 's' if fatos_cat | length != 1 }}</span>
-      </div>
-      {% for f in fatos_cat %}
+      {% for f in trocas_reais %}
         {% set salvo = trocas_salvas.get(f.id_fato) %}
         <div class="te-card"
              data-tipo="troca"
-             data-cat="{{ categoria }}"
+             data-cat="{{ cat.nome }}"
              data-piloto="{{ (f.piloto.nome_piloto if f.piloto else '') | lower }}"
              data-piloto-nome="{{ f.piloto.nome_piloto if f.piloto else '' }}"
              data-justificado="{{ '1' if salvo else '0' }}">
@@ -610,7 +653,6 @@
           </div>
         </div>
       {% endfor %}
-      {% endfor %}
     {% endif %}
 
     {# ── Piloto não correu ── #}
@@ -654,6 +696,8 @@
 
     <div class="te-no-results">Nenhum resultado com os filtros aplicados.</div>
   </details>
+{% endfor %}
+</section>
 {% endfor %}
 
 {% endif %}
@@ -813,15 +857,6 @@ function aplicarFiltros() {
       if (show) naoCorreuVis++;
     });
 
-    grupo.querySelectorAll('.te-cat-label').forEach(function(lbl) {
-      const cat = lbl.dataset.cat;
-      const vis = Array.prototype.some.call(
-        grupo.querySelectorAll('.te-card[data-tipo="troca"][data-cat]'),
-        function(c) { return c.dataset.cat === cat && c.style.display !== 'none'; }
-      );
-      lbl.style.display = vis ? '' : 'none';
-    });
-
     const secT = grupo.querySelector('.te-sec-troca');
     const secN = grupo.querySelector('.te-sec-nao-correu');
     if (secT) secT.style.display = trocaVis > 0     ? '' : 'none';
@@ -835,6 +870,15 @@ function aplicarFiltros() {
     if ((etapaSel.length || statusSel.length || pilotoSel.length) && total > 0) {
       grupo.setAttribute('open', '');
     }
+  });
+
+  /* esconde a categoria inteira quando nenhuma transição dela sobrou */
+  document.querySelectorAll('.te-cat-bloco').forEach(function(bloco) {
+    const visivel = Array.prototype.some.call(
+      bloco.querySelectorAll('.te-grupo-wrapper'),
+      function(g) { return g.style.display !== 'none'; }
+    );
+    bloco.style.display = visivel ? '' : 'none';
   });
 }
 
