@@ -225,6 +225,32 @@ def _opcoes() -> tuple[list[str], list[str]]:
     return empresas, comps
 
 
+def _dependentes_map(competencia: str = "") -> dict[str, int]:
+    """Dependentes por matrícula.
+
+    A fonte é o `nd` da folha importada — o mesmo campo que o cálculo do budget
+    usa. O valor editado em Níveis de Cargo tem prioridade, mas só quando existe:
+    a tela grava `budget_cargos` apenas quando alguém a salva, e sem esse
+    fallback o holerite mostrava zero para todo mundo.
+    """
+    try:
+        rows = _db("""
+            SELECT ff.matricula AS matricula,
+                   MAX(COALESCE(NULLIF(bc.dependentes, 0), ff.nd, 0)) AS dep
+            FROM folha_funcionarios ff
+            LEFT JOIN budget_cargos bc
+                   ON bc.matricula = ff.matricula
+                  AND bc.competencia = ff.competencia
+            WHERE (:comp = '' OR ff.competencia = :comp)
+              AND ff.matricula IS NOT NULL AND ff.matricula <> ''
+            GROUP BY ff.matricula
+        """, {"comp": competencia or ""})
+        return {str(r["matricula"]): int(r["dep"] or 0) for r in rows}
+    except Exception as exc:
+        print(f"AVISO - dependentes: {exc}")
+        return {}
+
+
 def _deptos() -> list[str]:
     """Departamentos disponíveis, vindos do cadastro de centros de custo."""
     try:
@@ -529,14 +555,7 @@ def folha_holerite(
             cargo   = (first["cargo"] or "").upper()
             eh_est  = "ESTAGIARIO" in cargo or "ESTAGIARIA" in cargo
 
-            # Dependentes do budget_cargos
-            dep_row = _db("""
-                SELECT MAX(dependentes) AS dep
-                FROM budget_cargos
-                WHERE matricula = :mat
-                  AND (:comp = '' OR competencia = :comp)
-            """, {"mat": mat, "comp": competencia or ""})
-            dependentes = int((dep_row[0]["dep"] or 0) if dep_row else 0)
+            dependentes = _dependentes_map(competencia).get(str(mat), 0)
 
             # Admissão da folha real
             adm = _db("""
@@ -743,13 +762,7 @@ def folha_lista(
         ORDER BY nome_empregado, valor DESC
     """, {"empresa": empresa, "comp": competencia, **_pd_lista})
 
-    dep_rows = _db("""
-        SELECT matricula, MAX(dependentes) AS dep
-        FROM budget_cargos
-        WHERE (:comp = '' OR competencia = :comp)
-        GROUP BY matricula
-    """, {"comp": competencia})
-    dep_map = {d["matricula"]: int(d["dep"] or 0) for d in dep_rows}
+    dep_map = _dependentes_map(competencia)
 
     _RESCISORIO_L = {"Provisão Aviso Prévio", "Multa do FGTS"}
 
@@ -894,11 +907,7 @@ def folha_simulacao(
             cargo  = (first["cargo"] or "").upper()
             eh_est = "ESTAGIARIO" in cargo or "ESTAGIARIA" in cargo
 
-            dep_row = _db("""
-                SELECT MAX(dependentes) AS dep FROM budget_cargos
-                WHERE matricula = :mat AND (:comp = '' OR competencia = :comp)
-            """, {"mat": mat, "comp": competencia or ""})
-            dep = int((dep_row[0]["dep"] or 0) if dep_row else 0)
+            dep = _dependentes_map(competencia).get(str(mat), 0)
 
             def _grupos(verbas_list, fator=1.0):
                 prov_v  = [v for v in verbas_list if _classif(v["descricao"]) in ("Salário", "Adicionais") and v["descricao"] not in _RESCISORIO]
