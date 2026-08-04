@@ -246,8 +246,7 @@
   border-top: none;
   background: #0f172a;
 }
-.te-sec-remanejado { border-left: 3px solid #a16207; }
-.te-sec-remanejado span { color: #fde68a !important; }
+
 .te-section-label span {
   font-size: 11px;
   font-weight: 700;
@@ -304,6 +303,15 @@
   font-weight: 600;
 }
 .te-cat-badges { display: flex; gap: 6px; flex-wrap: wrap; }
+.te-destino {
+  display: inline-block;
+  background: #3b2f0b;
+  color: #fde68a;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 5px;
+}
 
 .te-cat-label {
   display: flex;
@@ -527,16 +535,10 @@
     </div>
     <div class="te-cat-badges">
       <span class="te-grupo-badge tem">{{ cat.qt_trocas }} troca{{ 's' if cat.qt_trocas != 1 }}</span>
-      {% if cat.qt_justif %}
-        <span class="te-grupo-badge" style="background:#14532d;color:#86efac;">{{ cat.qt_justif }} justificada{{ 's' if cat.qt_justif != 1 }}</span>
-      {% endif %}
+      <span class="te-grupo-badge te-b-justif" style="background:#14532d;color:#86efac;{{ '' if cat.qt_justif else 'display:none' }}">{{ cat.qt_justif }} justificada{{ 's' if cat.qt_justif != 1 }}</span>
       {% set _nj = cat.qt_trocas - cat.qt_justif %}
-      {% if _nj > 0 %}
-        <span class="te-grupo-badge" style="background:#431407;color:#fdba74;">{{ _nj }} não justificada{{ 's' if _nj != 1 }}</span>
-      {% endif %}
-      {% if cat.qt_remanejados %}
-        <span class="te-grupo-badge" style="background:#3b2f0b;color:#fde68a;">{{ cat.qt_remanejados }} remanejado{{ 's' if cat.qt_remanejados != 1 }}</span>
-      {% endif %}
+      <span class="te-grupo-badge te-b-nao-justif" style="background:#431407;color:#fdba74;{{ '' if _nj > 0 else 'display:none' }}">{{ _nj }} não justificada{{ 's' if _nj != 1 }}</span>
+
     </div>
   </header>
 
@@ -571,16 +573,9 @@
         {% if qt_troca %}
           <span class="te-grupo-badge tem">{{ qt_troca }} troca{{ 's' if qt_troca != 1 }}</span>
         {% endif %}
-        {% if qt_justif %}
-          <span class="te-grupo-badge" style="background:#14532d;color:#86efac;">{{ qt_justif }} justificada{{ 's' if qt_justif != 1 }}</span>
-        {% endif %}
-        {% if qt_nao_justif %}
-          <span class="te-grupo-badge" style="background:#431407;color:#fdba74;">{{ qt_nao_justif }} não justificada{{ 's' if qt_nao_justif != 1 }}</span>
-        {% endif %}
-        {% set qt_reman = grupo.remanejados | length %}
-        {% if qt_reman %}
-          <span class="te-grupo-badge" style="background:#3b2f0b;color:#fde68a;">{{ qt_reman }} remanejado{{ 's' if qt_reman != 1 }}</span>
-        {% endif %}
+        <span class="te-grupo-badge te-b-justif" style="background:#14532d;color:#86efac;{{ '' if qt_justif else 'display:none' }}">{{ qt_justif }} justificada{{ 's' if qt_justif != 1 }}</span>
+        <span class="te-grupo-badge te-b-nao-justif" style="background:#431407;color:#fdba74;{{ '' if qt_nao_justif else 'display:none' }}">{{ qt_nao_justif }} não justificada{{ 's' if qt_nao_justif != 1 }}</span>
+
         {% if qt_nao_correu %}
           <span class="te-grupo-badge" style="background:#1e3a5f;color:#93c5fd;">
             {{ qt_nao_correu }} não {{ 'correu' if qt_nao_correu == 1 else 'correram' }}
@@ -622,6 +617,7 @@
           </div>
 
           {% set subs = substitutos.get(f.id_fato) %}
+          {% set destino = grupo.destinos.get(f.id_fato) %}
           <div class="te-info">
             <div class="lbl">Substituto (etapa seguinte)</div>
             {% if subs %}
@@ -630,6 +626,13 @@
               {% endfor %}
             {% else %}
               <div class="val" style="color:#475569;">—</div>
+            {% endif %}
+            {% if destino %}
+              <div style="margin-top:6px;">
+                <span class="te-destino">↔ foi para
+                  {% for chassi, piloto in destino %}{{ chassi }} · {{ piloto }}{{ ', ' if not loop.last }}{% endfor %}
+                </span>
+              </div>
             {% endif %}
           </div>
 
@@ -659,45 +662,6 @@
             <div class="te-form-btns">
               <span class="te-status" style="font-size:12px;font-weight:700;"></span>
             </div>
-          </div>
-        </div>
-      {% endfor %}
-    {% endif %}
-
-    {# ── Remanejado para outro carro ── #}
-    {% if grupo.remanejados %}
-      <div class="te-section-label te-sec-remanejado">
-        <span>Remanejado para outro carro — não é troca</span>
-      </div>
-      {% for f in grupo.remanejados %}
-        <div class="te-card nao-correu-card"
-             data-tipo="remanejado"
-             data-cat="{{ cat.nome }}"
-             data-piloto="{{ (f.piloto.nome_piloto if f.piloto else '') | lower }}"
-             data-piloto-nome="{{ f.piloto.nome_piloto if f.piloto else '' }}"
-             style="opacity:.8;">
-          <div class="te-info">
-            {% if f.carro %}<span class="carro-chip" style="background:#a16207;">{{ f.carro.chassi or f.carro.id_carro }}</span>{% endif %}
-            <div class="lbl" style="margin-top:6px;">Piloto</div>
-            <div class="val">{{ f.piloto.nome_piloto if f.piloto else '—' }}</div>
-          </div>
-          <div class="te-info">
-            <div class="lbl">Autônomo</div>
-            <div class="val">{{ f.autonomo.nome_autonomo if f.autonomo else '—' }}</div>
-            <div class="sub">{{ f.funcao_autonomo or '—' }}</div>
-          </div>
-          <div class="te-info">
-            <div class="lbl">Passou a atender</div>
-            {% for chassi, piloto in grupo.destinos.get(f.id_fato, []) %}
-              <div class="val" style="color:#fde68a;">{{ chassi }} · {{ piloto }}</div>
-            {% else %}
-              <div class="val" style="color:#475569;">—</div>
-            {% endfor %}
-          </div>
-          <div style="display:flex;align-items:center;">
-            <span style="background:#3b2f0b;color:#fde68a;font-size:12px;font-weight:700;padding:4px 12px;border-radius:6px;">
-              ↔ Continua na categoria
-            </span>
           </div>
         </div>
       {% endfor %}
@@ -898,13 +862,6 @@ function aplicarFiltros() {
       if (show) trocaVis++;
     });
 
-    let remanejadoVis = 0;
-    grupo.querySelectorAll('.te-card[data-tipo="remanejado"]').forEach(function(card) {
-      let show = statusSel.length === 0;
-      if (show && pilotoSel.length > 0 && !pilotoSel.includes(card.dataset.piloto)) show = false;
-      card.style.display = show ? '' : 'none';
-      if (show) remanejadoVis++;
-    });
 
     grupo.querySelectorAll('.te-card[data-tipo="nao-correu"]').forEach(function(card) {
       let show = statusSel.length === 0;
@@ -913,15 +870,14 @@ function aplicarFiltros() {
       if (show) naoCorreuVis++;
     });
 
-    const secR = grupo.querySelector('.te-sec-remanejado');
-    if (secR) secR.style.display = remanejadoVis > 0 ? '' : 'none';
+
 
     const secT = grupo.querySelector('.te-sec-troca');
     const secN = grupo.querySelector('.te-sec-nao-correu');
     if (secT) secT.style.display = trocaVis > 0     ? '' : 'none';
     if (secN) secN.style.display = naoCorreuVis > 0 ? '' : 'none';
 
-    const total    = trocaVis + naoCorreuVis + remanejadoVis;
+    const total    = trocaVis + naoCorreuVis;
     const hasCards = grupo.querySelectorAll('.te-card').length > 0;
     const noRes    = grupo.querySelector('.te-no-results');
     if (noRes) noRes.style.display = (hasCards && total === 0) ? 'block' : 'none';
@@ -939,6 +895,34 @@ function aplicarFiltros() {
     );
     bloco.style.display = visivel ? '' : 'none';
   });
+}
+
+/* ── Contagem de justificadas ──
+   Os badges vêm do servidor; como o auto-save não recarrega a página,
+   precisam ser recontados aqui, senão o número fica travado. */
+function teAtualizaBadges(escopo) {
+  const cards = escopo.querySelectorAll('.te-card[data-tipo="troca"]');
+  let just = 0;
+  cards.forEach(function(c) { if (c.dataset.justificado === "1") just++; });
+  const naoJust = cards.length - just;
+
+  const bj = escopo.querySelector(':scope > summary > .te-b-justif, :scope > .te-cat-header .te-b-justif');
+  const bn = escopo.querySelector(':scope > summary > .te-b-nao-justif, :scope > .te-cat-header .te-b-nao-justif');
+  if (bj) {
+    bj.textContent = just + " justificada" + (just !== 1 ? "s" : "");
+    bj.style.display = just ? "" : "none";
+  }
+  if (bn) {
+    bn.textContent = naoJust + " não justificada" + (naoJust !== 1 ? "s" : "");
+    bn.style.display = naoJust ? "" : "none";
+  }
+}
+
+function teRecontar(card) {
+  const transicao = card.closest('.te-grupo-wrapper');
+  if (transicao) teAtualizaBadges(transicao);
+  const categoria = card.closest('.te-cat-bloco');
+  if (categoria) teAtualizaBadges(categoria);
 }
 
 /* ── Auto-save de motivo/justificativa ── */
@@ -976,14 +960,23 @@ function teAutoSave(form) {
 
       var card = form.closest('.te-card');
       if (card) {
-        card.dataset.justificado = "1";
+        // limpar motivo e justificativa desfaz a justificativa
+        var temMotivo = !!form.querySelector('.te-motivo').value;
+        var temTexto  = !!form.querySelector('.te-justif').value.trim();
+        var justificado = temMotivo || temTexto;
+
+        card.dataset.justificado = justificado ? "1" : "0";
         var infoBlock = card.querySelectorAll('.te-info')[1];
-        if (infoBlock && !infoBlock.querySelector('.saved-tag')) {
+        var tag = infoBlock ? infoBlock.querySelector('.saved-tag') : null;
+        if (justificado && infoBlock && !tag) {
           var wrap = document.createElement('div');
           wrap.style.marginTop = "6px";
           wrap.innerHTML = '<span class="saved-tag">✓ justificado</span>';
           infoBlock.appendChild(wrap);
+        } else if (!justificado && tag) {
+          tag.parentNode.remove();
         }
+        teRecontar(card);
       }
 
       setTimeout(function() { status.textContent = ""; }, 2500);
