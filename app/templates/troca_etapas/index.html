@@ -246,6 +246,8 @@
   border-top: none;
   background: #0f172a;
 }
+.te-sec-remanejado { border-left: 3px solid #a16207; }
+.te-sec-remanejado span { color: #fde68a !important; }
 .te-section-label span {
   font-size: 11px;
   font-weight: 700;
@@ -532,6 +534,9 @@
       {% if _nj > 0 %}
         <span class="te-grupo-badge" style="background:#431407;color:#fdba74;">{{ _nj }} não justificada{{ 's' if _nj != 1 }}</span>
       {% endif %}
+      {% if cat.qt_remanejados %}
+        <span class="te-grupo-badge" style="background:#3b2f0b;color:#fde68a;">{{ cat.qt_remanejados }} remanejado{{ 's' if cat.qt_remanejados != 1 }}</span>
+      {% endif %}
     </div>
   </header>
 
@@ -571,6 +576,10 @@
         {% endif %}
         {% if qt_nao_justif %}
           <span class="te-grupo-badge" style="background:#431407;color:#fdba74;">{{ qt_nao_justif }} não justificada{{ 's' if qt_nao_justif != 1 }}</span>
+        {% endif %}
+        {% set qt_reman = grupo.remanejados | length %}
+        {% if qt_reman %}
+          <span class="te-grupo-badge" style="background:#3b2f0b;color:#fde68a;">{{ qt_reman }} remanejado{{ 's' if qt_reman != 1 }}</span>
         {% endif %}
         {% if qt_nao_correu %}
           <span class="te-grupo-badge" style="background:#1e3a5f;color:#93c5fd;">
@@ -650,6 +659,45 @@
             <div class="te-form-btns">
               <span class="te-status" style="font-size:12px;font-weight:700;"></span>
             </div>
+          </div>
+        </div>
+      {% endfor %}
+    {% endif %}
+
+    {# ── Remanejado para outro carro ── #}
+    {% if grupo.remanejados %}
+      <div class="te-section-label te-sec-remanejado">
+        <span>Remanejado para outro carro — não é troca</span>
+      </div>
+      {% for f in grupo.remanejados %}
+        <div class="te-card nao-correu-card"
+             data-tipo="remanejado"
+             data-cat="{{ cat.nome }}"
+             data-piloto="{{ (f.piloto.nome_piloto if f.piloto else '') | lower }}"
+             data-piloto-nome="{{ f.piloto.nome_piloto if f.piloto else '' }}"
+             style="opacity:.8;">
+          <div class="te-info">
+            {% if f.carro %}<span class="carro-chip" style="background:#a16207;">{{ f.carro.chassi or f.carro.id_carro }}</span>{% endif %}
+            <div class="lbl" style="margin-top:6px;">Piloto</div>
+            <div class="val">{{ f.piloto.nome_piloto if f.piloto else '—' }}</div>
+          </div>
+          <div class="te-info">
+            <div class="lbl">Autônomo</div>
+            <div class="val">{{ f.autonomo.nome_autonomo if f.autonomo else '—' }}</div>
+            <div class="sub">{{ f.funcao_autonomo or '—' }}</div>
+          </div>
+          <div class="te-info">
+            <div class="lbl">Passou a atender</div>
+            {% for chassi, piloto in grupo.destinos.get(f.id_fato, []) %}
+              <div class="val" style="color:#fde68a;">{{ chassi }} · {{ piloto }}</div>
+            {% else %}
+              <div class="val" style="color:#475569;">—</div>
+            {% endfor %}
+          </div>
+          <div style="display:flex;align-items:center;">
+            <span style="background:#3b2f0b;color:#fde68a;font-size:12px;font-weight:700;padding:4px 12px;border-radius:6px;">
+              ↔ Continua na categoria
+            </span>
           </div>
         </div>
       {% endfor %}
@@ -850,6 +898,14 @@ function aplicarFiltros() {
       if (show) trocaVis++;
     });
 
+    let remanejadoVis = 0;
+    grupo.querySelectorAll('.te-card[data-tipo="remanejado"]').forEach(function(card) {
+      let show = statusSel.length === 0;
+      if (show && pilotoSel.length > 0 && !pilotoSel.includes(card.dataset.piloto)) show = false;
+      card.style.display = show ? '' : 'none';
+      if (show) remanejadoVis++;
+    });
+
     grupo.querySelectorAll('.te-card[data-tipo="nao-correu"]').forEach(function(card) {
       let show = statusSel.length === 0;
       if (show && pilotoSel.length > 0 && !pilotoSel.includes(card.dataset.piloto)) show = false;
@@ -857,12 +913,15 @@ function aplicarFiltros() {
       if (show) naoCorreuVis++;
     });
 
+    const secR = grupo.querySelector('.te-sec-remanejado');
+    if (secR) secR.style.display = remanejadoVis > 0 ? '' : 'none';
+
     const secT = grupo.querySelector('.te-sec-troca');
     const secN = grupo.querySelector('.te-sec-nao-correu');
     if (secT) secT.style.display = trocaVis > 0     ? '' : 'none';
     if (secN) secN.style.display = naoCorreuVis > 0 ? '' : 'none';
 
-    const total    = trocaVis + naoCorreuVis;
+    const total    = trocaVis + naoCorreuVis + remanejadoVis;
     const hasCards = grupo.querySelectorAll('.te-card').length > 0;
     const noRes    = grupo.querySelector('.te-no-results');
     if (noRes) noRes.style.display = (hasCards && total === 0) ? 'block' : 'none';

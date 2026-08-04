@@ -155,8 +155,13 @@ def troca_etapas_index(request: Request, db: Session = Depends(get_db)):
                     nome_aut = getattr(f.autonomo, "nome_autonomo", None) or "—"
                     substitutos_map.setdefault(chave, []).append(nome_aut)
 
+            # quem continua na categoria na etapa seguinte, mesmo em outro carro
+            autonomos_na_prox = {f.id_autonomo for f in fatos_prox}
+
             ausentes = []
             ids_piloto_nao_correu = set()
+            ids_remanejado = set()
+            destinos: dict = {}
             substitutos: dict = {}
             for f in fatos_ant:
                 if (f.id_autonomo, f.id_piloto, f.id_carro) in chaves_prox:
@@ -164,6 +169,15 @@ def troca_etapas_index(request: Request, db: Session = Depends(get_db)):
                 ausentes.append(f)
                 if f.id_piloto not in pilotos_na_prox:
                     ids_piloto_nao_correu.add(f.id_fato)
+                    continue
+                if f.id_autonomo in autonomos_na_prox:
+                    # nao saiu da equipe: apenas mudou de carro/piloto
+                    ids_remanejado.add(f.id_fato)
+                    destinos[f.id_fato] = [
+                        (getattr(g.carro, "chassi", None) or str(g.id_carro or "—"),
+                         getattr(g.piloto, "nome_piloto", None) or "—")
+                        for g in fatos_prox if g.id_autonomo == f.id_autonomo
+                    ]
                     continue
                 subs = substitutos_map.get((f.id_piloto, f.id_carro, f.funcao_autonomo or ""), [])
                 if not subs:
@@ -187,7 +201,10 @@ def troca_etapas_index(request: Request, db: Session = Depends(get_db)):
                         "motivo_label": motivos_map.get(t["id_motivo_troca"], ""),
                     }
 
-            trocas_reais = [f for f in ausentes if f.id_fato not in ids_piloto_nao_correu]
+            trocas_reais = [f for f in ausentes
+                            if f.id_fato not in ids_piloto_nao_correu
+                            and f.id_fato not in ids_remanejado]
+            remanejados = [f for f in ausentes if f.id_fato in ids_remanejado]
             nao_correram = [f for f in ausentes if f.id_fato in ids_piloto_nao_correu]
 
             transicoes.append({
@@ -198,6 +215,8 @@ def troca_etapas_index(request: Request, db: Session = Depends(get_db)):
                 "ids_piloto_nao_correu": ids_piloto_nao_correu,
                 "substitutos": substitutos,
                 "trocas_reais": trocas_reais,
+                "remanejados": remanejados,
+                "destinos": destinos,
                 "nao_correram": nao_correram,
             })
 
@@ -206,6 +225,7 @@ def troca_etapas_index(request: Request, db: Session = Depends(get_db)):
                 "nome": cat,
                 "transicoes": transicoes,
                 "qt_trocas": sum(len(t["trocas_reais"]) for t in transicoes),
+                "qt_remanejados": sum(len(t["remanejados"]) for t in transicoes),
                 "qt_justif": sum(
                     len([f for f in t["trocas_reais"] if f.id_fato in t["trocas_salvas"]])
                     for t in transicoes
@@ -323,6 +343,7 @@ def exportar_excel(db: Session = Depends(get_db)):
 
         chaves_prox = {(f.id_autonomo, f.id_piloto, f.id_carro) for f in fatos_prox_list}
         pilotos_na_prox = {f.id_piloto for f in fatos_prox_list}
+        autonomos_na_prox = {f.id_autonomo for f in fatos_prox_list}
 
         autonomos_na_ant: dict = {}
         for f in fatos_ant:
@@ -341,7 +362,13 @@ def exportar_excel(db: Session = Depends(get_db)):
                 continue
 
             nao_correu = f.id_piloto not in pilotos_na_prox
-            tipo = "Piloto não correu" if nao_correu else "Troca de autônomo"
+            remanejado = not nao_correu and f.id_autonomo in autonomos_na_prox
+            if nao_correu:
+                tipo = "Piloto não correu"
+            elif remanejado:
+                tipo = "Remanejado para outro carro"
+            else:
+                tipo = "Troca de autônomo"
 
             subs_chave = (f.id_piloto, f.id_carro, f.funcao_autonomo or "")
             substitutos = ", ".join(substitutos_map.get(subs_chave, [])) or "—"
