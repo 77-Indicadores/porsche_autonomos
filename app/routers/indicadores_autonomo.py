@@ -2238,7 +2238,11 @@ function tr5KPIs(t){
   const A=tr5D.alocacoes||[];
   const yr=tr5El("tr5Year")?.value||"";
   const aFilt=yr?A.filter(r=>r.temporada===yr):A;
-  const totalAloc=new Set(aFilt.map(r=>r.aut_id)).size;
+  /* alocacao = um autonomo em uma etapa (uma linha).
+     pessoas = autonomos distintos. A taxa de substituicao usa alocacoes:
+     antes dividia pelas pessoas, o que inflava o percentual. */
+  const totalAloc=aFilt.length;
+  const totalPessoas=new Set(aFilt.map(r=>r.aut_id)).size;
   const taxaSub=totalAloc?(totalSubs/totalAloc*100):0;
   const mantPct=totalAloc?(totalSubs?((totalAloc-totalSubs)/totalAloc*100):100):0;
   // etapa transitions
@@ -2251,9 +2255,9 @@ function tr5KPIs(t){
   const motMap={};t.forEach(r=>{if(r.motivo)motMap[r.motivo]=(motMap[r.motivo]||0)+1});
   const motArr=Object.entries(motMap).sort((a,b)=>b[1]-a[1]);
   const topMot=motArr[0]||["—",0];
-  const avgVinc=totalAloc?etapas.length:0;
+  const avgVinc=totalPessoas?(totalAloc/totalPessoas):0;
   const set=(id,v,f)=>{const e=tr5El(id);if(e)e.textContent=v;const fe=tr5El(id+"f");if(fe)fe.innerHTML=f||""};
-  set("tr5K0",totalSubs,totalAloc+" vínculos realizados");
+  set("tr5K0",totalSubs,totalAloc+" alocações · "+totalPessoas+" autônomos");
   set("tr5K1",taxaSub.toFixed(1)+"%",totalSubs+" de "+totalAloc+" alocações");
   set("tr5K2",mantPct.toFixed(1)+"%","continuidade média estimada");
   set("tr5K3",mantidos,"na última transição analisada");
@@ -2269,7 +2273,7 @@ function tr5KPIs(t){
   const cl=tr5El("tr5ContL");if(cl)cl.textContent=mantidos+" mantidos";
   const cr=tr5El("tr5ContR");if(cr)cr.textContent=totalSubs+" movimentações";
   const ctEl=tr5El("tr5ContText");
-  if(ctEl)ctEl.textContent=mantidos+" dos "+totalAloc+" profissionais da temporada permaneceram na composição.";
+  if(ctEl)ctEl.textContent=mantidos+" dos "+totalPessoas+" profissionais da temporada permaneceram na composição.";
   // Summary list
   const sl=tr5El("tr5SumList");
   if(sl)sl.innerHTML=[
@@ -2317,20 +2321,33 @@ function tr5Funnel(t){
   const A=tr5D.alocacoes||[];
   const yr=tr5El("tr5Year")?.value||"";
   const aFilt=yr?A.filter(r=>r.temporada===yr):A;
-  const total=new Set(aFilt.map(r=>r.aut_id)).size||1;
+  /* Todos os degraus vêm dos dados. As faixas "recorrente" e "alta
+     continuidade" eram estimadas com percentuais fixos (5% e 8%), o que
+     mostrava número inventado como se fosse medição. */
+  const etapasSet=[...new Set(aFilt.map(r=>r.etapa_id))];
+  const porAut={};
+  aFilt.forEach(r=>{ (porAut[r.aut_id]=porAut[r.aut_id]||new Set()).add(r.etapa_id); });
+  const ids=Object.keys(porAut);
+  const total=ids.length||1;
   const totalSubs=t.length;
-  const f1=total,f2=Math.max(0,total-Math.round(total*.05)),f3=Math.max(0,f1-totalSubs),f4=Math.max(0,f3-Math.round(f3*.08));
+
+  const f1=total;
+  const f2=ids.filter(id=>porAut[id].size>1).length;                 // em 2+ etapas
+  const f3=Math.max(0,f1-totalSubs);                                 // sem troca
+  const f4=ids.filter(id=>porAut[id].size===etapasSet.length).length; // em todas as etapas
+
   const COLORS=["#2d323d","#7b61c9","#2878d0","#15946c"];
   const rows=[
     [f1,"100%","autônomos na temporada"],
-    [f2,(f2/f1*100).toFixed(1)+"%","com participação recorrente"],
+    [f2,(f2/f1*100).toFixed(1)+"%","em mais de uma etapa"],
     [f3,(f3/f1*100).toFixed(1)+"%","mantidos (sem troca)"],
-    [f4,(f4/f1*100).toFixed(1)+"%","com alta continuidade"],
+    [f4,(f4/f1*100).toFixed(1)+"%","presentes em todas as etapas"],
   ];
-  const widths=[100,89,76,63];
+  /* largura proporcional ao valor: antes era fixa (100/89/76/63) e a
+     barra nao correspondia ao numero exibido */
   el.innerHTML=rows.map(([n,pct,lbl],i)=>{
-    const loss=i>0?'<div class="tr5-funnel-loss">−'+(rows[i-1][0]-n)+" movimentações</div>":"";
-    return loss+'<div class="tr5-funnel-row" style="width:'+widths[i]+'%;background:'+COLORS[i]+'">'+
+    const w=Math.max(18,(n/f1*100));
+    return '<div class="tr5-funnel-row" style="width:'+w.toFixed(1)+'%;background:'+COLORS[i]+'">'+
       '<strong>'+n+' '+lbl+'</strong><span>'+pct+'</span></div>';
   }).join("");
 }
