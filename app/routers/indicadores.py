@@ -2937,10 +2937,12 @@ def _fetch_hora_extra() -> list[dict]:
 
 def _build_hora_extra_html(rows: list[dict], all_rows: list[dict] | None = None,  # noqa: C901
                            empresa_sel: str = "", cargo_sel: str = "",
-                           ano_sel: str = "", mes_sel: str = "") -> str:
+                           ano_sel: str = "", mes_sel: str = "",
+                           departamento_sel: str = "") -> str:
     all_rows = all_rows or rows
     empresas = sorted({r["empresa"] for r in all_rows if r["empresa"]})
     cargos   = sorted({r["cargo"]   for r in all_rows if r["cargo"]})
+    departamentos = sorted({r["departamento"] for r in all_rows if r.get("departamento")})
     anos     = sorted({str(r["data_dt"].year) for r in all_rows if r.get("data_dt")}, reverse=True)
     meses_disp = sorted({r["mes"] for r in all_rows if r.get("mes")})
 
@@ -2952,12 +2954,13 @@ def _build_hora_extra_html(rows: list[dict], all_rows: list[dict] | None = None,
 
     opts_emp   = "".join(_opt(e, empresa_sel, label=empresa_curta(e)) for e in empresas)
     opts_cargo = "".join(_opt(c, cargo_sel)   for c in cargos)
+    opts_dep   = "".join(_opt(d, departamento_sel) for d in departamentos)
     opts_ano   = "".join(_opt(a, ano_sel) for a in anos)
     opts_mes   = "".join(
         _opt(m, mes_sel, label=f"{_MES_NOMES.get(m[5:7], m[5:7])} {m[:4]}")
         for m in meses_disp
     )
-    has_filter = any([empresa_sel, cargo_sel, ano_sel, mes_sel])
+    has_filter = any([empresa_sel, cargo_sel, ano_sel, mes_sel, departamento_sel])
     limpar = (f'<a href="/indicadores/horas-extras" class="he-limpar">✕ Limpar</a>'
               if has_filter else "")
 
@@ -3326,6 +3329,12 @@ def _build_hora_extra_html(rows: list[dict], all_rows: list[dict] | None = None,
       </select>
     </div>
     <div class="he-filtro-group">
+      <label>Setor</label>
+      <select name="departamento" onchange="this.form.submit()">
+        <option value="">Todos os setores</option>{opts_dep}
+      </select>
+    </div>
+    <div class="he-filtro-group">
       <label>Cargo</label>
       <select name="cargo" onchange="this.form.submit()">
         <option value="">Todos os cargos</option>{opts_cargo}
@@ -3419,7 +3428,7 @@ def _build_hora_extra_html(rows: list[dict], all_rows: list[dict] | None = None,
 
 @router.get("/indicadores/horas-extras")
 def horas_extras(request: Request, empresa: str = "", cargo: str = "",
-                 ano: str = "", mes: str = ""):
+                 ano: str = "", mes: str = "", departamento: str = ""):
     erro = None
     dash_html = ""
     try:
@@ -3427,6 +3436,8 @@ def horas_extras(request: Request, empresa: str = "", cargo: str = "",
         filtered = all_rows
         if empresa:
             filtered = [r for r in filtered if r["empresa"] == empresa]
+        if departamento:
+            filtered = [r for r in filtered if r.get("departamento") == departamento]
         if cargo:
             filtered = [r for r in filtered if r["cargo"] == cargo]
         if ano:
@@ -3435,7 +3446,8 @@ def horas_extras(request: Request, empresa: str = "", cargo: str = "",
             filtered = [r for r in filtered if r.get("mes") == mes]
         dash_html = _build_hora_extra_html(filtered, all_rows=all_rows,
                                            empresa_sel=empresa, cargo_sel=cargo,
-                                           ano_sel=ano, mes_sel=mes)
+                                           ano_sel=ano, mes_sel=mes,
+                                           departamento_sel=departamento)
     except Exception as exc:
         import traceback; traceback.print_exc()
         erro = f"Erro ao buscar dados de horas extras: {exc}"
