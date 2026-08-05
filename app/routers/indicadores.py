@@ -1556,7 +1556,7 @@ def _build_vagas_html(depto_sel: str = "", mes_sel: str = "") -> str:
         vagas = _db_rows(
             """SELECT v.id_vaga, v.qtd_vagas, v.status, v.tipo_vaga, v.tipo_recrutamento,
                       v.data_abertura, v.data_conclusao,
-                      COALESCE(NULLIF(TRIM(d.nome_departamento), ''), NULLIF(TRIM(v.area), '')) AS nome_departamento
+                      COALESCE(NULLIF(TRIM(d.nome_departamento), ''), '') AS nome_departamento
                FROM dho_vagas v
                LEFT JOIN dho_departamentos d ON d.id_departamento = v.id_departamento"""
         )
