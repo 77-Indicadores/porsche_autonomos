@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block header %}Custo 2{% endblock %}
+{% block subtitle %}Custo por etapa e por categoria{% endblock %}
+{% block content %}
+{% if erro %}<div class="alert alert-error mb-6">{{ erro }}</div>{% endif %}
+
+<style>
+  .c2-card{background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:1.1rem 1.3rem;margin-bottom:18px}
+  .c2-card h3{margin:0;font-size:1rem;font-weight:800;color:#111827}
+  .c2-card .sub{font-size:.8rem;color:#6b7280;margin:2px 0 14px}
+  .c2-row{display:flex;align-items:center;gap:12px;margin-bottom:9px}
+  .c2-name{width:200px;min-width:200px;font-size:.82rem;font-weight:600;color:#374151;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .c2-track{flex:1;background:#f3f4f6;border-radius:6px;height:20px;overflow:hidden}
+  .c2-fill{height:100%;border-radius:6px;background:#d71920}
+  .c2-val{width:120px;min-width:120px;text-align:right;font-size:.82rem;font-weight:700;color:#111827;font-variant-numeric:tabular-nums}
+  .c2-empty{color:#9ca3af;font-style:italic;padding:1rem 0}
+</style>
+
+{% macro chart(titulo, sub, itens, media, cor) %}
+<div class="c2-card">
+  <h3>{{ titulo }}</h3>
+  <div class="sub">{{ sub }} · média {{ media|money_br }}</div>
+  {% if itens %}
+    {% set maxv = itens[0].valor or 1 %}
+    {% for it in itens %}
+    <div class="c2-row">
+      <span class="c2-name" title="{{ it.nome }}">{{ it.nome }}</span>
+      <div class="c2-track"><div class="c2-fill" style="width:{{ (it.valor / maxv * 100)|round(1) }}%;background:{{ cor }}"></div></div>
+      <span class="c2-val">{{ it.valor|money_br }}</span>
+    </div>
+    {% endfor %}
+  {% else %}
+  <div class="c2-empty">Sem dados.</div>
+  {% endif %}
+</div>
+{% endmacro %}
+
+{{ chart("Custo médio por etapa", "Total por etapa", por_etapa, media_etapa, "#d71920") }}
+{{ chart("Custo médio por categoria", "Total por categoria", por_categoria, media_categoria, "#2673c8") }}
+
+{% endblock %}

@@ -1344,26 +1344,39 @@ def autonomo_custo_geral(request: Request, db: Session = Depends(get_db)):
     })
 
 
+# Painel "Custo" (evolução/pagamentos) removido — redireciona para Custo 1
 @router.get("/indicadores/autonomo-custo-evolucao")
-def autonomo_custo_evolucao(request: Request, db: Session = Depends(get_db)):
+@router.get("/indicadores/autonomo-custo-pagamentos")
+def autonomo_custo_evolucao(request: Request):
+    from fastapi.responses import RedirectResponse
+    return RedirectResponse("/indicadores/autonomo-custo", status_code=301)
+
+
+@router.get("/indicadores/autonomo-custo2")
+def autonomo_custo2(request: Request, db: Session = Depends(get_db)):
     erro = None
-    dash_html = None
+    por_etapa, por_categoria = [], []
+    media_etapa = media_categoria = 0.0
     try:
-        rj = _fetch(db)
-        sj = _fetch_sede(db)
-        egj = _fetch_equipe_geral(db)
-        dash_html = _build_custo(rj, sj, egj)
+        recs = _json.loads(_fetch(db)) + _json.loads(_fetch_equipe_geral(db))
+        et, ct = {}, {}
+        for r in recs:
+            e = r.get("etapa") or "—"
+            c = r.get("categoria") or "—"
+            v = float(r.get("valor") or 0)
+            et[e] = et.get(e, 0.0) + v
+            ct[c] = ct.get(c, 0.0) + v
+        por_etapa = sorted(({"nome": k, "valor": v} for k, v in et.items()), key=lambda x: -x["valor"])
+        por_categoria = sorted(({"nome": k, "valor": v} for k, v in ct.items()), key=lambda x: -x["valor"])
+        media_etapa = (sum(et.values()) / len(et)) if et else 0.0
+        media_categoria = (sum(ct.values()) / len(ct)) if ct else 0.0
     except Exception as exc:
         erro = f"Erro ao carregar dados: {exc}"
-    return templates.TemplateResponse("indicadores/autonomo_custo_evolucao.html", {
-        "request": request, "dash_html": dash_html, "erro": erro,
+    return templates.TemplateResponse("indicadores/autonomo_custo2.html", {
+        "request": request, "erro": erro,
+        "por_etapa": por_etapa, "por_categoria": por_categoria,
+        "media_etapa": media_etapa, "media_categoria": media_categoria,
     })
-
-
-@router.get("/indicadores/autonomo-custo-pagamentos")
-def autonomo_custo_pagamentos(request: Request):
-    from fastapi.responses import RedirectResponse
-    return RedirectResponse("/indicadores/autonomo-custo-evolucao", status_code=301)
 
 
 # ── Page 4 – Planejamento e Cobertura ─────────────────────────────────────────
