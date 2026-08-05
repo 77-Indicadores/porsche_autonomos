@@ -127,6 +127,9 @@ def _normalizar_colabs(rows: list[dict]) -> list[dict]:
 def _is_ativo(c: dict, ref: date) -> bool:
     sit = (c.get("situacao") or "").strip()
     adm, dem = c["data_adm"], c["data_demissa"]
+    # Status vazio / não informado NÃO entra no quadro ativo (registro incompleto do Feedz)
+    if not sit or sit == "Não informado":
+        return False
     # Feedz marca situacao="Ativo" para quem está no quadro; confia nisso como fonte primária
     if sit == "Ativo" and (dem is None or dem > ref):
         return True
