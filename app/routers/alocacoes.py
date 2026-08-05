@@ -1,6 +1,8 @@
+import base64
 from datetime import date
+from pathlib import Path
 
-from fastapi import APIRouter, Depends, Form, Request
+from fastapi import APIRouter, Depends, File, Form, Request, UploadFile
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
@@ -13,19 +15,45 @@ router = APIRouter(tags=["alocacoes"])
 
 
 def _migrar_fato():
+    cols = {
+        "forma_pagamento": "VARCHAR(20)",
+        "anexo_custo": "TEXT",
+        "anexo_custo_nome": "VARCHAR(255)",
+    }
     with engine.connect() as conn:
-        if conn.dialect.name == "postgresql":
-            conn.execute(text("ALTER TABLE fato_piloto_autonomo_prova ADD COLUMN IF NOT EXISTS forma_pagamento VARCHAR(20)"))
-            conn.commit()
-        else:
-            try:
-                conn.execute(text("SELECT forma_pagamento FROM fato_piloto_autonomo_prova LIMIT 1"))
-            except Exception:
-                conn.rollback()
-                conn.execute(text("ALTER TABLE fato_piloto_autonomo_prova ADD COLUMN forma_pagamento VARCHAR(20)"))
+        pg = conn.dialect.name == "postgresql"
+        for col, tipo in cols.items():
+            if pg:
+                conn.execute(text(f"ALTER TABLE fato_piloto_autonomo_prova ADD COLUMN IF NOT EXISTS {col} {tipo}"))
                 conn.commit()
+            else:
+                try:
+                    conn.execute(text(f"SELECT {col} FROM fato_piloto_autonomo_prova LIMIT 1"))
+                except Exception:
+                    conn.rollback()
+                    conn.execute(text(f"ALTER TABLE fato_piloto_autonomo_prova ADD COLUMN {col} {tipo}"))
+                    conn.commit()
 
 _migrar_fato()
+
+
+def _salvar_anexo(arquivo):
+    """Salva o anexo (comprovante) do custo como data URI base64. Aceita PDF e imagens (até 5 MB).
+    Retorna (data_uri, nome) ou (None, None) se vazio; ('__invalido__', None) se tipo/tamanho inválido."""
+    if not arquivo or not arquivo.filename:
+        return None, None
+    mimes = {".pdf": "application/pdf", ".jpg": "image/jpeg", ".jpeg": "image/jpeg",
+             ".png": "image/png", ".webp": "image/webp"}
+    mime = mimes.get(Path(arquivo.filename).suffix.lower())
+    if not mime:
+        return "__invalido__", None
+    conteudo = arquivo.file.read()
+    if not conteudo:
+        return None, None
+    if len(conteudo) > 5 * 1024 * 1024:
+        return "__invalido__", None
+    b64 = base64.b64encode(conteudo).decode("utf-8")
+    return f"data:{mime};base64,{b64}", arquivo.filename
 
 
 def options(db: Session):
@@ -377,7 +405,17 @@ def custo_form(id_fato: int, request: Request, db: Session = Depends(get_db)):
     fato = db.get(FatoPilotoAutonomoProva, id_fato)
     if not fato:
         return redirect_with_message("/alocacoes", error="Alocacao nao encontrada.")
-    return templates.TemplateResponse("alocacoes/custo.html", {"request": request, "fato": fato, **options(db), **flash_from_request(request)})
+    row = db.execute(
+        text("SELECT anexo_custo, anexo_custo_nome FROM fato_piloto_autonomo_prova WHERE id_fato = :i"),
+        {"i": id_fato},
+    ).first()
+    anexo_url = row[0] if row else None
+    anexo_nome = row[1] if row else None
+    return templates.TemplateResponse("alocacoes/custo.html", {
+        "request": request, "fato": fato,
+        "anexo_url": anexo_url, "anexo_nome": anexo_nome,
+        **options(db), **flash_from_request(request),
+    })
 
 
 @router.post("/alocacoes/{id_fato}/custo")
@@ -387,12 +425,18 @@ def custo(
     dias_trabalhados: str = Form(""),
     documento: str = Form(""),
     observacoes: str = Form(""),
+    anexo: UploadFile = File(None),
     db: Session = Depends(get_db),
 ):
     fato = db.get(FatoPilotoAutonomoProva, id_fato)
 
     if not fato:
         return redirect_with_message("/alocacoes", error="Alocação não encontrada.")
+
+    anexo_uri, anexo_nome = _salvar_anexo(anexo)
+    if anexo_uri == "__invalido__":
+        return redirect_with_message(f"/alocacoes/{id_fato}/custo",
+                                     error="Anexo inválido. Use PDF, JPG, PNG ou WEBP até 5 MB.")
 
     dias = None
     if dias_trabalhados:
@@ -412,6 +456,13 @@ def custo(
     fato.observacoes = observacoes
 
     db.commit()
+
+    if anexo_uri and anexo_uri != "__invalido__":
+        db.execute(
+            text("UPDATE fato_piloto_autonomo_prova SET anexo_custo = :a, anexo_custo_nome = :n WHERE id_fato = :i"),
+            {"a": anexo_uri, "n": anexo_nome, "i": id_fato},
+        )
+        db.commit()
 
     return redirect_with_message("/alocacoes", success="Pacote atualizado.")
 
