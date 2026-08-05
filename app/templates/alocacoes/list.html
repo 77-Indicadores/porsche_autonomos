@@ -1,10 +1,19 @@
 {% extends "base.html" %}{% block header %}Gestao de Alocacao por Piloto{% endblock %}{% block header_action %}<a class="btn-primary" href="/alocacoes/nova">Nova Alocacao</a>{% endblock %}
 {% block content %}
 <section class="panel mb-6">
-  <form method="get" class="grid gap-3 md:grid-cols-4">
-    <select class="input" name="id_etapa"><option value="">Todas etapas</option>{% for e in etapas %}<option value="{{ e.id_etapa }}" {% if filtros.id_etapa|string == e.id_etapa|string %}selected{% endif %}>{{ e.nome_etapa }}</option>{% endfor %}</select>
-    <select class="input" name="id_prova"><option value="">Todas categorias</option>{% for p in provas %}<option value="{{ p.id_prova }}" {% if filtros.id_prova|string == p.id_prova|string %}selected{% endif %}>{{ p.nome_prova }}</option>{% endfor %}</select>
-    <select class="input" name="status"><option value="">Todos status</option>{% for s in ['Ativo','Substituido','Encerrado','Cancelado'] %}<option {% if filtros.status == s %}selected{% endif %}>{{ s }}</option>{% endfor %}</select>
+  <form method="get" style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap">
+    <div>
+      <label class="label">Etapa</label>
+      <select class="input" name="id_etapa"><option value="">Todas etapas</option>{% for e in etapas %}<option value="{{ e.id_etapa }}" {% if filtros.id_etapa|string == e.id_etapa|string %}selected{% endif %}>{{ e.nome_etapa }}</option>{% endfor %}</select>
+    </div>
+    <div>
+      <label class="label">Categoria</label>
+      <select class="input" name="id_prova"><option value="">Todas categorias</option>{% for p in provas %}<option value="{{ p.id_prova }}" {% if filtros.id_prova|string == p.id_prova|string %}selected{% endif %}>{{ p.nome_prova }}</option>{% endfor %}</select>
+    </div>
+    <div>
+      <label class="label">Status</label>
+      <select class="input" name="status"><option value="">Todos status</option>{% for s in ['Ativo','Substituido','Encerrado','Cancelado'] %}<option {% if filtros.status == s %}selected{% endif %}>{{ s }}</option>{% endfor %}</select>
+    </div>
     <button class="btn-secondary">Filtrar</button>
   </form>
 </section>
