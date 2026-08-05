@@ -234,7 +234,6 @@ def _build_geral(records_js: str, meta_js: str, eg_js: str = "[]") -> str:
   <div class="vg-filter"><label>Temporada</label><select id="vgYear"></select></div>
   <div class="vg-filter"><label>Etapa</label><select id="vgEtapa"></select></div>
   <div class="vg-filter"><label>Categoria</label><select id="vgCat"></select></div>
-  <div class="vg-filter"><label>Status pagamento</label><select id="vgStatus"></select></div>
   <button class="vg-reset" onclick="vgReset()">Limpar</button>
 </div>
 <section class="vg-kpis">
@@ -248,11 +247,6 @@ def _build_geral(records_js: str, meta_js: str, eg_js: str = "[]") -> str:
       <div class="vg-icon">#</div></div>
     <div class="vg-kpi-value" id="vgK1">—</div>
     <div class="vg-kpi-foot" id="vgK1f"></div></article>
-  <article class="vg-kpi" style="--tint:#ebf8f4;--iconbg:#e7f7f1;--iconcolor:#11835f">
-    <div class="vg-kpi-top"><span class="vg-kpi-title">Valor pago</span>
-      <div class="vg-icon">✓</div></div>
-    <div class="vg-kpi-value" id="vgK2">—</div>
-    <div class="vg-kpi-foot" id="vgK2f"></div></article>
   <article class="vg-kpi" style="--tint:#f2effc;--iconbg:#f0edfb;--iconcolor:#7259be">
     <div class="vg-kpi-top"><span class="vg-kpi-title">Autônomos ativos</span>
       <div class="vg-icon">&#9823;</div></div>
@@ -263,16 +257,16 @@ def _build_geral(records_js: str, meta_js: str, eg_js: str = "[]") -> str:
       <div class="vg-icon">&#9635;</div></div>
     <div class="vg-kpi-value" id="vgK5">—</div>
     <div class="vg-kpi-foot" id="vgK5f"></div></article>
-  <article class="vg-kpi" style="--tint:#f2f4f8;--iconbg:#edf0f5;--iconcolor:#4e5967">
-    <div class="vg-kpi-top"><span class="vg-kpi-title">Custo médio/dia</span>
-      <div class="vg-icon">D</div></div>
-    <div class="vg-kpi-value" id="vgK6">—</div>
-    <div class="vg-kpi-foot" id="vgK6f"></div></article>
-  <article class="vg-kpi" style="--tint:#fff0f1;--iconbg:#ffeded;--iconcolor:#bd151b">
-    <div class="vg-kpi-top"><span class="vg-kpi-title">Substituições</span>
-      <div class="vg-icon">&#8635;</div></div>
-    <div class="vg-kpi-value" id="vgK7">—</div>
-    <div class="vg-kpi-foot" id="vgK7f"></div></article>
+  <article class="vg-kpi" style="--tint:#ebf8f4;--iconbg:#e7f7f1;--iconcolor:#11835f">
+    <div class="vg-kpi-top"><span class="vg-kpi-title">Custo médio/etapa</span>
+      <div class="vg-icon">&#9873;</div></div>
+    <div class="vg-kpi-value" id="vgK8">—</div>
+    <div class="vg-kpi-foot" id="vgK8f"></div></article>
+  <article class="vg-kpi" style="--tint:#fff7e9;--iconbg:#fff6e5;--iconcolor:#c88408">
+    <div class="vg-kpi-top"><span class="vg-kpi-title">Custo médio/categoria</span>
+      <div class="vg-icon">&#9636;</div></div>
+    <div class="vg-kpi-value" id="vgK9">—</div>
+    <div class="vg-kpi-foot" id="vgK9f"></div></article>
 </section>
 <section class="vg-grid-main">
   <article class="vg-card">
@@ -347,43 +341,58 @@ function vgSetup(){
   vgFillSel("vgYear",years,"Todas as temporadas");
   vgFillSel("vgEtapa",etapas,"Todas as etapas");
   vgFillSel("vgCat",cats,"Todas as categorias");
-  vgFillSel("vgStatus",sts,"Todos os status");
-  ["vgYear","vgEtapa","vgCat","vgStatus"].forEach(id=>{const el=vgEl(id);if(el)el.addEventListener("change",vgRender)});
+  ["vgYear","vgEtapa","vgCat"].forEach(id=>{const el=vgEl(id);if(el)el.addEventListener("change",vgRender)});
 }
 function vgFiltered(){
-  const yr=vgEl("vgYear")?.value||"",et=vgEl("vgEtapa")?.value||"",
-        ct=vgEl("vgCat")?.value||"",st=vgEl("vgStatus")?.value||"";
+  const yr=vgEl("vgYear")?.value||"",et=vgEl("vgEtapa")?.value||"",ct=vgEl("vgCat")?.value||"";
   const fato=VG_RECORDS.filter(r=>
-    (!yr||r.temporada===yr)&&(!et||r.etapa===et)&&
-    (!ct||r.categoria===ct)&&(!st||vgNormSt(r.status)===st));
-  // Outras Equipes (equipe_geral) — não tem status; segue os demais filtros
+    (!yr||r.temporada===yr)&&(!et||r.etapa===et)&&(!ct||r.categoria===ct));
   const eg=VG_EG.filter(r=>
     (!yr||r.temporada===yr)&&(!et||r.etapa===et)&&(!ct||r.categoria===ct));
   return fato.concat(eg);
 }
-function vgReset(){["vgYear","vgEtapa","vgCat","vgStatus"].forEach(id=>{const el=vgEl(id);if(el)el.value=""});vgRender()}
+// mesma coisa, mas ignora o filtro de etapa (usado no gráfico "Custo por etapa" p/ manter todas as etapas)
+function vgFilteredNoEtapa(){
+  const yr=vgEl("vgYear")?.value||"",ct=vgEl("vgCat")?.value||"";
+  const fato=VG_RECORDS.filter(r=>(!yr||r.temporada===yr)&&(!ct||r.categoria===ct));
+  const eg=VG_EG.filter(r=>(!yr||r.temporada===yr)&&(!ct||r.categoria===ct));
+  return fato.concat(eg);
+}
+function vgPickEtapa(i){
+  const et=(window.__vgEtapas||[])[i];const sel=vgEl("vgEtapa");
+  if(sel){sel.value=(sel.value===et)?"":et;vgRender();}
+}
+function vgReset(){["vgYear","vgEtapa","vgCat"].forEach(id=>{const el=vgEl(id);if(el)el.value=""});vgRender()}
 
 function vgKPIs(d){
   const fato=d.filter(r=>!r.eg);
   const total=d.reduce((s,r)=>s+(r.valor||0),0);         // consolidado (inclui Outras Equipes)
   const fatoTotal=fato.reduce((s,r)=>s+(r.valor||0),0);  // só autônomos
   const egTotal=total-fatoTotal;
-  const carros=new Set(fato.map(r=>r.carro_id).filter(Boolean));
+  const carrosDist=new Set(fato.map(r=>r.carro_id).filter(Boolean));
   const pilotos=new Set(fato.map(r=>r.piloto_id).filter(Boolean));
-  const media=carros.size?fatoTotal/carros.size:0;
-  const pago=total; // todos os lançamentos representam pagamentos já realizados
-  const auts=new Set(fato.map(r=>r.autonomo).filter(Boolean)).size;
-  const dias=fato.reduce((s,r)=>s+(r.dias||0),0);
-  const mediaDia=dias?fatoTotal/dias:0;
-  const subs=fato.filter(r=>((r.foi_sub||"").trim().toLowerCase()==="sim")||r.id_sub).length;
+  const media=carrosDist.size?fatoTotal/carrosDist.size:0;
+  // Carros atendidos e Autônomos ativos = soma por etapa (não distinto global)
+  const carrosEt={},autsEt={};
+  fato.forEach(r=>{
+    if(!r.etapa)return;
+    if(r.carro_id){(carrosEt[r.etapa]=carrosEt[r.etapa]||new Set()).add(r.carro_id);}
+    if(r.autonomo){(autsEt[r.etapa]=autsEt[r.etapa]||new Set()).add(r.autonomo);}
+  });
+  const carrosAtend=Object.values(carrosEt).reduce((s,x)=>s+x.size,0);
+  const autsAtivos=Object.values(autsEt).reduce((s,x)=>s+x.size,0);
+  // médias por etapa e por categoria (sobre o custo consolidado)
+  const nEtapas=new Set(d.map(r=>r.etapa).filter(Boolean)).size;
+  const nCats=new Set(d.map(r=>r.categoria).filter(Boolean)).size;
+  const mediaEtapa=nEtapas?total/nEtapas:0;
+  const mediaCat=nCats?total/nCats:0;
   const set=(id,v,f)=>{const e=vgEl(id);if(e)e.textContent=v;const fe=vgEl(id+"f");if(fe)fe.innerHTML=f||""};
-  set("vgK0",vgFmt(total),carros.size+" carros · "+pilotos.size+" pilotos"+(egTotal>0?" · Outras Equipes "+vgFmt(egTotal):""));
-  set("vgK1",vgFmt(media),carros.size+" carros atendidos");
-  set("vgK2",vgFmt(pago),"valor efetivamente pago");
-  set("vgK4",auts,pilotos.size+" pilotos");
-  set("vgK5",carros.size,"carros cobertos na seleção");
-  set("vgK6",vgFmt(mediaDia),"por profissional/dia");
-  set("vgK7",subs,fato.length?"taxa "+(subs/fato.length*100).toFixed(1)+"%":"");
+  set("vgK0",vgFmt(total),carrosDist.size+" carros · "+pilotos.size+" pilotos"+(egTotal>0?" · Outras Equipes "+vgFmt(egTotal):""));
+  set("vgK1",vgFmt(media),carrosDist.size+" carros (distintos)");
+  set("vgK4",autsAtivos,nEtapas+" etapa(s)");
+  set("vgK5",carrosAtend,nEtapas+" etapa(s)");
+  set("vgK8",vgFmt(mediaEtapa),nEtapas+" etapa(s)");
+  set("vgK9",vgFmt(mediaCat),nCats+" categoria(s)");
 }
 
 function vgEtapaChart(d){
@@ -396,6 +405,8 @@ function vgEtapaChart(d){
   });
   const rows=Object.entries(etMap).sort((a,b)=>a[1].dt.localeCompare(b[1].dt))
     .map(([et,v])=>({et,tot:v.tot,med:v.pilotos.size?v.tot/v.pilotos.size:0}));
+  window.__vgEtapas=rows.map(r=>r.et);
+  const selEt=vgEl("vgEtapa")?.value||"";
   const wrap=vgEl("vgEtChart");if(!wrap)return;
   if(!rows.length){wrap.innerHTML='<p style="color:#9ca3af;font-size:12px;padding:16px 0">Sem dados</p>';return}
   const W=720,H=205,pL=52,pR=16,pT=22,pB=36;
@@ -413,7 +424,9 @@ function vgEtapaChart(d){
   rows.forEach((r,i)=>{
     const cx=pL+i*slotW+slotW/2,bx=(cx-bW/2).toFixed(1),by=yS(r.tot).toFixed(1);
     const bh=Math.max(H-pB-yS(r.tot),2).toFixed(1);
-    bars+='<rect x="'+bx+'" y="'+by+'" width="'+bW.toFixed(1)+'" height="'+bh+'" rx="5" fill="#d71920"/>';
+    const op=(!selEt||r.et===selEt)?1:0.28;
+    bars+='<rect x="'+(pL+i*slotW).toFixed(1)+'" y="'+pT+'" width="'+slotW.toFixed(1)+'" height="'+(H-pT-pB)+'" fill="transparent" style="cursor:pointer" onclick="vgPickEtapa('+i+')"/>';
+    bars+='<rect x="'+bx+'" y="'+by+'" width="'+bW.toFixed(1)+'" height="'+bh+'" rx="5" fill="#d71920" fill-opacity="'+op+'" style="cursor:pointer" onclick="vgPickEtapa('+i+')"/>';
     if(r.tot>0)lbls+='<text x="'+cx.toFixed(1)+'" y="'+(yS(r.tot)-4).toFixed(1)+'" text-anchor="middle" class="blbl">'+fmt(r.tot)+'</text>';
     const ly=yS(r.med).toFixed(1);
     line+=(i===0?"M":"L")+cx.toFixed(1)+","+ly+" ";
@@ -526,7 +539,7 @@ function vgProxEtapa(){
 
 function vgRender(){
   const d=vgFiltered();
-  vgKPIs(d);vgEtapaChart(d);vgFormas(d);vgCatBars(d);vgRanking(d);vgProxEtapa();
+  vgKPIs(d);vgEtapaChart(vgFilteredNoEtapa());vgFormas(d);vgCatBars(d);vgRanking(d);vgProxEtapa();
 }
 vgSetup();vgRender();
 """
@@ -697,11 +710,6 @@ def _build_evolucao(records_js: str, sede_js: str = "{}", eg_js: str = "[]") -> 
       <div class="ev-icon">EG</div></div>
     <div class="ev-kpi-value" id="evK6">—</div>
     <div class="ev-kpi-foot" id="evK6f"></div></article>
-  <article class="ev-kpi" style="--tint:#fff0f1;--iconbg:#ffeded;--iconcolor:#bd151b">
-    <div class="ev-kpi-top"><span class="ev-kpi-title">Autônomos sede</span>
-      <div class="ev-icon">S</div></div>
-    <div class="ev-kpi-value" id="evK7">—</div>
-    <div class="ev-kpi-foot" id="evK7f"></div></article>
 </section>
 <section class="ev-grid-main">
   <article class="ev-card">
@@ -840,28 +848,23 @@ function evKPIs(d){
   set("evK3",evFmtSh(maxEt[1]),maxEt[0]||"—");
   set("evK4",evFmt(avgEt),etVals.length+" etapas");
   set("evK5",evFmtSh(mediaD),"por profissional/dia");
-  const consolid=total+sedeTotal+outrasEquipes;
+  const consolid=total+outrasEquipes;
   const oePct=consolid?(outrasEquipes/consolid*100):0;
   set("evK6",evFmt(outrasEquipes),oePct.toFixed(1)+"% do consolidado");
-  const sedePct=total&&sedeTotal?(sedeTotal/total*100):0;
-  set("evK7",evFmt(sedeTotal),sedePct?sedePct.toFixed(1)+"% do consolidado":"");
   // Composition panel
   const vinculados=total-geral;
   const pctVinc=total?(vinculados/total*100):0;
   const vv=evEl("evVarVal");if(vv)vv.textContent=evFmt(total);
   const vp=evEl("evVarProg");if(vp)vp.style.width=pctVinc.toFixed(1)+"%";
   const vl=evEl("evVarL");if(vl)vl.textContent=pctVinc.toFixed(1)+"% ligados aos carros";
-  const vr=evEl("evVarR");if(vr)vr.textContent=(100-pctVinc).toFixed(1)+"% apoio e sede";
+  const vr=evEl("evVarR");if(vr)vr.textContent=(100-pctVinc).toFixed(1)+"% apoio / outras equipes";
   const cl=evEl("evCostList");
   if(cl){
-    const sedeBarW=total?(sedeTotal/total*100).toFixed(1):0;
-    const geralBarW=total?(geral/total*100).toFixed(1):0;
-    const oeBarW=total?(outrasEquipes/total*100).toFixed(1):0;
+    const apoio=geral+outrasEquipes;  // apoio s/ carro e Outras Equipes são a mesma coisa
+    const apoioBarW=total?(apoio/total*100).toFixed(1):0;
     cl.innerHTML=[
       ["Equipe vinculada aos carros","Autônomos com piloto e carro",vinculados,pctVinc.toFixed(1),"#d71920"],
-      ["Apoio (autônomos s/ carro)","Autônomos sem vínculo direto ao carro",geral,geralBarW,"#7b61c9"],
-      ["Autônomos da sede","Lançamentos da sede",sedeTotal,sedeBarW,"#2878d0"],
-      ["Outras Equipes","Tabela Outras Equipes (equipe_geral)",outrasEquipes,oeBarW,"#15946c"],
+      ["Outras Equipes / apoio s/ carro","Equipes de apoio sem vínculo direto ao carro",apoio,apoioBarW,"#15946c"],
     ].map(([nm,sub,val,pct,col])=>
       '<div class="ev-cost-item">'+
       '<div class="ev-cost-top"><div><strong>'+nm+'</strong><small>'+sub+'</small></div>'+
