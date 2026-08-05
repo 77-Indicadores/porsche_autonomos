@@ -272,9 +272,7 @@ async def folha_upload(
     arquivo: List[UploadFile] = File(...),
     db: Session = Depends(get_db),
 ):
-    if not _is_admin(request):
-        return RedirectResponse("/?sem_acesso=folha", status_code=303)
-
+    # upload liberado para todos os usuários (exclusão continua restrita a admin)
     usuario = getattr(request.state, "current_user", None) or {}
     sucessos, erros = [], []
 
