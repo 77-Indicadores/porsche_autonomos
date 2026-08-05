@@ -290,6 +290,21 @@ function novoCadastro() {
 }
 </script>
 
+<script>
+// Mantém a posição de rolagem do menu lateral ao navegar entre páginas ("travado")
+(function () {
+  var nav = document.querySelector(".sidebar-nav");
+  if (!nav) return;
+  try {
+    var saved = sessionStorage.getItem("sidebarScroll");
+    if (saved !== null) nav.scrollTop = parseInt(saved, 10) || 0;
+  } catch (e) {}
+  nav.addEventListener("scroll", function () {
+    try { sessionStorage.setItem("sidebarScroll", nav.scrollTop); } catch (e) {}
+  });
+})();
+</script>
+
 </body>
 </html>
 
