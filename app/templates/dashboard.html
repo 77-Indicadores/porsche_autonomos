@@ -14,14 +14,12 @@
 {% set pilotos = cards.get('pilotos', 0) %}
 {% set autonomos = cards.get('autonomos', 0) %}
 {% set alocacoes = cards.get('vinculos', 0) %}
-{% set trocas = cards.get('trocas_mes', 0) %}
+{% set trocas = cards.get('trocas_temporada', 0) %}
 {% set carros_alocados = cards.get('carros_alocados', 0) %}
 
 {% set custo_temporada = 'R$ {:,.2f}'.format(cards.get('custo_total', 0)).replace(',', 'X').replace('.', ',').replace('X', '.') %}
 {% set custo_autonomos = 'R$ {:,.2f}'.format(cards.get('custo_autonomos', 0)).replace(',', 'X').replace('.', ',').replace('X', '.') %}
 {% set custo_equipe_geral = 'R$ {:,.2f}'.format(cards.get('custo_equipe_geral', 0)).replace(',', 'X').replace('.', ',').replace('X', '.') %}
-{% set custo_pendente = 'R$ {:,.2f}'.format(cards.get('custo_pendente', 0)).replace(',', 'X').replace('.', ',').replace('X', '.') %}
-{% set custo_pago = 'R$ {:,.2f}'.format(cards.get('custo_pago', 0)).replace(',', 'X').replace('.', ',').replace('X', '.') %}
 
 <section class="exec-hero">
   <div>
@@ -43,7 +41,7 @@
 <section class="exec-kpis">
   <article class="exec-kpi">
     <div class="exec-kpi-icon">👨‍✈️</div>
-    <span>Pilotos ativos</span>
+    <span>Pilotos ativos{% if temporada_atual %} · {{ temporada_atual }}{% endif %}</span>
     <strong>{{ pilotos }}</strong>
   </article>
 
@@ -80,14 +78,8 @@
   </article>
 
   <article class="exec-kpi">
-    <div class="exec-kpi-icon">🧩</div>
-    <span>Regras composição</span>
-    <strong>{{ composicao.qtd_regras }}</strong>
-  </article>
-
-  <article class="exec-kpi">
     <div class="exec-kpi-icon">🔄</div>
-    <span>Trocas no mês</span>
+    <span>Trocas na temporada{% if temporada_atual %} · {{ temporada_atual }}{% endif %}</span>
     <strong>{{ trocas }}</strong>
   </article>
 </section>
@@ -115,18 +107,6 @@
       <div>
         <span>Equipe geral</span>
         <strong>{{ custo_equipe_geral }}</strong>
-      </div>
-    </div>
-
-    <div class="exec-cost-row">
-      <div>
-        <span>Custo pendente</span>
-        <strong>{{ custo_pendente }}</strong>
-      </div>
-
-      <div>
-        <span>Custo pago</span>
-        <strong>{{ custo_pago }}</strong>
       </div>
     </div>
   </article>
@@ -228,25 +208,8 @@
   <article class="exec-panel">
     <div class="exec-panel-head">
       <div>
-        <span>Composição</span>
-        <h3>Quantidade esperada</h3>
-      </div>
-    </div>
-
-    <div class="exec-cost-main">
-      <span>Total esperado nas regras</span>
-      <strong>{{ composicao.qtd_esperada_fmt }}</strong>
-    </div>
-
-    <div class="exec-cost-row">
-      <div>
-        <span>Regras cadastradas</span>
-        <strong>{{ composicao.qtd_regras }}</strong>
-      </div>
-
-      <div>
-        <span>Alocações ativas</span>
-        <strong>{{ alocacoes }}</strong>
+        <span>Operação</span>
+        <h3>Próximos passos</h3>
       </div>
     </div>
 

@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 import json
 from app.auth import tem_acesso_modulo, MODULOS
 from app.database import get_db
-from app.models import DimAutonomo, DimPiloto, FatoPilotoAutonomoProva
+from app.models import DimAutonomo, DimPiloto, DimEtapa, FatoPilotoAutonomoProva
 from app.template_config import templates
 from app.utils import flash_from_request
 
@@ -202,15 +202,30 @@ def dashboard(request: Request, db: Session = Depends(get_db)):
         if f.id_carro is not None and (f.status_vinculo or "").lower() == "ativo"
     })
 
+    # temporada atual = maior temporada cadastrada; pilotos e trocas são recontados por temporada
+    temporada_atual = db.query(func.max(DimEtapa.temporada)).scalar()
+    if temporada_atual:
+        pilotos_ativos = (
+            db.query(func.count(func.distinct(FatoPilotoAutonomoProva.id_piloto)))
+            .join(DimEtapa, DimEtapa.id_etapa == FatoPilotoAutonomoProva.id_etapa)
+            .filter(DimEtapa.temporada == temporada_atual, FatoPilotoAutonomoProva.id_piloto.is_not(None))
+            .scalar() or 0
+        )
+        trocas_temporada = (
+            db.query(func.count(FatoPilotoAutonomoProva.id_fato))
+            .join(DimEtapa, DimEtapa.id_etapa == FatoPilotoAutonomoProva.id_etapa)
+            .filter(FatoPilotoAutonomoProva.data_troca.is_not(None), DimEtapa.temporada == temporada_atual)
+            .scalar() or 0
+        )
+    else:
+        pilotos_ativos = db.query(func.count(DimPiloto.id_piloto)).filter(DimPiloto.status_piloto == "Ativo").scalar() or 0
+        trocas_temporada = 0
+
     cards = {
-        "pilotos": db.query(func.count(DimPiloto.id_piloto)).filter(DimPiloto.status_piloto == "Ativo").scalar() or 0,
+        "pilotos": pilotos_ativos,
         "autonomos": db.query(func.count(DimAutonomo.id_autonomo)).filter(DimAutonomo.status_autonomo == "Ativo").scalar() or 0,
         "vinculos": db.query(func.count(FatoPilotoAutonomoProva.id_fato)).filter(FatoPilotoAutonomoProva.status_vinculo == "Ativo").scalar() or 0,
-        "trocas_mes": db.query(func.count(FatoPilotoAutonomoProva.id_fato)).filter(
-            FatoPilotoAutonomoProva.data_troca.is_not(None),
-            extract("month", FatoPilotoAutonomoProva.data_troca) == hoje.month,
-            extract("year", FatoPilotoAutonomoProva.data_troca) == hoje.year,
-        ).scalar() or 0,
+        "trocas_temporada": trocas_temporada,
         "carros_alocados": qtd_carros_alocados,
         "custo_autonomos": custo_autonomos,
         "custo_equipe_geral": equipe_geral.get("custo_total", 0),
@@ -266,6 +281,7 @@ def dashboard(request: Request, db: Session = Depends(get_db)):
             "resumo": resumo,
             "equipe_geral": equipe_geral,
             "composicao": composicao,
+            "temporada_atual": temporada_atual,
             **flash_from_request(request),
         },
     )
