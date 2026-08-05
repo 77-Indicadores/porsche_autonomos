@@ -32,9 +32,41 @@ function novoCadastro() {
 {% block content %}
 
 <section class="panel mb-6">
-  <form method="get" class="flex gap-3">
-    <input class="input" name="q" placeholder="Pesquisar por nome, cargo ou status" value="{{ q }}">
-    <button class="btn-secondary">Pesquisar</button>
+  <form method="get" style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap">
+    <div>
+      <label class="label">Nome</label>
+      <input class="input" name="nome" placeholder="Nome do autônomo" value="{{ f_nome }}">
+    </div>
+    <div>
+      <label class="label">Cargo</label>
+      <select class="input" name="cargo">
+        <option value="">Todos</option>
+        {% for c in cargos_autonomos %}
+          <option value="{{ c.id_cargo_autonomo }}" {% if f_cargo == c.id_cargo_autonomo|string %}selected{% endif %}>{{ c.nome_cargo }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div>
+      <label class="label">Status</label>
+      <select class="input" name="status">
+        <option value="">Todos</option>
+        {% for s in status_opcoes %}
+          <option {% if f_status == s %}selected{% endif %}>{{ s }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div>
+      <label class="label">Cadastrado de</label>
+      <input class="input" type="date" name="data_de" value="{{ f_data_de }}">
+    </div>
+    <div>
+      <label class="label">até</label>
+      <input class="input" type="date" name="data_ate" value="{{ f_data_ate }}">
+    </div>
+    <button class="btn-secondary">Filtrar</button>
+    {% if f_nome or f_cargo or f_status or f_data_de or f_data_ate %}
+    <a class="btn-muted" href="/autonomos">Limpar</a>
+    {% endif %}
   </form>
 </section>
 

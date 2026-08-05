@@ -178,13 +178,31 @@ def desligar_piloto(id_piloto: int, data_desligamento: str = Form(...), motivo_d
     return redirect_with_message("/pilotos", success="Piloto desligado sem exclusao fisica.")
 
 
+STATUS_AUTONOMO = ['Ativo', 'Inativo', 'Hiato', 'Treinamento', 'Bloqueado', 'Desligado', 'Suspenso']
+
+
 @router.get("/autonomos")
-def autonomos(request: Request, q: str = "", db: Session = Depends(get_db)):
+def autonomos(request: Request, nome: str = "", cargo: str = "", status: str = "",
+              data_de: str = "", data_ate: str = "", db: Session = Depends(get_db)):
     query = db.query(DimAutonomo)
-    if q:
-        like = f"%{q}%"
-        query = query.filter(or_(DimAutonomo.nome_autonomo.ilike(like), DimAutonomo.tipo_autonomo.ilike(like), DimAutonomo.status_autonomo.ilike(like)))
-    return templates.TemplateResponse("cadastros/autonomos.html", {"request": request, "items": query.order_by(DimAutonomo.nome_autonomo).all(), "q": q, **lists(db), **flash_from_request(request)})
+    if nome:
+        query = query.filter(DimAutonomo.nome_autonomo.ilike(f"%{nome}%"))
+    if cargo and str(cargo).isdigit():
+        query = query.filter(DimAutonomo.id_cargo_autonomo == int(cargo))
+    if status:
+        query = query.filter(DimAutonomo.status_autonomo == status)
+    if data_de:
+        query = query.filter(DimAutonomo.data_inclusao >= data_de)
+    if data_ate:
+        query = query.filter(DimAutonomo.data_inclusao <= data_ate)
+    return templates.TemplateResponse("cadastros/autonomos.html", {
+        "request": request,
+        "items": query.order_by(DimAutonomo.nome_autonomo).all(),
+        "f_nome": nome, "f_cargo": cargo, "f_status": status,
+        "f_data_de": data_de, "f_data_ate": data_ate,
+        "status_opcoes": STATUS_AUTONOMO,
+        **lists(db), **flash_from_request(request),
+    })
 
 
 @router.post("/autonomos")
