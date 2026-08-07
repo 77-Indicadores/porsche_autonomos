@@ -412,6 +412,23 @@ def achar_coluna(colunas, termos):
     return None
 
 
+def achar_coluna_etapa(colunas):
+    """Retorna apenas uma coluna cadastral de etapa, não perguntas com 'nesta etapa'."""
+    nomes_validos = {
+        "etapa",
+        "nome etapa",
+        "nome da etapa",
+        "etapa evento",
+        "etapa da pesquisa",
+        "etapa da prova",
+    }
+    for c in colunas:
+        k = normalizar(c)
+        if k in nomes_validos:
+            return c
+    return None
+
+
 def detectar_contexto(tipo_pesquisa, row):
     colunas = list(row.keys())
 
@@ -874,7 +891,7 @@ def percorrer_planilha(wb, tipo_pesquisa, id_etapa_arquivo, etapas):
         abas_vistas.add(assinatura)
 
         ignorar = colunas_metadata(headers)
-        col_etapa_planilha = achar_coluna(headers, ["etapa"])
+        col_etapa_planilha = achar_coluna_etapa(headers)
 
         for idx, values in enumerate(rows[1:], start=2):
             row = {headers[i]: values[i] if i < len(values) else None
@@ -1063,6 +1080,20 @@ def gravar_arquivo(db, nome_arquivo, caminho_disco, tipo_pesquisa, id_etapa, eta
         wb = load_workbook(caminho, data_only=True)
     except Exception as exc:
         return False, f"{nome_arquivo}: não consegui abrir o Excel ({exc})"
+
+    # Sem etapa no arquivo nem na planilha, as respostas entrariam soltas na
+    # base. A tela ja bloqueia; aqui e a rede de seguranca.
+    if not id_etapa:
+        tem_coluna_etapa = any(
+            achar_coluna_etapa(
+                [str(h).strip() if h is not None else "" for h in (linha or [])],
+            )
+            for ws in wb.worksheets
+            for linha in ws.iter_rows(min_row=1, max_row=1, values_only=True)
+        )
+        if not tem_coluna_etapa:
+            return False, (f"{nome_arquivo}: escolha a etapa antes de importar "
+                           "— a planilha não tem coluna ETAPA")
 
     digest = hashlib.sha1(caminho.read_bytes()).hexdigest()
     ja = db.execute(

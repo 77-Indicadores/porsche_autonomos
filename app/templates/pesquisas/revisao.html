@@ -64,8 +64,11 @@
         </td>
         <td>
           {% if gravavel %}
+            {# quando a etapa vem por coluna, "0" é uma escolha válida;
+               senão, precisa ser definida antes de importar #}
             <select class="input" name="etapa_{{ loop.index0 }}"
-                    data-idx="{{ loop.index0 }}" onchange="pqEtapa(this)">
+                    data-idx="{{ loop.index0 }}" onchange="pqEtapa(this)"
+                    data-exige="{{ '0' if a.etapa_label == 'Pela coluna ETAPA' else '1' }}">
               <option value="0">{% if a.etapa_label == "Pela coluna ETAPA" %}Pela coluna ETAPA{% else %}— definir —{% endif %}</option>
               {% for e in etapas %}
                 <option value="{{ e.id_etapa }}" {% if e.id_etapa == a.id_etapa %}selected{% endif %}>{{ e.nome_etapa }}</option>
@@ -116,9 +119,9 @@
 {% set gravaveis = analises|selectattr('status','in',['OK','Etapa indefinida'])|list %}
 <div style="display:flex;gap:.6rem;align-items:center;margin-bottom:2rem;flex-wrap:wrap">
   {% if gravaveis %}
-    <button class="btn-primary">Importar base padronizada ({{ gravaveis|length }})</button>
+    <button class="btn-primary" id="pqImportar">Importar base padronizada ({{ gravaveis|length }})</button>
     <a class="btn-muted" href="/pesquisas">Cancelar</a>
-    <span style="font-size:.8rem;color:#6b7280">
+    <span id="pqAviso" style="font-size:.8rem;color:#6b7280">
       Nada foi gravado ainda — só o que estiver marcado acima será importado.
     </span>
   {% else %}
@@ -143,13 +146,55 @@
    acompanhar, senão continua pedindo algo que já foi feito */
 function pqEtapa(sel){
   var badge = document.querySelector('.pq-st[data-idx="' + sel.dataset.idx + '"]');
-  if (!badge) return;
-  var definida = sel.value && sel.value !== "0";
-  badge.textContent = definida ? "OK" : "Definir etapa";
-  badge.style.background = definida ? "#dcfce7" : "#fef9c3";
-  badge.style.color = definida ? "#166534" : "#854d0e";
+  if (badge) {
+    var definida = sel.value && sel.value !== "0";
+    badge.textContent = definida ? "OK" : "Definir etapa";
+    badge.style.background = definida ? "#dcfce7" : "#fef9c3";
+    badge.style.color = definida ? "#166534" : "#854d0e";
+  }
+  pqRevisar();
 }
-document.querySelectorAll('select[data-idx]').forEach(pqEtapa);
+
+/* Importar sem etapa joga as respostas na base sem etapa, e depois da
+   trabalho arrumar. Quando a etapa nao vem por coluna, ela e obrigatoria. */
+function pqRevisar(){
+  var botao = document.getElementById('pqImportar');
+  var aviso = document.getElementById('pqAviso');
+  if (!botao) return;
+
+  var pendentes = [];
+  document.querySelectorAll('select[data-idx][data-exige="1"]').forEach(function(sel){
+    var marcado = document.querySelector('input[name="incluir_' + sel.dataset.idx + '"]');
+    if (marcado && marcado.checked && (!sel.value || sel.value === "0")) {
+      sel.style.borderColor = '#fca5a5';
+      pendentes.push(sel);
+    } else {
+      sel.style.borderColor = '';
+    }
+  });
+
+  botao.disabled = pendentes.length > 0;
+  botao.style.opacity = pendentes.length ? '.5' : '';
+  botao.style.cursor = pendentes.length ? 'not-allowed' : '';
+
+  if (pendentes.length) {
+    aviso.textContent = pendentes.length === 1
+      ? 'Escolha a etapa do arquivo destacado para liberar a importação.'
+      : 'Escolha a etapa dos ' + pendentes.length + ' arquivos destacados para liberar a importação.';
+    aviso.style.color = '#b91c1c';
+    aviso.style.fontWeight = '600';
+  } else {
+    aviso.textContent = 'Nada foi gravado ainda — só o que estiver marcado acima será importado.';
+    aviso.style.color = '#6b7280';
+    aviso.style.fontWeight = '';
+  }
+}
+
+document.querySelectorAll('input[name^="incluir_"]').forEach(function(c){
+  c.addEventListener('change', pqRevisar);
+});
+document.querySelectorAll('select[data-idx]').forEach(function(s){ pqEtapa(s); });
+pqRevisar();
 </script>
 
 {% endblock %}
