@@ -175,6 +175,43 @@ def detectar_tipo(nome_arquivo: str) -> str | None:
     return None
 
 
+def detectar_tipo_por_conteudo(wb) -> str | None:
+    """Descobre o tipo pelas colunas, quando o nome do arquivo não diz nada.
+
+    O Windows manda o nome curto (PORSCH~1.XLS) quando o caminho é longo, e aí
+    não há o que reconhecer no nome.
+    """
+    cabecalhos = []
+    for ws in wb.worksheets:
+        for linha in ws.iter_rows(min_row=1, max_row=1, values_only=True):
+            cabecalhos += [normalizar(c) for c in linha if c]
+            break
+    texto = " | ".join(cabecalhos)
+    if not texto:
+        return None
+
+    if "tipo de feedback" in texto or "descreva o ocorrido" in texto:
+        return "feedback_equipe_tecnica"
+    if "manter ou trocar o seu engenheiro" in texto or "selecione sua categoria" in texto:
+        return "feedback_piloto"
+    if "engenheiro" in texto and "mecanico" in texto and "seu nome" in texto:
+        return "feedback_piloto"
+    if "funcao desempenhou nesta etapa" in texto or "avalie o evento nos seguintes aspectos" in texto:
+        return "satisfacao_autonomo"
+    if "nome do autonomo" in texto and "lider" in texto:
+        return "feedback_autonomo"
+    return None
+
+
+def detectar_etapa_por_conteudo(wb, etapas: list):
+    """Etapa citada no conteúdo da planilha (título ou coluna ETAPA)."""
+    for ws in wb.worksheets:
+        achou = detectar_etapas(ws.title, etapas)
+        if achou:
+            return achou
+    return []
+
+
 def detectar_etapas(nome_arquivo: str, etapas: list) -> list:
     """IDs de etapa citados no nome do arquivo.
 
@@ -932,20 +969,8 @@ def analisar_arquivo(db, nome_arquivo, conteudo, etapas, vistos=None):
         "arquivo_disco": None,
     }
 
-    if not (nome_arquivo or "").lower().endswith(".xlsx"):
-        info["status"] = "Erro"
-        info["avisos"].append("não é um arquivo .xlsx")
-        return info
-
-    tipo = detectar_tipo(nome_arquivo)
-    if not tipo:
-        info["status"] = "Erro"
-        info["avisos"].append("não reconheci o tipo pelo nome do arquivo")
-        return info
-
-    info["tipo"] = tipo
-    info["tipo_label"] = dict(TIPOS_PESQUISA).get(tipo, tipo)
-
+    # O Windows manda o nome curto (PORSCH~1.XLS) quando o caminho é longo:
+    # a extensão engana e o nome não identifica nada. O que vale é o conteúdo.
     digest = hashlib.sha1(conteudo).hexdigest()
     info["digest"] = digest
 
@@ -979,12 +1004,30 @@ def analisar_arquivo(db, nome_arquivo, conteudo, etapas, vistos=None):
 
     try:
         wb = load_workbook(destino, data_only=True)
-    except Exception as exc:
+    except Exception:
         info["status"] = "Erro"
-        info["avisos"].append(f"não consegui abrir o Excel ({exc})")
+        info["avisos"].append(
+            "não consegui abrir como Excel. Se for um .xls antigo, "
+            "abra no Excel e salve como .xlsx.")
         return info
 
-    ids_etapa = detectar_etapas(nome_arquivo, etapas)
+    # tipo: primeiro pelo nome; se não der, pelas colunas da planilha
+    tipo = detectar_tipo(nome_arquivo)
+    if not tipo:
+        tipo = detectar_tipo_por_conteudo(wb)
+        if tipo:
+            info["avisos"].append(
+                "tipo identificado pelas colunas — o nome do arquivo não indicava")
+    if not tipo:
+        info["status"] = "Erro"
+        info["avisos"].append(
+            "não reconheci o tipo nem pelo nome nem pelas colunas da planilha")
+        return info
+
+    info["tipo"] = tipo
+    info["tipo_label"] = dict(TIPOS_PESQUISA).get(tipo, tipo)
+
+    ids_etapa = detectar_etapas(nome_arquivo, etapas) or detectar_etapa_por_conteudo(wb, etapas)
     id_etapa = ids_etapa[0] if ids_etapa else 0
     info["id_etapa"] = id_etapa
 
