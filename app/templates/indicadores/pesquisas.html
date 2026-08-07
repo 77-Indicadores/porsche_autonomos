@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+
+{% block header %}Pesquisas · Satisfação e Avaliação{% endblock %}
+{% block subtitle %}Feedback de pilotos, autônomos e equipe técnica, consolidado por etapa e categoria{% endblock %}
+
+{% block content %}
+
+{% if erro %}
+<div class="alert alert-error mb-6">{{ erro }}</div>
+{% endif %}
+
+{% if dash_html %}
+{{ dash_html | safe }}
+{% elif not erro %}
+<section class="panel">
+  <p class="text-zinc-500">Nenhum dado encontrado.</p>
+</section>
+{% endif %}
+
+{% endblock %}
