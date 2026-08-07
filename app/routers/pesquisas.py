@@ -898,9 +898,6 @@ def percorrer_planilha(wb, tipo_pesquisa, id_etapa_arquivo, etapas):
                 if da_linha:
                     id_etapa_linha = da_linha
 
-            if not id_etapa_linha:
-                linhas_incompletas += 1
-
             respondidas = 0
             for col, val in row.items():
                 if col in ignorar or is_empty(val):
@@ -942,8 +939,10 @@ def percorrer_planilha(wb, tipo_pesquisa, id_etapa_arquivo, etapas):
             if not respondidas:
                 linhas_incompletas += 1
 
+    # Só avisa sobre linha sem nenhuma resposta. A falta de etapa já aparece no
+    # status do arquivo — repetir aqui virava "63 de 63 linhas com problema".
     if linhas_incompletas:
-        avisos.append(f"{linhas_incompletas} linha(s) sem etapa definida ou sem resposta")
+        avisos.append(f"{linhas_incompletas} linha(s) sem nenhuma resposta preenchida")
 
     return respostas, total_linhas, avisos
 

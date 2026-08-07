@@ -64,7 +64,8 @@
         </td>
         <td>
           {% if gravavel %}
-            <select class="input" name="etapa_{{ loop.index0 }}">
+            <select class="input" name="etapa_{{ loop.index0 }}"
+                    data-idx="{{ loop.index0 }}" onchange="pqEtapa(this)">
               <option value="0">{% if a.etapa_label == "Pela coluna ETAPA" %}Pela coluna ETAPA{% else %}— definir —{% endif %}</option>
               {% for e in etapas %}
                 <option value="{{ e.id_etapa }}" {% if e.id_etapa == a.id_etapa %}selected{% endif %}>{{ e.nome_etapa }}</option>
@@ -80,7 +81,8 @@
           {% if a.status == "OK" %}
             <span class="badge" style="background:#dcfce7;color:#166534">OK</span>
           {% elif a.status == "Etapa indefinida" %}
-            <span class="badge" style="background:#fef9c3;color:#854d0e">Definir etapa</span>
+            <span class="badge pq-st" data-idx="{{ loop.index0 }}"
+                  style="background:#fef9c3;color:#854d0e">Definir etapa</span>
           {% elif a.status == "Duplicado" %}
             <span class="badge" style="background:#e5e7eb;color:#4b5563">Já importado</span>
           {% else %}
@@ -135,5 +137,19 @@
   {% endif %}
 </div>
 </form>
+
+<script>
+/* o status vem do servidor; ao escolher a etapa na tela ele precisa
+   acompanhar, senão continua pedindo algo que já foi feito */
+function pqEtapa(sel){
+  var badge = document.querySelector('.pq-st[data-idx="' + sel.dataset.idx + '"]');
+  if (!badge) return;
+  var definida = sel.value && sel.value !== "0";
+  badge.textContent = definida ? "OK" : "Definir etapa";
+  badge.style.background = definida ? "#dcfce7" : "#fef9c3";
+  badge.style.color = definida ? "#166534" : "#854d0e";
+}
+document.querySelectorAll('select[data-idx]').forEach(pqEtapa);
+</script>
 
 {% endblock %}
