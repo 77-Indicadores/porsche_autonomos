@@ -26,44 +26,140 @@
     </div>
   </form>
 </section>
+<section class="panel mb-6">
+  <details {% if uploads and uploads|selectattr('id_etapa','equalto',0)|list %}open{% endif %}>
+    <summary style="cursor:pointer;padding:.9rem 1.2rem;font-weight:600;font-size:.95rem;
+                    display:flex;align-items:center;gap:.6rem;list-style:none">
+      <span>▸</span> Uploads realizados
+      <span style="font-weight:400;color:#6b7280;font-size:.82rem">({{ uploads|length }})</span>
+    </summary>
+
+    <table class="table">
+      <thead>
+        <tr>
+          <th>Arquivo</th>
+          <th>Tipo</th>
+          <th>Linhas</th>
+          <th>Respostas</th>
+          <th style="min-width:260px">Etapa da pesquisa</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for u in uploads %}
+        <tr>
+          <td class="font-bold" style="max-width:340px;overflow:hidden;text-overflow:ellipsis">{{ u.arquivo_nome }}</td>
+          <td>{{ tipos_label.get(u.tipo_pesquisa, u.tipo_pesquisa) }}</td>
+          <td>{{ u.qtd_linhas }}</td>
+          <td>{{ u.qtd_respostas }}</td>
+          <td>
+            <form method="post" action="/pesquisas/{{ u.id_upload }}/etapa"
+                  style="display:flex;gap:.4rem;align-items:center;margin:0">
+              <select class="input" name="id_etapa" onchange="this.form.submit()" style="flex:1">
+                <option value="0">— definir etapa —</option>
+                {% for e in etapas %}
+                  <option value="{{ e.id_etapa }}" {% if e.id_etapa == u.id_etapa %}selected{% endif %}>
+                    {{ e.nome_etapa }}
+                  </option>
+                {% endfor %}
+              </select>
+              {% if not u.id_etapa %}
+                <span title="etapa não identificada pelo nome do arquivo"
+                      style="color:#b45309;font-weight:700">!</span>
+              {% endif %}
+            </form>
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="5" class="empty">Nenhuma pesquisa importada.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </details>
+</section>
+
 <section class="panel">
   <div class="panel-head">
-    <h3>Uploads realizados</h3>
+    <h3>Base de dados consolidada
+      <span style="font-weight:400;color:#6b7280;font-size:.82rem">
+        ({{ "{:,}".format(base_total).replace(",", ".") }} respostas)
+      </span>
+    </h3>
   </div>
 
-  <table class="table">
-    <thead>
-      <tr>
-        <th>ID</th>
-        <th>Arquivo</th>
-        <th>Tipo</th>
-        <th>Etapa</th>
-        <th>Linhas</th>
-        <th>Respostas</th>
-        <th>Status</th>
-        <th>Ações</th>
-      </tr>
-    </thead>
+  <form method="get" action="/pesquisas" class="form-grid" style="padding:0 1.2rem 1rem">
+    <div>
+      <label class="label">Etapa</label>
+      <select class="input" name="f_etapa" onchange="this.form.submit()">
+        <option value="">Todas</option>
+        {% for e in etapas %}
+          <option value="{{ e.id_etapa }}" {% if f_etapa == e.id_etapa|string %}selected{% endif %}>{{ e.nome_etapa }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div>
+      <label class="label">Tipo de pesquisa</label>
+      <select class="input" name="f_tipo" onchange="this.form.submit()">
+        <option value="">Todos</option>
+        {% for value, label in tipos_pesquisa %}
+          <option value="{{ value }}" {% if f_tipo == value %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div>
+      <label class="label">Grupo</label>
+      <select class="input" name="f_grupo" onchange="this.form.submit()">
+        <option value="">Todos</option>
+        {% for g in base_grupos %}
+          <option value="{{ g }}" {% if f_grupo == g %}selected{% endif %}>{{ g }}</option>
+        {% endfor %}
+      </select>
+    </div>
+  </form>
 
-    <tbody>
-      {% for u in uploads %}
-      <tr>
-        <td><span class="id-pill">{{ u.id_upload }}</span></td>
-        <td class="font-bold">{{ u.arquivo_nome }}</td>
-        <td>{{ u.tipo_pesquisa }}</td>
-        <td>{{ u.id_etapa }}</td>
-        <td>{{ u.qtd_linhas }}</td>
-        <td>{{ u.qtd_respostas }}</td>
-        <td><span class="badge">{{ u.status }}</span></td>
-        <td><a class="btn-muted" href="/pesquisas/{{ u.id_upload }}">Ver detalhes</a></td>
-      </tr>
-      {% else %}
-      <tr>
-        <td colspan="8" class="empty">Nenhuma pesquisa importada.</td>
-      </tr>
-      {% endfor %}
-    </tbody>
-  </table>
+  <div style="overflow-x:auto">
+    <table class="table">
+      <thead>
+        <tr>
+          <th>Etapa</th><th>Pesquisa</th><th>Respondente</th><th>Avaliado</th>
+          <th>Categoria</th><th>Função</th><th>Grupo</th><th>Item</th>
+          <th>Resposta</th><th>Nota</th><th>Permanência</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in base %}
+        <tr>
+          <td>{{ r.etapa }}</td>
+          <td>{{ tipos_label.get(r.tipo_pesquisa, r.tipo_pesquisa) }}</td>
+          <td>{{ r.respondente_nome or "—" }}</td>
+          <td>{{ r.alvo_nome or "—" }}</td>
+          <td>{{ r.categoria_forms or "—" }}</td>
+          <td>{{ r.funcao_forms or "—" }}</td>
+          <td>{{ r.grupo_pergunta or "—" }}</td>
+          <td>{{ r.subgrupo_pergunta or "—" }}</td>
+          <td style="max-width:320px">{{ r.resposta_padronizada or r.resposta_original or "—" }}</td>
+          <td>{{ "%.1f"|format(r.nota_num) if r.nota_num is not none else "—" }}</td>
+          <td>{{ r.manter_trocar or "—" }}</td>
+        </tr>
+        {% else %}
+        <tr><td colspan="11" class="empty">Nenhuma resposta importada ainda.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  {% set total_paginas = (base_total // por_pagina) + (1 if base_total % por_pagina else 0) %}
+  {% if total_paginas > 1 %}
+    {% set q = "&f_etapa=" ~ f_etapa ~ "&f_tipo=" ~ f_tipo ~ "&f_grupo=" ~ f_grupo %}
+    <div style="display:flex;gap:.5rem;align-items:center;justify-content:center;padding:1rem">
+      {% if pagina > 1 %}
+        <a class="btn-muted" href="/pesquisas?pagina={{ pagina - 1 }}{{ q }}">‹ Anterior</a>
+      {% endif %}
+      <span style="font-size:.82rem;color:#6b7280">Página {{ pagina }} de {{ total_paginas }}</span>
+      {% if pagina < total_paginas %}
+        <a class="btn-muted" href="/pesquisas?pagina={{ pagina + 1 }}{{ q }}">Próxima ›</a>
+      {% endif %}
+    </div>
+  {% endif %}
 </section>
 
 {% endblock %}

@@ -385,7 +385,11 @@ def detectar_contexto(tipo_pesquisa, row):
     lider_forms = None
     periodo_forms = None
 
-    col_categoria = achar_coluna(colunas, ["selecione", "categoria"]) or achar_coluna(colunas, ["categoria"])
+    # "categoria" solto casava com "...supervisores da categoria...", que é uma
+    # pergunta de nota; só vale como coluna própria de categoria.
+    col_categoria = achar_coluna(colunas, ["selecione", "categoria"])
+    if not col_categoria:
+        col_categoria = next((c for c in colunas if normalizar(c) == "categoria"), None)
     col_nome_autonomo = achar_coluna(colunas, ["nome", "autonomo"])
     col_funcao = achar_coluna(colunas, ["funcao", "autonomo"])
     col_lider = achar_coluna(colunas, ["lider"])
@@ -454,8 +458,6 @@ def colunas_metadata(colunas):
         ["nome", "completo"],
         ["funcao", "desempenhou"],
         # equipe técnica
-        ["etapa"],
-        ["categoria"],
         ["piloto", "atendido"],
         ["data", "ocorrido"],
         ["id", "feedback"],
@@ -463,6 +465,12 @@ def colunas_metadata(colunas):
         c = achar_coluna(colunas, termos)
         if c:
             ignorar.add(c)
+
+    # "etapa" e "categoria" precisam ser a coluna inteira: por trecho pegavam
+    # perguntas como "...supervisores da categoria..." e "Feedback Pós Etapa",
+    # que eram descartadas em vez de importadas.
+    for exato in ("etapa", "categoria"):
+        ignorar.update(c for c in colunas if normalizar(c) == exato)
 
     return ignorar
 
@@ -506,6 +514,7 @@ def options(db: Session):
         "autonomos": db.query(DimAutonomo).order_by(DimAutonomo.nome_autonomo).all(),
         "pilotos": db.query(DimPiloto).order_by(DimPiloto.nome_piloto).all(),
         "tipos_pesquisa": TIPOS_PESQUISA,
+        "tipos_label": dict(TIPOS_PESQUISA),
     }
 
 
@@ -515,15 +524,93 @@ def pesquisas_home(request: Request, db: Session = Depends(get_db)):
         select(pesquisa_uploads).order_by(pesquisa_uploads.c.id_upload.desc()).limit(50)
     ).mappings().all()
 
+    # ── base consolidada de todas as pesquisas ──
+    f_etapa = request.query_params.get("f_etapa", "")
+    f_tipo = request.query_params.get("f_tipo", "")
+    f_grupo = request.query_params.get("f_grupo", "")
+    try:
+        pagina = max(1, int(request.query_params.get("pagina", "1")))
+    except ValueError:
+        pagina = 1
+    por_pagina = 100
+
+    where, params = ["1=1"], {}
+    if f_etapa:
+        where.append("p.id_etapa = :et")
+        params["et"] = int(f_etapa)
+    if f_tipo:
+        where.append("p.tipo_pesquisa = :tp")
+        params["tp"] = f_tipo
+    if f_grupo:
+        where.append("p.grupo_pergunta = :gr")
+        params["gr"] = f_grupo
+    w = " AND ".join(where)
+
+    total_base = db.execute(
+        text(f"SELECT COUNT(*) FROM pesquisa_respostas p WHERE {w}"), params
+    ).scalar() or 0
+
+    base = db.execute(text(f"""
+        SELECT COALESCE(e.nome_etapa, '—') AS etapa,
+               p.tipo_pesquisa, p.respondente_nome, p.alvo_nome,
+               p.categoria_forms, p.funcao_forms,
+               p.grupo_pergunta, p.subgrupo_pergunta,
+               p.resposta_original, p.nota_num, p.resposta_padronizada,
+               p.manter_trocar
+        FROM pesquisa_respostas p
+        LEFT JOIN dim_etapas e ON e.id_etapa = p.id_etapa
+        WHERE {w}
+        ORDER BY p.id_resposta
+        LIMIT :lim OFFSET :off
+    """), {**params, "lim": por_pagina, "off": (pagina - 1) * por_pagina}).mappings().all()
+
+    grupos = [r[0] for r in db.execute(text(
+        "SELECT DISTINCT grupo_pergunta FROM pesquisa_respostas "
+        "WHERE grupo_pergunta IS NOT NULL ORDER BY 1"
+    )).fetchall()]
+
     return templates.TemplateResponse(
         "pesquisas/index.html",
         {
             "request": request,
             "uploads": uploads,
+            "base": base,
+            "base_total": total_base,
+            "base_grupos": grupos,
+            "f_etapa": f_etapa,
+            "f_tipo": f_tipo,
+            "f_grupo": f_grupo,
+            "pagina": pagina,
+            "por_pagina": por_pagina,
             **options(db),
             **flash_from_request(request),
         },
     )
+
+
+@router.post("/pesquisas/{id_upload}/etapa")
+def pesquisas_definir_etapa(
+    id_upload: int,
+    request: Request,
+    id_etapa: int = Form(...),
+    db: Session = Depends(get_db),
+):
+    """Ajusta a etapa de um upload — e das respostas que vieram dele."""
+    if not _is_admin(request):
+        return RedirectResponse("/?sem_acesso=pesquisas", status_code=303)
+
+    db.execute(
+        update(pesquisa_uploads)
+        .where(pesquisa_uploads.c.id_upload == id_upload)
+        .values(id_etapa=id_etapa)
+    )
+    db.execute(
+        update(pesquisa_respostas)
+        .where(pesquisa_respostas.c.id_upload == id_upload)
+        .values(id_etapa=id_etapa)
+    )
+    db.commit()
+    return redirect_with_message("/pesquisas", success="Etapa atualizada.")
 
 
 @router.post("/pesquisas/upload")
@@ -660,6 +747,13 @@ async def _importar_planilha(db, nome_arquivo, conteudo, tipo_pesquisa, id_etapa
 
             total_linhas += 1
             contexto = detectar_contexto(tipo_pesquisa, row)
+
+            # No Forms dos pilotos a categoria da aba TROPHY está no nome da
+            # aba, não em coluna; sem isso essas respostas ficavam sem categoria.
+            if not contexto["categoria_forms"]:
+                aba_k = normalizar(ws.title)
+                if aba_k and "resposta" not in aba_k and "coment" not in aba_k:
+                    contexto["categoria_forms"] = ws.title.strip().title()
 
             id_etapa_linha = id_etapa
             if col_etapa_planilha:
