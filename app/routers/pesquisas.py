@@ -710,6 +710,11 @@ async def pesquisas_upload(
     if not _is_admin(request):
         return RedirectResponse("/?sem_acesso=pesquisas", status_code=303)
 
+    arquivos = [a for a in (arquivos or []) if a and a.filename]
+    if not arquivos:
+        return redirect_with_message(
+            "/pesquisas", error="Escolha ao menos uma planilha .xlsx antes de validar.")
+
     etapas = db.query(DimEtapa).order_by(DimEtapa.temporada.desc(), DimEtapa.data_inicio).all()
 
     analises = []
@@ -778,7 +783,10 @@ async def pesquisas_confirmar(request: Request, db: Session = Depends(get_db)):
     if importados:
         return redirect_with_message("/pesquisas", success=" || ".join(partes))
     return redirect_with_message(
-        "/pesquisas", error=" || ".join(partes) or "Nenhum arquivo selecionado.")
+        "/pesquisas",
+        error=" || ".join(partes) or
+        "Nenhum arquivo foi marcado na revisão — nada foi importado. "
+        "Envie as planilhas de novo e confira as caixas de seleção.")
 
 
 def _mapa_etapas(etapas):

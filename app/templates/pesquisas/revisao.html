@@ -111,12 +111,28 @@
 </section>
 {% endif %}
 
-<div style="display:flex;gap:.6rem;align-items:center;margin-bottom:2rem">
-  <button class="btn-primary">Importar base padronizada</button>
-  <a class="btn-muted" href="/pesquisas">Cancelar</a>
-  <span style="font-size:.8rem;color:#6b7280">
-    Nada foi gravado ainda — só o que estiver marcado acima será importado.
-  </span>
+{% set gravaveis = analises|selectattr('status','in',['OK','Etapa indefinida'])|list %}
+<div style="display:flex;gap:.6rem;align-items:center;margin-bottom:2rem;flex-wrap:wrap">
+  {% if gravaveis %}
+    <button class="btn-primary">Importar base padronizada ({{ gravaveis|length }})</button>
+    <a class="btn-muted" href="/pesquisas">Cancelar</a>
+    <span style="font-size:.8rem;color:#6b7280">
+      Nada foi gravado ainda — só o que estiver marcado acima será importado.
+    </span>
+  {% else %}
+    <div style="flex:1;background:#fffbeb;border:1px solid #fde68a;border-radius:10px;padding:.9rem 1.1rem">
+      <b style="font-size:.9rem;color:#92400e">Não há nada para importar</b>
+      <p style="margin:.3rem 0 0;font-size:.82rem;color:#78350f;line-height:1.5">
+        {% if analises|selectattr('status','equalto','Duplicado')|list %}
+          Esses arquivos já foram importados antes — o conteúdo é idêntico ao que já está na base.
+          Confira a aba <b>Uploads e etapas</b>.
+        {% else %}
+          Os arquivos enviados não puderam ser lidos. Veja os avisos acima.
+        {% endif %}
+      </p>
+    </div>
+    <a class="btn-primary" href="/pesquisas">Voltar</a>
+  {% endif %}
 </div>
 </form>
 
