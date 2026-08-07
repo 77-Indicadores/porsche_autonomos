@@ -138,6 +138,14 @@ TIPOS_PESQUISA = [
     ("feedback_piloto", "Feedback do Piloto"),
 ]
 
+# rótulo curto, para caber nas tabelas
+TIPOS_CURTO = {
+    "feedback_autonomo": "Avaliação Autônomo",
+    "satisfacao_autonomo": "Satisfação Autônomo",
+    "feedback_equipe_tecnica": "Equipe Técnica",
+    "feedback_piloto": "Piloto",
+}
+
 # Escala qualitativa → nota, para permitir média junto com as escalas numéricas
 ESCALA_QUALITATIVA = {
     "excelente": 5.0,
@@ -515,24 +523,16 @@ def options(db: Session):
         "pilotos": db.query(DimPiloto).order_by(DimPiloto.nome_piloto).all(),
         "tipos_pesquisa": TIPOS_PESQUISA,
         "tipos_label": dict(TIPOS_PESQUISA),
+        "tipos_curto": TIPOS_CURTO,
     }
 
 
-@router.get("/pesquisas")
-def pesquisas_home(request: Request, db: Session = Depends(get_db)):
-    uploads = db.execute(
-        select(pesquisa_uploads).order_by(pesquisa_uploads.c.id_upload.desc()).limit(50)
-    ).mappings().all()
-
-    # ── base consolidada de todas as pesquisas ──
+def _filtro_base(request):
+    """WHERE + parâmetros da base consolidada, a partir da querystring."""
     f_etapa = request.query_params.get("f_etapa", "")
     f_tipo = request.query_params.get("f_tipo", "")
     f_grupo = request.query_params.get("f_grupo", "")
-    try:
-        pagina = max(1, int(request.query_params.get("pagina", "1")))
-    except ValueError:
-        pagina = 1
-    por_pagina = 100
+    busca = (request.query_params.get("busca", "") or "").strip()
 
     where, params = ["1=1"], {}
     if f_etapa:
@@ -544,7 +544,35 @@ def pesquisas_home(request: Request, db: Session = Depends(get_db)):
     if f_grupo:
         where.append("p.grupo_pergunta = :gr")
         params["gr"] = f_grupo
-    w = " AND ".join(where)
+    if busca:
+        where.append(
+            "(LOWER(COALESCE(p.respondente_nome,'')) LIKE :bu"
+            " OR LOWER(COALESCE(p.alvo_nome,'')) LIKE :bu"
+            " OR LOWER(COALESCE(p.subgrupo_pergunta,'')) LIKE :bu"
+            " OR LOWER(COALESCE(p.pergunta_original,'')) LIKE :bu"
+            " OR LOWER(COALESCE(p.resposta_original,'')) LIKE :bu)"
+        )
+        params["bu"] = f"%{busca.lower()}%"
+
+    return " AND ".join(where), params, {
+        "f_etapa": f_etapa, "f_tipo": f_tipo, "f_grupo": f_grupo, "busca": busca,
+    }
+
+
+@router.get("/pesquisas")
+def pesquisas_home(request: Request, db: Session = Depends(get_db)):
+    uploads = db.execute(
+        select(pesquisa_uploads).order_by(pesquisa_uploads.c.id_upload.desc()).limit(50)
+    ).mappings().all()
+
+    # ── base consolidada de todas as pesquisas ──
+    try:
+        pagina = max(1, int(request.query_params.get("pagina", "1")))
+    except ValueError:
+        pagina = 1
+    por_pagina = 100
+
+    w, params, filtros = _filtro_base(request)
 
     total_base = db.execute(
         text(f"SELECT COUNT(*) FROM pesquisa_respostas p WHERE {w}"), params
@@ -554,7 +582,7 @@ def pesquisas_home(request: Request, db: Session = Depends(get_db)):
         SELECT COALESCE(e.nome_etapa, '—') AS etapa,
                p.tipo_pesquisa, p.respondente_nome, p.alvo_nome,
                p.categoria_forms, p.funcao_forms,
-               p.grupo_pergunta, p.subgrupo_pergunta,
+               p.grupo_pergunta, p.subgrupo_pergunta, p.pergunta_original,
                p.resposta_original, p.nota_num, p.resposta_padronizada,
                p.manter_trocar
         FROM pesquisa_respostas p
@@ -577,14 +605,73 @@ def pesquisas_home(request: Request, db: Session = Depends(get_db)):
             "base": base,
             "base_total": total_base,
             "base_grupos": grupos,
-            "f_etapa": f_etapa,
-            "f_tipo": f_tipo,
-            "f_grupo": f_grupo,
+            "ultima": uploads[0] if uploads else None,
             "pagina": pagina,
             "por_pagina": por_pagina,
+            **filtros,
             **options(db),
             **flash_from_request(request),
         },
+    )
+
+
+@router.get("/pesquisas/exportar")
+def pesquisas_exportar(request: Request, db: Session = Depends(get_db)):
+    """Exporta a base consolidada, respeitando os filtros da tela."""
+    import io as _io
+    from openpyxl import Workbook
+    from openpyxl.styles import Font, PatternFill
+    from fastapi.responses import StreamingResponse
+
+    w, params, _ = _filtro_base(request)
+
+    linhas = db.execute(text(f"""
+        SELECT COALESCE(e.nome_etapa, '') AS etapa,
+               p.tipo_pesquisa, p.categoria_forms, p.funcao_forms,
+               p.respondente_nome, p.alvo_nome,
+               p.grupo_pergunta, p.subgrupo_pergunta, p.pergunta_original,
+               p.resposta_original, p.resposta_padronizada, p.nota_num,
+               p.manter_trocar, p.carimbo_data_hora
+        FROM pesquisa_respostas p
+        LEFT JOIN dim_etapas e ON e.id_etapa = p.id_etapa
+        WHERE {w}
+        ORDER BY p.id_resposta
+    """), params).mappings().all()
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Pesquisas"
+
+    cabecalhos = ["Etapa", "Pesquisa", "Categoria", "Função", "Respondente", "Avaliado",
+                  "Grupo", "Item", "Pergunta original", "Resposta original",
+                  "Resposta padronizada", "Nota", "Permanência", "Data/hora"]
+    ws.append(cabecalhos)
+    for c in range(1, len(cabecalhos) + 1):
+        cel = ws.cell(row=1, column=c)
+        cel.font = Font(bold=True, color="FFFFFF")
+        cel.fill = PatternFill("solid", fgColor="1E293B")
+
+    for r in linhas:
+        ws.append([
+            r["etapa"], TIPOS_CURTO.get(r["tipo_pesquisa"], r["tipo_pesquisa"]),
+            r["categoria_forms"], r["funcao_forms"], r["respondente_nome"], r["alvo_nome"],
+            r["grupo_pergunta"], r["subgrupo_pergunta"], r["pergunta_original"],
+            r["resposta_original"], r["resposta_padronizada"], r["nota_num"],
+            r["manter_trocar"], r["carimbo_data_hora"],
+        ])
+
+    for i, largura in enumerate([22, 20, 16, 20, 26, 26, 18, 24, 46, 40, 22, 8, 14, 20], start=1):
+        ws.column_dimensions[ws.cell(row=1, column=i).column_letter].width = largura
+    ws.freeze_panes = "A2"
+
+    buf = _io.BytesIO()
+    wb.save(buf)
+    buf.seek(0)
+    nome = f"pesquisas_{datetime.now().strftime('%Y%m%d_%H%M')}.xlsx"
+    return StreamingResponse(
+        buf,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f'attachment; filename="{nome}"'},
     )
 
 
@@ -623,103 +710,107 @@ async def pesquisas_upload(
     if not _is_admin(request):
         return RedirectResponse("/?sem_acesso=pesquisas", status_code=303)
 
+    etapas = db.query(DimEtapa).order_by(DimEtapa.temporada.desc(), DimEtapa.data_inicio).all()
+
+    analises = []
+    vistos: dict = {}
+    for arquivo in arquivos:
+        conteudo = await arquivo.read()
+        analises.append(analisar_arquivo(db, arquivo.filename, conteudo, etapas, vistos))
+
+    resumo = {
+        "arquivos": len(analises),
+        "ok": sum(1 for a in analises if a["status"] == "OK"),
+        "respostas": sum(a["respostas"] for a in analises),
+        "linhas": sum(a["linhas"] for a in analises),
+        "tipos": len({a["tipo"] for a in analises if a["tipo"]}),
+        "sem_etapa": sum(1 for a in analises if a["status"] == "Etapa indefinida"),
+        "duplicados": sum(1 for a in analises if a["status"] == "Duplicado"),
+        "erros": sum(1 for a in analises if a["status"] == "Erro"),
+        "avisos": sum(len(a["avisos"]) for a in analises),
+    }
+
+    return templates.TemplateResponse(
+        "pesquisas/revisao.html",
+        {
+            "request": request,
+            "analises": analises,
+            "resumo": resumo,
+            **options(db),
+        },
+    )
+
+
+@router.post("/pesquisas/confirmar")
+async def pesquisas_confirmar(request: Request, db: Session = Depends(get_db)):
+    """Passo 4: grava o que foi revisado na prévia."""
+    if not _is_admin(request):
+        return RedirectResponse("/?sem_acesso=pesquisas", status_code=303)
+
+    form = await request.form()
     etapas = db.query(DimEtapa).all()
+
+    indices = sorted({k.split("_")[-1] for k in form.keys() if k.startswith("arq_")})
     importados, ignorados = [], []
 
-    for arquivo in arquivos:
-        if not (arquivo.filename or "").lower().endswith(".xlsx"):
-            ignorados.append(f"{arquivo.filename}: não é .xlsx")
+    for i in indices:
+        if not form.get(f"incluir_{i}"):
             continue
+        nome = form.get(f"nome_{i}", "")
+        disco = form.get(f"arq_{i}", "")
+        tipo = form.get(f"tipo_{i}", "")
+        try:
+            id_etapa = int(form.get(f"etapa_{i}") or 0)
+        except ValueError:
+            id_etapa = 0
 
-        tipo_pesquisa = detectar_tipo(arquivo.filename)
-        if not tipo_pesquisa:
-            ignorados.append(f"{arquivo.filename}: não reconheci o tipo pelo nome")
-            continue
-
-        ids_etapa = detectar_etapas(arquivo.filename, etapas)
-        conteudo = await arquivo.read()
-        msg = await _importar_planilha(db, arquivo.filename, conteudo, tipo_pesquisa,
-                                       ids_etapa[0] if ids_etapa else None, etapas)
-        (importados if msg[0] else ignorados).append(msg[1])
+        ok, msg = gravar_arquivo(db, nome, disco, tipo, id_etapa, etapas)
+        (importados if ok else ignorados).append(msg)
 
     db.commit()
 
     partes = []
     if importados:
-        partes.append(" | ".join(importados))
+        partes.append(f"{len(importados)} arquivo(s) importado(s): " + " | ".join(importados))
     if ignorados:
-        partes.append("Ignorados — " + " | ".join(ignorados))
+        partes.append("Não importados — " + " | ".join(ignorados))
 
     if importados:
         return redirect_with_message("/pesquisas", success=" || ".join(partes))
-    return redirect_with_message("/pesquisas", error=" || ".join(partes) or "Nenhum arquivo importado.")
+    return redirect_with_message(
+        "/pesquisas", error=" || ".join(partes) or "Nenhum arquivo selecionado.")
 
 
-async def _importar_planilha(db, nome_arquivo, conteudo, tipo_pesquisa, id_etapa_arquivo, etapas):
-    """Grava uma planilha. Devolve (ok, mensagem)."""
-
-    # Nome curto em disco: os exports do Google Forms têm nomes longos e o
-    # caminho estourava o limite de 260 caracteres do Windows, fazendo o upload
-    # falhar. O nome original continua registrado em pesquisa_uploads.
-    digest = hashlib.sha1(conteudo).hexdigest()
-
-    # O mesmo arquivo costuma vir repetido em várias pastas de etapa; importar
-    # de novo duplicaria todas as respostas.
-    ja = db.execute(
-        select(pesquisa_uploads.c.id_upload, pesquisa_uploads.c.arquivo_nome)
-        .where(pesquisa_uploads.c.hash_conteudo == digest)
-    ).first()
-    if ja:
-        return False, f"{nome_arquivo}: conteúdo idêntico ao upload #{ja[0]}, já importado"
-
-    destino = UPLOAD_DIR / f"{datetime.now().strftime('%Y%m%d_%H%M%S')}_{digest[:8]}.xlsx"
-
-    UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
-    try:
-        destino.write_bytes(conteudo)
-    except OSError as exc:
-        return False, f"{nome_arquivo}: não consegui salvar ({exc})"
-
-    try:
-        wb = load_workbook(destino, data_only=True)
-    except Exception as exc:
-        return False, f"{nome_arquivo}: não consegui abrir o Excel ({exc})"
-
-    # etapa por linha (planilha da equipe técnica) tem prioridade sobre o nome
-    mapa_etapas = {}
+def _mapa_etapas(etapas):
+    mapa = {}
     for e in etapas:
         n = normalizar(e.nome_etapa)
         m = re.search(r"\b\d{2}et(\d{1,2})\b", n) or re.search(r"\betapa (\d{1,2})\b", n)
         if m:
-            mapa_etapas[int(m.group(1))] = e.id_etapa
+            mapa[int(m.group(1))] = e.id_etapa
+    return mapa
 
-    def _etapa_da_linha(valor):
+
+def percorrer_planilha(wb, tipo_pesquisa, id_etapa_arquivo, etapas):
+    """Percorre a planilha e devolve as respostas ja padronizadas.
+
+    Usado tanto pela previa quanto pela importacao, para o que o usuario ve
+    na revisao ser exatamente o que sera gravado.
+
+    Devolve (respostas, total_linhas, avisos).
+    """
+    mapa = _mapa_etapas(etapas)
+
+    def etapa_da_linha(valor):
         m = re.search(r"(\d{1,2})", str(valor or ""))
-        if m:
-            return mapa_etapas.get(int(m.group(1)))
-        return None
+        return mapa.get(int(m.group(1))) if m else None
 
     id_etapa = id_etapa_arquivo or 0
-
-    result = db.execute(
-        insert(pesquisa_uploads).values(
-            id_etapa=id_etapa,
-            tipo_pesquisa=tipo_pesquisa,
-            arquivo_nome=nome_arquivo,
-            abas=json.dumps(wb.sheetnames, ensure_ascii=False),
-            qtd_linhas=0,
-            qtd_respostas=0,
-            status="Processando",
-            hash_conteudo=digest,
-            criado_em=datetime.utcnow(),
-        )
-    )
-
-    id_upload = result.inserted_primary_key[0]
+    respostas: list[dict] = []
     total_linhas = 0
-    total_respostas = 0
-
+    avisos: list[str] = []
     abas_vistas: set = set()
+    linhas_incompletas = 0
 
     for ws in wb.worksheets:
         rows = list(ws.iter_rows(values_only=True))
@@ -729,10 +820,11 @@ async def _importar_planilha(db, nome_arquivo, conteudo, tipo_pesquisa, id_etapa
         headers = [str(h).strip() if h is not None else "" for h in rows[0]]
         headers = [h if h else f"coluna_{i+1}" for i, h in enumerate(headers)]
 
-        # O export do Forms traz abas derivadas ("Comentários") com as mesmas
+        # O export do Forms traz abas derivadas ("Comentarios") com as mesmas
         # colunas da aba principal; importar as duas duplicava toda resposta.
         assinatura = tuple(normalizar(h) for h in headers)
         if assinatura in abas_vistas:
+            avisos.append(f"aba '{ws.title}' ignorada: repete as colunas de outra aba")
             continue
         abas_vistas.add(assinatura)
 
@@ -740,16 +832,16 @@ async def _importar_planilha(db, nome_arquivo, conteudo, tipo_pesquisa, id_etapa
         col_etapa_planilha = achar_coluna(headers, ["etapa"])
 
         for idx, values in enumerate(rows[1:], start=2):
-            row = {headers[i]: values[i] if i < len(values) else None for i in range(len(headers))}
-
+            row = {headers[i]: values[i] if i < len(values) else None
+                   for i in range(len(headers))}
             if all(is_empty(v) for v in row.values()):
                 continue
 
             total_linhas += 1
             contexto = detectar_contexto(tipo_pesquisa, row)
 
-            # No Forms dos pilotos a categoria da aba TROPHY está no nome da
-            # aba, não em coluna; sem isso essas respostas ficavam sem categoria.
+            # No Forms dos pilotos a categoria da aba TROPHY esta no nome da
+            # aba, nao em coluna; sem isso essas respostas ficavam sem categoria.
             if not contexto["categoria_forms"]:
                 aba_k = normalizar(ws.title)
                 if aba_k and "resposta" not in aba_k and "coment" not in aba_k:
@@ -757,83 +849,210 @@ async def _importar_planilha(db, nome_arquivo, conteudo, tipo_pesquisa, id_etapa
 
             id_etapa_linha = id_etapa
             if col_etapa_planilha:
-                da_linha = _etapa_da_linha(row.get(col_etapa_planilha))
+                da_linha = etapa_da_linha(row.get(col_etapa_planilha))
                 if da_linha:
                     id_etapa_linha = da_linha
 
-            alvo_chave = normalizar(contexto["alvo_nome"])
-            respondente_chave = normalizar(contexto["respondente_nome"])
+            if not id_etapa_linha:
+                linhas_incompletas += 1
 
-            id_autonomo, id_piloto, status_mapeamento = aplicar_mapeamento(
-                db,
-                contexto["tipo_alvo"],
-                contexto["alvo_nome"],
-            )
-
+            respondidas = 0
             for col, val in row.items():
-                if col in ignorar:
-                    continue
-
-                if is_empty(val):
+                if col in ignorar or is_empty(val):
                     continue
 
                 resposta_texto = str(val).strip()
                 grupo = grupo_pergunta(col)
-                # nota numérica direta ou convertida da escala qualitativa
                 nota = to_float(val)
                 if nota is None:
                     nota = nota_da_escala(val)
-                mt = manter_trocar(col, resposta_texto)
 
-                db.execute(
-                    insert(pesquisa_respostas).values(
-                        id_upload=id_upload,
-                        id_etapa=id_etapa_linha,
-                        tipo_pesquisa=tipo_pesquisa,
-                        aba=ws.title,
-                        linha_excel=idx,
-                        carimbo_data_hora=contexto["carimbo"],
-                        email=contexto["email"],
-                        respondente_nome=contexto["respondente_nome"],
-                        respondente_chave=respondente_chave,
-                        alvo_nome=contexto["alvo_nome"],
-                        alvo_chave=alvo_chave,
-                        tipo_alvo=contexto["tipo_alvo"],
-                        id_autonomo=id_autonomo,
-                        id_piloto=id_piloto,
-                        categoria_forms=contexto["categoria_forms"],
-                        funcao_forms=contexto["funcao_forms"],
-                        lider_forms=contexto["lider_forms"],
-                        periodo_forms=contexto["periodo_forms"],
-                        grupo_pergunta=grupo,
-                        subgrupo_pergunta=subgrupo_pergunta(col),
-                        pergunta_original=col,
-                        resposta_original=resposta_texto,
-                        nota_num=nota,
-                        resposta_padronizada=resposta_padrao(resposta_texto),
-                        manter_trocar=mt,
-                        comentario=resposta_texto if grupo == "Comentário" else None,
-                        status_mapeamento=status_mapeamento,
-                        criado_em=datetime.utcnow(),
-                    )
-                )
+                respondidas += 1
+                respostas.append({
+                    "id_etapa": id_etapa_linha,
+                    "tipo_pesquisa": tipo_pesquisa,
+                    "aba": ws.title,
+                    "linha_excel": idx,
+                    "carimbo_data_hora": contexto["carimbo"],
+                    "email": contexto["email"],
+                    "respondente_nome": contexto["respondente_nome"],
+                    "respondente_chave": normalizar(contexto["respondente_nome"]),
+                    "alvo_nome": contexto["alvo_nome"],
+                    "alvo_chave": normalizar(contexto["alvo_nome"]),
+                    "tipo_alvo": contexto["tipo_alvo"],
+                    "categoria_forms": contexto["categoria_forms"],
+                    "funcao_forms": contexto["funcao_forms"],
+                    "lider_forms": contexto["lider_forms"],
+                    "periodo_forms": contexto["periodo_forms"],
+                    "grupo_pergunta": grupo,
+                    "subgrupo_pergunta": subgrupo_pergunta(col),
+                    "pergunta_original": col,
+                    "resposta_original": resposta_texto,
+                    "nota_num": nota,
+                    "resposta_padronizada": resposta_padrao(resposta_texto),
+                    "manter_trocar": manter_trocar(col, resposta_texto),
+                    "comentario": resposta_texto if grupo == "Comentario" or grupo == "Comentário" else None,
+                })
 
-                total_respostas += 1
+            if not respondidas:
+                linhas_incompletas += 1
 
-    db.execute(
-        update(pesquisa_uploads)
-        .where(pesquisa_uploads.c.id_upload == id_upload)
-        .values(
+    if linhas_incompletas:
+        avisos.append(f"{linhas_incompletas} linha(s) sem etapa definida ou sem resposta")
+
+    return respostas, total_linhas, avisos
+
+
+def analisar_arquivo(db, nome_arquivo, conteudo, etapas, vistos=None):
+    """Le o arquivo sem gravar nada e devolve o diagnostico da previa.
+
+    `vistos` acumula os hashes do lote: o mesmo arquivo costuma vir repetido
+    em varias pastas de etapa, e sem isso a previa prometia respostas que a
+    gravacao ia recusar.
+    """
+    info = {
+        "arquivo": nome_arquivo,
+        "tipo": None,
+        "tipo_label": None,
+        "id_etapa": 0,
+        "etapa_label": None,
+        "linhas": 0,
+        "respostas": 0,
+        "avisos": [],
+        "status": "OK",
+        "digest": None,
+        "arquivo_disco": None,
+    }
+
+    if not (nome_arquivo or "").lower().endswith(".xlsx"):
+        info["status"] = "Erro"
+        info["avisos"].append("não é um arquivo .xlsx")
+        return info
+
+    tipo = detectar_tipo(nome_arquivo)
+    if not tipo:
+        info["status"] = "Erro"
+        info["avisos"].append("não reconheci o tipo pelo nome do arquivo")
+        return info
+
+    info["tipo"] = tipo
+    info["tipo_label"] = dict(TIPOS_PESQUISA).get(tipo, tipo)
+
+    digest = hashlib.sha1(conteudo).hexdigest()
+    info["digest"] = digest
+
+    if vistos is not None and digest in vistos:
+        info["status"] = "Duplicado"
+        info["avisos"].append(
+            f"conteúdo idêntico a '{vistos[digest]}', que já está neste envio")
+        return info
+
+    ja = db.execute(
+        select(pesquisa_uploads.c.id_upload)
+        .where(pesquisa_uploads.c.hash_conteudo == digest)
+    ).first()
+    if ja:
+        info["status"] = "Duplicado"
+        info["avisos"].append(f"conteúdo idêntico ao upload #{ja[0]}, já importado")
+        return info
+
+    if vistos is not None:
+        vistos[digest] = nome_arquivo
+
+    UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+    destino = UPLOAD_DIR / f"{datetime.now().strftime('%Y%m%d_%H%M%S')}_{digest[:8]}.xlsx"
+    try:
+        destino.write_bytes(conteudo)
+    except OSError as exc:
+        info["status"] = "Erro"
+        info["avisos"].append(f"não consegui salvar o arquivo ({exc})")
+        return info
+    info["arquivo_disco"] = destino.name
+
+    try:
+        wb = load_workbook(destino, data_only=True)
+    except Exception as exc:
+        info["status"] = "Erro"
+        info["avisos"].append(f"não consegui abrir o Excel ({exc})")
+        return info
+
+    ids_etapa = detectar_etapas(nome_arquivo, etapas)
+    id_etapa = ids_etapa[0] if ids_etapa else 0
+    info["id_etapa"] = id_etapa
+
+    respostas, linhas, avisos = percorrer_planilha(wb, tipo, id_etapa, etapas)
+    info["linhas"] = linhas
+    info["respostas"] = len(respostas)
+    info["avisos"].extend(avisos)
+
+    tem_etapa_na_planilha = any(r["id_etapa"] for r in respostas)
+    if id_etapa:
+        info["etapa_label"] = next(
+            (e.nome_etapa for e in etapas if e.id_etapa == id_etapa), None)
+    elif tem_etapa_na_planilha:
+        info["etapa_label"] = "Pela coluna ETAPA"
+    else:
+        info["etapa_label"] = None
+        info["status"] = "Etapa indefinida"
+        info["avisos"].append("não identifiquei a etapa pelo nome nem por coluna")
+
+    if not respostas and info["status"] == "OK":
+        info["status"] = "Vazio"
+        info["avisos"].append("nenhuma resposta encontrada")
+
+    return info
+
+
+def gravar_arquivo(db, nome_arquivo, caminho_disco, tipo_pesquisa, id_etapa, etapas):
+    """Grava de fato as respostas de um arquivo ja analisado."""
+    caminho = UPLOAD_DIR / caminho_disco
+    if not caminho.exists():
+        return False, f"{nome_arquivo}: arquivo temporário não encontrado, envie de novo"
+
+    try:
+        wb = load_workbook(caminho, data_only=True)
+    except Exception as exc:
+        return False, f"{nome_arquivo}: não consegui abrir o Excel ({exc})"
+
+    digest = hashlib.sha1(caminho.read_bytes()).hexdigest()
+    ja = db.execute(
+        select(pesquisa_uploads.c.id_upload)
+        .where(pesquisa_uploads.c.hash_conteudo == digest)
+    ).first()
+    if ja:
+        return False, f"{nome_arquivo}: já importado (upload #{ja[0]})"
+
+    respostas, total_linhas, _ = percorrer_planilha(wb, tipo_pesquisa, id_etapa, etapas)
+
+    result = db.execute(
+        insert(pesquisa_uploads).values(
+            id_etapa=id_etapa or 0,
+            tipo_pesquisa=tipo_pesquisa,
+            arquivo_nome=nome_arquivo,
+            abas=json.dumps(wb.sheetnames, ensure_ascii=False),
             qtd_linhas=total_linhas,
-            qtd_respostas=total_respostas,
+            qtd_respostas=len(respostas),
             status="Importado",
+            hash_conteudo=digest,
+            criado_em=datetime.utcnow(),
         )
     )
+    id_upload = result.inserted_primary_key[0]
+
+    for r in respostas:
+        id_autonomo, id_piloto, status_map = aplicar_mapeamento(
+            db, r["tipo_alvo"], r["alvo_nome"])
+        db.execute(insert(pesquisa_respostas).values(
+            id_upload=id_upload,
+            id_autonomo=id_autonomo,
+            id_piloto=id_piloto,
+            status_mapeamento=status_map,
+            criado_em=datetime.utcnow(),
+            **r,
+        ))
 
     rotulo = dict(TIPOS_PESQUISA).get(tipo_pesquisa, tipo_pesquisa)
-    nome_etapa = next((e.nome_etapa for e in etapas if e.id_etapa == id_etapa), None)
-    onde = f" · {nome_etapa}" if nome_etapa else " · etapa pela planilha"
-    return True, f"{nome_arquivo}: {rotulo}{onde} — {total_linhas} linhas, {total_respostas} respostas"
+    return True, f"{nome_arquivo}: {rotulo} — {total_linhas} linhas, {len(respostas)} respostas"
 
 
 @router.get("/pesquisas/{id_upload}")

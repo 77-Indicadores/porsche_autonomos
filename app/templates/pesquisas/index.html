@@ -1,71 +1,220 @@
 {% extends "base.html" %}
 
 {% block header %}Pesquisas{% endblock %}
-{% block subtitle %}Upload, classificação e padronização de avaliações e feedbacks.{% endblock %}
+{% block subtitle %}Importação e padronização de avaliações e feedbacks.{% endblock %}
 
 {% block content %}
+<style>
+.pq-tabs{display:flex;gap:.25rem;border-bottom:1px solid #e5e7eb;margin-bottom:1rem;flex-wrap:wrap}
+.pq-tab{padding:.55rem 1rem;font-size:.85rem;font-weight:600;color:#6b7280;cursor:pointer;
+  border:1px solid transparent;border-bottom:none;border-radius:8px 8px 0 0;background:none}
+.pq-tab:hover{color:#111827}
+.pq-tab.on{color:#b91c1c;background:#fff;border-color:#e5e7eb;margin-bottom:-1px}
+.pq-pane{display:none}
+.pq-pane.on{display:block}
+.pq-chip{display:inline-block;font-size:.7rem;font-weight:700;padding:.15rem .5rem;border-radius:999px;
+  background:#eef2ff;color:#3730a3;white-space:nowrap}
+.pq-nota{font-weight:700;padding:.1rem .45rem;border-radius:5px}
+.pq-nota.alta{background:#dcfce7;color:#166534}
+.pq-nota.media{background:#fef9c3;color:#854d0e}
+.pq-nota.baixa{background:#fee2e2;color:#991b1b}
+.pq-campos{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:.5rem}
+.pq-campo{border:1px solid #e5e7eb;border-radius:8px;padding:.5rem .7rem;background:#fff}
+.pq-campo b{display:block;font-size:.82rem}
+.pq-campo span{font-size:.7rem;color:#6b7280}
+.pq-tabela{width:100%;border-collapse:collapse;font-size:.8rem}
+.pq-tabela th{position:sticky;top:0;background:#f9fafb;z-index:2;text-align:left;padding:.5rem .6rem;
+  font-size:.7rem;text-transform:uppercase;letter-spacing:.04em;color:#6b7280;border-bottom:1px solid #e5e7eb}
+.pq-tabela td{padding:.45rem .6rem;border-bottom:1px solid #f3f4f6;vertical-align:top}
+.pq-tabela tbody tr:hover{background:#fafafa}
+.pq-wrap{max-height:560px;overflow:auto;border:1px solid #e5e7eb;border-radius:10px}
+.pq-clamp{max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer}
+.pq-drawer{position:fixed;inset:0;background:rgba(0,0,0,.45);display:none;z-index:400;align-items:center;justify-content:center}
+.pq-drawer.on{display:flex}
+.pq-drawer-box{background:#fff;border-radius:12px;max-width:640px;width:92%;padding:1.4rem;max-height:80vh;overflow:auto}
+</style>
+
+{% set passo = 1 %}
+{% include "pesquisas/_passos.html" with context %}
 
 <section class="panel mb-6">
-  <div class="panel-head">
-    <h3>Importar pesquisas</h3>
-  </div>
+  <div class="panel-head"><h3>Enviar arquivos</h3></div>
 
   <form method="post" action="/pesquisas/upload" enctype="multipart/form-data" class="form-grid">
     <div style="grid-column:1/-1">
-      <label class="label">Planilhas do Forms (.xlsx) — pode selecionar várias</label>
       <input class="input" type="file" name="arquivos" accept=".xlsx" multiple required>
-      <p style="margin:.5rem 0 0;font-size:.78rem;color:#6b7280;line-height:1.5">
-        A etapa e o tipo saem do nome do arquivo. Reconhece <b>26ET1</b>/<b>Etapa 1</b> e os nomes
-        <b>Satisfação Autônomos</b>, <b>Feedbacks de Freelancers</b> e <b>Feedback Pós Etapa</b>.
-        Na planilha de freelancers, a etapa de cada linha vem da coluna ETAPA.
+      <p style="margin:.7rem 0 .3rem;font-size:.82rem;color:#374151;line-height:1.5">
+        O sistema identifica <b>etapa</b> e <b>tipo</b> pelo nome do arquivo.
+        Para <b>Feedback de Freelancers</b>, a etapa é lida da coluna <b>ETAPA</b>.
       </p>
+      <ul style="margin:.2rem 0 0 1.1rem;font-size:.78rem;color:#6b7280;line-height:1.7">
+        <li><code>26ET1</code></li>
+        <li><code>Etapa 1</code></li>
+        <li><code>Satisfação Autônomos</code></li>
+        <li><code>Feedbacks de Freelancers</code></li>
+        <li><code>Feedback Pós Etapa</code></li>
+      </ul>
     </div>
-
     <div class="ux-actions-row">
-      <button class="btn-primary">Importar e padronizar</button>
+      <button class="btn-primary">Validar arquivos</button>
     </div>
   </form>
 </section>
-<section class="panel mb-6">
-  <details {% if uploads and uploads|selectattr('id_etapa','equalto',0)|list %}open{% endif %}>
-    <summary style="cursor:pointer;padding:.9rem 1.2rem;font-weight:600;font-size:.95rem;
-                    display:flex;align-items:center;gap:.6rem;list-style:none">
-      <span>▸</span> Uploads realizados
-      <span style="font-weight:400;color:#6b7280;font-size:.82rem">({{ uploads|length }})</span>
-    </summary>
 
+<div class="pq-tabs">
+  <button class="pq-tab on" data-pane="base">Base consolidada</button>
+  <button class="pq-tab" data-pane="ultima">Última importação</button>
+  <button class="pq-tab" data-pane="avisos">Uploads e etapas</button>
+  <button class="pq-tab" data-pane="campos">Mapeamento de campos</button>
+</div>
+
+<!-- ── Base consolidada ── -->
+<section class="pq-pane on" id="pane-base">
+  <div class="panel">
+    <div class="panel-head" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:.6rem">
+      <h3>Base consolidada
+        <span style="font-weight:400;color:#6b7280;font-size:.82rem">
+          ({{ "{:,}".format(base_total).replace(",", ".") }} respostas)
+        </span>
+      </h3>
+      <a class="btn-muted" href="/pesquisas/exportar?f_etapa={{ f_etapa }}&f_tipo={{ f_tipo }}&f_grupo={{ f_grupo }}&busca={{ busca }}">⬇ Exportar XLSX</a>
+    </div>
+
+    <form method="get" action="/pesquisas" class="form-grid" style="padding:0 1.2rem 1rem">
+      <div>
+        <label class="label">Etapa</label>
+        <select class="input" name="f_etapa" onchange="this.form.submit()">
+          <option value="">Todas</option>
+          {% for e in etapas %}
+            <option value="{{ e.id_etapa }}" {% if f_etapa == e.id_etapa|string %}selected{% endif %}>{{ e.nome_etapa }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div>
+        <label class="label">Tipo de pesquisa</label>
+        <select class="input" name="f_tipo" onchange="this.form.submit()">
+          <option value="">Todos</option>
+          {% for value, label in tipos_pesquisa %}
+            <option value="{{ value }}" {% if f_tipo == value %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div>
+        <label class="label">Grupo</label>
+        <select class="input" name="f_grupo" onchange="this.form.submit()">
+          <option value="">Todos</option>
+          {% for g in base_grupos %}
+            <option value="{{ g }}" {% if f_grupo == g %}selected{% endif %}>{{ g }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div>
+        <label class="label">Busca (nome, item ou comentário)</label>
+        <input class="input" name="busca" value="{{ busca }}" placeholder="Ex.: Comunicação, João, atraso…">
+      </div>
+      <div class="ux-actions-row">
+        <button class="btn-primary">Filtrar</button>
+        <a class="btn-muted" href="/pesquisas">Limpar</a>
+      </div>
+    </form>
+
+    <div class="pq-wrap" style="margin:0 1.2rem 1rem">
+      <table class="pq-tabela">
+        <thead>
+          <tr>
+            <th>Etapa</th><th>Pesquisa</th><th>Respondente</th><th>Avaliado</th>
+            <th>Categoria</th><th>Função</th><th>Grupo</th><th>Item</th>
+            <th>Resposta</th><th>Nota</th><th>Permanência</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for r in base %}
+          <tr>
+            <td>{{ r.etapa }}</td>
+            <td><span class="pq-chip">{{ tipos_curto.get(r.tipo_pesquisa, r.tipo_pesquisa) }}</span></td>
+            <td>{{ r.respondente_nome or "—" }}</td>
+            <td>{{ r.alvo_nome or "—" }}</td>
+            <td>{{ r.categoria_forms or "—" }}</td>
+            <td>{{ r.funcao_forms or "—" }}</td>
+            <td>{{ r.grupo_pergunta or "—" }}</td>
+            <td>{{ r.subgrupo_pergunta or "—" }}</td>
+            {% set texto = r.resposta_padronizada or r.resposta_original or "—" %}
+            <td class="pq-clamp" onclick="pqVer(this)" data-full="{{ r.resposta_original or '' }}"
+                data-cab="{{ r.pergunta_original or '' }}">{{ texto }}</td>
+            <td>
+              {% if r.nota_num is not none %}
+                {% set n = r.nota_num %}
+                {% set base_max = 10 if n > 5 else 5 %}
+                {% set pct = n / base_max %}
+                <span class="pq-nota {{ 'alta' if pct >= 0.8 else ('media' if pct >= 0.6 else 'baixa') }}">
+                  {{ "%.1f"|format(n) }}
+                </span>
+              {% else %}—{% endif %}
+            </td>
+            <td>{{ r.manter_trocar or "—" }}</td>
+          </tr>
+          {% else %}
+          <tr><td colspan="11" style="padding:1.5rem;text-align:center;color:#9ca3af">Nenhuma resposta importada ainda.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    {% set total_paginas = (base_total // por_pagina) + (1 if base_total % por_pagina else 0) %}
+    {% if total_paginas > 1 %}
+      {% set q = "&f_etapa=" ~ f_etapa ~ "&f_tipo=" ~ f_tipo ~ "&f_grupo=" ~ f_grupo ~ "&busca=" ~ busca %}
+      <div style="display:flex;gap:.5rem;align-items:center;justify-content:center;padding:0 0 1.2rem">
+        {% if pagina > 1 %}<a class="btn-muted" href="/pesquisas?pagina={{ pagina - 1 }}{{ q }}">‹ Anterior</a>{% endif %}
+        <span style="font-size:.82rem;color:#6b7280">Página {{ pagina }} de {{ total_paginas }}</span>
+        {% if pagina < total_paginas %}<a class="btn-muted" href="/pesquisas?pagina={{ pagina + 1 }}{{ q }}">Próxima ›</a>{% endif %}
+      </div>
+    {% endif %}
+  </div>
+</section>
+
+<!-- ── Última importação ── -->
+<section class="pq-pane" id="pane-ultima">
+  <div class="panel">
+    <div class="panel-head"><h3>Última importação</h3></div>
+    {% if ultima %}
+      <div style="padding:0 1.2rem 1.2rem">
+        <p style="font-size:.85rem;color:#374151">
+          <b>{{ ultima.arquivo_nome }}</b><br>
+          {{ tipos_label.get(ultima.tipo_pesquisa, ultima.tipo_pesquisa) }} ·
+          {{ ultima.qtd_linhas }} linhas · {{ ultima.qtd_respostas }} respostas ·
+          {{ ultima.criado_em }}
+        </p>
+      </div>
+    {% else %}
+      <div style="padding:1.5rem;text-align:center;color:#9ca3af">Nenhuma importação ainda.</div>
+    {% endif %}
+  </div>
+</section>
+
+<!-- ── Uploads e etapas ── -->
+<section class="pq-pane" id="pane-avisos">
+  <div class="panel">
+    <div class="panel-head"><h3>Uploads realizados ({{ uploads|length }})</h3></div>
     <table class="table">
       <thead>
-        <tr>
-          <th>Arquivo</th>
-          <th>Tipo</th>
-          <th>Linhas</th>
-          <th>Respostas</th>
-          <th style="min-width:260px">Etapa da pesquisa</th>
-        </tr>
+        <tr><th>Arquivo</th><th>Tipo</th><th>Linhas</th><th>Respostas</th><th style="min-width:250px">Etapa</th></tr>
       </thead>
       <tbody>
         {% for u in uploads %}
         <tr>
-          <td class="font-bold" style="max-width:340px;overflow:hidden;text-overflow:ellipsis">{{ u.arquivo_nome }}</td>
-          <td>{{ tipos_label.get(u.tipo_pesquisa, u.tipo_pesquisa) }}</td>
+          <td class="font-bold" style="max-width:320px;overflow:hidden;text-overflow:ellipsis">{{ u.arquivo_nome }}</td>
+          <td><span class="pq-chip">{{ tipos_curto.get(u.tipo_pesquisa, u.tipo_pesquisa) }}</span></td>
           <td>{{ u.qtd_linhas }}</td>
           <td>{{ u.qtd_respostas }}</td>
           <td>
-            <form method="post" action="/pesquisas/{{ u.id_upload }}/etapa"
-                  style="display:flex;gap:.4rem;align-items:center;margin:0">
+            <form method="post" action="/pesquisas/{{ u.id_upload }}/etapa" style="display:flex;gap:.4rem;align-items:center;margin:0">
               <select class="input" name="id_etapa" onchange="this.form.submit()" style="flex:1">
-                <option value="0">— definir etapa —</option>
+                <option value="0">— pela coluna ETAPA / indefinida —</option>
                 {% for e in etapas %}
-                  <option value="{{ e.id_etapa }}" {% if e.id_etapa == u.id_etapa %}selected{% endif %}>
-                    {{ e.nome_etapa }}
-                  </option>
+                  <option value="{{ e.id_etapa }}" {% if e.id_etapa == u.id_etapa %}selected{% endif %}>{{ e.nome_etapa }}</option>
                 {% endfor %}
               </select>
-              {% if not u.id_etapa %}
-                <span title="etapa não identificada pelo nome do arquivo"
-                      style="color:#b45309;font-weight:700">!</span>
-              {% endif %}
+              {% if not u.id_etapa %}<span title="etapa não definida" style="color:#b45309;font-weight:700">!</span>{% endif %}
             </form>
           </td>
         </tr>
@@ -74,92 +223,85 @@
         {% endfor %}
       </tbody>
     </table>
-  </details>
+  </div>
 </section>
 
-<section class="panel">
-  <div class="panel-head">
-    <h3>Base de dados consolidada
-      <span style="font-weight:400;color:#6b7280;font-size:.82rem">
-        ({{ "{:,}".format(base_total).replace(",", ".") }} respostas)
-      </span>
-    </h3>
+<!-- ── Mapeamento de campos ── -->
+<section class="pq-pane" id="pane-campos">
+  <div class="panel">
+    <div class="panel-head"><h3>Campos padronizados</h3></div>
+    <div style="padding:0 1.2rem 1.2rem">
+      <div class="pq-campos">
+        {% for nome, desc in [
+          ("Respondente", "quem preencheu"),
+          ("Avaliado", "sobre quem é a resposta"),
+          ("Categoria", "Carrera, Challenge, Trophy"),
+          ("Função", "função exercida na etapa"),
+          ("Grupo", "Engenheiro, RH, Evento…"),
+          ("Item", "o que está entre colchetes"),
+          ("Resposta", "texto padronizado"),
+          ("Nota", "0–10 ou escala convertida"),
+          ("Permanência", "manter ou trocar"),
+        ] %}
+          <div class="pq-campo"><b>{{ nome }}</b><span>{{ desc }}</span></div>
+        {% endfor %}
+      </div>
+
+      <button type="button" class="btn-muted" style="margin-top:1rem" onclick="document.getElementById('pqRegras').classList.add('on')">
+        Ver regras de padronização
+      </button>
+    </div>
   </div>
-
-  <form method="get" action="/pesquisas" class="form-grid" style="padding:0 1.2rem 1rem">
-    <div>
-      <label class="label">Etapa</label>
-      <select class="input" name="f_etapa" onchange="this.form.submit()">
-        <option value="">Todas</option>
-        {% for e in etapas %}
-          <option value="{{ e.id_etapa }}" {% if f_etapa == e.id_etapa|string %}selected{% endif %}>{{ e.nome_etapa }}</option>
-        {% endfor %}
-      </select>
-    </div>
-    <div>
-      <label class="label">Tipo de pesquisa</label>
-      <select class="input" name="f_tipo" onchange="this.form.submit()">
-        <option value="">Todos</option>
-        {% for value, label in tipos_pesquisa %}
-          <option value="{{ value }}" {% if f_tipo == value %}selected{% endif %}>{{ label }}</option>
-        {% endfor %}
-      </select>
-    </div>
-    <div>
-      <label class="label">Grupo</label>
-      <select class="input" name="f_grupo" onchange="this.form.submit()">
-        <option value="">Todos</option>
-        {% for g in base_grupos %}
-          <option value="{{ g }}" {% if f_grupo == g %}selected{% endif %}>{{ g }}</option>
-        {% endfor %}
-      </select>
-    </div>
-  </form>
-
-  <div style="overflow-x:auto">
-    <table class="table">
-      <thead>
-        <tr>
-          <th>Etapa</th><th>Pesquisa</th><th>Respondente</th><th>Avaliado</th>
-          <th>Categoria</th><th>Função</th><th>Grupo</th><th>Item</th>
-          <th>Resposta</th><th>Nota</th><th>Permanência</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for r in base %}
-        <tr>
-          <td>{{ r.etapa }}</td>
-          <td>{{ tipos_label.get(r.tipo_pesquisa, r.tipo_pesquisa) }}</td>
-          <td>{{ r.respondente_nome or "—" }}</td>
-          <td>{{ r.alvo_nome or "—" }}</td>
-          <td>{{ r.categoria_forms or "—" }}</td>
-          <td>{{ r.funcao_forms or "—" }}</td>
-          <td>{{ r.grupo_pergunta or "—" }}</td>
-          <td>{{ r.subgrupo_pergunta or "—" }}</td>
-          <td style="max-width:320px">{{ r.resposta_padronizada or r.resposta_original or "—" }}</td>
-          <td>{{ "%.1f"|format(r.nota_num) if r.nota_num is not none else "—" }}</td>
-          <td>{{ r.manter_trocar or "—" }}</td>
-        </tr>
-        {% else %}
-        <tr><td colspan="11" class="empty">Nenhuma resposta importada ainda.</td></tr>
-        {% endfor %}
-      </tbody>
-    </table>
-  </div>
-
-  {% set total_paginas = (base_total // por_pagina) + (1 if base_total % por_pagina else 0) %}
-  {% if total_paginas > 1 %}
-    {% set q = "&f_etapa=" ~ f_etapa ~ "&f_tipo=" ~ f_tipo ~ "&f_grupo=" ~ f_grupo %}
-    <div style="display:flex;gap:.5rem;align-items:center;justify-content:center;padding:1rem">
-      {% if pagina > 1 %}
-        <a class="btn-muted" href="/pesquisas?pagina={{ pagina - 1 }}{{ q }}">‹ Anterior</a>
-      {% endif %}
-      <span style="font-size:.82rem;color:#6b7280">Página {{ pagina }} de {{ total_paginas }}</span>
-      {% if pagina < total_paginas %}
-        <a class="btn-muted" href="/pesquisas?pagina={{ pagina + 1 }}{{ q }}">Próxima ›</a>
-      {% endif %}
-    </div>
-  {% endif %}
 </section>
+
+<div class="pq-drawer" id="pqRegras" onclick="if(event.target===this)this.classList.remove('on')">
+  <div class="pq-drawer-box">
+    <h3 style="margin-top:0">Regras de padronização</h3>
+    <h4 style="font-size:.85rem;margin-bottom:.3rem">Escala qualitativa → nota</h4>
+    <ul style="font-size:.82rem;color:#374151;line-height:1.7;margin-top:0">
+      <li>Excelente / Ótimo → <b>5,0</b></li>
+      <li>Muito bom → <b>4,5</b></li>
+      <li>Bom → <b>4,0</b></li>
+      <li>Regular / Satisfatório → <b>3,0</b></li>
+      <li>Ruim → <b>2,0</b></li>
+      <li>Péssimo / Muito ruim → <b>1,0</b></li>
+    </ul>
+    <h4 style="font-size:.85rem;margin-bottom:.3rem">Outras regras</h4>
+    <ul style="font-size:.82rem;color:#374151;line-height:1.7;margin-top:0">
+      <li><b>Item</b>: o texto entre colchetes vira campo próprio — <code>Engenheiro [Comunicação]</code> → grupo Engenheiro, item Comunicação.</li>
+      <li><b>Permanência</b>: só vale na pergunta sobre manter ou trocar. Um "SIM" em outra pergunta não conta.</li>
+      <li><b>Categoria</b>: da coluna quando existir; senão, do nome da aba (ex.: TROPHY).</li>
+      <li><b>Abas repetidas</b>: aba com as mesmas colunas de outra é ignorada, para não duplicar.</li>
+      <li><b>Arquivo repetido</b>: o mesmo conteúdo não é importado duas vezes.</li>
+    </ul>
+    <button type="button" class="btn-primary" onclick="document.getElementById('pqRegras').classList.remove('on')">Fechar</button>
+  </div>
+</div>
+
+<div class="pq-drawer" id="pqTexto" onclick="if(event.target===this)this.classList.remove('on')">
+  <div class="pq-drawer-box">
+    <h4 id="pqTextoCab" style="margin-top:0;font-size:.85rem;color:#6b7280"></h4>
+    <p id="pqTextoCorpo" style="font-size:.9rem;line-height:1.6;white-space:pre-wrap"></p>
+    <button type="button" class="btn-primary" onclick="document.getElementById('pqTexto').classList.remove('on')">Fechar</button>
+  </div>
+</div>
+
+<script>
+document.querySelectorAll('.pq-tab').forEach(function(t){
+  t.addEventListener('click', function(){
+    document.querySelectorAll('.pq-tab').forEach(x=>x.classList.remove('on'));
+    document.querySelectorAll('.pq-pane').forEach(x=>x.classList.remove('on'));
+    t.classList.add('on');
+    document.getElementById('pane-'+t.dataset.pane).classList.add('on');
+  });
+});
+function pqVer(td){
+  var full = td.dataset.full || td.textContent.trim();
+  if (full.length < 60) return;          // texto curto já aparece inteiro
+  document.getElementById('pqTextoCab').textContent = td.dataset.cab || '';
+  document.getElementById('pqTextoCorpo').textContent = full;
+  document.getElementById('pqTexto').classList.add('on');
+}
+</script>
 
 {% endblock %}

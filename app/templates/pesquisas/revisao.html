@@ -1,0 +1,123 @@
+{% extends "base.html" %}
+
+{% block header %}Pesquisas{% endblock %}
+{% block subtitle %}Confira o que foi reconhecido antes de gravar.{% endblock %}
+
+{% block content %}
+{% include "pesquisas/_passos.html" with context %}
+
+<section class="panel mb-6">
+  <div class="panel-head"><h3>Resumo da importação</h3></div>
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:.9rem;padding:0 1.2rem 1.2rem">
+    {% set cards = [
+      ("Arquivos detectados", resumo.arquivos, "#111827", none),
+      ("Respostas previstas", "{:,}".format(resumo.respostas).replace(",", "."), "#111827", none),
+      ("Tipos reconhecidos", resumo.tipos, "#111827", none),
+      ("Etapa indefinida", resumo.sem_etapa, "#b45309", "define abaixo"),
+      ("Já importados", resumo.duplicados, "#6b7280", "serão pulados"),
+      ("Com erro", resumo.erros, "#b91c1c", none),
+    ] %}
+    {% for titulo, valor, cor, nota in cards %}
+      <div style="border:1px solid #e5e7eb;border-radius:10px;padding:.9rem 1rem;background:#fff">
+        <div style="font-size:.72rem;font-weight:600;color:#6b7280;text-transform:uppercase;letter-spacing:.04em">{{ titulo }}</div>
+        <div style="font-size:1.6rem;font-weight:700;color:{{ cor }};line-height:1.2">{{ valor }}</div>
+        {% if nota %}<div style="font-size:.72rem;color:#9ca3af">{{ nota }}</div>{% endif %}
+      </div>
+    {% endfor %}
+  </div>
+</section>
+
+<form method="post" action="/pesquisas/confirmar">
+<section class="panel mb-6">
+  <div class="panel-head"><h3>Arquivos reconhecidos</h3></div>
+
+  <div style="overflow-x:auto">
+  <table class="table">
+    <thead>
+      <tr>
+        <th style="width:36px"></th>
+        <th>Arquivo</th>
+        <th>Tipo detectado</th>
+        <th style="min-width:230px">Etapa</th>
+        <th>Linhas</th>
+        <th>Respostas</th>
+        <th>Status</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for a in analises %}
+      {% set gravavel = a.status in ["OK", "Etapa indefinida"] %}
+      <tr {% if not gravavel %}style="opacity:.55"{% endif %}>
+        <td>
+          {% if gravavel %}
+            <input type="checkbox" name="incluir_{{ loop.index0 }}" value="1" checked>
+            <input type="hidden" name="arq_{{ loop.index0 }}" value="{{ a.arquivo_disco }}">
+            <input type="hidden" name="nome_{{ loop.index0 }}" value="{{ a.arquivo }}">
+            <input type="hidden" name="tipo_{{ loop.index0 }}" value="{{ a.tipo }}">
+          {% endif %}
+        </td>
+        <td class="font-bold" style="max-width:320px;overflow:hidden;text-overflow:ellipsis">{{ a.arquivo }}</td>
+        <td>
+          {% if a.tipo_label %}
+            <span class="badge">{{ a.tipo_label }}</span>
+          {% else %}—{% endif %}
+        </td>
+        <td>
+          {% if gravavel %}
+            <select class="input" name="etapa_{{ loop.index0 }}">
+              <option value="0">{% if a.etapa_label == "Pela coluna ETAPA" %}Pela coluna ETAPA{% else %}— definir —{% endif %}</option>
+              {% for e in etapas %}
+                <option value="{{ e.id_etapa }}" {% if e.id_etapa == a.id_etapa %}selected{% endif %}>{{ e.nome_etapa }}</option>
+              {% endfor %}
+            </select>
+          {% else %}
+            {{ a.etapa_label or "—" }}
+          {% endif %}
+        </td>
+        <td>{{ a.linhas }}</td>
+        <td>{{ a.respostas }}</td>
+        <td>
+          {% if a.status == "OK" %}
+            <span class="badge" style="background:#dcfce7;color:#166534">OK</span>
+          {% elif a.status == "Etapa indefinida" %}
+            <span class="badge" style="background:#fef9c3;color:#854d0e">Definir etapa</span>
+          {% elif a.status == "Duplicado" %}
+            <span class="badge" style="background:#e5e7eb;color:#4b5563">Já importado</span>
+          {% else %}
+            <span class="badge" style="background:#fee2e2;color:#991b1b">{{ a.status }}</span>
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  </div>
+</section>
+
+{% set com_aviso = analises|selectattr('avisos')|list %}
+{% if com_aviso %}
+<section class="panel mb-6">
+  <div class="panel-head"><h3>Problemas e avisos</h3></div>
+  <div style="padding:0 1.2rem 1.2rem">
+    {% for a in com_aviso %}
+      <div style="border-left:3px solid #f59e0b;background:#fffbeb;padding:.6rem .9rem;margin-bottom:.6rem;border-radius:0 6px 6px 0">
+        <div style="font-weight:600;font-size:.85rem">{{ a.arquivo }}</div>
+        <ul style="margin:.3rem 0 0 1rem;font-size:.82rem;color:#6b7280">
+          {% for av in a.avisos %}<li>{{ av }}</li>{% endfor %}
+        </ul>
+      </div>
+    {% endfor %}
+  </div>
+</section>
+{% endif %}
+
+<div style="display:flex;gap:.6rem;align-items:center;margin-bottom:2rem">
+  <button class="btn-primary">Importar base padronizada</button>
+  <a class="btn-muted" href="/pesquisas">Cancelar</a>
+  <span style="font-size:.8rem;color:#6b7280">
+    Nada foi gravado ainda — só o que estiver marcado acima será importado.
+  </span>
+</div>
+</form>
+
+{% endblock %}
