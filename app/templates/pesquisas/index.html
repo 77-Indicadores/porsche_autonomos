@@ -40,23 +40,52 @@
 <section class="panel mb-6">
   <div class="panel-head"><h3>Enviar arquivos</h3></div>
 
-  <form method="post" action="/pesquisas/upload" enctype="multipart/form-data" class="form-grid">
-    <div style="grid-column:1/-1">
-      <input class="input" type="file" name="arquivos" accept=".xlsx" multiple required>
-      <p style="margin:.7rem 0 .3rem;font-size:.82rem;color:#374151;line-height:1.5">
-        O sistema identifica <b>etapa</b> e <b>tipo</b> pelo nome do arquivo.
-        Para <b>Feedback de Freelancers</b>, a etapa é lida da coluna <b>ETAPA</b>.
-      </p>
-      <ul style="margin:.2rem 0 0 1.1rem;font-size:.78rem;color:#6b7280;line-height:1.7">
-        <li><code>26ET1</code></li>
-        <li><code>Etapa 1</code></li>
-        <li><code>Satisfação Autônomos</code></li>
-        <li><code>Feedbacks de Freelancers</code></li>
-        <li><code>Feedback Pós Etapa</code></li>
-      </ul>
-    </div>
-    <div class="ux-actions-row">
-      <button class="btn-primary">Validar arquivos</button>
+  <form method="post" action="/pesquisas/upload" enctype="multipart/form-data" id="pqForm"
+        style="padding:0 1.2rem 1.2rem">
+
+    <div style="display:grid;grid-template-columns:minmax(280px,1fr) minmax(300px,1.1fr);gap:1.4rem;align-items:start">
+
+      <div>
+        <input type="file" name="arquivos" id="pqArquivos" accept=".xlsx" multiple required
+               style="position:absolute;width:1px;height:1px;opacity:0;pointer-events:none">
+        <label for="pqArquivos" id="pqDrop"
+               style="display:flex;flex-direction:column;align-items:center;justify-content:center;
+                      gap:.4rem;border:2px dashed #d1d5db;border-radius:12px;padding:1.6rem 1rem;
+                      cursor:pointer;background:#fafafa;transition:border-color .15s,background .15s;text-align:center">
+          <span style="font-size:1.6rem;line-height:1">📄</span>
+          <span style="font-weight:700;font-size:.9rem;color:#b91c1c">Escolher planilhas</span>
+          <span id="pqInfo" style="font-size:.78rem;color:#6b7280">
+            Arraste aqui ou clique — pode selecionar várias .xlsx
+          </span>
+        </label>
+
+        <button class="btn-primary" style="width:100%;margin-top:.9rem">Validar arquivos</button>
+      </div>
+
+      <div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:12px;padding:1rem 1.1rem">
+        <div style="display:flex;gap:.6rem;align-items:flex-start;margin-bottom:.7rem">
+          <span style="font-size:1rem;line-height:1.3">🏷️</span>
+          <div style="font-size:.82rem;color:#374151;line-height:1.5">
+            <b style="color:#111827">Etapa</b> e <b style="color:#111827">tipo</b> são lidos do
+            <b>nome do arquivo</b>.
+          </div>
+        </div>
+        <div style="display:flex;gap:.6rem;align-items:flex-start;margin-bottom:.9rem">
+          <span style="font-size:1rem;line-height:1.3">📋</span>
+          <div style="font-size:.82rem;color:#374151;line-height:1.5">
+            Em <b>Feedback de Freelancers</b>, a etapa vem da coluna <b>ETAPA</b> de cada linha.
+          </div>
+        </div>
+
+        <div style="font-size:.7rem;font-weight:700;color:#6b7280;text-transform:uppercase;
+                    letter-spacing:.05em;margin-bottom:.4rem">Padrões reconhecidos</div>
+        <div style="display:flex;flex-wrap:wrap;gap:.35rem">
+          {% for termo in ["26ET1", "Etapa 1", "Satisfação Autônomos", "Feedbacks de Freelancers", "Feedback Pós Etapa"] %}
+            <code style="background:#fff;border:1px solid #e5e7eb;border-radius:6px;
+                         padding:.2rem .5rem;font-size:.74rem;color:#374151">{{ termo }}</code>
+          {% endfor %}
+        </div>
+      </div>
     </div>
   </form>
 </section>
@@ -80,7 +109,9 @@
       <a class="btn-muted" href="/pesquisas/exportar?f_etapa={{ f_etapa }}&f_tipo={{ f_tipo }}&f_grupo={{ f_grupo }}&busca={{ busca }}">⬇ Exportar XLSX</a>
     </div>
 
-    <form method="get" action="/pesquisas" class="form-grid" style="padding:0 1.2rem 1rem">
+    <form method="get" action="/pesquisas" class="form-grid"
+          style="margin:0 1.2rem;padding:.9rem 1rem;background:#f9fafb;
+                 border:1px solid #e5e7eb;border-radius:10px 10px 0 0;border-bottom:none">
       <div>
         <label class="label">Etapa</label>
         <select class="input" name="f_etapa" onchange="this.form.submit()">
@@ -118,7 +149,7 @@
       </div>
     </form>
 
-    <div class="pq-wrap" style="margin:0 1.2rem 1rem">
+    <div class="pq-wrap" style="margin:0 1.2rem 1rem;border-radius:0 0 10px 10px">
       <table class="pq-tabela">
         <thead>
           <tr>
@@ -154,7 +185,32 @@
             <td>{{ r.manter_trocar or "—" }}</td>
           </tr>
           {% else %}
-          <tr><td colspan="11" style="padding:1.5rem;text-align:center;color:#9ca3af">Nenhuma resposta importada ainda.</td></tr>
+          <tr><td colspan="11" style="padding:2.6rem 1rem">
+            <div style="text-align:center;max-width:360px;margin:0 auto">
+              <div style="font-size:2.2rem;line-height:1;margin-bottom:.5rem">📊</div>
+              <div style="font-weight:700;font-size:.95rem;color:#374151;margin-bottom:.3rem">
+                {% if busca or f_etapa or f_tipo or f_grupo %}
+                  Nenhuma resposta com esses filtros
+                {% else %}
+                  A base ainda está vazia
+                {% endif %}
+              </div>
+              <p style="font-size:.82rem;color:#6b7280;line-height:1.5;margin:0 0 1rem">
+                {% if busca or f_etapa or f_tipo or f_grupo %}
+                  Tente afrouxar os filtros ou limpar a busca.
+                {% else %}
+                  Envie uma planilha do Forms acima para começar. O sistema mostra o que
+                  reconheceu antes de gravar qualquer coisa.
+                {% endif %}
+              </p>
+              {% if busca or f_etapa or f_tipo or f_grupo %}
+                <a class="btn-muted" href="/pesquisas">Limpar filtros</a>
+              {% else %}
+                <button type="button" class="btn-primary"
+                        onclick="document.getElementById('pqArquivos').click()">Escolher planilhas</button>
+              {% endif %}
+            </div>
+          </td></tr>
           {% endfor %}
         </tbody>
       </table>
@@ -295,6 +351,51 @@ document.querySelectorAll('.pq-tab').forEach(function(t){
     document.getElementById('pane-'+t.dataset.pane).classList.add('on');
   });
 });
+/* seletor de arquivos: contagem e arrastar-soltar */
+(function(){
+  var input = document.getElementById('pqArquivos');
+  var drop  = document.getElementById('pqDrop');
+  var info  = document.getElementById('pqInfo');
+  if (!input || !drop) return;
+
+  function mostrar(){
+    var n = input.files ? input.files.length : 0;
+    if (!n) {
+      info.textContent = 'Arraste aqui ou clique — pode selecionar várias .xlsx';
+      info.style.color = '#6b7280';
+      return;
+    }
+    var nomes = Array.from(input.files).map(f=>f.name);
+    info.textContent = n === 1 ? nomes[0]
+      : n + ' arquivos selecionados: ' + nomes.slice(0,2).join(', ') + (n>2 ? '…' : '');
+    info.style.color = '#166534';
+    drop.style.borderColor = '#86efac';
+    drop.style.background = '#f0fdf4';
+  }
+  input.addEventListener('change', mostrar);
+
+  ['dragenter','dragover'].forEach(function(ev){
+    drop.addEventListener(ev, function(e){
+      e.preventDefault();
+      drop.style.borderColor = '#dc2626';
+      drop.style.background = '#fef2f2';
+    });
+  });
+  ['dragleave','drop'].forEach(function(ev){
+    drop.addEventListener(ev, function(e){
+      e.preventDefault();
+      drop.style.borderColor = '#d1d5db';
+      drop.style.background = '#fafafa';
+    });
+  });
+  drop.addEventListener('drop', function(e){
+    if (e.dataTransfer && e.dataTransfer.files.length) {
+      input.files = e.dataTransfer.files;
+      mostrar();
+    }
+  });
+})();
+
 function pqVer(td){
   var full = td.dataset.full || td.textContent.trim();
   if (full.length < 60) return;          // texto curto já aparece inteiro
