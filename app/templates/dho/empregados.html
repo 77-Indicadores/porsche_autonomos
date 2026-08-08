@@ -33,6 +33,7 @@
         <th>E-mail</th>
         <th>Departamento</th>
         <th>Cargo</th>
+        <th style="width:150px">Nº fornecedor</th>
         <th>Status</th>
       </tr>
     </thead>
@@ -54,15 +55,58 @@
         <td>{{ e.email or '' }}</td>
         <td>{{ e.nome_departamento or '' }}</td>
         <td>{{ e.nome_cargo or '' }}</td>
+        <td>
+          <input class="input emp-forn" value="{{ e.numero_fornecedor or '' }}"
+                 data-id="{{ e.id_empregado }}" placeholder="—"
+                 oninput="empForn(this)" style="width:100%;box-sizing:border-box">
+          <span class="emp-st" style="font-size:11px;font-weight:700"></span>
+        </td>
         <td><span class="badge">{{ e.status or '' }}</span></td>
       </tr>
       {% else %}
       <tr>
-        <td colspan="7" class="empty">Nenhum empregado sincronizado. Use o botão Sincronizar empregados.</td>
+        <td colspan="8" class="empty">Nenhum empregado sincronizado. Use o botão Sincronizar empregados.</td>
       </tr>
       {% endfor %}
     </tbody>
   </table>
 </article>
+
+<script>
+/* O número de fornecedor é o único campo editável aqui — salva sozinho,
+   com uma pausa, para não precisar de botão por linha. */
+const _empTimers = new WeakMap();
+
+function empForn(input) {
+  clearTimeout(_empTimers.get(input));
+  _empTimers.set(input, setTimeout(function () { empSalvar(input); }, 700));
+}
+
+function empSalvar(input) {
+  const status = input.parentNode.querySelector('.emp-st');
+  status.textContent = 'salvando…';
+  status.style.color = '#94a3b8';
+
+  const dados = new FormData();
+  dados.append('numero_fornecedor', input.value);
+
+  fetch('/dho/empregados/' + input.dataset.id + '/fornecedor', {
+    method: 'POST',
+    headers: { 'x-fetch': '1' },
+    body: dados
+  })
+    .then(function (r) { return r.json(); })
+    .then(function (j) {
+      if (!j.ok) throw new Error();
+      status.textContent = '✓ salvo';
+      status.style.color = '#16a34a';
+      setTimeout(function () { status.textContent = ''; }, 2000);
+    })
+    .catch(function () {
+      status.textContent = 'erro ao salvar';
+      status.style.color = '#dc2626';
+    });
+}
+</script>
 
 {% endblock %}

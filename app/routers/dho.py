@@ -13,7 +13,7 @@ from catworld.exceptions import (
     QueryTimeoutError,
     ValidationError,
 )
-from fastapi.responses import StreamingResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 from fastapi import APIRouter, Depends, Form, Request, UploadFile, File
 from sqlalchemy import inspect
 from sqlalchemy import (
@@ -190,6 +190,8 @@ dho_empregados = Table(
     Column("status", String(50), default="Ativo"),
     Column("observacoes", Text, nullable=True),
     Column("foto_url", Text, nullable=True),
+    # preenchido à mão: não vem da fonte oficial
+    Column("numero_fornecedor", String(60), nullable=True),
     Column("criado_em", DateTime, default=datetime.utcnow),
     Column("atualizado_em", DateTime, default=datetime.utcnow),
 )
@@ -281,6 +283,12 @@ def garantir_schema_dho_treinamentos():
                             )
 
             elif dialect == "postgresql":
+                conn.execute(text("""
+                    ALTER TABLE IF EXISTS dho_empregados
+                    ADD COLUMN IF NOT EXISTS foto_url TEXT,
+                    ADD COLUMN IF NOT EXISTS numero_fornecedor VARCHAR(60)
+                """))
+
                 conn.execute(text("""
                     ALTER TABLE IF EXISTS dho_treinamentos
                     ADD COLUMN IF NOT EXISTS tipo_treinamento VARCHAR(120) DEFAULT 'Autônomo',
@@ -507,8 +515,12 @@ def garantir_schema():
                 tabelas_existentes = [r[0] for r in conn.execute(text("SELECT name FROM sqlite_master WHERE type='table'")).fetchall()]
 
                 if "dho_empregados" in tabelas_existentes:
-                    if "foto_url" not in cols("dho_empregados"):
+                    c_emp = cols("dho_empregados")
+                    if "foto_url" not in c_emp:
                         conn.execute(text("ALTER TABLE dho_empregados ADD COLUMN foto_url TEXT"))
+                    if "numero_fornecedor" not in c_emp:
+                        conn.execute(text(
+                            "ALTER TABLE dho_empregados ADD COLUMN numero_fornecedor VARCHAR(60)"))
 
                 if "dho_vagas" in tabelas_existentes:
                     c = cols("dho_vagas")
@@ -2382,6 +2394,35 @@ def empregados_list(request: Request, db: Session = Depends(get_db)):
             **flash_from_request(request),
         },
     )
+
+
+@router.post("/dho/empregados/{id_empregado}/fornecedor")
+def empregados_fornecedor(
+    id_empregado: int,
+    request: Request,
+    numero_fornecedor: str = Form(""),
+    db: Session = Depends(get_db),
+):
+    """Salva o número de fornecedor.
+
+    O resto do cadastro vem da fonte oficial e é somente leitura, mas esse
+    número é interno e não existe lá — por isso é editável aqui.
+    """
+    current_user = getattr(request.state, "current_user", None)
+    if not current_user:
+        return RedirectResponse("/auth/login", status_code=303)
+
+    db.execute(
+        dho_empregados.update()
+        .where(dho_empregados.c.id_empregado == id_empregado)
+        .values(numero_fornecedor=(numero_fornecedor or "").strip() or None,
+                atualizado_em=datetime.utcnow())
+    )
+    db.commit()
+
+    if request.headers.get("x-fetch") == "1":
+        return JSONResponse({"ok": True})
+    return redirect_with_message("/dho/empregados", success="Número de fornecedor salvo.")
 
 
 @router.post("/dho/empregados/sincronizar")

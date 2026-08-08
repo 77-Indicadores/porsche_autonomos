@@ -57,9 +57,9 @@
       {% endif %}
 
       {#- módulo da rota (indicadores herdam o menu do módulo a que pertencem) -#}
-      {% set _mi = request.state.modulo_atual or '' %}
+      {% set _mi = request.query_params.get('ctx') or request.state.modulo_atual or '' %}
 
-      {% if request.url.path.startswith('/dho') or _mi == 'dho' %}
+      {% if (request.url.path.startswith('/dho') and _mi != 'folha') or _mi == 'dho' %}
       <div class="nav-section">
         <div class="nav-section-title">DHO</div>
         <div class="nav-subsection-title">Cadastros</div>
@@ -122,6 +122,9 @@
         <a class="nav-link {% if request.url.path.startswith('/folha/budget/regras') %}active{% endif %}" href="/folha/budget/regras">📏 Regras</a>
         <a class="nav-link {% if request.url.path.startswith('/folha/budget/cargos-niveis') %}active{% endif %}" href="/folha/budget/cargos-niveis">🧩 Níveis de Cargo</a>
         <a class="nav-link {% if request.url.path.startswith('/folha/centros-custo') %}active{% endif %}" href="/folha/centros-custo">🏷️ Centros de Custo</a>
+        {# ctx=folha mantém esta barra ao abrir telas que moram no DHO #}
+        <a class="nav-link {% if request.url.path.startswith('/dho/empregados') %}active{% endif %}" href="/dho/empregados?ctx=folha">👥 Empregados</a>
+        <a class="nav-link {% if request.url.path.startswith('/dho/estrutura') %}active{% endif %}" href="/dho/estrutura?ctx=folha">🏢 Depto. e Cargos</a>
         <div class="nav-subsection-title">Saúde</div>
         <a class="nav-link {% if request.url.path.startswith('/folha/atestados') %}active{% endif %}" href="/folha/atestados">🏥 Atestados Médicos</a>
       </div>
