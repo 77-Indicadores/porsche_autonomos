@@ -175,6 +175,23 @@ def detectar_tipo(nome_arquivo: str) -> str | None:
     return None
 
 
+def digest_conteudo(wb) -> str:
+    """Impressao digital dos dados da planilha, nao dos bytes do arquivo.
+
+    O mesmo arquivo salvo de novo (ou sincronizado pelo OneDrive) muda de
+    bytes sem mudar de conteudo, e o dedupe por bytes deixava passar - o
+    arquivo de freelancers, repetido nas cinco pastas de etapa, entrava cinco
+    vezes e multiplicava as respostas.
+    """
+    h = hashlib.sha1()
+    for ws in wb.worksheets:
+        h.update(normalizar(ws.title).encode("utf-8"))
+        for linha in ws.iter_rows(values_only=True):
+            h.update("|".join("" if v is None else str(v) for v in linha).encode("utf-8"))
+            h.update(b"\n")
+    return h.hexdigest()
+
+
 def detectar_tipo_por_conteudo(wb) -> str | None:
     """Descobre o tipo pelas colunas, quando o nome do arquivo não diz nada.
 
@@ -981,35 +998,17 @@ def analisar_arquivo(db, nome_arquivo, conteudo, etapas, vistos=None):
         "respostas": 0,
         "avisos": [],
         "status": "OK",
+        "acao": None,      # o que o usuário precisa fazer, quando for o caso
         "digest": None,
         "arquivo_disco": None,
     }
 
     # O Windows manda o nome curto (PORSCH~1.XLS) quando o caminho é longo:
     # a extensão engana e o nome não identifica nada. O que vale é o conteúdo.
-    digest = hashlib.sha1(conteudo).hexdigest()
-    info["digest"] = digest
-
-    if vistos is not None and digest in vistos:
-        info["status"] = "Duplicado"
-        info["avisos"].append(
-            f"conteúdo idêntico a '{vistos[digest]}', que já está neste envio")
-        return info
-
-    ja = db.execute(
-        select(pesquisa_uploads.c.id_upload)
-        .where(pesquisa_uploads.c.hash_conteudo == digest)
-    ).first()
-    if ja:
-        info["status"] = "Duplicado"
-        info["avisos"].append(f"conteúdo idêntico ao upload #{ja[0]}, já importado")
-        return info
-
-    if vistos is not None:
-        vistos[digest] = nome_arquivo
+    marca = hashlib.sha1(conteudo).hexdigest()[:8]
 
     UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
-    destino = UPLOAD_DIR / f"{datetime.now().strftime('%Y%m%d_%H%M%S')}_{digest[:8]}.xlsx"
+    destino = UPLOAD_DIR / f"{datetime.now().strftime('%Y%m%d_%H%M%S')}_{marca}.xlsx"
     try:
         destino.write_bytes(conteudo)
     except OSError as exc:
@@ -1026,6 +1025,28 @@ def analisar_arquivo(db, nome_arquivo, conteudo, etapas, vistos=None):
             "não consegui abrir como Excel. Se for um .xls antigo, "
             "abra no Excel e salve como .xlsx.")
         return info
+
+    # duplicata pelo conteúdo, não pelos bytes
+    digest = digest_conteudo(wb)
+    info["digest"] = digest
+
+    if vistos is not None and digest in vistos:
+        info["status"] = "Duplicado"
+        info["avisos"].append(
+            f"mesmos dados de '{vistos[digest]}', que já está neste envio")
+        return info
+
+    ja = db.execute(
+        select(pesquisa_uploads.c.id_upload)
+        .where(pesquisa_uploads.c.hash_conteudo == digest)
+    ).first()
+    if ja:
+        info["status"] = "Duplicado"
+        info["avisos"].append(f"mesmos dados do upload #{ja[0]}, já importado")
+        return info
+
+    if vistos is not None:
+        vistos[digest] = nome_arquivo
 
     # tipo: primeiro pelo nome; se não der, pelas colunas da planilha
     tipo = detectar_tipo(nome_arquivo)
@@ -1061,7 +1082,8 @@ def analisar_arquivo(db, nome_arquivo, conteudo, etapas, vistos=None):
     else:
         info["etapa_label"] = None
         info["status"] = "Etapa indefinida"
-        info["avisos"].append("não identifiquei a etapa pelo nome nem por coluna")
+        info["acao"] = ("Escolha a etapa no campo ao lado — o nome do arquivo "
+                        "não indica e a planilha não tem coluna ETAPA.")
 
     if not respostas and info["status"] == "OK":
         info["status"] = "Vazio"
@@ -1095,13 +1117,13 @@ def gravar_arquivo(db, nome_arquivo, caminho_disco, tipo_pesquisa, id_etapa, eta
             return False, (f"{nome_arquivo}: escolha a etapa antes de importar "
                            "— a planilha não tem coluna ETAPA")
 
-    digest = hashlib.sha1(caminho.read_bytes()).hexdigest()
+    digest = digest_conteudo(wb)
     ja = db.execute(
         select(pesquisa_uploads.c.id_upload)
         .where(pesquisa_uploads.c.hash_conteudo == digest)
     ).first()
     if ja:
-        return False, f"{nome_arquivo}: já importado (upload #{ja[0]})"
+        return False, f"{nome_arquivo}: mesmos dados do upload #{ja[0]}, já importado"
 
     respostas, total_linhas, _ = percorrer_planilha(wb, tipo_pesquisa, id_etapa, etapas)
 
