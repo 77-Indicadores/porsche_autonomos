@@ -100,6 +100,28 @@ pesquisa_mapeamentos = Table(
 metadata_pesquisas.create_all(engine)
 
 
+# Limite de cada coluna de texto, lido da propria definicao da tabela.
+_LIMITES_RESPOSTA = {
+    c.name: c.type.length
+    for c in pesquisa_respostas.columns
+    if getattr(c.type, "length", None)
+}
+
+
+def cortar_no_limite(valores: dict) -> dict:
+    """Trunca os campos de texto ao tamanho da coluna.
+
+    O SQLite ignora o tamanho do VARCHAR e o Postgres recusa a linha, entao
+    uma resposta longa passava no teste local e derrubava a importacao em
+    producao. Aqui o corte vale para qualquer campo, nao so o que ja estourou.
+    """
+    for coluna, limite in _LIMITES_RESPOSTA.items():
+        valor = valores.get(coluna)
+        if isinstance(valor, str) and len(valor) > limite:
+            valores[coluna] = valor[:limite]
+    return valores
+
+
 def _migrar_pesquisas():
     """Colunas novas em bancos criados antes desta versão."""
     novas = {
@@ -311,7 +333,9 @@ def resposta_padrao(v):
     if "trocar" in k:
         return "Quero trocar"
 
-    return s
+    # Texto livre nao e valor padronizado — fica so em resposta_original,
+    # que e Text. Devolver o texto inteiro aqui estourava o VARCHAR(120).
+    return s if len(s) <= 120 else None
 
 
 def nota_da_escala(v):
@@ -1151,7 +1175,7 @@ def gravar_arquivo(db, nome_arquivo, caminho_disco, tipo_pesquisa, id_etapa, eta
             id_piloto=id_piloto,
             status_mapeamento=status_map,
             criado_em=datetime.utcnow(),
-            **r,
+            **cortar_no_limite(r),
         ))
 
     rotulo = dict(TIPOS_PESQUISA).get(tipo_pesquisa, tipo_pesquisa)
