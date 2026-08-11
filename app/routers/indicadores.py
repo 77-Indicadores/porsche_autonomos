@@ -1336,17 +1336,30 @@ _CSS_FILTROS = """<style>
 
 def _filtro_depto_html(acao: str, deptos: list[str], selecionado: str,
                        meses: list[str] | None = None, mes_sel: str = "",
-                       ano_sel: str = "") -> str:
+                       ano_sel: str = "", empresas: list[str] | None = None,
+                       empresa_sel: str = "") -> str:
     """Barra de filtros dos painéis montados em HTML puro.
 
-    Mesmo visual do Turnover: cartões brancos lado a lado, com Departamento,
-    Ano e Mês.
+    Mesmo visual e mesmos campos do Turnover: Empresa, Departamento, Ano e
+    Mês, em cartões brancos lado a lado.
     """
     sel = (selecionado or "").strip().upper()
     opts_dep = "<option value=''>Todos</option>" + "".join(
         f"<option value=\"{d}\"{' selected' if d.upper() == sel else ''}>{d}</option>"
         for d in deptos
     )
+
+    bloco_empresa = ""
+    if empresas:
+        opts_emp = "<option value=''>Todas</option>" + "".join(
+            f"<option value=\"{e}\"{' selected' if e == empresa_sel else ''}>{empresa_curta(e)}</option>"
+            for e in empresas
+        )
+        bloco_empresa = f"""
+  <div class="ind-filtro">
+    <label>Empresa</label>
+    <select name="empresa" onchange="this.form.submit()">{opts_emp}</select>
+  </div>"""
 
     meses = meses or []
     anos = sorted({m[:4] for m in meses if len(m) >= 4}, reverse=True)
@@ -1362,9 +1375,16 @@ def _filtro_depto_html(acao: str, deptos: list[str], selecionado: str,
     )
 
     limpar = (f'<a href="{acao}" class="ind-limpar">✕ Limpar</a>'
-              if (selecionado or mes_sel or ano_sel) else "")
+              if (selecionado or mes_sel or ano_sel or empresa_sel) else "")
 
-    bloco_periodo = f"""
+    # Ano e Mês aparecem sempre: escondê-los quando não há dado fazia o filtro
+    # sumir justamente na tela vazia, dando a impressão de que não existe.
+    return f"""{_CSS_FILTROS}
+<form method="get" action="{acao}" class="ind-filtros">{bloco_empresa}
+  <div class="ind-filtro">
+    <label>Departamento</label>
+    <select name="departamento" onchange="this.form.submit()">{opts_dep}</select>
+  </div>
   <div class="ind-filtro">
     <label>Ano</label>
     <select name="ano" onchange="this.form.submit()">{opts_ano}</select>
@@ -1372,35 +1392,30 @@ def _filtro_depto_html(acao: str, deptos: list[str], selecionado: str,
   <div class="ind-filtro">
     <label>Mês</label>
     <select name="mes" onchange="this.form.submit()">{opts_mes}</select>
-  </div>""" if meses else ""
-
-    return f"""{_CSS_FILTROS}
-<form method="get" action="{acao}" class="ind-filtros">
-  <div class="ind-filtro">
-    <label>Departamento</label>
-    <select name="departamento" onchange="this.form.submit()">{opts_dep}</select>
-  </div>{bloco_periodo}
+  </div>
   {limpar}
 </form>
 """
 
 
-def _build_treinamentos_html(depto_sel: str = "", mes_sel: str = "", ano_sel: str = "") -> str:
+def _build_treinamentos_html(depto_sel: str = "", mes_sel: str = "", ano_sel: str = "",
+                             empresa_sel: str = "") -> str:
     try:
         treinamentos = _db_rows("SELECT id_treinamento, nome_treinamento, tipo_treinamento, carga_horaria_padrao, status FROM dho_treinamentos")
         aplicacoes   = _db_rows("SELECT id_aplicacao, id_treinamento, pessoa_nome, centro_custo, data_treinamento, carga_horaria, status FROM dho_treinamento_aplicacoes")
-        # o centro de custo pode vir como código; traduz pelo cadastro da folha
+        # o centro de custo pode vir como código; o cadastro da folha dá o
+        # nome do departamento e também a empresa dona daquele centro
         try:
-            cc_map = {
-                (r["codigo"] or "").strip(): r["nome"]
-                for r in _db_rows("SELECT codigo, nome FROM folha_centros_custo "
-                                  "WHERE COALESCE(status, 'Ativo') = 'Ativo'")
-            }
+            cc_rows = _db_rows("SELECT codigo, nome, empresa FROM folha_centros_custo "
+                               "WHERE COALESCE(status, 'Ativo') = 'Ativo'")
+            cc_map = {(r["codigo"] or "").strip(): r["nome"] for r in cc_rows}
+            cc_emp = {(r["codigo"] or "").strip(): r["empresa"] for r in cc_rows}
         except Exception:
-            cc_map = {}
+            cc_map, cc_emp = {}, {}
         for a in aplicacoes:
             bruto = (a.get("centro_custo") or "").strip()
             a["departamento"] = cc_map.get(bruto, bruto) or "Não informado"
+            a["empresa"] = cc_emp.get(bruto) or ""
     except Exception as e:
         return f"<p style='color:red'>Erro ao carregar dados: {e}</p>"
 
@@ -1409,6 +1424,9 @@ def _build_treinamentos_html(depto_sel: str = "", mes_sel: str = "", ano_sel: st
     todos_meses = sorted({str(a.get("data_treinamento") or "")[:7]
                           for a in aplicacoes if str(a.get("data_treinamento") or "")[:7]},
                          reverse=True)
+    todas_empresas = sorted({a["empresa"] for a in aplicacoes if a.get("empresa")})
+    if empresa_sel:
+        aplicacoes = [a for a in aplicacoes if a.get("empresa") == empresa_sel]
     if depto_sel:
         aplicacoes = [a for a in aplicacoes
                       if (a.get("departamento") or "").upper() == depto_sel.strip().upper()]
@@ -1419,7 +1437,8 @@ def _build_treinamentos_html(depto_sel: str = "", mes_sel: str = "", ano_sel: st
         aplicacoes = [a for a in aplicacoes
                       if str(a.get("data_treinamento") or "")[:7] == mes_sel]
     filtro_html = _filtro_depto_html("/indicadores/treinamentos", todos_deptos, depto_sel,
-                                     todos_meses, mes_sel, ano_sel)
+                                     todos_meses, mes_sel, ano_sel,
+                                     todas_empresas, empresa_sel)
 
     ativos     = [t for t in treinamentos if "ativ" in (t.get("status") or "").lower()]
     realizados = sum(1 for a in aplicacoes if "realiz" in (a.get("status") or "").lower())
@@ -2561,11 +2580,12 @@ def facilities_dash(request: Request):
 
 
 @router.get("/indicadores/treinamentos")
-def treinamentos_dash(request: Request, departamento: str = "", mes: str = "", ano: str = ""):
+def treinamentos_dash(request: Request, departamento: str = "", mes: str = "", ano: str = "",
+                      empresa: str = ""):
     erro = None
     dash_html = ""
     try:
-        dash_html = _build_treinamentos_html(departamento, mes, ano)
+        dash_html = _build_treinamentos_html(departamento, mes, ano, empresa)
     except Exception as exc:
         erro = f"Erro ao carregar dados de Treinamentos: {exc}"
 
