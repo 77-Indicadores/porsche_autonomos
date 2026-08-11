@@ -1,4 +1,4 @@
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from decimal import Decimal, InvalidOperation
 from urllib.parse import urlencode
 
@@ -12,6 +12,67 @@ def parse_date(value: str | None) -> date | None:
     return date.fromisoformat(value)
 
 
+# Formatos de data que chegam pelo sistema: digitação manual, planilha
+# importada (que traz datetime ou serial do Excel) e integrações.
+_FORMATOS_DATA = ("%Y-%m-%d", "%d/%m/%Y", "%d-%m-%Y", "%Y/%m/%d",
+                  "%d.%m.%Y", "%d/%m/%y", "%m/%d/%Y")
+
+
+def data_para_date(valor) -> date | None:
+    """Interpreta qualquer data que o sistema receba; None quando não reconhece.
+
+    Datas guardadas como texto chegam em formatos misturados ('09/02/2026',
+    '2026-06-02 00:00:00', serial do Excel). Sem um ponto único de conversão,
+    cada tela fatiava a string do seu jeito e os filtros de período saíam
+    embaralhados.
+    """
+    if valor is None or valor == "":
+        return None
+    if isinstance(valor, datetime):
+        return valor.date()
+    if isinstance(valor, date):
+        return valor
+
+    # serial do Excel (dias desde 30/12/1899)
+    if isinstance(valor, (int, float)) and not isinstance(valor, bool):
+        try:
+            return date(1899, 12, 30) + timedelta(days=int(valor))
+        except (ValueError, OverflowError):
+            return None
+
+    texto = str(valor).strip()
+    if not texto:
+        return None
+
+    # descarta a parte de hora: '2026-06-02 00:00:00' e '2026-06-02T00:00:00'
+    texto = texto.replace("T", " ").split(" ")[0]
+
+    for fmt in _FORMATOS_DATA:
+        try:
+            return datetime.strptime(texto, fmt).date()
+        except ValueError:
+            pass
+
+    if texto.replace(".", "", 1).isdigit():
+        try:
+            return date(1899, 12, 30) + timedelta(days=int(float(texto)))
+        except (ValueError, OverflowError):
+            return None
+    return None
+
+
+def data_iso(valor) -> str:
+    """Forma canônica de gravação: 'YYYY-MM-DD'. Devolve '' se não for data."""
+    d = data_para_date(valor)
+    return d.isoformat() if d else ""
+
+
+def competencia_de(valor) -> str:
+    """Competência 'YYYY-MM' usada nos filtros de período."""
+    d = data_para_date(valor)
+    return f"{d.year:04d}-{d.month:02d}" if d else ""
+
+
 def parse_money(value: str | None) -> Decimal | None:
     if not value:
         return None
@@ -23,18 +84,13 @@ def parse_money(value: str | None) -> Decimal | None:
 
 
 def format_date(value):
+    """Exibição padrão do sistema: dd/mm/aaaa, venha a data no formato que vier."""
     if not value:
         return "-"
-    if isinstance(value, str):
-        for fmt in ("%Y-%m-%d", "%d/%m/%Y"):
-            try:
-                return datetime.strptime(value, fmt).strftime("%d/%m/%Y")
-            except ValueError:
-                pass
-        return value
-    if isinstance(value, datetime):
-        value = value.date()
-    return value.strftime("%d/%m/%Y")
+    d = data_para_date(value)
+    if d:
+        return d.strftime("%d/%m/%Y")
+    return value if isinstance(value, str) else str(value)
 
 
 def format_money(value):

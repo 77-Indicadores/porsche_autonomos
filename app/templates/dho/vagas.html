@@ -150,7 +150,7 @@
         <td>{{ item.qtd_vagas or 1 }}</td>
         <td>{{ item.tipo_recrutamento or "-" }}</td>
         <td><span class="badge">{{ item.status }}</span></td>
-        <td>{{ item.data_conclusao or "-" }}</td>
+        <td>{{ item.data_conclusao | date_br }}</td>
         <td class="actions">
           <button
             class="btn-muted"
@@ -166,8 +166,8 @@
             data-status="{{ item.status or '' }}"
             data-tipo-recrutamento="{{ item.tipo_recrutamento or '' }}"
             data-responsavel="{{ item.responsavel or '' }}"
-            data-data-abertura="{{ item.data_abertura or '' }}"
-            data-data-conclusao="{{ item.data_conclusao or '' }}"
+            data-data-abertura="{{ item.data_abertura | date_br if item.data_abertura else '' }}"
+            data-data-conclusao="{{ item.data_conclusao | date_br if item.data_conclusao else '' }}"
             data-observacoes="{{ item.observacoes or '' }}"
           >Editar</button>
 

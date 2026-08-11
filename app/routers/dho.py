@@ -37,7 +37,8 @@ from app.auth import tem_acesso_modulo, is_admin as _is_admin
 from app.database import engine, get_db
 from app.models import DimAutonomo
 from app.template_config import templates
-from app.utils import flash_from_request, redirect_with_message
+from app.utils import (data_iso, data_para_date, flash_from_request,
+                       redirect_with_message)
 
 router = APIRouter(tags=["dho"])
 
@@ -388,6 +389,53 @@ def garantir_schema_dho_treinamentos():
 
 garantir_schema_dho_treinamentos()
 
+
+def _padronizar_datas_texto(conn, tabela: str, chave: str, colunas: tuple[str, ...]) -> int:
+    """Regrava em 'YYYY-MM-DD' as datas que ficaram salvas em outros formatos.
+
+    Essas colunas são texto e foram preenchidas por digitação e por importação
+    de planilha, cada uma no seu formato ('09/02/2026', '2026-06-02 00:00:00').
+    Sem uma forma única gravada, o filtro de período do indicador mostrava
+    pedaços de data como se fossem meses.
+    """
+    ajustados = 0
+    lista = ", ".join(colunas)
+    linhas = conn.execute(text(f"SELECT {chave}, {lista} FROM {tabela}")).fetchall()
+
+    for linha in linhas:
+        registro = dict(linha._mapping)
+        novos = {}
+        for col in colunas:
+            atual = registro.get(col)
+            texto = str(atual or "").strip()
+            if not texto:
+                continue
+            iso = data_iso(texto)
+            if iso and iso != texto:
+                novos[col] = iso
+        if novos:
+            sets = ", ".join(f"{c} = :{c}" for c in novos)
+            conn.execute(
+                text(f"UPDATE {tabela} SET {sets} WHERE {chave} = :chave"),
+                {**novos, "chave": registro[chave]},
+            )
+            ajustados += 1
+    return ajustados
+
+
+try:
+    with engine.begin() as conn:
+        total_datas = (
+            _padronizar_datas_texto(conn, "dho_treinamento_aplicacoes",
+                                    "id_aplicacao", ("data_treinamento",))
+            + _padronizar_datas_texto(conn, "dho_vagas", "id_vaga",
+                                      ("data_abertura", "data_conclusao"))
+        )
+        if total_datas:
+            print(f"OK - {total_datas} registro(s) com data padronizada para AAAA-MM-DD.")
+except Exception as exc:
+    print(f"AVISO - nao consegui padronizar as datas gravadas: {exc}")
+
 try:
     with engine.begin() as conn:
         total_normalizados = _normalizar_aplicacoes_multiplas(conn)
@@ -559,11 +607,11 @@ def fmt_num(value):
 
 
 def fmt_data(value):
-    """Converte yyyy-mm-dd para dd/mm/yyyy; retorna o valor original em outros formatos."""
-    s = str(value or "").strip()
-    if len(s) == 10 and s[4] == "-" and s[7] == "-":
-        return f"{s[8:10]}/{s[5:7]}/{s[0:4]}"
-    return s or "-"
+    """Exibe qualquer data como dd/mm/aaaa; devolve o original se não for data."""
+    d = data_para_date(value)
+    if d:
+        return d.strftime("%d/%m/%Y")
+    return str(value or "").strip() or "-"
 
 
 def to_float(value):
@@ -903,8 +951,8 @@ def salvar_vaga(
         "qtd_vagas": qtd_vagas,
         "status": status,
         "responsavel": responsavel,
-        "data_abertura": data_abertura,
-        "data_conclusao": data_conclusao,
+        "data_abertura": data_iso(data_abertura) or data_abertura,
+        "data_conclusao": data_iso(data_conclusao) or data_conclusao,
         "tipo_recrutamento": tipo_recrutamento if tipo_recrutamento in TIPOS_RECRUTAMENTO else "Externo",
         "observacoes": observacoes,
         "atualizado_em": datetime.utcnow(),
@@ -1488,7 +1536,7 @@ def salvar_aplicacao_treinamento(
         "matricula": matricula,
         "funcao": funcao,
         "centro_custo": centro_custo,
-        "data_treinamento": data_treinamento,
+        "data_treinamento": data_iso(data_treinamento) or data_treinamento,
         "carga_horaria": to_float(carga_horaria),
         "status": status,
         "observacoes": observacoes,
@@ -1797,8 +1845,8 @@ async def importar_dho(
                     status=status,
                     tipo_recrutamento=tipo_recrutamento,
                     responsavel=responsavel,
-                    data_abertura=data_abertura,
-                    data_conclusao=data_conclusao,
+                    data_abertura=data_iso(data_abertura) or data_abertura,
+                    data_conclusao=data_iso(data_conclusao) or data_conclusao,
                     observacoes=observacoes,
                     criado_em=datetime.utcnow(),
                     atualizado_em=datetime.utcnow(),
@@ -2324,7 +2372,7 @@ async def importar_aplicacoes_treinamento_dho(
                 "matricula": empregado["matricula"] or "",
                 "funcao": empregado["nome_cargo"] or "",
                 "centro_custo": empregado["nome_departamento"] or "",
-                "data_treinamento": data_treinamento,
+                "data_treinamento": data_iso(data_treinamento) or data_treinamento,
                 "carga_horaria": carga_horaria_importada,
                 "status": status,
                 "observacoes": observacoes,

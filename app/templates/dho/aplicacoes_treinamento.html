@@ -174,7 +174,7 @@
             data-matricula="{{ item.matricula or '' }}"
             data-funcao="{{ item.funcao or '' }}"
             data-centro-custo="{{ item.centro_custo or '' }}"
-            data-data-treinamento="{{ item.data_treinamento or '' }}"
+            data-data-treinamento="{{ fmt_data(item.data_treinamento) if item.data_treinamento else '' }}"
             data-carga-horaria="{{ item.carga_horaria or '' }}"
             data-status="{{ item.status or '' }}"
             data-observacoes="{{ item.observacoes or '' }}"

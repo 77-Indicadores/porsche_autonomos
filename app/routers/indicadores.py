@@ -16,7 +16,7 @@ from fastapi import APIRouter, Request
 from sqlalchemy import select, text
 
 from app.template_config import templates
-from app.utils import empresa_curta
+from app.utils import competencia_de, data_para_date, empresa_curta
 
 router = APIRouter(tags=["indicadores"])
 
@@ -1315,6 +1315,9 @@ _MES_LABEL = {
 }
 
 
+_COMPETENCIA_RE = re.compile(r"\d{4}-\d{2}")
+
+
 def _rotulo_mes(m: str) -> str:
     """'2026-03' → 'Mar 2026'."""
     if len(m) >= 7 and m[4] == "-":
@@ -1361,8 +1364,11 @@ def _filtro_depto_html(acao: str, deptos: list[str], selecionado: str,
     <select name="empresa" onchange="this.form.submit()">{opts_emp}</select>
   </div>"""
 
-    meses = meses or []
-    anos = sorted({m[:4] for m in meses if len(m) >= 4}, reverse=True)
+    # só entram competências no formato canônico: qualquer outra coisa vira
+    # opção ilegível no seletor ("28/0", "09/02/2")
+    meses = sorted({m for m in (meses or []) if _COMPETENCIA_RE.fullmatch(m or "")},
+                   reverse=True)
+    anos = sorted({m[:4] for m in meses}, reverse=True)
     opts_ano = "<option value=''>Todos</option>" + "".join(
         f"<option value=\"{a}\"{' selected' if a == ano_sel else ''}>{a}</option>"
         for a in anos
@@ -1421,8 +1427,11 @@ def _build_treinamentos_html(depto_sel: str = "", mes_sel: str = "", ano_sel: st
 
     todos_deptos = sorted({a["departamento"] for a in aplicacoes
                            if a.get("departamento") and a["departamento"] != "Não informado"})
-    todos_meses = sorted({str(a.get("data_treinamento") or "")[:7]
-                          for a in aplicacoes if str(a.get("data_treinamento") or "")[:7]},
+    # a competência sai do parser central: a data pode estar gravada em
+    # qualquer formato e fatiar a string produzia rótulos como "28/0"
+    for a in aplicacoes:
+        a["competencia"] = competencia_de(a.get("data_treinamento"))
+    todos_meses = sorted({a["competencia"] for a in aplicacoes if a["competencia"]},
                          reverse=True)
     todas_empresas = sorted({a["empresa"] for a in aplicacoes if a.get("empresa")})
     if empresa_sel:
@@ -1431,11 +1440,9 @@ def _build_treinamentos_html(depto_sel: str = "", mes_sel: str = "", ano_sel: st
         aplicacoes = [a for a in aplicacoes
                       if (a.get("departamento") or "").upper() == depto_sel.strip().upper()]
     if ano_sel:
-        aplicacoes = [a for a in aplicacoes
-                      if str(a.get("data_treinamento") or "")[:4] == ano_sel]
+        aplicacoes = [a for a in aplicacoes if a["competencia"][:4] == ano_sel]
     if mes_sel:
-        aplicacoes = [a for a in aplicacoes
-                      if str(a.get("data_treinamento") or "")[:7] == mes_sel]
+        aplicacoes = [a for a in aplicacoes if a["competencia"] == mes_sel]
     filtro_html = _filtro_depto_html("/indicadores/treinamentos", todos_deptos, depto_sel,
                                      todos_meses, mes_sel, ano_sel,
                                      todas_empresas, empresa_sel)
@@ -1614,16 +1621,19 @@ def _build_vagas_html(depto_sel: str = "", mes_sel: str = "", ano_sel: str = "")
         (v.get("nome_departamento") or "").strip()
         for v in vagas if (v.get("nome_departamento") or "").strip()
     })
-    todos_meses = sorted({str(v.get("data_abertura") or "")[:7]
-                          for v in vagas if str(v.get("data_abertura") or "")[:7]},
+    # a competência sai do parser central: a data pode estar gravada em
+    # qualquer formato e fatiar a string produzia rótulos como "28/0"
+    for v in vagas:
+        v["competencia"] = competencia_de(v.get("data_abertura"))
+    todos_meses = sorted({v["competencia"] for v in vagas if v["competencia"]},
                          reverse=True)
     if depto_sel:
         vagas = [v for v in vagas
                  if (v.get("nome_departamento") or "").strip().upper() == depto_sel.strip().upper()]
     if ano_sel:
-        vagas = [v for v in vagas if str(v.get("data_abertura") or "")[:4] == ano_sel]
+        vagas = [v for v in vagas if v["competencia"][:4] == ano_sel]
     if mes_sel:
-        vagas = [v for v in vagas if str(v.get("data_abertura") or "")[:7] == mes_sel]
+        vagas = [v for v in vagas if v["competencia"] == mes_sel]
     filtro_html = _filtro_depto_html("/indicadores/vagas", todos_deptos, depto_sel,
                                      todos_meses, mes_sel, ano_sel)
 
@@ -1632,12 +1642,7 @@ def _build_vagas_html(depto_sel: str = "", mes_sel: str = "", ano_sel: str = "")
     def is_aberta(v): return "abert" in (v.get("status") or "").lower()
     def is_concluida(v): return "conclu" in (v.get("status") or "").lower()
 
-    def parse_date_vg(s):
-        if not s: return None
-        for fmt in ("%Y-%m-%d", "%d/%m/%Y"):
-            try: return datetime.strptime(str(s)[:10], fmt).date()
-            except: pass
-        return None
+    parse_date_vg = data_para_date
 
     total_vagas = sum(v.get("qtd_vagas") or 1 for v in vagas) or 1
     abertas     = sum((v.get("qtd_vagas") or 1) for v in vagas if is_aberta(v))
