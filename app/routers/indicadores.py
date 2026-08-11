@@ -1322,45 +1322,70 @@ def _rotulo_mes(m: str) -> str:
     return m
 
 
+_CSS_FILTROS = """<style>
+.ind-filtros{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:0 0 14px}
+.ind-filtro{background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:8px 14px;min-width:150px}
+.ind-filtro label{display:block;font-size:10px;font-weight:700;color:#9ca3af;
+  text-transform:uppercase;letter-spacing:.08em;margin-bottom:3px}
+.ind-filtro select{width:100%;border:0;background:transparent;outline:none;
+  color:#111827;font-size:13px;font-weight:600;cursor:pointer}
+.ind-limpar{font-size:12px;color:#6b7280;text-decoration:none;padding:0 4px}
+.ind-limpar:hover{color:#111827}
+</style>"""
+
+
 def _filtro_depto_html(acao: str, deptos: list[str], selecionado: str,
-                       meses: list[str] | None = None, mes_sel: str = "") -> str:
-    """Barra de filtros (departamento e mês) dos painéis montados em HTML puro."""
+                       meses: list[str] | None = None, mes_sel: str = "",
+                       ano_sel: str = "") -> str:
+    """Barra de filtros dos painéis montados em HTML puro.
+
+    Mesmo visual do Turnover: cartões brancos lado a lado, com Departamento,
+    Ano e Mês.
+    """
     sel = (selecionado or "").strip().upper()
-    opts = "<option value=''>Todos</option>" + "".join(
+    opts_dep = "<option value=''>Todos</option>" + "".join(
         f"<option value=\"{d}\"{' selected' if d.upper() == sel else ''}>{d}</option>"
         for d in deptos
     )
-    estilo_sel = ("border:0;background:transparent;outline:none;color:#252525;"
-                  "font-size:13px;font-weight:700;cursor:pointer")
-    estilo_lbl = ("font-size:11px;font-weight:700;color:#6f7886;"
-                  "text-transform:uppercase;letter-spacing:.05em")
 
-    bloco_mes = ""
-    if meses:
-        opts_mes = "<option value=''>Todos</option>" + "".join(
-            f"<option value=\"{m}\"{' selected' if m == mes_sel else ''}>{_rotulo_mes(m)}</option>"
-            for m in meses
-        )
-        bloco_mes = f"""
-  <span style="width:1px;height:22px;background:#e3e7ee"></span>
-  <label style="{estilo_lbl}">Mês</label>
-  <select name="mes" onchange="this.form.submit()" style="{estilo_sel};min-width:130px">
-    {opts_mes}
-  </select>"""
+    meses = meses or []
+    anos = sorted({m[:4] for m in meses if len(m) >= 4}, reverse=True)
+    opts_ano = "<option value=''>Todos</option>" + "".join(
+        f"<option value=\"{a}\"{' selected' if a == ano_sel else ''}>{a}</option>"
+        for a in anos
+    )
+    # o seletor de mês acompanha o ano escolhido
+    meses_vis = [m for m in meses if not ano_sel or m[:4] == ano_sel]
+    opts_mes = "<option value=''>Todos</option>" + "".join(
+        f"<option value=\"{m}\"{' selected' if m == mes_sel else ''}>{_rotulo_mes(m)}</option>"
+        for m in meses_vis
+    )
 
-    return f"""
-<form method="get" action="{acao}"
-      style="display:flex;align-items:center;gap:10px;margin:0 0 14px;padding:10px 14px;
-             background:#fff;border:1px solid #e3e7ee;border-radius:12px;flex-wrap:wrap">
-  <label style="{estilo_lbl}">Departamento</label>
-  <select name="departamento" onchange="this.form.submit()" style="{estilo_sel};min-width:200px">
-    {opts}
-  </select>{bloco_mes}
+    limpar = (f'<a href="{acao}" class="ind-limpar">✕ Limpar</a>'
+              if (selecionado or mes_sel or ano_sel) else "")
+
+    bloco_periodo = f"""
+  <div class="ind-filtro">
+    <label>Ano</label>
+    <select name="ano" onchange="this.form.submit()">{opts_ano}</select>
+  </div>
+  <div class="ind-filtro">
+    <label>Mês</label>
+    <select name="mes" onchange="this.form.submit()">{opts_mes}</select>
+  </div>""" if meses else ""
+
+    return f"""{_CSS_FILTROS}
+<form method="get" action="{acao}" class="ind-filtros">
+  <div class="ind-filtro">
+    <label>Departamento</label>
+    <select name="departamento" onchange="this.form.submit()">{opts_dep}</select>
+  </div>{bloco_periodo}
+  {limpar}
 </form>
 """
 
 
-def _build_treinamentos_html(depto_sel: str = "", mes_sel: str = "") -> str:
+def _build_treinamentos_html(depto_sel: str = "", mes_sel: str = "", ano_sel: str = "") -> str:
     try:
         treinamentos = _db_rows("SELECT id_treinamento, nome_treinamento, tipo_treinamento, carga_horaria_padrao, status FROM dho_treinamentos")
         aplicacoes   = _db_rows("SELECT id_aplicacao, id_treinamento, pessoa_nome, centro_custo, data_treinamento, carga_horaria, status FROM dho_treinamento_aplicacoes")
@@ -1387,11 +1412,14 @@ def _build_treinamentos_html(depto_sel: str = "", mes_sel: str = "") -> str:
     if depto_sel:
         aplicacoes = [a for a in aplicacoes
                       if (a.get("departamento") or "").upper() == depto_sel.strip().upper()]
+    if ano_sel:
+        aplicacoes = [a for a in aplicacoes
+                      if str(a.get("data_treinamento") or "")[:4] == ano_sel]
     if mes_sel:
         aplicacoes = [a for a in aplicacoes
                       if str(a.get("data_treinamento") or "")[:7] == mes_sel]
     filtro_html = _filtro_depto_html("/indicadores/treinamentos", todos_deptos, depto_sel,
-                                     todos_meses, mes_sel)
+                                     todos_meses, mes_sel, ano_sel)
 
     ativos     = [t for t in treinamentos if "ativ" in (t.get("status") or "").lower()]
     realizados = sum(1 for a in aplicacoes if "realiz" in (a.get("status") or "").lower())
@@ -1551,7 +1579,7 @@ _CSS_VAGAS = """<style>
 </style>"""
 
 
-def _build_vagas_html(depto_sel: str = "", mes_sel: str = "") -> str:
+def _build_vagas_html(depto_sel: str = "", mes_sel: str = "", ano_sel: str = "") -> str:
     try:
         vagas = _db_rows(
             """SELECT v.id_vaga, v.qtd_vagas, v.status, v.tipo_vaga, v.tipo_recrutamento,
@@ -1573,10 +1601,12 @@ def _build_vagas_html(depto_sel: str = "", mes_sel: str = "") -> str:
     if depto_sel:
         vagas = [v for v in vagas
                  if (v.get("nome_departamento") or "").strip().upper() == depto_sel.strip().upper()]
+    if ano_sel:
+        vagas = [v for v in vagas if str(v.get("data_abertura") or "")[:4] == ano_sel]
     if mes_sel:
         vagas = [v for v in vagas if str(v.get("data_abertura") or "")[:7] == mes_sel]
     filtro_html = _filtro_depto_html("/indicadores/vagas", todos_deptos, depto_sel,
-                                     todos_meses, mes_sel)
+                                     todos_meses, mes_sel, ano_sel)
 
     hoje_d = date.today()
 
@@ -2531,11 +2561,11 @@ def facilities_dash(request: Request):
 
 
 @router.get("/indicadores/treinamentos")
-def treinamentos_dash(request: Request, departamento: str = "", mes: str = ""):
+def treinamentos_dash(request: Request, departamento: str = "", mes: str = "", ano: str = ""):
     erro = None
     dash_html = ""
     try:
-        dash_html = _build_treinamentos_html(departamento, mes)
+        dash_html = _build_treinamentos_html(departamento, mes, ano)
     except Exception as exc:
         erro = f"Erro ao carregar dados de Treinamentos: {exc}"
 
@@ -2547,11 +2577,11 @@ def treinamentos_dash(request: Request, departamento: str = "", mes: str = ""):
 
 
 @router.get("/indicadores/vagas")
-def vagas_dash(request: Request, departamento: str = "", mes: str = ""):
+def vagas_dash(request: Request, departamento: str = "", mes: str = "", ano: str = ""):
     erro = None
     dash_html = ""
     try:
-        dash_html = _build_vagas_html(departamento, mes)
+        dash_html = _build_vagas_html(departamento, mes, ano)
     except Exception as exc:
         erro = f"Erro ao carregar dados de Vagas: {exc}"
 
