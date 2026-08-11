@@ -1274,7 +1274,7 @@ _CSS_TRAIN = """<style>
   letter-spacing:.6px;text-transform:uppercase}
 .tr-chip.done strong{color:var(--green)}.tr-chip.pend strong{color:var(--gold)}
 .tr-chip.canc strong{color:var(--red)}
-.tr-metrics{display:grid;grid-template-columns:repeat(6,1fr);gap:9px;margin-bottom:10px}
+.tr-metrics{display:grid;grid-template-columns:repeat(5,1fr);gap:9px;margin-bottom:10px}
 .tr-metric{position:relative;padding:11px 13px 9px;border:1px solid var(--line);border-radius:15px;background:var(--surface);overflow:hidden}
 .tr-metric:before{content:'';position:absolute;inset:0 auto 0 0;width:4px;background:var(--accent)}
 .tr-metric-label{height:25px;color:#555D68;font-size:9px;font-weight:900;letter-spacing:.5px;line-height:1.2;text-transform:uppercase}
@@ -1600,9 +1600,6 @@ def _build_treinamentos_html(depto_sel: str = "", mes_sel: str = "", ano_sel: st
   <div class="tr-metric" style="--accent:#0B0B0C"><div class="tr-metric-label">Treinamentos ativos</div>
     <div style="display:flex;align-items:baseline;gap:6px"><span class="tr-metric-value">{len(ativos)}</span><span style="color:var(--muted);font-size:9px;font-weight:800">cadastrados</span></div>
     <div class="tr-metric-footer">Catálogo disponível</div></div>
-  <div class="tr-metric" style="--accent:#D50032"><div class="tr-metric-label">Participações</div>
-    <div style="display:flex;align-items:baseline;gap:6px"><span class="tr-metric-value">{len(aplicacoes)}</span><span style="color:var(--muted);font-size:9px;font-weight:800">aplicações</span></div>
-    <div class="tr-metric-footer">Total de registros</div></div>
   <div class="tr-metric" style="--accent:#078647"><div class="tr-metric-label">Pessoas treinadas</div>
     <div style="display:flex;align-items:baseline;gap:6px"><span class="tr-metric-value">{pessoas_unicas}</span><span style="color:var(--muted);font-size:9px;font-weight:800">únicas</span></div>
     <div class="tr-metric-footer">Sem duplicar participantes</div></div>
