@@ -1415,11 +1415,11 @@ def _filtro_depto_html(acao: str, deptos: list[str], selecionado: str,
 """
 
 
-def _serie_6_meses_html(aplicacoes: list[dict], ano_sel: str = "") -> str:
-    """Barras de participações e horas nos últimos 6 meses, mês a mês.
+def _janela_6_meses(ano_sel: str = "") -> list[str]:
+    """As 6 competências do gráfico mensal, da mais antiga para a mais recente.
 
-    A janela termina no mês corrente; com um ano anterior escolhido no filtro,
-    termina em dezembro daquele ano, senão o gráfico ficaria vazio.
+    Termina no mês corrente; com um ano anterior escolhido no filtro, termina
+    em dezembro daquele ano, senão o gráfico ficaria vazio.
     """
     hoje = date.today()
     if ano_sel and ano_sel.isdigit() and int(ano_sel) != hoje.year:
@@ -1434,7 +1434,12 @@ def _serie_6_meses_html(aplicacoes: list[dict], ano_sel: str = "") -> str:
         mes -= 1
         if mes == 0:
             ano, mes = ano - 1, 12
-    janela.reverse()
+    return list(reversed(janela))
+
+
+def _serie_6_meses_html(aplicacoes: list[dict], ano_sel: str = "") -> str:
+    """Barras de participações e horas nos últimos 6 meses, mês a mês."""
+    janela = _janela_6_meses(ano_sel)
 
     part = {m: 0 for m in janela}
     horas = {m: 0.0 for m in janela}
@@ -1633,10 +1638,6 @@ _CSS_VAGAS = """<style>
   --black:#0B0B0C;--red:#D50032;--red-soft:#FFF0F3;--green:#078647;--green-soft:#EAF7F0;--gold:#C69D4C;}
 *{box-sizing:border-box}
 .vg-wrap{font-family:Inter,'Segoe UI',Arial,sans-serif;color:var(--ink);width:100%;background:var(--bg);padding:12px 16px}
-.vg-topbar{padding:9px 18px;border-radius:0 0 19px 19px;background:var(--black);color:#fff;
-  display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
-.vg-brand{color:#D9AE58;font-size:9px;font-weight:900;letter-spacing:2px;text-transform:uppercase}
-.vg-title{margin-top:2px;font-size:22px;line-height:1;font-weight:900;letter-spacing:-.8px}
 .vg-metrics{display:grid;grid-template-columns:repeat(6,1fr);gap:9px;margin-bottom:10px}
 .vg-metric{position:relative;padding:11px 13px 9px;border:1px solid var(--line);border-radius:15px;background:var(--surface);overflow:hidden}
 .vg-metric:before{content:'';position:absolute;inset:0 auto 0 0;width:4px;background:var(--accent)}
@@ -1666,7 +1667,69 @@ _CSS_VAGAS = """<style>
 .vg-side .track{height:6px}
 .vg-side-label{margin:0 0 5px;color:var(--muted);font-size:8px;font-weight:900;letter-spacing:1px;text-transform:uppercase}
 .vg-profile-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.vg-mes{display:grid;grid-template-columns:repeat(6,1fr);align-items:end;gap:10px;height:150px;
+  padding-top:6px;border-bottom:1px solid var(--line)}
+.vg-mes-col{display:flex;flex-direction:column;justify-content:flex-end;height:100%;text-align:center}
+.vg-mes-val{font-size:11px;font-weight:900;color:var(--ink);margin-bottom:3px}
+.vg-mes-val.zero{color:var(--muted);font-weight:800}
+.vg-mes-bar{display:flex;flex-direction:column;width:100%;max-width:52px;margin:0 auto;
+  overflow:hidden;border-radius:6px 6px 0 0;min-height:2px}
+.vg-mes-bar.zero{background:#E7E9EC}
+.vg-mes-seg{display:block;width:100%}
+.vg-mes-seg.open{background:var(--red)}.vg-mes-seg.done{background:var(--black)}
+.vg-mes-eixo{display:grid;grid-template-columns:repeat(6,1fr);gap:10px;margin-top:5px}
+.vg-mes-lbl{text-align:center;font-size:8px;font-weight:900;color:#3B4149;text-transform:uppercase}
+.vg-mes-sub{text-align:center;font-size:7px;color:var(--muted);margin-top:1px}
+.vg-nota{margin-top:8px;color:var(--muted);font-size:8px}
 </style>"""
+
+
+def _serie_vagas_6_meses_html(vagas: list[dict], ano_sel: str = "") -> str:
+    """Vagas abertas mês a mês nos últimos 6 meses, separando o que já fechou.
+
+    A barra usa a data de abertura: mostra quanto entrou em cada mês e quanto
+    daquilo já foi preenchido, nas mesmas cores do resto do painel.
+    """
+    janela = _janela_6_meses(ano_sel)
+    abertas = {m: 0 for m in janela}
+    concluidas = {m: 0 for m in janela}
+
+    for v in vagas:
+        comp = v.get("competencia") or ""
+        if comp not in abertas:
+            continue
+        qtd = v.get("qtd_vagas") or 1
+        if "conclu" in (v.get("status") or "").lower():
+            concluidas[comp] += qtd
+        else:
+            abertas[comp] += qtd
+
+    totais = {m: abertas[m] + concluidas[m] for m in janela}
+    teto = max(totais.values()) or 1
+
+    colunas, eixo = "", ""
+    for m in janela:
+        n = totais[m]
+        if n:
+            h_ab = round(abertas[m] / n * 100)
+            # sem mês vazio: os segmentos é que dão cor à barra
+            segs = (f"<span class='vg-mes-seg done' style='height:{100 - h_ab}%'></span>"
+                    f"<span class='vg-mes-seg open' style='height:{h_ab}%'></span>")
+            barra = f"<div class='vg-mes-bar' style='height:{max(round(n / teto * 100), 2)}%'>{segs}</div>"
+        else:
+            barra = "<div class='vg-mes-bar zero' style='height:2%'></div>"
+        colunas += (f"<div class='vg-mes-col'>"
+                    f"<div class='vg-mes-val{'' if n else ' zero'}'>{n}</div>{barra}</div>")
+        eixo += (f"<div><div class='vg-mes-lbl'>{_rotulo_mes(m)}</div>"
+                 f"<div class='vg-mes-sub'>A {abertas[m]} · C {concluidas[m]}</div></div>")
+
+    return (f"<div class='vg-legend'>"
+            f"<span class='vg-legend-item'><i class='vg-dot red'></i>Aberto</span>"
+            f"<span class='vg-legend-item'><i class='vg-dot'></i>Concluído</span></div>"
+            f"<div class='vg-mes'>{colunas}</div>"
+            f"<div class='vg-mes-eixo'>{eixo}</div>"
+            f"<div class='vg-nota'>{sum(totais.values())} vaga(s) abertas na janela · "
+            f"o filtro de mês não altera este gráfico</div>")
 
 
 def _build_vagas_html(depto_sel: str = "", mes_sel: str = "", ano_sel: str = "") -> str:
@@ -1696,6 +1759,11 @@ def _build_vagas_html(depto_sel: str = "", mes_sel: str = "", ano_sel: str = "")
                  if (v.get("nome_departamento") or "").strip().upper() == depto_sel.strip().upper()]
     if ano_sel:
         vagas = [v for v in vagas if v["competencia"][:4] == ano_sel]
+
+    # a série mensal é lida antes do filtro de mês: escolher um mês deixaria
+    # uma única barra em pé e o gráfico existe para mostrar a evolução
+    serie_mes_html = _serie_vagas_6_meses_html(vagas, ano_sel)
+
     if mes_sel:
         vagas = [v for v in vagas if v["competencia"] == mes_sel]
     filtro_html = _filtro_depto_html("/indicadores/vagas", todos_deptos, depto_sel,
@@ -1781,9 +1849,6 @@ def _build_vagas_html(depto_sel: str = "", mes_sel: str = "", ano_sel: str = "")
         )
 
     return f"""{filtro_html}<div class="vg-wrap">{_CSS_VAGAS}
-<div class="vg-topbar">
-  <div><div class="vg-brand">Porsche · DHO</div><div class="vg-title">Dashboard de Vagas</div></div>
-</div>
 <div class="vg-metrics">
   <div class="vg-metric" style="--accent:#0B0B0C"><div class="vg-metric-label">Total de vagas</div>
     <div style="display:flex;align-items:baseline;gap:6px"><span class="vg-metric-value">{total_vagas}</span><span class="vg-metric-unit">vagas</span></div>
@@ -1803,6 +1868,11 @@ def _build_vagas_html(depto_sel: str = "", mes_sel: str = "", ano_sel: str = "")
   <div class="vg-metric" style="--accent:#D50032"><div class="vg-metric-label">Abertas há mais de 30 dias</div>
     <div style="display:flex;align-items:baseline;gap:6px"><span class="vg-metric-value vg-danger">{abertas_mais30}</span><span class="vg-metric-unit">atenção</span></div>
     <div class="vg-metric-footer">Requer acompanhamento</div></div>
+</div>
+<div class="vg-card" style="margin-bottom:12px">
+  <div class="vg-card-title">Vagas por mês</div>
+  <div class="vg-card-sub">Últimos 6 meses · vagas abertas em cada mês, pela data de abertura</div>
+  {serie_mes_html}
 </div>
 <div class="vg-content">
   <div class="vg-card">
