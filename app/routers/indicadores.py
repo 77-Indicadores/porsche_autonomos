@@ -1266,15 +1266,14 @@ _CSS_TRAIN = """<style>
   --black:#0B0B0C;--red:#D50032;--green:#078647;--gold:#C69D4C;--gold-soft:#FFF8E8;}
 *{box-sizing:border-box}
 .tr-wrap{font-family:Inter,'Segoe UI',Arial,sans-serif;color:var(--ink);width:100%;background:var(--bg);padding:12px 16px}
-.tr-topbar{padding:9px 18px;border-radius:0 0 19px 19px;background:var(--black);color:#fff;
-  display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
-.tr-brand{color:#D9AE58;font-size:9px;font-weight:900;letter-spacing:2px;text-transform:uppercase}
-.tr-title{margin-top:2px;font-size:22px;line-height:1;font-weight:900;letter-spacing:-.8px}
-.tr-chips{display:flex;gap:5px}
-.tr-chip{min-width:60px;padding:6px 8px;border-radius:9px;text-align:center}
-.tr-chip strong{display:block;font-size:13px;line-height:1}
-.tr-chip span{display:block;margin-top:2px;color:#B8BBC1;font-size:7px;font-weight:800;text-transform:uppercase}
-.tr-chip.done{background:#123625;color:#43D38B}.tr-chip.pend{background:#403411;color:#E8C66A}.tr-chip.canc{background:#421723;color:#FF7795}
+.tr-chips{display:flex;gap:6px;margin-bottom:10px}
+.tr-chip{min-width:74px;padding:7px 11px;border:1px solid var(--line);border-radius:11px;
+  background:var(--surface);text-align:left}
+.tr-chip strong{display:block;font-size:15px;line-height:1;font-weight:900}
+.tr-chip span{display:block;margin-top:3px;color:var(--muted);font-size:7px;font-weight:800;
+  letter-spacing:.6px;text-transform:uppercase}
+.tr-chip.done strong{color:var(--green)}.tr-chip.pend strong{color:var(--gold)}
+.tr-chip.canc strong{color:var(--red)}
 .tr-metrics{display:grid;grid-template-columns:repeat(6,1fr);gap:9px;margin-bottom:10px}
 .tr-metric{position:relative;padding:11px 13px 9px;border:1px solid var(--line);border-radius:15px;background:var(--surface);overflow:hidden}
 .tr-metric:before{content:'';position:absolute;inset:0 auto 0 0;width:4px;background:var(--accent)}
@@ -1306,6 +1305,18 @@ _CSS_TRAIN = """<style>
 .ty-name{overflow:hidden;color:#282C32;font-size:8px;font-weight:900;text-overflow:ellipsis;white-space:nowrap;text-transform:uppercase}
 .ty-head strong{color:var(--red);font-size:10px}
 .ty-foot{color:var(--muted);font-size:7px;margin-top:2px}
+.tr-mes{display:grid;grid-template-columns:repeat(6,1fr);align-items:end;gap:10px;height:150px;
+  padding-top:6px;border-bottom:1px solid var(--line)}
+.tr-mes-col{display:flex;flex-direction:column;justify-content:flex-end;height:100%;text-align:center}
+.tr-mes-val{font-size:11px;font-weight:900;color:var(--ink);margin-bottom:3px}
+.tr-mes-val.zero{color:var(--muted);font-weight:800}
+.tr-mes-bar{width:100%;max-width:52px;margin:0 auto;border-radius:6px 6px 0 0;
+  background:linear-gradient(180deg,var(--red),#9D001E);min-height:2px}
+.tr-mes-bar.zero{background:#E7E9EC}
+.tr-mes-eixo{display:grid;grid-template-columns:repeat(6,1fr);gap:10px;margin-top:5px}
+.tr-mes-lbl{text-align:center;font-size:8px;font-weight:900;color:#3B4149;text-transform:uppercase}
+.tr-mes-sub{text-align:center;font-size:7px;color:var(--muted);margin-top:1px}
+.tr-nota{margin-top:8px;color:var(--muted);font-size:8px}
 </style>"""
 
 
@@ -1404,6 +1415,55 @@ def _filtro_depto_html(acao: str, deptos: list[str], selecionado: str,
 """
 
 
+def _serie_6_meses_html(aplicacoes: list[dict], ano_sel: str = "") -> str:
+    """Barras de participações e horas nos últimos 6 meses, mês a mês.
+
+    A janela termina no mês corrente; com um ano anterior escolhido no filtro,
+    termina em dezembro daquele ano, senão o gráfico ficaria vazio.
+    """
+    hoje = date.today()
+    if ano_sel and ano_sel.isdigit() and int(ano_sel) != hoje.year:
+        fim_ano, fim_mes = int(ano_sel), 12
+    else:
+        fim_ano, fim_mes = hoje.year, hoje.month
+
+    janela: list[str] = []
+    ano, mes = fim_ano, fim_mes
+    for _ in range(6):
+        janela.append(f"{ano:04d}-{mes:02d}")
+        mes -= 1
+        if mes == 0:
+            ano, mes = ano - 1, 12
+    janela.reverse()
+
+    part = {m: 0 for m in janela}
+    horas = {m: 0.0 for m in janela}
+    for a in aplicacoes:
+        comp = a.get("competencia") or ""
+        if comp in part:
+            part[comp] += 1
+            horas[comp] += float(a.get("carga_horaria") or 0)
+
+    teto = max(part.values()) or 1
+    colunas, eixo = "", ""
+    for m in janela:
+        n = part[m]
+        # altura mínima visível para o mês sem movimento não sumir da base
+        alt = round(n / teto * 100) if n else 0
+        vazio = " zero" if not n else ""
+        colunas += (f"<div class='tr-mes-col'>"
+                    f"<div class='tr-mes-val{vazio}'>{n}</div>"
+                    f"<div class='tr-mes-bar{vazio}' style='height:{max(alt, 2)}%'></div></div>")
+        eixo += (f"<div><div class='tr-mes-lbl'>{_rotulo_mes(m)}</div>"
+                 f"<div class='tr-mes-sub'>{horas[m]:.0f}h</div></div>")
+
+    total = sum(part.values())
+    return (f"<div class='tr-mes'>{colunas}</div>"
+            f"<div class='tr-mes-eixo'>{eixo}</div>"
+            f"<div class='tr-nota'>{total} participação(ões) na janela · "
+            f"o filtro de mês não altera este gráfico</div>")
+
+
 def _build_treinamentos_html(depto_sel: str = "", mes_sel: str = "", ano_sel: str = "",
                              empresa_sel: str = "") -> str:
     try:
@@ -1441,6 +1501,11 @@ def _build_treinamentos_html(depto_sel: str = "", mes_sel: str = "", ano_sel: st
                       if (a.get("departamento") or "").upper() == depto_sel.strip().upper()]
     if ano_sel:
         aplicacoes = [a for a in aplicacoes if a["competencia"][:4] == ano_sel]
+
+    # A série mensal é lida antes do filtro de mês: o gráfico existe para
+    # mostrar a evolução, e escolher um mês deixaria só uma barra em pé.
+    serie_mes_html = _serie_6_meses_html(aplicacoes, ano_sel)
+
     if mes_sel:
         aplicacoes = [a for a in aplicacoes if a["competencia"] == mes_sel]
     filtro_html = _filtro_depto_html("/indicadores/treinamentos", todos_deptos, depto_sel,
@@ -1526,13 +1591,10 @@ def _build_treinamentos_html(depto_sel: str = "", mes_sel: str = "", ano_sel: st
         )
 
     return f"""{filtro_html}<div class="tr-wrap">{_CSS_TRAIN}
-<div class="tr-topbar">
-  <div><div class="tr-brand">Porsche · DHO</div><div class="tr-title">Dashboard de Treinamentos</div></div>
-  <div class="tr-chips">
-    <div class="tr-chip done"><strong>{realizados}</strong><span>Realizados</span></div>
-    <div class="tr-chip pend"><strong>{pendentes}</strong><span>Pendentes</span></div>
-    <div class="tr-chip canc"><strong>{cancelados}</strong><span>Cancelados</span></div>
-  </div>
+<div class="tr-chips">
+  <div class="tr-chip done"><strong>{realizados}</strong><span>Realizados</span></div>
+  <div class="tr-chip pend"><strong>{pendentes}</strong><span>Pendentes</span></div>
+  <div class="tr-chip canc"><strong>{cancelados}</strong><span>Cancelados</span></div>
 </div>
 <div class="tr-metrics">
   <div class="tr-metric" style="--accent:#0B0B0C"><div class="tr-metric-label">Treinamentos ativos</div>
@@ -1553,6 +1615,11 @@ def _build_treinamentos_html(depto_sel: str = "", mes_sel: str = "", ano_sel: st
   <div class="tr-metric" style="--accent:#0B0B0C"><div class="tr-metric-label">Centros atendidos</div>
     <div style="display:flex;align-items:baseline;gap:6px"><span class="tr-metric-value">{centros}</span><span style="color:var(--muted);font-size:9px;font-weight:800">centros</span></div>
     <div class="tr-metric-footer">Áreas com treinamento</div></div>
+</div>
+<div class="tr-card" style="margin-bottom:10px">
+  <div class="tr-card-title">Participações por mês</div>
+  <div class="tr-card-sub">Últimos 6 meses · quantidade de participações e horas aplicadas</div>
+  {serie_mes_html}
 </div>
 <div class="tr-grid">
   <div class="tr-card"><div class="tr-card-title">Resultado por treinamento</div><div class="tr-card-sub">Participações, pessoas e horas aplicadas</div>{train_rows}</div>
