@@ -6,6 +6,7 @@ import calendar
 import json
 import os
 import re
+import unicodedata
 from collections import defaultdict
 from datetime import date, datetime
 from decimal import Decimal
@@ -420,6 +421,14 @@ def _detalhe_pessoas_json(grupos: dict[str, tuple[str, list[dict], tuple[str, ..
     return json.dumps(dados, ensure_ascii=False).replace("</", "<\\/")
 
 
+def _detalhe_generico_json(grupos: dict[str, dict]) -> str:
+    """Mesma estrutura do painel de detalhe, para dados que não são pessoas.
+
+    Cada grupo é {"titulo": str, "colunas": [...], "linhas": [[...], ...]}.
+    """
+    return json.dumps(grupos, ensure_ascii=False).replace("</", "<\\/")
+
+
 def _botao_exportar_html(nome_arquivo: str, colunas: list[str],
                          linhas: list[list], id_html: str = "expExcel") -> str:
     """Botão que baixa as linhas já filtradas como CSV que o Excel abre direto.
@@ -561,11 +570,25 @@ def _painel_detalhe_html(detalhe_json: str, periodo_label: str,
     document.body.style.overflow = '';
   }}
 
-  document.querySelectorAll('.hc-abre').forEach(function (el) {{
-    el.addEventListener('click', function () {{ abrir(el.dataset.grupo); }});
-    el.addEventListener('keydown', function (ev) {{
-      if (ev.key === 'Enter' || ev.key === ' ') {{ ev.preventDefault(); abrir(el.dataset.grupo); }}
-    }});
+  // delegação: o painel pode ser inserido antes dos elementos clicáveis, e
+  // barras de gráfico são criadas dentro de SVG
+  function alvo(ev) {{
+    var el = ev.target;
+    while (el && el !== document) {{
+      if (el.classList && el.classList.contains('hc-abre')) return el;
+      el = el.parentNode;
+    }}
+    return null;
+  }}
+
+  document.addEventListener('click', function (ev) {{
+    var el = alvo(ev);
+    if (el) abrir(el.getAttribute('data-grupo'));
+  }});
+  document.addEventListener('keydown', function (ev) {{
+    if (ev.key !== 'Enter' && ev.key !== ' ') return;
+    var el = alvo(ev);
+    if (el) {{ ev.preventDefault(); abrir(el.getAttribute('data-grupo')); }}
   }});
   modal.querySelectorAll('[data-fechar]').forEach(function (el) {{
     el.addEventListener('click', fechar);
@@ -3479,6 +3502,13 @@ def _fetch_hora_extra() -> list[dict]:
     return result
 
 
+def _he_chave_faixa(texto: str) -> str:
+    """Rótulo → chave usável em data-grupo (sem acento, espaço ou símbolo)."""
+    limpo = unicodedata.normalize("NFD", str(texto))
+    limpo = "".join(c for c in limpo if unicodedata.category(c) != "Mn")
+    return re.sub(r"[^a-zA-Z0-9]+", "_", limpo).strip("_").lower() or "grupo"
+
+
 def _build_hora_extra_html(rows: list[dict], all_rows: list[dict] | None = None,  # noqa: C901
                            empresa_sel: str = "", cargo_sel: str = "",
                            ano_sel: str = "", mes_sel: str = "",
@@ -3664,6 +3694,68 @@ def _build_hora_extra_html(rows: list[dict], all_rows: list[dict] | None = None,
         p.append('</svg>')
         return "".join(p)
 
+    def _svg_hbars_faixa(agrupado: dict, top: int = 8) -> str:
+        """Barras por grupo, cada uma partida nas três faixas de duração.
+
+        Só o total não diz se o departamento tem muitos minutos soltos ou
+        poucas horas extras longas — é a composição que orienta a ação.
+        """
+        itens = sorted([(k, v) for k, v in agrupado.items() if k],
+                       key=lambda x: -len(x[1]))[:top]
+        if not itens:
+            return "<p style='color:#888;padding:16px'>Sem dados</p>"
+
+        max_v = len(itens[0][1])
+        BAR_H, GAP, LBL_W, VAL_W, CW, PT = 22, 12, 100, 40, 380, 6
+        CH = len(itens) * (BAR_H + GAP) + PT
+        ba = CW - LBL_W - VAL_W
+        p = [f'<svg viewBox="0 0 {CW} {CH}" xmlns="http://www.w3.org/2000/svg"'
+             f' style="width:100%;display:block">']
+
+        for i, (label, linhas) in enumerate(itens):
+            total = len(linhas)
+            y = PT + i * (BAR_H + GAP)
+            largura_total = int(total / max_v * ba) if max_v else 0
+            # a linha inteira abre a lista de quem compõe aquele departamento
+            p.append(f'<g class="hc-abre" role="button" tabindex="0"'
+                     f' data-grupo="dep_{_he_chave_faixa(label)}"'
+                     f' style="cursor:pointer">')
+            p.append(f'<rect x="0" y="{y - GAP / 2:.0f}" width="{CW}"'
+                     f' height="{BAR_H + GAP}" fill="transparent"/>')
+            p.append(f'<rect x="{LBL_W}" y="{y}" width="{ba}" height="{BAR_H}"'
+                     f' fill="#f5f5f5" rx="3"/>')
+
+            x = LBL_W
+            for f in FAIXAS:
+                qtd = sum(1 for r in linhas if r["faixa"] == f)
+                if not qtd:
+                    continue
+                w = largura_total * qtd / total
+                p.append(f'<rect x="{x:.1f}" y="{y}" width="{w:.1f}" height="{BAR_H}"'
+                         f' fill="{CF[f]}"><title>{label.title()} · {f}: {qtd}</title></rect>')
+                if w > 26:
+                    p.append(f'<text x="{x + w / 2:.1f}" y="{y + BAR_H / 2 + 4:.0f}"'
+                             f' text-anchor="middle" font-size="10" fill="#fff"'
+                             f' font-weight="700" font-family="Inter,sans-serif">{qtd}</text>')
+                x += w
+
+            my = y + BAR_H / 2 + 4
+            disp = label.title()
+            short = (disp[:15] + "…") if len(disp) > 16 else disp
+            p.append(f'<text x="{LBL_W-5}" y="{my:.1f}" text-anchor="end" font-size="11"'
+                     f' fill="#444" font-family="Inter,sans-serif">{short}</text>')
+            p.append(f'<text x="{LBL_W+ba+4}" y="{my:.1f}" text-anchor="start"'
+                     f' font-size="11" fill="#333" font-weight="700"'
+                     f' font-family="Inter,sans-serif">{total}</text>')
+            p.append('</g>')
+        p.append('</svg>')
+
+        legenda = "".join(
+            f'<span class="he-leg-item"><i style="background:{CF[f]}"></i>{f}</span>'
+            for f in FAIXAS
+        )
+        return f'<div class="he-legenda">{legenda}</div>' + "".join(p)
+
     def _svg_donut_empresa() -> str:
         import math as _math  # noqa: PLC0415
         itens = sorted([(k, len(v)) for k, v in por_empresa.items() if k],
@@ -3783,9 +3875,58 @@ def _build_hora_extra_html(rows: list[dict], all_rows: list[dict] | None = None,
     svg_stacked   = _svg_stacked()
     svg_line      = _svg_line()
     svg_emp       = _svg_donut_empresa()
-    svg_dep       = _svg_hbars(por_depto,   top=8)
+    svg_dep       = _svg_hbars_faixa(por_depto, top=8)
     svg_f_cnt     = _svg_faixa_count()
     svg_f_hrs     = _svg_faixa_hours()
+
+    # ── quem está por trás de cada número ──────────────────────────────────────
+    _COLS_PESSOA = ["Colaborador", "Ocorrências", "Total de horas",
+                    "Maior ocorrência", "Departamento", "Empresa", "Cargo"]
+
+    def _pessoas_de(linhas: list[dict]) -> list[list]:
+        """Consolida as ocorrências por pessoa: quantas e quanto tempo."""
+        agrupado: dict[str, list] = defaultdict(list)
+        for r in linhas:
+            agrupado[r["pessoa"]].append(r)
+        resultado = []
+        for pessoa, ocorrencias in agrupado.items():
+            mins = sum(o["credito_min"] for o in ocorrencias)
+            maior = max(o["credito_min"] for o in ocorrencias)
+            r0 = ocorrencias[0]
+            resultado.append([
+                pessoa, len(ocorrencias),
+                f"{mins // 60:02d}:{mins % 60:02d}",
+                f"{maior // 60:02d}:{maior % 60:02d}",
+                r0.get("departamento", ""), empresa_curta(r0.get("empresa", "")),
+                r0.get("cargo", ""),
+            ])
+        # mais ocorrências primeiro: é quem puxa o indicador
+        return sorted(resultado, key=lambda l: (-l[1], l[0]))
+
+    linhas_validas = [r for r in rows if r["faixa"]]
+    grupos_detalhe = {
+        "todos": {"titulo": "Todas as ocorrências", "colunas": _COLS_PESSOA,
+                  "linhas": _pessoas_de(linhas_validas)},
+    }
+    for f in FAIXAS:
+        grupos_detalhe[_he_chave_faixa(f)] = {
+            "titulo": f"Horas extras · {f}",
+            "colunas": _COLS_PESSOA,
+            "linhas": _pessoas_de(por_faixa.get(f, [])),
+        }
+    for dep, linhas_dep in por_depto.items():
+        if dep:
+            grupos_detalhe[f"dep_{_he_chave_faixa(dep)}"] = {
+                "titulo": f"Horas extras · {dep.title()}",
+                "colunas": _COLS_PESSOA,
+                "linhas": _pessoas_de(linhas_dep),
+            }
+
+    painel_html = _painel_detalhe_html(
+        _detalhe_generico_json(grupos_detalhe), "horas extras", "horas_extras")
+
+    exportar_html = _botao_exportar_html(
+        "horas_extras.csv", _COLS_PESSOA, _pessoas_de(linhas_validas), id_html="heExcel")
 
     # ── hero faixa cards ────────────────────────────────────────────────────────
     hero_top = ""
@@ -3794,7 +3935,8 @@ def _build_hora_extra_html(rows: list[dict], all_rows: list[dict] | None = None,
         pct      = round(oc / total_oc * 100) if total_oc else 0
         h_fmt    = f"{mins//60:02d}:{mins%60:02d}"
         hero_top += (
-            f'<div class="he-hkpi">'
+            f'<div class="he-hkpi hc-abre" role="button" tabindex="0"'
+            f' data-grupo="{_he_chave_faixa(f)}" title="Ver os nomes">'
             f'<div class="he-hkpi-lbl">{f}</div>'
             f'<div class="he-hkpi-val">{oc}</div>'
             f'<div class="he-hkpi-sub">{h_fmt}</div>'
@@ -3861,6 +4003,15 @@ def _build_hora_extra_html(rows: list[dict], all_rows: list[dict] | None = None,
 .he-hero{grid-template-columns:1fr}
 .he-row-mid,.he-row-bot{grid-template-columns:1fr}
 }
+/* legenda das faixas dentro do gráfico por setor */
+.he-legenda{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:8px}
+.he-leg-item{display:inline-flex;align-items:center;gap:5px;font-size:10px;color:#666}
+.he-leg-item i{width:9px;height:9px;border-radius:2px;display:inline-block}
+.he-acoes{margin-left:auto;align-self:flex-end}
+/* cartões de faixa clicáveis: o realce do painel é claro, aqui o fundo é escuro */
+.he-hkpi.hc-abre{cursor:pointer}
+.he-hkpi.hc-abre:hover{background:rgba(255,255,255,.11);border-left-color:#ff415f}
+.hc-abre g:focus-visible,g.hc-abre:focus-visible{outline:2px solid #e31837}
 </style>"""
 
     return css + f"""
@@ -3897,17 +4048,21 @@ def _build_hora_extra_html(rows: list[dict], all_rows: list[dict] | None = None,
       </select>
     </div>
     {limpar}
+    <div class="he-acoes">{exportar_html}</div>
   </div>
 </form>
+
+{painel_html}
 
 <div class="he-hero">
   <div>
     <div class="he-hero-badge">Acumulado · {year_ref}</div>
     <div class="he-hero-title">Resumo de Horas Extras</div>
-    <div class="he-hero-sub">Visão do período com foco em jornada extraordinária</div>
+    <div class="he-hero-sub">Clique em qualquer número ou barra para ver os nomes</div>
     <div class="he-hero-nums">
       <div class="he-hero-num">
-        <div class="he-hero-big">{total_oc_fmt}</div>
+        <div class="he-hero-big hc-abre" data-grupo="todos" role="button" tabindex="0"
+             style="cursor:pointer" title="Ver os nomes">{total_oc_fmt}</div>
         <div class="he-hero-lbl">ocorrências acumuladas no período</div>
       </div>
       <div class="he-hero-num">
@@ -3915,7 +4070,8 @@ def _build_hora_extra_html(rows: list[dict], all_rows: list[dict] | None = None,
         <div class="he-hero-lbl">total em horas</div>
       </div>
       <div class="he-hero-num">
-        <div class="he-hero-big">{total_col}</div>
+        <div class="he-hero-big hc-abre" data-grupo="todos" role="button" tabindex="0"
+             style="cursor:pointer" title="Ver os nomes">{total_col}</div>
         <div class="he-hero-lbl">colaboradores com HE</div>
       </div>
     </div>
