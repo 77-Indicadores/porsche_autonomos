@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import calendar
+import json
 import os
 import re
 from collections import defaultdict
@@ -130,11 +131,16 @@ def _is_ativo(c: dict, ref: date) -> bool:
     # Status vazio / não informado NÃO entra no quadro ativo (registro incompleto do Feedz)
     if not sit or sit == "Não informado":
         return False
+    # Quem foi admitido depois da referência não estava no quadro naquela data.
+    # Sem esta guarda, todo mundo com situacao="Ativo" hoje era contado em
+    # qualquer mês passado e o headcount ficava igual em todas as competências.
+    if adm and adm > ref:
+        return False
     # Feedz marca situacao="Ativo" para quem está no quadro; confia nisso como fonte primária
-    if sit == "Ativo" and (dem is None or dem > ref):
-        return True
+    if sit == "Ativo":
+        return dem is None or dem > ref
     # Fallback por datas para funcionários que já saíram (situacao != "Ativo")
-    if adm is None or adm > ref:
+    if adm is None:
         return False
     return dem is None or dem > ref
 
@@ -148,19 +154,20 @@ def _contar_por_campo(colabs: list[dict], campo: str, ref: date) -> list[tuple[s
 
 
 def _evolucao_6m(colabs: list[dict], ref: date) -> list[tuple[date, str, int]]:
-    # Sempre termina no mês atual independente do período selecionado
-    hoje = date.today()
-    base = _eomonth(hoje)
+    """Os 6 meses que terminam na competência selecionada.
+
+    A janela precisa andar junto com o filtro: quando ela era fixa no mês
+    corrente e cada ponto era limitado à referência, escolher um mês passado
+    achatava os seis pontos no mesmo mês — seis rótulos iguais e uma linha reta.
+    """
     result = []
     for i in range(5, -1, -1):
-        ano, mes = base.year, base.month - i
+        ano, mes = ref.year, ref.month - i
         while mes <= 0:
             mes += 12; ano -= 1
         fim = _eomonth(date(ano, mes, 1))
-        # Não projeta além do período de referência selecionado
-        fim_calc = min(fim, ref)
-        total = sum(1 for c in colabs if _is_ativo(c, fim_calc))
-        result.append((fim_calc, _mes_label_upper(fim_calc), total))
+        total = sum(1 for c in colabs if _is_ativo(c, fim))
+        result.append((fim, _mes_label_upper(fim), total))
     return result
 
 
@@ -315,6 +322,40 @@ _CSS = """<style>
 .footer-note{margin-top:10px;display:flex;justify-content:space-between;color:#8a8d91;font-size:10px;padding:0 4px}
 @media(max-width:1100px){.topbar{grid-template-columns:1fr}.content-grid{grid-template-columns:1fr}.breakdowns{grid-template-columns:repeat(2,1fr)}.hero{grid-template-columns:1fr}}
 @media(max-width:650px){.hero-kpis{grid-template-columns:repeat(2,1fr)}.breakdowns{grid-template-columns:1fr}.big-number{font-size:42px}}
+/* números clicáveis: abrem a lista de quem está por trás da conta */
+.hc-abre{cursor:pointer;transition:transform .12s,box-shadow .12s}
+.hc-abre:hover{transform:translateY(-1px)}
+.mini-kpi.hc-abre:hover{box-shadow:0 0 0 2px rgba(255,255,255,.28)}
+.big-number.hc-abre{display:inline-block;border-bottom:2px dashed rgba(255,255,255,.28)}
+.big-number.hc-abre:hover{border-bottom-color:#fff}
+.hc-abre:focus-visible{outline:2px solid #fff;outline-offset:3px}
+.hc-modal{position:fixed;inset:0;z-index:1200;display:flex;align-items:center;justify-content:center;padding:18px}
+.hc-modal[hidden]{display:none}
+.hc-backdrop{position:absolute;inset:0;background:rgba(8,9,12,.62)}
+.hc-box{position:relative;display:flex;flex-direction:column;width:min(760px,100%);max-height:84vh;
+  background:#fff;border-radius:18px;overflow:hidden;box-shadow:0 24px 60px rgba(0,0,0,.34)}
+.hc-box-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;
+  padding:16px 18px 12px;border-bottom:1px solid #e9eaec}
+.hc-box-head h3{margin:0;font-size:17px;font-weight:900;color:#16181c}
+.hc-box-head p{margin:3px 0 0;font-size:11px;color:#7b8089}
+.hc-x{border:0;background:#f1f2f4;color:#4b5158;width:28px;height:28px;border-radius:9px;
+  font-size:13px;cursor:pointer;flex:none}
+.hc-x:hover{background:#e4e6e9}
+.hc-box-tools{display:flex;gap:8px;padding:11px 18px;border-bottom:1px solid #f0f1f3}
+.hc-box-tools input{flex:1;min-width:0;padding:8px 11px;border:1px solid #dfe1e5;border-radius:10px;
+  font-size:12px;outline:none}
+.hc-box-tools input:focus{border-color:#b9bdc3}
+.hc-excel{flex:none;border:0;border-radius:10px;background:#0f7a3d;color:#fff;padding:8px 13px;
+  font-size:12px;font-weight:800;cursor:pointer}
+.hc-excel:hover{background:#0b622f}
+.hc-box-body{overflow:auto;padding:0 6px 6px}
+.hc-tabela{width:100%;border-collapse:collapse;font-size:12px}
+.hc-tabela th{position:sticky;top:0;background:#fff;text-align:left;padding:9px 12px;
+  font-size:9px;font-weight:900;letter-spacing:.6px;text-transform:uppercase;color:#7b8089;
+  border-bottom:1px solid #e9eaec}
+.hc-tabela td{padding:8px 12px;border-bottom:1px solid #f2f3f5;color:#22252a}
+.hc-tabela tr:hover td{background:#fafbfc}
+.hc-vazio{padding:22px 12px;text-align:center;color:#8a8d91}
 </style>"""
 
 
@@ -334,6 +375,158 @@ def _html_rows(itens: list[tuple[str, int]], total: int) -> str:
     return "".join(parts)
 
 
+def _detalhe_pessoas_json(grupos: dict[str, tuple[str, list[dict]]]) -> str:
+    """Serializa as pessoas por trás de cada número do topo do headcount.
+
+    Vai embutido na página para o painel de detalhe abrir sem nova requisição.
+    """
+    def _br(d) -> str:
+        return d.strftime("%d/%m/%Y") if d else ""
+
+    dados = {
+        chave: {
+            "titulo": titulo,
+            "pessoas": sorted(
+                ({"nome": c["nome"].title(),
+                  "adm": _br(c["data_adm"]),
+                  "dem": _br(c["data_demissa"]),
+                  "empresa": empresa_curta(c["empresa"])}
+                 for c in pessoas),
+                key=lambda p: p["nome"],
+            ),
+        }
+        for chave, (titulo, pessoas) in grupos.items()
+    }
+    # </script> dentro do JSON encerraria a tag mais cedo
+    return json.dumps(dados, ensure_ascii=False).replace("</", "<\\/")
+
+
+def _painel_detalhe_html(detalhe_json: str, periodo_label: str) -> str:
+    """Painel que lista as pessoas por trás do número clicado, com saída Excel.
+
+    Os dados já vêm na página; a busca e o download acontecem no navegador,
+    sem nova ida ao servidor.
+    """
+    return f"""
+<div class="hc-modal" id="hcModal" hidden>
+  <div class="hc-backdrop" data-fechar></div>
+  <div class="hc-box" role="dialog" aria-modal="true" aria-labelledby="hcTitulo">
+    <div class="hc-box-head">
+      <div>
+        <h3 id="hcTitulo">Detalhe</h3>
+        <p id="hcSub">Competência {periodo_label}</p>
+      </div>
+      <button type="button" class="hc-x" data-fechar aria-label="Fechar">✕</button>
+    </div>
+    <div class="hc-box-tools">
+      <input type="search" id="hcBusca" placeholder="Buscar por nome ou empresa…" autocomplete="off">
+      <button type="button" class="hc-excel" id="hcExcel">⤓ Exportar Excel</button>
+    </div>
+    <div class="hc-box-body">
+      <table class="hc-tabela">
+        <thead><tr><th>Nome</th><th>Admissão</th><th>Desligamento</th><th>Empresa</th></tr></thead>
+        <tbody id="hcCorpo"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+<script type="application/json" id="hcDados">{detalhe_json}</script>
+<script>
+(function () {{
+  var dados   = JSON.parse(document.getElementById('hcDados').textContent);
+  var modal   = document.getElementById('hcModal');
+  var corpo   = document.getElementById('hcCorpo');
+  var busca   = document.getElementById('hcBusca');
+  var periodo = {json.dumps(periodo_label)};
+  var atual   = [];
+  var titulo  = '';
+
+  function esc(t) {{
+    return String(t == null ? '' : t).replace(/[&<>"]/g, function (ch) {{
+      return {{'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;'}}[ch];
+    }});
+  }}
+
+  function pinta() {{
+    var termo = (busca.value || '').trim().toLowerCase();
+    var linhas = atual.filter(function (p) {{
+      return !termo || p.nome.toLowerCase().indexOf(termo) >= 0
+                    || (p.empresa || '').toLowerCase().indexOf(termo) >= 0;
+    }});
+    document.getElementById('hcSub').textContent =
+      linhas.length + ' pessoa(s) · competência ' + periodo;
+    if (!linhas.length) {{
+      corpo.innerHTML = '<tr><td colspan="4" class="hc-vazio">' +
+        (atual.length ? 'Nenhum nome corresponde à busca.'
+                      : 'Nenhuma pessoa nesta competência.') + '</td></tr>';
+      return;
+    }}
+    corpo.innerHTML = linhas.map(function (p) {{
+      return '<tr><td>' + esc(p.nome) + '</td><td>' + esc(p.adm || '—') +
+             '</td><td>' + esc(p.dem || '—') + '</td><td>' + esc(p.empresa || '—') + '</td></tr>';
+    }}).join('');
+  }}
+
+  function abrir(grupo) {{
+    var g = dados[grupo];
+    if (!g) return;
+    titulo = g.titulo;
+    atual = g.pessoas || [];
+    document.getElementById('hcTitulo').textContent = titulo;
+    busca.value = '';
+    modal.hidden = false;
+    document.body.style.overflow = 'hidden';
+    pinta();
+    busca.focus();
+  }}
+
+  function fechar() {{
+    modal.hidden = true;
+    document.body.style.overflow = '';
+  }}
+
+  document.querySelectorAll('.hc-abre').forEach(function (el) {{
+    el.addEventListener('click', function () {{ abrir(el.dataset.grupo); }});
+    el.addEventListener('keydown', function (ev) {{
+      if (ev.key === 'Enter' || ev.key === ' ') {{ ev.preventDefault(); abrir(el.dataset.grupo); }}
+    }});
+  }});
+  modal.querySelectorAll('[data-fechar]').forEach(function (el) {{
+    el.addEventListener('click', fechar);
+  }});
+  document.addEventListener('keydown', function (ev) {{
+    if (ev.key === 'Escape' && !modal.hidden) fechar();
+  }});
+  busca.addEventListener('input', pinta);
+
+  document.getElementById('hcExcel').addEventListener('click', function () {{
+    var termo = (busca.value || '').trim().toLowerCase();
+    var linhas = atual.filter(function (p) {{
+      return !termo || p.nome.toLowerCase().indexOf(termo) >= 0
+                    || (p.empresa || '').toLowerCase().indexOf(termo) >= 0;
+    }});
+    function campo(v) {{ return '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"'; }}
+    // ; como separador e BOM: e assim que o Excel em pt-BR abre em colunas
+    var csv = ['Nome;Admissao;Desligamento;Empresa'].concat(
+      linhas.map(function (p) {{
+        return [campo(p.nome), campo(p.adm), campo(p.dem), campo(p.empresa)].join(';');
+      }})
+    ).join('\\r\\n');
+    var nome = titulo.normalize('NFD').replace(/[\\u0300-\\u036f]/g, '')
+                     .replace(/[^a-zA-Z0-9]+/g, '_').toLowerCase();
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob(['\\ufeff' + csv], {{type: 'text/csv;charset=utf-8;'}}));
+    a.download = 'headcount_' + nome + '_' + periodo.replace('.', '') + '.csv';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(a.href);
+  }});
+}})();
+</script>
+"""
+
+
 def _build_headcount_html(
     colabs: list[dict],
     ref: date,
@@ -344,21 +537,30 @@ def _build_headcount_html(
     empresa_sel: str = "",
     depto_sel: str = "",
 ) -> str:
-    total_ativos = sum(1 for c in colabs if _is_ativo(c, ref))
-
-    # situação breakdown para mini-kpis
-    sit_map = defaultdict(int)
-    for c in colabs:
-        if _is_ativo(c, ref):
-            sit_map[c["situacao"]] += 1
-
-    qtd_ativos   = sit_map.get("Ativo", sit_map.get("ativo", 0))
-    qtd_afastado = sum(v for k, v in sit_map.items() if "afas" in k.lower() or "licen" in k.lower())
-
-    # admitidos e demitidos no mês
     ini = _somonth(ref)
-    qtd_admitidos = sum(1 for c in colabs if c["data_adm"] and ini <= c["data_adm"] <= ref)
-    qtd_demitidos = sum(1 for c in colabs if c["data_demissa"] and ini <= c["data_demissa"] <= ref)
+
+    # Cada número do topo guarda a lista de quem ele conta, para o painel de
+    # detalhe que abre no clique.
+    no_quadro = [c for c in colabs if _is_ativo(c, ref)]
+    lista_ativos    = [c for c in no_quadro if (c.get("situacao") or "").strip().lower() == "ativo"]
+    lista_afastados = [c for c in no_quadro
+                       if any(k in (c.get("situacao") or "").lower() for k in ("afas", "licen"))]
+    lista_admitidos = [c for c in colabs if c["data_adm"] and ini <= c["data_adm"] <= ref]
+    lista_demitidos = [c for c in colabs if c["data_demissa"] and ini <= c["data_demissa"] <= ref]
+
+    total_ativos  = len(no_quadro)
+    qtd_ativos    = len(lista_ativos)
+    qtd_afastado  = len(lista_afastados)
+    qtd_admitidos = len(lista_admitidos)
+    qtd_demitidos = len(lista_demitidos)
+
+    detalhe_json = _detalhe_pessoas_json({
+        "quadro":    ("Colaboradores no quadro ativo", no_quadro),
+        "ativos":    ("Situação Ativo", lista_ativos or no_quadro),
+        "admitidos": (f"Admitidos em {_mes_label(ref)}", lista_admitidos),
+        "desligados": (f"Desligados em {_mes_label(ref)}", lista_demitidos),
+        "afastados": ("Afastados e licenças", lista_afastados),
+    })
 
     # delta 6 meses
     evolucao = _evolucao_6m(colabs, ref)
@@ -452,7 +654,8 @@ def _build_headcount_html(
       <div class="period-badge">Posição · {periodo_label}</div>
     </div>
     <div class="hero-summary">
-      <div class="big-number">{total_ativos:,}</div>
+      <div class="big-number hc-abre" data-grupo="quadro" role="button" tabindex="0"
+           title="Ver os nomes">{total_ativos:,}</div>
       <div class="big-caption">
         colaboradores no quadro ativo
         <div class="delta" style="{delta_style}">{delta_txt}</div>
@@ -461,28 +664,30 @@ def _build_headcount_html(
   </div>
 
   <div class="hero-kpis">
-    <div class="mini-kpi green">
+    <div class="mini-kpi green hc-abre" data-grupo="ativos" role="button" tabindex="0" title="Ver os nomes">
       <div class="icon">✓</div>
       <strong>{qtd_ativos or total_ativos:,}</strong>
       <span>Ativos</span>
     </div>
-    <div class="mini-kpi blue">
+    <div class="mini-kpi blue hc-abre" data-grupo="admitidos" role="button" tabindex="0" title="Ver os nomes">
       <div class="icon">＋</div>
       <strong>{qtd_admitidos:,}</strong>
       <span>Admitidos</span>
     </div>
-    <div class="mini-kpi red">
+    <div class="mini-kpi red hc-abre" data-grupo="desligados" role="button" tabindex="0" title="Ver os nomes">
       <div class="icon">↘</div>
       <strong>{qtd_demitidos:,}</strong>
       <span>Desligados</span>
     </div>
-    <div class="mini-kpi amber">
+    <div class="mini-kpi amber hc-abre" data-grupo="afastados" role="button" tabindex="0" title="Ver os nomes">
       <div class="icon">⏸</div>
       <strong>{qtd_afastado:,}</strong>
       <span>Afastados</span>
     </div>
   </div>
 </section>
+
+{_painel_detalhe_html(detalhe_json, periodo_label)}
 
 <section class="content-grid">
   <article class="card chart-card">
