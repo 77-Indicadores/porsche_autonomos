@@ -9,7 +9,7 @@ from starlette.responses import RedirectResponse
 
 from app.auth import SESSION_COOKIE, read_session_token, tem_acesso_modulo
 from app.database import Base, engine, garantir_schema_usuarios, limpar_datas_vazias_sqlite
-from app.routers import alocacoes, auth, cadastros, dashboard, relatorios, usuarios, referencias_importacao, pesquisas, equipe_geral, dho, facilities, composicao_meta_equipe, budget, export, folha_centros_custo, folha_export_liquidos, indicadores_pesquisas
+from app.routers import alocacoes, auth, cadastros, dashboard, relatorios, usuarios, referencias_importacao, pesquisas, equipe_geral, dho, facilities, composicao_meta_equipe, budget, folha_centros_custo, folha_export_liquidos, indicadores_pesquisas
 
 
 Base.metadata.create_all(bind=engine)
@@ -408,7 +408,6 @@ except Exception as exc:
 app.include_router(referencias_importacao.router)
 app.include_router(facilities.router)
 app.include_router(composicao_meta_equipe.router)
-app.include_router(export.router)
 
 # ============================================================
 # Router Autônomo Sede
