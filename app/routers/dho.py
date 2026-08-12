@@ -3,7 +3,7 @@ import os
 import json
 import unicodedata
 from io import BytesIO
-from datetime import datetime
+from datetime import date, datetime
 
 from catworld import CatworldClient
 from catworld.exceptions import (
@@ -1221,6 +1221,12 @@ def carregar_pessoas_dataworld(raise_errors: bool = False):
             email = str(row.get("email") or row.get("email_corporativo") or "").strip()
             cargo = str(row.get("cargo_visivel") or row.get("cargo") or row.get("funcao") or "").strip()
             departamento = str(row.get("departamento") or row.get("centro_custo") or row.get("setor") or "").strip()
+            situacao = str(row.get("situacao") or "").strip()
+            data_admissao = data_iso(row.get("data_adm") or row.get("data_admissao"))
+            data_desligamento = data_iso(
+                row.get("data_demissa") or row.get("ultimo_dia_trabalhado")
+                or row.get("data_desligamento")
+            )
 
             nome_exibicao = nome_completo or nome
 
@@ -1243,6 +1249,9 @@ def carregar_pessoas_dataworld(raise_errors: bool = False):
                 "email": email,
                 "cargo": cargo,
                 "departamento": departamento,
+                "situacao": situacao,
+                "data_admissao": data_admissao,
+                "data_desligamento": data_desligamento,
                 "label": nome_exibicao + ((" - " + " · ".join(detalhes)) if detalhes else ""),
             })
 
@@ -1306,6 +1315,26 @@ def _chave_empregado_catworld(pessoa):
     return None
 
 
+def _status_empregado(pessoa: dict) -> str:
+    """Status a partir da fonte, em vez de marcar todo mundo como Ativo.
+
+    A rel_colab_77 mantém os desligados (é dela que sai o turnover), então
+    fixar "Ativo" para quem vem de lá deixava ex-colaboradores no quadro.
+    A data de desligamento decide; a situação textual serve de reforço.
+    """
+    desligamento = data_para_date(pessoa.get("data_desligamento"))
+    if desligamento and desligamento <= date.today():
+        return "Inativo"
+
+    situacao = str(pessoa.get("situacao") or "").strip()
+    baixa = situacao.lower()
+    if any(k in baixa for k in ("deslig", "demit", "inativ", "resc", "afastad", "licen")):
+        # afastado e licença continuam no quadro, mas não como "Ativo" puro
+        return "Inativo" if any(k in baixa for k in ("deslig", "demit", "inativ", "resc")) else situacao
+
+    return situacao or "Ativo"
+
+
 def sincronizar_empregados_dataworld(db: Session):
     _CACHE_PESSOAS_DW["dados"] = None
     pessoas = carregar_pessoas_dataworld(raise_errors=True)
@@ -1365,7 +1394,9 @@ def sincronizar_empregados_dataworld(db: Session):
             "email": str(pessoa.get("email") or "").strip() or None,
             "id_departamento": id_departamento,
             "id_cargo": id_cargo,
-            "status": "Ativo",
+            "data_admissao": pessoa.get("data_admissao") or None,
+            "data_desligamento": pessoa.get("data_desligamento") or None,
+            "status": _status_empregado(pessoa),
             "observacoes": "Sincronizado pelo Catworld rel_colab_77.",
             "atualizado_em": agora,
         }
@@ -2500,35 +2531,6 @@ def empregados_list(request: Request, db: Session = Depends(get_db)):
             **flash_from_request(request),
         },
     )
-
-
-@router.post("/dho/empregados/{id_empregado}/fornecedor")
-def empregados_fornecedor(
-    id_empregado: int,
-    request: Request,
-    numero_fornecedor: str = Form(""),
-    db: Session = Depends(get_db),
-):
-    """Salva o número de fornecedor.
-
-    O resto do cadastro vem da fonte oficial e é somente leitura, mas esse
-    número é interno e não existe lá — por isso é editável aqui.
-    """
-    current_user = getattr(request.state, "current_user", None)
-    if not current_user:
-        return RedirectResponse("/auth/login", status_code=303)
-
-    db.execute(
-        dho_empregados.update()
-        .where(dho_empregados.c.id_empregado == id_empregado)
-        .values(numero_fornecedor=(numero_fornecedor or "").strip() or None,
-                atualizado_em=datetime.utcnow())
-    )
-    db.commit()
-
-    if request.headers.get("x-fetch") == "1":
-        return JSONResponse({"ok": True})
-    return redirect_with_message("/dho/empregados", success="Número de fornecedor salvo.")
 
 
 @router.post("/dho/empregados/sincronizar")
