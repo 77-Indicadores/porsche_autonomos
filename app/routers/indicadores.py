@@ -322,7 +322,12 @@ _CSS = """<style>
 .footer-note{margin-top:10px;display:flex;justify-content:space-between;color:#8a8d91;font-size:10px;padding:0 4px}
 @media(max-width:1100px){.topbar{grid-template-columns:1fr}.content-grid{grid-template-columns:1fr}.breakdowns{grid-template-columns:repeat(2,1fr)}.hero{grid-template-columns:1fr}}
 @media(max-width:650px){.hero-kpis{grid-template-columns:repeat(2,1fr)}.breakdowns{grid-template-columns:1fr}.big-number{font-size:42px}}
-/* números clicáveis: abrem a lista de quem está por trás da conta */
+</style>"""
+
+
+# CSS do painel de detalhe: viaja junto com ele, para funcionar em qualquer
+# dashboard sem depender do bloco de estilo da página.
+_CSS_DETALHE = """<style>
 .hc-abre{cursor:pointer;transition:transform .12s,box-shadow .12s}
 .hc-abre:hover{transform:translateY(-1px)}
 .mini-kpi.hc-abre:hover{box-shadow:0 0 0 2px rgba(255,255,255,.28)}
@@ -332,8 +337,9 @@ _CSS = """<style>
 .hc-modal{position:fixed;inset:0;z-index:1200;display:flex;align-items:center;justify-content:center;padding:18px}
 .hc-modal[hidden]{display:none}
 .hc-backdrop{position:absolute;inset:0;background:rgba(8,9,12,.62)}
-.hc-box{position:relative;display:flex;flex-direction:column;width:min(760px,100%);max-height:84vh;
-  background:#fff;border-radius:18px;overflow:hidden;box-shadow:0 24px 60px rgba(0,0,0,.34)}
+.hc-box{position:relative;display:flex;flex-direction:column;width:min(860px,100%);max-height:84vh;
+  background:#fff;border-radius:18px;overflow:hidden;box-shadow:0 24px 60px rgba(0,0,0,.34);
+  font-family:Inter,'Segoe UI',Arial,sans-serif}
 .hc-box-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;
   padding:16px 18px 12px;border-bottom:1px solid #e9eaec}
 .hc-box-head h3{margin:0;font-size:17px;font-weight:900;color:#16181c}
@@ -375,46 +381,105 @@ def _html_rows(itens: list[tuple[str, int]], total: int) -> str:
     return "".join(parts)
 
 
-def _detalhe_pessoas_json(grupos: dict[str, tuple[str, list[dict]]]) -> str:
-    """Serializa as pessoas por trás de cada número do topo do headcount.
+def _br_data(d) -> str:
+    return d.strftime("%d/%m/%Y") if d else ""
 
-    Vai embutido na página para o painel de detalhe abrir sem nova requisição.
+
+# Colunas disponíveis no painel de detalhe: rótulo e como extrair do colaborador.
+_COLUNAS_PESSOA = {
+    "nome":     ("Nome",         lambda c: (c.get("nome") or "").title()),
+    "adm":      ("Admissão",     lambda c: _br_data(c.get("data_adm"))),
+    "dem":      ("Desligamento", lambda c: _br_data(c.get("data_demissa"))),
+    "empresa":  ("Empresa",      lambda c: empresa_curta(c.get("empresa"))),
+    "depto":    ("Departamento", lambda c: (c.get("departamento") or "").title()),
+    "motivo":   ("Motivo",       lambda c: c.get("motivo_desligamento") or ""),
+    "tipo":     ("Tipo",         lambda c: c.get("tipo_desligamento") or ""),
+}
+
+
+def _detalhe_pessoas_json(grupos: dict[str, tuple[str, list[dict], tuple[str, ...]]]) -> str:
+    """Serializa as pessoas por trás de cada número clicável do painel.
+
+    Cada grupo escolhe suas colunas, porque o que interessa muda: num
+    desligamento o motivo importa, numa admissão não existe. Vai embutido na
+    página para o detalhe abrir sem nova requisição.
     """
-    def _br(d) -> str:
-        return d.strftime("%d/%m/%Y") if d else ""
-
-    dados = {
-        chave: {
+    dados = {}
+    for chave, (titulo, pessoas, colunas) in grupos.items():
+        campos = [c for c in colunas if c in _COLUNAS_PESSOA]
+        linhas = sorted(
+            ([_COLUNAS_PESSOA[c][1](p) for c in campos] for p in pessoas),
+            key=lambda linha: linha[0] if linha else "",
+        )
+        dados[chave] = {
             "titulo": titulo,
-            "pessoas": sorted(
-                ({"nome": c["nome"].title(),
-                  "adm": _br(c["data_adm"]),
-                  "dem": _br(c["data_demissa"]),
-                  "empresa": empresa_curta(c["empresa"])}
-                 for c in pessoas),
-                key=lambda p: p["nome"],
-            ),
+            "colunas": [_COLUNAS_PESSOA[c][0] for c in campos],
+            "linhas": linhas,
         }
-        for chave, (titulo, pessoas) in grupos.items()
-    }
     # </script> dentro do JSON encerraria a tag mais cedo
     return json.dumps(dados, ensure_ascii=False).replace("</", "<\\/")
 
 
-def _painel_detalhe_html(detalhe_json: str, periodo_label: str) -> str:
+def _botao_exportar_html(nome_arquivo: str, colunas: list[str],
+                         linhas: list[list], id_html: str = "expExcel") -> str:
+    """Botão que baixa as linhas já filtradas como CSV que o Excel abre direto.
+
+    Os dados vão embutidos: o que a tela mostra é exatamente o que sai no
+    arquivo, sem uma segunda consulta que poderia divergir do filtro.
+    """
+    dados = json.dumps({"colunas": colunas, "linhas": linhas},
+                       ensure_ascii=False).replace("</", "<\\/")
+    return f"""
+<button type="button" class="exp-excel" id="{id_html}">⤓ Exportar Excel</button>
+<script type="application/json" id="{id_html}Dados">{dados}</script>
+<style>
+.exp-excel{{border:0;border-radius:8px;background:#0f7a3d;color:#fff;padding:8px 14px;
+  font-size:.78rem;font-weight:700;cursor:pointer;white-space:nowrap}}
+.exp-excel:hover{{background:#0b622f}}
+.exp-excel:disabled{{background:#c3c7cc;cursor:not-allowed}}
+</style>
+<script>
+(function () {{
+  var d = JSON.parse(document.getElementById('{id_html}Dados').textContent);
+  var botao = document.getElementById('{id_html}');
+  if (!d.linhas.length) {{
+    botao.disabled = true;
+    botao.textContent = 'Nada para exportar';
+    return;
+  }}
+  botao.addEventListener('click', function () {{
+    function campo(v) {{ return '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"'; }}
+    // ; como separador e BOM: e assim que o Excel em pt-BR abre em colunas
+    var csv = [d.colunas.map(campo).join(';')].concat(
+      d.linhas.map(function (l) {{ return l.map(campo).join(';'); }})
+    ).join('\\r\\n');
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob(['\\ufeff' + csv], {{type: 'text/csv;charset=utf-8;'}}));
+    a.download = {json.dumps(nome_arquivo)};
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(a.href);
+  }});
+}})();
+</script>"""
+
+
+def _painel_detalhe_html(detalhe_json: str, periodo_label: str,
+                         prefixo: str = "headcount") -> str:
     """Painel que lista as pessoas por trás do número clicado, com saída Excel.
 
     Os dados já vêm na página; a busca e o download acontecem no navegador,
     sem nova ida ao servidor.
     """
-    return f"""
+    return f"""{_CSS_DETALHE}
 <div class="hc-modal" id="hcModal" hidden>
   <div class="hc-backdrop" data-fechar></div>
   <div class="hc-box" role="dialog" aria-modal="true" aria-labelledby="hcTitulo">
     <div class="hc-box-head">
       <div>
         <h3 id="hcTitulo">Detalhe</h3>
-        <p id="hcSub">Competência {periodo_label}</p>
+        <p id="hcSub">{periodo_label}</p>
       </div>
       <button type="button" class="hc-x" data-fechar aria-label="Fechar">✕</button>
     </div>
@@ -424,7 +489,7 @@ def _painel_detalhe_html(detalhe_json: str, periodo_label: str) -> str:
     </div>
     <div class="hc-box-body">
       <table class="hc-tabela">
-        <thead><tr><th>Nome</th><th>Admissão</th><th>Desligamento</th><th>Empresa</th></tr></thead>
+        <thead><tr id="hcCabecalho"></tr></thead>
         <tbody id="hcCorpo"></tbody>
       </table>
     </div>
@@ -436,9 +501,11 @@ def _painel_detalhe_html(detalhe_json: str, periodo_label: str) -> str:
   var dados   = JSON.parse(document.getElementById('hcDados').textContent);
   var modal   = document.getElementById('hcModal');
   var corpo   = document.getElementById('hcCorpo');
+  var cabec   = document.getElementById('hcCabecalho');
   var busca   = document.getElementById('hcBusca');
   var periodo = {json.dumps(periodo_label)};
   var atual   = [];
+  var colunas = [];
   var titulo  = '';
 
   function esc(t) {{
@@ -447,23 +514,30 @@ def _painel_detalhe_html(detalhe_json: str, periodo_label: str) -> str:
     }});
   }}
 
-  function pinta() {{
+  function filtradas() {{
     var termo = (busca.value || '').trim().toLowerCase();
-    var linhas = atual.filter(function (p) {{
-      return !termo || p.nome.toLowerCase().indexOf(termo) >= 0
-                    || (p.empresa || '').toLowerCase().indexOf(termo) >= 0;
+    if (!termo) return atual;
+    return atual.filter(function (linha) {{
+      return linha.some(function (celula) {{
+        return String(celula || '').toLowerCase().indexOf(termo) >= 0;
+      }});
     }});
+  }}
+
+  function pinta() {{
+    var linhas = filtradas();
     document.getElementById('hcSub').textContent =
-      linhas.length + ' pessoa(s) · competência ' + periodo;
+      linhas.length + ' pessoa(s) · ' + periodo;
     if (!linhas.length) {{
-      corpo.innerHTML = '<tr><td colspan="4" class="hc-vazio">' +
+      corpo.innerHTML = '<tr><td colspan="' + colunas.length + '" class="hc-vazio">' +
         (atual.length ? 'Nenhum nome corresponde à busca.'
-                      : 'Nenhuma pessoa nesta competência.') + '</td></tr>';
+                      : 'Nenhuma pessoa neste período.') + '</td></tr>';
       return;
     }}
-    corpo.innerHTML = linhas.map(function (p) {{
-      return '<tr><td>' + esc(p.nome) + '</td><td>' + esc(p.adm || '—') +
-             '</td><td>' + esc(p.dem || '—') + '</td><td>' + esc(p.empresa || '—') + '</td></tr>';
+    corpo.innerHTML = linhas.map(function (linha) {{
+      return '<tr>' + linha.map(function (celula) {{
+        return '<td>' + esc(celula || '—') + '</td>';
+      }}).join('') + '</tr>';
     }}).join('');
   }}
 
@@ -471,7 +545,9 @@ def _painel_detalhe_html(detalhe_json: str, periodo_label: str) -> str:
     var g = dados[grupo];
     if (!g) return;
     titulo = g.titulo;
-    atual = g.pessoas || [];
+    atual = g.linhas || [];
+    colunas = g.colunas || [];
+    cabec.innerHTML = colunas.map(function (c) {{ return '<th>' + esc(c) + '</th>'; }}).join('');
     document.getElementById('hcTitulo').textContent = titulo;
     busca.value = '';
     modal.hidden = false;
@@ -500,23 +576,18 @@ def _painel_detalhe_html(detalhe_json: str, periodo_label: str) -> str:
   busca.addEventListener('input', pinta);
 
   document.getElementById('hcExcel').addEventListener('click', function () {{
-    var termo = (busca.value || '').trim().toLowerCase();
-    var linhas = atual.filter(function (p) {{
-      return !termo || p.nome.toLowerCase().indexOf(termo) >= 0
-                    || (p.empresa || '').toLowerCase().indexOf(termo) >= 0;
-    }});
+    var linhas = filtradas();
     function campo(v) {{ return '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"'; }}
     // ; como separador e BOM: e assim que o Excel em pt-BR abre em colunas
-    var csv = ['Nome;Admissao;Desligamento;Empresa'].concat(
-      linhas.map(function (p) {{
-        return [campo(p.nome), campo(p.adm), campo(p.dem), campo(p.empresa)].join(';');
-      }})
+    var csv = [colunas.map(campo).join(';')].concat(
+      linhas.map(function (linha) {{ return linha.map(campo).join(';'); }})
     ).join('\\r\\n');
+    // o título do grupo já carrega o período, não repetir no nome do arquivo
     var nome = titulo.normalize('NFD').replace(/[\\u0300-\\u036f]/g, '')
-                     .replace(/[^a-zA-Z0-9]+/g, '_').toLowerCase();
+                     .replace(/[^a-zA-Z0-9]+/g, '_').replace(/^_|_$/g, '').toLowerCase();
     var a = document.createElement('a');
     a.href = URL.createObjectURL(new Blob(['\\ufeff' + csv], {{type: 'text/csv;charset=utf-8;'}}));
-    a.download = 'headcount_' + nome + '_' + periodo.replace('.', '') + '.csv';
+    a.download = {json.dumps(prefixo)} + '_' + nome + '.csv';
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -554,12 +625,16 @@ def _build_headcount_html(
     qtd_admitidos = len(lista_admitidos)
     qtd_demitidos = len(lista_demitidos)
 
+    # o título vira o nome do arquivo exportado, então carrega a competência
+    _mes = _mes_label(ref)
+    _pessoa = ("nome", "adm", "dem", "empresa")
     detalhe_json = _detalhe_pessoas_json({
-        "quadro":    ("Colaboradores no quadro ativo", no_quadro),
-        "ativos":    ("Situação Ativo", lista_ativos or no_quadro),
-        "admitidos": (f"Admitidos em {_mes_label(ref)}", lista_admitidos),
-        "desligados": (f"Desligados em {_mes_label(ref)}", lista_demitidos),
-        "afastados": ("Afastados e licenças", lista_afastados),
+        "quadro":    (f"Quadro ativo · {_mes}", no_quadro, _pessoa),
+        "ativos":    (f"Situação Ativo · {_mes}", lista_ativos or no_quadro, _pessoa),
+        "admitidos": (f"Admitidos · {_mes}", lista_admitidos, _pessoa),
+        "desligados": (f"Desligados · {_mes}", lista_demitidos,
+                       ("nome", "adm", "dem", "empresa", "motivo")),
+        "afastados": (f"Afastados e licenças · {_mes}", lista_afastados, _pessoa),
     })
 
     # delta 6 meses
@@ -687,7 +762,7 @@ def _build_headcount_html(
   </div>
 </section>
 
-{_painel_detalhe_html(detalhe_json, periodo_label)}
+{_painel_detalhe_html(detalhe_json, f"competência {periodo_label}", "headcount")}
 
 <section class="content-grid">
   <article class="card chart-card">
@@ -771,6 +846,7 @@ def _turnover_mensal(colabs: list[dict], ano: int) -> list[dict]:
             "admitidos": len(adm), "demitidos": len(dem),
             "headcount": hc, "turnover_pct": turnover_pct,
             "futuro": futuro,
+            "adm_colabs": adm,
             "dem_colabs": dem,
         })
     return result
@@ -1031,6 +1107,21 @@ def _build_turnover_html(
     dem_lt3 = [c for c in dem_ano if c["data_adm"] and c["data_demissa"] and
                (c["data_demissa"] - c["data_adm"]).days < 90]
 
+    # As pessoas por trás dos KPIs clicáveis saem dos mesmos meses que os
+    # alimentam, para o painel nunca discordar do número mostrado.
+    lista_admitidos = [c for m in meses_ref for c in m["adm_colabs"]]
+    lista_demitidos = [c for m in meses_ref for c in m["dem_colabs"]]
+    periodo_txt = f"{_mes_label(date(ano, mes_num, 1))}" if mes_num else f"ano de {ano}"
+
+    detalhe_json = _detalhe_pessoas_json({
+        "admitidos": (f"Admitidos · {periodo_txt}", lista_admitidos,
+                      ("nome", "adm", "depto", "empresa")),
+        "desligados": (f"Desligados · {periodo_txt}", lista_demitidos,
+                       ("nome", "adm", "dem", "depto", "tipo", "motivo")),
+        "dem_lt3": (f"Desligados com menos de 3 meses · {periodo_txt}", dem_lt3,
+                    ("nome", "adm", "dem", "depto", "tipo", "motivo")),
+    })
+
     # turnover voluntário / involuntário
     vol   = sum(1 for c in dem_ano if c["tipo_desligamento"] == "Voluntário")
     invol = sum(1 for c in dem_ano if c["tipo_desligamento"] == "Involuntário")
@@ -1170,13 +1261,15 @@ def _build_turnover_html(
   </div>
   <div class="hero-kpis">
     <div class="mini-kpi green"><div class="icon">✓</div><strong>{hc_ref:,}</strong><span>Ativos</span><small>Posição atual</small></div>
-    <div class="mini-kpi blue"><div class="icon">＋</div><strong>{total_adm:,}</strong><span>Admitidos</span><small>No ano</small></div>
-    <div class="mini-kpi red"><div class="icon">↘</div><strong>{total_dem:,}</strong><span>Desligados</span><small>No ano</small></div>
-    <div class="mini-kpi amber"><div class="icon">⏱</div><strong>{len(dem_lt3):,}</strong><span>Dem. &lt; 3 meses</span><small>Risco retenção inicial</small></div>
+    <div class="mini-kpi blue hc-abre" data-grupo="admitidos" role="button" tabindex="0" title="Ver os nomes"><div class="icon">＋</div><strong>{total_adm:,}</strong><span>Admitidos</span><small>Clique para ver os nomes</small></div>
+    <div class="mini-kpi red hc-abre" data-grupo="desligados" role="button" tabindex="0" title="Ver os nomes"><div class="icon">↘</div><strong>{total_dem:,}</strong><span>Desligados</span><small>Clique para ver os nomes</small></div>
+    <div class="mini-kpi amber hc-abre" data-grupo="dem_lt3" role="button" tabindex="0" title="Ver os nomes"><div class="icon">⏱</div><strong>{len(dem_lt3):,}</strong><span>Dem. &lt; 3 meses</span><small>Clique para ver os nomes</small></div>
     <div class="mini-kpi slate"><div class="icon">%</div><strong>{turn_total:.2f}%</strong><span>% Turnover</span><small>Dem./Quadro médio</small></div>
     <div class="mini-kpi slate"><div class="icon">◎</div><strong>{turn_vol+turn_invol:.2f}%</strong><span>Turnover V+I</span><small>Voluntário + involuntário</small></div>
   </div>
 </section>
+
+{_painel_detalhe_html(detalhe_json, periodo_txt, "turnover")}
 
 <section class="grid-main">
   <article class="card">
@@ -3194,6 +3287,7 @@ def _build_banco_horas_html(rows: list[dict], all_rows: list[dict] | None = None
       </select>
     </div>
     {limpar}
+    <div class="bh-acoes"><!--BOTAO_EXPORTAR--></div>
   </div>
 </form>"""
 
@@ -3237,6 +3331,20 @@ def _build_banco_horas_html(rows: list[dict], all_rows: list[dict] | None = None
     data_ref_fmt = data_ref.strftime("%d/%m/%Y") if data_ref else "-"
     periodo_label = next((r["periodo"] for r in por_pessoa.values() if r.get("periodo")), "")
 
+    # Exporta o que a tela mostra: uma linha por pessoa, na mesma ordem
+    # (negativos primeiro), já com os filtros aplicados.
+    sufixo = "_".join(p for p in (empresa_curta(empresa_sel), departamento_sel, mes_sel) if p)
+    exportar_html = _botao_exportar_html(
+        f"banco_de_horas{('_' + re.sub(r'[^a-zA-Z0-9]+', '_', sufixo)) if sufixo else ''}.csv",
+        ["Colaborador", "Departamento", "Empresa", "Cargo", "Data", "Crédito", "Débito", "Saldo"],
+        [[p["pessoa"], p.get("departamento", ""), empresa_curta(p.get("empresa", "")),
+          p.get("cargo", ""), p["data_fmt"], p["credito"], p["debito"], p["saldo"]]
+         for p in pessoas],
+        id_html="bhExcel",
+    )
+    # a barra de filtros é montada antes de existirem as linhas a exportar
+    filtros_html = filtros_html.replace("<!--BOTAO_EXPORTAR-->", exportar_html)
+
     return filtros_html + f"""
 <style>
 .bh-kpis{{display:flex;gap:16px;flex-wrap:wrap;margin-bottom:24px}}
@@ -3261,6 +3369,7 @@ def _build_banco_horas_html(rows: list[dict], all_rows: list[dict] | None = None
 .bh-filtro-group select:focus{{border-color:#e31837;box-shadow:0 0 0 2px rgba(227,24,55,.12)}}
 .bh-limpar{{font-size:.78rem;color:#e31837;text-decoration:none;padding:8px 4px;white-space:nowrap;align-self:flex-end}}
 .bh-limpar:hover{{text-decoration:underline}}
+.bh-acoes{{margin-left:auto;align-self:flex-end}}
 </style>
 
 <p class="bh-ref">Referência: última atualização em <strong>{data_ref_fmt}</strong> · {len(por_pessoa)} colaboradores{"  ·  Período: " + periodo_label if periodo_label else ""}</p>
