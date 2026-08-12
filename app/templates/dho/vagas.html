@@ -65,7 +65,20 @@
     <div id="bloco_substituto" hidden>
       <label class="label">Nome do substituto</label>
       <input class="input" name="nome_substituto" id="nome_substituto"
+             list="lista_empregados" autocomplete="off"
              placeholder="Quem está sendo substituído">
+      <datalist id="lista_empregados">
+        {% for e in empregados_sugestao %}
+        <option value="{{ e.nome }}"{% if e.detalhe %} label="{{ e.detalhe }}"{% endif %}></option>
+        {% endfor %}
+      </datalist>
+      <div style="font-size:11px;color:#6b7280;margin-top:4px">
+        {% if empregados_sugestao %}
+        Sugere os {{ empregados_sugestao | length }} nomes da base sincronizada; dá para digitar outro.
+        {% else %}
+        Nenhum empregado sincronizado ainda — sincronize em <a href="/dho/empregados">Empregados</a>.
+        {% endif %}
+      </div>
     </div>
 
     <div>

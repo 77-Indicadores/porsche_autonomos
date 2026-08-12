@@ -928,9 +928,45 @@ def vagas(request: Request, q: str = "", db: Session = Depends(get_db)):
             "sexos": SEXOS,
             "status_vaga": STATUS_VAGA,
             "tipos_recrutamento": TIPOS_RECRUTAMENTO,
+            "empregados_sugestao": _sugestao_empregados(db),
             **flash_from_request(request),
         },
     )
+
+
+def _sugestao_empregados(db: Session) -> list[dict]:
+    """Nomes da base sincronizada, para sugerir no campo de substituto.
+
+    Inclui quem já saiu: numa vaga de substituição o substituído normalmente
+    já foi desligado. O cargo e o status vão junto para distinguir homônimos.
+    """
+    try:
+        rows = db.execute(
+            select(
+                dho_empregados.c.nome,
+                dho_empregados.c.status,
+                dho_cargos.c.nome_cargo,
+            )
+            .select_from(
+                dho_empregados.outerjoin(
+                    dho_cargos, dho_cargos.c.id_cargo == dho_empregados.c.id_cargo)
+            )
+            .order_by(dho_empregados.c.nome)
+        ).mappings().all()
+    except Exception as exc:
+        print(f"AVISO - não consegui carregar nomes para sugestão: {exc}")
+        return []
+
+    vistos: set[str] = set()
+    sugestoes: list[dict] = []
+    for r in rows:
+        nome = (r["nome"] or "").strip()
+        if not nome or nome.upper() in vistos:
+            continue
+        vistos.add(nome.upper())
+        partes = [p for p in ((r["nome_cargo"] or "").strip(), (r["status"] or "").strip()) if p]
+        sugestoes.append({"nome": nome, "detalhe": " · ".join(partes)})
+    return sugestoes
 
 
 @router.post("/dho/vagas")
