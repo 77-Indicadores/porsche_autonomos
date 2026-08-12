@@ -1556,7 +1556,8 @@ _CSS_FILTROS = """<style>
 def _filtro_depto_html(acao: str, deptos: list[str], selecionado: str,
                        meses: list[str] | None = None, mes_sel: str = "",
                        ano_sel: str = "", empresas: list[str] | None = None,
-                       empresa_sel: str = "") -> str:
+                       empresa_sel: str = "",
+                       extras: list[tuple[str, str, list[tuple[str, str]], str]] | None = None) -> str:
     """Barra de filtros dos painéis montados em HTML puro.
 
     Mesmo visual e mesmos campos do Turnover: Empresa, Departamento, Ano e
@@ -1596,8 +1597,24 @@ def _filtro_depto_html(acao: str, deptos: list[str], selecionado: str,
         for m in meses_vis
     )
 
+    # filtros próprios de um painel, no mesmo formato dos demais
+    blocos_extra = ""
+    algum_extra = False
+    for nome_campo, rotulo, opcoes, valor_sel in (extras or []):
+        if valor_sel:
+            algum_extra = True
+        opts = "".join(
+            f"<option value=\"{v}\"{' selected' if v == valor_sel else ''}>{l}</option>"
+            for v, l in opcoes
+        )
+        blocos_extra += f"""
+  <div class="ind-filtro">
+    <label>{rotulo}</label>
+    <select name="{nome_campo}" onchange="this.form.submit()">{opts}</select>
+  </div>"""
+
     limpar = (f'<a href="{acao}" class="ind-limpar">✕ Limpar</a>'
-              if (selecionado or mes_sel or ano_sel or empresa_sel) else "")
+              if (selecionado or mes_sel or ano_sel or empresa_sel or algum_extra) else "")
 
     # Ano e Mês aparecem sempre: escondê-los quando não há dado fazia o filtro
     # sumir justamente na tela vazia, dando a impressão de que não existe.
@@ -1614,7 +1631,7 @@ def _filtro_depto_html(acao: str, deptos: list[str], selecionado: str,
   <div class="ind-filtro">
     <label>Mês</label>
     <select name="mes" onchange="this.form.submit()">{opts_mes}</select>
-  </div>
+  </div>{blocos_extra}
   {limpar}
 </form>
 """
@@ -1937,7 +1954,8 @@ def _serie_vagas_6_meses_html(vagas: list[dict], ano_sel: str = "") -> str:
             f"o filtro de mês não altera este gráfico</div>")
 
 
-def _build_vagas_html(depto_sel: str = "", mes_sel: str = "", ano_sel: str = "") -> str:
+def _build_vagas_html(depto_sel: str = "", mes_sel: str = "", ano_sel: str = "",
+                      tempo_sel: str = "") -> str:
     try:
         vagas = _db_rows(
             """SELECT v.id_vaga, v.qtd_vagas, v.status, v.tipo_vaga, v.tipo_recrutamento,
@@ -1971,12 +1989,31 @@ def _build_vagas_html(depto_sel: str = "", mes_sel: str = "", ano_sel: str = "")
 
     if mes_sel:
         vagas = [v for v in vagas if v["competencia"] == mes_sel]
-    filtro_html = _filtro_depto_html("/indicadores/vagas", todos_deptos, depto_sel,
-                                     todos_meses, mes_sel, ano_sel)
 
     hoje_d = date.today()
 
     def is_aberta(v): return "abert" in (v.get("status") or "").lower()
+
+    # Tempo em aberto: só faz sentido para quem ainda está aberta, então o
+    # filtro também descarta as já concluídas.
+    if tempo_sel in ("mais30", "menos30"):
+        def _dias_em_aberto(v):
+            da = data_para_date(v.get("data_abertura"))
+            return (hoje_d - da).days if da else None
+
+        vagas = [v for v in vagas
+                 if is_aberta(v) and _dias_em_aberto(v) is not None
+                 and ((_dias_em_aberto(v) > 30) if tempo_sel == "mais30"
+                      else (_dias_em_aberto(v) <= 30))]
+
+    filtro_html = _filtro_depto_html(
+        "/indicadores/vagas", todos_deptos, depto_sel, todos_meses, mes_sel, ano_sel,
+        extras=[("tempo", "Tempo em aberto",
+                 [("", "Todas"),
+                  ("mais30", "Abertas há mais de 30 dias"),
+                  ("menos30", "Abertas há até 30 dias")],
+                 tempo_sel)],
+    )
     def is_concluida(v): return "conclu" in (v.get("status") or "").lower()
 
     parse_date_vg = data_para_date
@@ -2941,11 +2978,12 @@ def treinamentos_dash(request: Request, departamento: str = "", mes: str = "", a
 
 
 @router.get("/indicadores/vagas")
-def vagas_dash(request: Request, departamento: str = "", mes: str = "", ano: str = ""):
+def vagas_dash(request: Request, departamento: str = "", mes: str = "", ano: str = "",
+               tempo: str = ""):
     erro = None
     dash_html = ""
     try:
-        dash_html = _build_vagas_html(departamento, mes, ano)
+        dash_html = _build_vagas_html(departamento, mes, ano, tempo)
     except Exception as exc:
         erro = f"Erro ao carregar dados de Vagas: {exc}"
 
