@@ -15,6 +15,7 @@ from typing import Optional
 import requests
 from catworld import CatworldClient
 from fastapi import APIRouter, Request
+from fastapi.responses import RedirectResponse
 from sqlalchemy import select, text
 
 from app.template_config import templates
@@ -2949,7 +2950,12 @@ def sem_acesso(request: Request, modulo: str = ""):
 
 @router.get("/indicadores")
 def indicadores_home(request: Request):
-    return templates.TemplateResponse("indicadores/index.html", {"request": request})
+    """Abre direto no Headcount.
+
+    A tela de entrada era um template sem conteúdo — quem clicava em
+    Indicadores caía numa página em branco em vez de num painel.
+    """
+    return RedirectResponse("/indicadores/headcount", status_code=303)
 
 
 @router.get("/indicadores/turnover")
