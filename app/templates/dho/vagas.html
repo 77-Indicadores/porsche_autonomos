@@ -105,6 +105,11 @@
     </div>
 
     <div>
+      <label class="label">Data prevista de contratação</label>
+      <input class="input" name="data_prevista" id="data_prevista" placeholder="dd/mm/aaaa">
+    </div>
+
+    <div>
       <label class="label">Data conclusão</label>
       <input class="input" name="data_conclusao" id="data_conclusao" placeholder="dd/mm/aaaa" required>
     </div>
@@ -134,6 +139,7 @@
         <th>Qtd</th>
         <th>Recrutamento</th>
         <th>Status</th>
+        <th>Previsão</th>
         <th>Conclusão</th>
         <th>Ações</th>
       </tr>
@@ -150,6 +156,7 @@
         <td>{{ item.qtd_vagas or 1 }}</td>
         <td>{{ item.tipo_recrutamento or "-" }}</td>
         <td><span class="badge">{{ item.status }}</span></td>
+        <td>{{ item.data_prevista | date_br }}</td>
         <td>{{ item.data_conclusao | date_br }}</td>
         <td class="actions">
           <button
@@ -167,6 +174,7 @@
             data-tipo-recrutamento="{{ item.tipo_recrutamento or '' }}"
             data-responsavel="{{ item.responsavel or '' }}"
             data-data-abertura="{{ item.data_abertura | date_br if item.data_abertura else '' }}"
+            data-data-prevista="{{ item.data_prevista | date_br if item.data_prevista else '' }}"
             data-data-conclusao="{{ item.data_conclusao | date_br if item.data_conclusao else '' }}"
             data-observacoes="{{ item.observacoes or '' }}"
           >Editar</button>
@@ -203,6 +211,7 @@ function editarVaga(btn) {
   setValue("tipo_recrutamento", d.tipoRecrutamento);
   setValue("responsavel", d.responsavel);
   setValue("data_abertura", d.dataAbertura);
+  setValue("data_prevista", d.dataPrevista);
   setValue("data_conclusao", d.dataConclusao);
   setValue("observacoes", d.observacoes);
 

@@ -80,6 +80,7 @@ dho_vagas = Table(
     Column("status", String(60), default="Aberta"),
     Column("responsavel", String(160)),
     Column("data_abertura", String(20)),
+    Column("data_prevista", String(20)),
     Column("data_conclusao", String(20)),
     Column("tipo_recrutamento", String(40), default="Externo"),
     Column("observacoes", Text),
@@ -429,7 +430,7 @@ try:
             _padronizar_datas_texto(conn, "dho_treinamento_aplicacoes",
                                     "id_aplicacao", ("data_treinamento",))
             + _padronizar_datas_texto(conn, "dho_vagas", "id_vaga",
-                                      ("data_abertura", "data_conclusao"))
+                                      ("data_abertura", "data_prevista", "data_conclusao"))
         )
         if total_datas:
             print(f"OK - {total_datas} registro(s) com data padronizada para AAAA-MM-DD.")
@@ -509,6 +510,7 @@ def garantir_schema():
                     ADD COLUMN IF NOT EXISTS qtd_vagas INTEGER DEFAULT 1,
                     ADD COLUMN IF NOT EXISTS responsavel VARCHAR(160),
                     ADD COLUMN IF NOT EXISTS data_abertura VARCHAR(20),
+                    ADD COLUMN IF NOT EXISTS data_prevista VARCHAR(20),
                     ADD COLUMN IF NOT EXISTS data_conclusao VARCHAR(20),
                     ADD COLUMN IF NOT EXISTS tipo_recrutamento VARCHAR(40) DEFAULT 'Externo',
                     ADD COLUMN IF NOT EXISTS observacoes TEXT
@@ -539,6 +541,7 @@ def garantir_schema():
                     "qtd_vagas": "INT DEFAULT 1",
                     "responsavel": "NVARCHAR(160)",
                     "data_abertura": "NVARCHAR(20)",
+                    "data_prevista": "NVARCHAR(20)",
                     "data_conclusao": "NVARCHAR(20)",
                     "tipo_recrutamento": "NVARCHAR(40)",
                     "observacoes": "NVARCHAR(MAX)",
@@ -581,6 +584,7 @@ def garantir_schema():
                         "qtd_vagas": "INTEGER DEFAULT 1",
                         "responsavel": "TEXT",
                         "data_abertura": "TEXT",
+                        "data_prevista": "TEXT",
                         "data_conclusao": "TEXT",
                         "tipo_recrutamento": "TEXT DEFAULT 'Externo'",
                         "observacoes": "TEXT",
@@ -937,6 +941,7 @@ def salvar_vaga(
     status: str = Form("Aberta"),
     responsavel: str = Form(""),
     data_abertura: str = Form(""),
+    data_prevista: str = Form(""),
     data_conclusao: str = Form(""),
     tipo_recrutamento: str = Form("Externo"),
     observacoes: str = Form(""),
@@ -952,6 +957,7 @@ def salvar_vaga(
         "status": status,
         "responsavel": responsavel,
         "data_abertura": data_iso(data_abertura) or data_abertura,
+        "data_prevista": data_iso(data_prevista) or data_prevista,
         "data_conclusao": data_iso(data_conclusao) or data_conclusao,
         "tipo_recrutamento": tipo_recrutamento if tipo_recrutamento in TIPOS_RECRUTAMENTO else "Externo",
         "observacoes": observacoes,
@@ -1810,6 +1816,9 @@ async def importar_dho(
                 ) or "Externo"
                 responsavel = _valor_linha(row, "responsavel", "responsável")
                 data_abertura = _valor_linha(row, "data_abertura", "abertura")
+                data_prevista = _valor_linha(row, "data_prevista", "prevista",
+                                             "data_prevista_contratacao",
+                                             "previsao", "previsão")
                 data_conclusao = _valor_linha(row, "data_conclusao", "conclusao", "conclusão")
                 observacoes = _valor_linha(row, "observacoes", "observação", "obs")
 
@@ -1846,6 +1855,7 @@ async def importar_dho(
                     tipo_recrutamento=tipo_recrutamento,
                     responsavel=responsavel,
                     data_abertura=data_iso(data_abertura) or data_abertura,
+                    data_prevista=data_iso(data_prevista) or data_prevista,
                     data_conclusao=data_iso(data_conclusao) or data_conclusao,
                     observacoes=observacoes,
                     criado_em=datetime.utcnow(),
@@ -1934,12 +1944,13 @@ def baixar_modelo_importacao_dho(tipo_modelo: str):
             "status",
             "responsavel",
             "data_abertura",
+            "data_prevista",
             "data_conclusao",
             "observacoes",
         ]
         exemplos = [
-            ["Operações", "Mecânico", "Nova vaga", "", "Indiferente", 1, "Externo", "Aberta", "DHO", "01/06/2026", "", ""],
-            ["DHO", "Analista DHO", "Substituição", "Voluntário", "Indiferente", 1, "Interno", "Em andamento", "DHO", "01/06/2026", "", ""],
+            ["Operações", "Mecânico", "Nova vaga", "", "Indiferente", 1, "Externo", "Aberta", "DHO", "01/06/2026", "15/07/2026", "", ""],
+            ["DHO", "Analista DHO", "Substituição", "Voluntário", "Indiferente", 1, "Interno", "Em andamento", "DHO", "01/06/2026", "01/08/2026", "", ""],
         ]
         filename = "modelo_importacao_dho_vagas.xlsx"
 
