@@ -34,7 +34,8 @@
     <summary style="cursor:pointer;font-size:.8rem;color:#374151;font-weight:600">Valores fixos do layout</summary>
     <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:.7rem;margin-top:.7rem">
       {% for campo, rotulo in [('prefixo','Prefixo'),('numero','Número'),('tipo','Tipo'),('loja','Loja'),
-                               ('natureza','Natureza'),('finalidade','Finalidade'),('projeto','Projeto')] %}
+                               ('natureza','Natureza'),('finalidade','Finalidade'),('projeto','Projeto'),
+                               ('digitos','Dígitos do fornecedor')] %}
       <div>
         <label style="font-size:.7rem;font-weight:600;color:#6b7280;display:block;margin-bottom:.2rem">{{ rotulo }}</label>
         <input class="input" name="{{ campo }}" value="{{ parametros[campo] }}" style="width:100%;box-sizing:border-box">
@@ -43,7 +44,9 @@
     </div>
     <p style="margin:.6rem 0 0;font-size:.72rem;color:#6b7280">
       O histórico é montado da competência: <b>{{ historico }}</b>. Parcela e subsetor
-      saem em branco, como no layout atual.
+      saem em branco, como no layout atual. O <b>Fornecedor</b> é a matrícula do Feedz,
+      completada com zeros à esquerda até o número de dígitos acima — matrícula com
+      letra fica intacta. Use 0 para não completar.
     </p>
   </details>
 </form>
@@ -54,10 +57,11 @@
     ⚠️ {{ qtd_pendentes }} linha(s) sairão com campo em branco
   </div>
   <div style="font-size:.78rem;color:#78350f;line-height:1.5">
-    O <b>Fornecedor</b> vem do número de fornecedor do empregado e o <b>setor</b> vem do
-    departamento Protheus do centro de custo. O arquivo é gerado assim mesmo — o Protheus
-    é que vai recusar a linha incompleta. Preencha o setor em
-    <a href="/folha/centros-custo" style="color:#92400e">Centros de Custo</a>.
+    O <b>Fornecedor</b> é a matrícula do Feedz e o <b>setor</b> vem do departamento
+    Protheus do centro de custo. O arquivo é gerado assim mesmo — o Protheus é que vai
+    recusar a linha incompleta. Preencha o setor em
+    <a href="/folha/centros-custo" style="color:#92400e">Centros de Custo</a>;
+    matrícula em branco costuma ser pessoa fora do Feedz.
   </div>
 </div>
 {% endif %}

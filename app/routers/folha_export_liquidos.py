@@ -36,6 +36,8 @@ PADROES = {
     "natureza": "207003",
     "finalidade": "382010001",
     "projeto": f"SEDE{date.today().year}",
+    # largura do código de fornecedor no Protheus; 0 desliga o preenchimento
+    "digitos": "6",
 }
 
 
@@ -86,31 +88,54 @@ def _setor_de(mapa: list[dict], empresa: str, centro_custo: str) -> str:
     return ""
 
 
-def _mapa_fornecedor(db: Session) -> dict[str, str]:
-    """Matrícula e nome → código do fornecedor no Protheus."""
+def _mapa_matricula_feedz(db: Session) -> dict[str, str]:
+    """Nome e matrícula do empregado → matrícula do Feedz.
+
+    O fornecedor no Protheus é a matrícula do Feedz. A folha traz a própria
+    matrícula, que costuma ser a mesma, mas quando as duas divergem vale a do
+    Feedz — por isso a busca passa por aqui antes de usar a da folha.
+    """
     mapa: dict[str, str] = {}
     try:
         rows = db.execute(text(
-            "SELECT matricula, nome, numero_fornecedor FROM dho_empregados "
-            "WHERE COALESCE(numero_fornecedor, '') <> ''"
+            "SELECT matricula, nome FROM dho_empregados "
+            "WHERE COALESCE(matricula, '') <> ''"
         )).mappings().all()
     except Exception as exc:
-        print(f"AVISO - mapa de fornecedor: {exc}")
+        print(f"AVISO - mapa de matrículas do Feedz: {exc}")
         return mapa
     for r in rows:
-        codigo = (r["numero_fornecedor"] or "").strip()
-        if not codigo:
-            continue
         mat = str(r["matricula"] or "").strip()
-        if mat:
-            mapa[f"mat:{mat.lstrip('0') or '0'}"] = codigo
+        if not mat:
+            continue
+        mapa[f"mat:{_so_numero(mat)}"] = mat
         nome = str(r["nome"] or "").strip().upper()
         if nome:
-            mapa[f"nome:{nome}"] = codigo
+            mapa[f"nome:{nome}"] = mat
     return mapa
 
 
-def _linhas_da_competencia(db: Session, competencia: str) -> list[dict]:
+def _so_numero(valor: str) -> str:
+    """Chave de comparação de matrícula: '000044' e '44' são a mesma pessoa."""
+    limpo = str(valor or "").strip()
+    return limpo.lstrip("0") or limpo
+
+
+def _codigo_fornecedor(matricula: str, digitos: int) -> str:
+    """Matrícula no formato do cadastro de fornecedores do Protheus.
+
+    Os códigos são de largura fixa ('000241'), mas a matrícula chega ora com
+    zeros ora sem ('000044' e '106'). Só completa o que é número: código com
+    letra ('S09627') fica intacto.
+    """
+    mat = str(matricula or "").strip()
+    if not mat or digitos <= 0 or not mat.isdigit():
+        return mat
+    return mat.zfill(digitos)
+
+
+def _linhas_da_competencia(db: Session, competencia: str,
+                           digitos: int = 6) -> list[dict]:
     """Uma linha por colaborador com líquido na competência, já com empresa."""
     rows = db.execute(text("""
         SELECT a.empresa_nome AS empresa, f.matricula, f.nome, f.centro_custo,
@@ -122,7 +147,7 @@ def _linhas_da_competencia(db: Session, competencia: str) -> list[dict]:
     """), {"c": competencia}).mappings().all()
 
     mapa_setor = _mapa_setor(db)
-    mapa_forn = _mapa_fornecedor(db)
+    mapa_feedz = _mapa_matricula_feedz(db)
 
     resultado = []
     for r in rows:
@@ -130,17 +155,20 @@ def _linhas_da_competencia(db: Session, competencia: str) -> list[dict]:
         # líquido zero ou negativo não vira título a pagar
         if liquido <= 0:
             continue
-        mat = str(r["matricula"] or "").strip()
+        mat_folha = str(r["matricula"] or "").strip()
         nome = str(r["nome"] or "").strip()
-        fornecedor = (mapa_forn.get(f"mat:{mat.lstrip('0') or '0'}")
-                      or mapa_forn.get(f"nome:{nome.upper()}") or "")
+        # a matrícula do Feedz manda; a da folha entra quando a pessoa ainda
+        # não foi sincronizada, porque quase sempre é o mesmo número
+        mat = (mapa_feedz.get(f"mat:{_so_numero(mat_folha)}")
+               or mapa_feedz.get(f"nome:{nome.upper()}")
+               or mat_folha)
         resultado.append({
             "empresa": r["empresa"],
-            "matricula": mat,
+            "matricula": mat_folha,
             "nome": nome,
             "centro_custo": str(r["centro_custo"] or "").strip(),
             "liquido": round(liquido, 2),
-            "fornecedor": fornecedor,
+            "fornecedor": _codigo_fornecedor(mat, digitos),
             "setor": _setor_de(mapa_setor, r["empresa"], r["centro_custo"]),
         })
     return resultado
@@ -159,6 +187,10 @@ def _parametros(request: Request) -> dict:
     p["emissao"] = emissao
     p["vencimento"] = vencimento
     p["numero"] = (q.get("numero") or emissao.strftime("%Y%m%d")).strip()
+    try:
+        p["digitos"] = max(0, min(12, int(q.get("digitos") or PADROES["digitos"])))
+    except ValueError:
+        p["digitos"] = int(PADROES["digitos"])
     return p
 
 
@@ -167,7 +199,8 @@ def _parametros(request: Request) -> dict:
 def index(request: Request, competencia: str = "", db: Session = Depends(get_db)):
     comps = _competencias(db)
     competencia = competencia or (comps[0] if comps else "")
-    linhas = _linhas_da_competencia(db, competencia) if competencia else []
+    p = _parametros(request)
+    linhas = _linhas_da_competencia(db, competencia, p["digitos"]) if competencia else []
 
     por_empresa: dict[str, dict] = {}
     for l in linhas:
@@ -194,7 +227,7 @@ def index(request: Request, competencia: str = "", db: Session = Depends(get_db)
         "total_valor": round(sum(l["liquido"] for l in linhas), 2),
         "pendentes": pendentes[:40],
         "qtd_pendentes": len(pendentes),
-        "parametros": _parametros(request),
+        "parametros": p,
         "historico": _historico(competencia),
         "colunas": COLUNAS,
         "success": request.query_params.get("success"),
@@ -214,14 +247,14 @@ def baixar(request: Request, competencia: str = "", empresa: str = "",
         return redirect_with_message("/folha/exportacao-liquidos",
                                      error="Escolha a competência antes de exportar.")
 
-    linhas = [l for l in _linhas_da_competencia(db, competencia)
+    p = _parametros(request)
+    linhas = [l for l in _linhas_da_competencia(db, competencia, p["digitos"])
               if not empresa or l["empresa"] == empresa]
     if not linhas:
         return redirect_with_message(
             f"/folha/exportacao-liquidos?competencia={competencia}",
             error="Nada a exportar para essa competência e empresa.")
 
-    p = _parametros(request)
     hist = _historico(competencia)
 
     wb = Workbook()
