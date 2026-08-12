@@ -121,6 +121,87 @@ def _carga_inicial():
 _carga_inicial()
 
 
+# Departamento Protheus deduzido dos layouts de líquidos entregues pelo cliente:
+# o código do setor é a abreviação do nome do centro de custo, e a quantidade de
+# pessoas por setor no layout bate com a da folha. Só preenche o que está vazio,
+# então nunca sobrescreve o que o analista digitar.
+_SETOR_PROTHEUS = {
+    "DENER": {
+        "44": "PEC",    # PEÇAS
+        "96": "EVT",    # EVENTOS
+        "110": "PER",   # PLANEJAMENTO E RELACIONAMENTO
+        "111": "RHU",   # RECURSOS HUMANOS
+        "112": "FIN",   # FINANCEIRO
+        "114": "PRE",   # PRESIDÊNCIA
+        "117": "ENG",   # ENGENHARIA OFICINA
+        "118": "ENQ",   # ENGENHARIA QUALIDADE
+        "119": "ADE",   # ADESIVAGEM
+        "120": "MPR",   # MANUTENÇÃO PREDIAL
+        # 97 MARKETING fica de fora: o layout separa MID e MKT, e um centro de
+        # custo não tem como apontar para dois setores. O analista decide.
+    },
+    "PIRES": {
+        "29": "FUN",    # FUNILARIA
+        "32": "LOG",    # LOGÍSTICA
+        "34": "PEC",    # PEÇAS
+        "36": "ALM",    # ALMOXARIFADO
+        "37": "RED",    # RECUPERAÇÃO E DESENVOLVIMENTO
+        "39": "PWT",    # POWERTRAIN
+        "40": "CLA",    # CLÁSSICOS
+        "42": "ALN",    # ALINHAMENTO
+        "43": "CT1",    # CATEGORIA 1 (CARRERA)
+        "44": "CT2",    # CATEGORIA 2 (CHALLENGE)
+        "45": "CT3",    # CATEGORIA 3 (TROPHY)
+        "46": "DOP",    # DIRETORIA DE OPERAÇÕES
+        "47": "PNR",    # PNEUS/RODAS
+        "48": "RHU",    # RECURSOS HUMANOS
+        "50": "ADE",    # ADESIVAGEM
+        "51": "ENG",    # ENGENHARIA OFICINA
+        "52": "ENQ",    # ENGENHARIA QUALIDADE
+    },
+    "GT3": {
+        "32": "LOG",    # única linha da GT3 no layout
+    },
+}
+
+
+def _grupo_empresa(nome: str) -> str:
+    alvo = (nome or "").upper()
+    for chave in ("DENER", "PIRES", "GT3"):
+        if chave in alvo:
+            return chave
+    return ""
+
+
+def _carga_setor_protheus():
+    """Preenche o departamento Protheus onde ainda está vazio."""
+    try:
+        with engine.begin() as conn:
+            rows = conn.execute(text(
+                "SELECT id, empresa, codigo FROM folha_centros_custo "
+                "WHERE COALESCE(departamento_protheus, '') = ''"
+            )).mappings().all()
+            preenchidos = 0
+            for r in rows:
+                setor = _SETOR_PROTHEUS.get(
+                    _grupo_empresa(r["empresa"]), {}
+                ).get((r["codigo"] or "").strip())
+                if not setor:
+                    continue
+                conn.execute(text(
+                    "UPDATE folha_centros_custo SET departamento_protheus = :s "
+                    "WHERE id = :id"
+                ), {"s": setor, "id": r["id"]})
+                preenchidos += 1
+            if preenchidos:
+                print(f"Centros de custo: {preenchidos} departamento(s) Protheus preenchido(s).")
+    except Exception as exc:
+        print(f"AVISO - carga do departamento Protheus: {exc}")
+
+
+_carga_setor_protheus()
+
+
 # ─── consulta usada pelos indicadores ────────────────────────────────
 def mapa_centros_custo(db: Session) -> dict[tuple[str, str], str]:
     """(EMPRESA, CÓDIGO) → nome do centro de custo, só os ativos."""
