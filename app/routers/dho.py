@@ -75,6 +75,7 @@ dho_vagas = Table(
     Column("id_cargo", Integer, nullable=True),
     Column("tipo_vaga", String(80), default="Nova vaga"),
     Column("motivo_substituicao", String(80)),
+    Column("nome_substituto", String(160)),
     Column("sexo", String(40), default="Indiferente"),
     Column("qtd_vagas", Integer, default=1),
     Column("status", String(60), default="Aberta"),
@@ -506,6 +507,7 @@ def garantir_schema():
                     ADD COLUMN IF NOT EXISTS id_cargo INTEGER,
                     ADD COLUMN IF NOT EXISTS tipo_vaga VARCHAR(80) DEFAULT 'Nova vaga',
                     ADD COLUMN IF NOT EXISTS motivo_substituicao VARCHAR(80),
+                    ADD COLUMN IF NOT EXISTS nome_substituto VARCHAR(160),
                     ADD COLUMN IF NOT EXISTS sexo VARCHAR(40) DEFAULT 'Indiferente',
                     ADD COLUMN IF NOT EXISTS qtd_vagas INTEGER DEFAULT 1,
                     ADD COLUMN IF NOT EXISTS responsavel VARCHAR(160),
@@ -537,6 +539,7 @@ def garantir_schema():
                     "id_cargo": "INT",
                     "tipo_vaga": "NVARCHAR(80)",
                     "motivo_substituicao": "NVARCHAR(80)",
+                    "nome_substituto": "NVARCHAR(160)",
                     "sexo": "NVARCHAR(40)",
                     "qtd_vagas": "INT DEFAULT 1",
                     "responsavel": "NVARCHAR(160)",
@@ -580,6 +583,7 @@ def garantir_schema():
                         "id_cargo": "INTEGER",
                         "tipo_vaga": "TEXT DEFAULT 'Nova vaga'",
                         "motivo_substituicao": "TEXT",
+                        "nome_substituto": "TEXT",
                         "sexo": "TEXT DEFAULT 'Indiferente'",
                         "qtd_vagas": "INTEGER DEFAULT 1",
                         "responsavel": "TEXT",
@@ -936,6 +940,7 @@ def salvar_vaga(
     id_cargo: str = Form(""),
     tipo_vaga: str = Form("Nova vaga"),
     motivo_substituicao: str = Form(""),
+    nome_substituto: str = Form(""),
     sexo: str = Form("Indiferente"),
     qtd_vagas: int = Form(1),
     status: str = Form("Aberta"),
@@ -952,6 +957,8 @@ def salvar_vaga(
         "id_cargo": to_int_or_none(id_cargo),
         "tipo_vaga": tipo_vaga,
         "motivo_substituicao": motivo_substituicao if tipo_vaga == "Substituição" else "",
+        # o nome só faz sentido na vaga de substituição; trocar o tipo limpa o campo
+        "nome_substituto": nome_substituto.strip() if tipo_vaga == "Substituição" else "",
         "sexo": sexo,
         "qtd_vagas": qtd_vagas,
         "status": status,
@@ -1801,6 +1808,8 @@ async def importar_dho(
                     TIPOS_VAGA,
                 ) or "Nova vaga"
                 motivo = _valor_linha(row, "motivo_substituicao", "motivo")
+                substituto = _valor_linha(row, "nome_substituto", "substituto",
+                                          "nome_do_substituto")
                 sexo = _normalizar_valor_enumerado(
                     _valor_linha(row, "sexo"),
                     SEXOS,
@@ -1849,6 +1858,7 @@ async def importar_dho(
                     id_cargo=id_cargo,
                     tipo_vaga=tipo_vaga,
                     motivo_substituicao=motivo if tipo_vaga == "Substituição" else "",
+                    nome_substituto=substituto if tipo_vaga == "Substituição" else "",
                     sexo=sexo,
                     qtd_vagas=int(float(qtd or 1)),
                     status=status,
@@ -1938,6 +1948,7 @@ def baixar_modelo_importacao_dho(tipo_modelo: str):
             "nome_cargo",
             "tipo_vaga",
             "motivo_substituicao",
+            "nome_substituto",
             "sexo",
             "qtd_vagas",
             "tipo_recrutamento",
@@ -1949,8 +1960,8 @@ def baixar_modelo_importacao_dho(tipo_modelo: str):
             "observacoes",
         ]
         exemplos = [
-            ["Operações", "Mecânico", "Nova vaga", "", "Indiferente", 1, "Externo", "Aberta", "DHO", "01/06/2026", "15/07/2026", "", ""],
-            ["DHO", "Analista DHO", "Substituição", "Voluntário", "Indiferente", 1, "Interno", "Em andamento", "DHO", "01/06/2026", "01/08/2026", "", ""],
+            ["Operações", "Mecânico", "Nova vaga", "", "", "Indiferente", 1, "Externo", "Aberta", "DHO", "01/06/2026", "15/07/2026", "", ""],
+            ["DHO", "Analista DHO", "Substituição", "Voluntário", "Maria Souza", "Indiferente", 1, "Interno", "Em andamento", "DHO", "01/06/2026", "01/08/2026", "", ""],
         ]
         filename = "modelo_importacao_dho_vagas.xlsx"
 

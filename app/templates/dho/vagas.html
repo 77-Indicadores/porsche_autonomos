@@ -62,6 +62,12 @@
       </select>
     </div>
 
+    <div id="bloco_substituto" hidden>
+      <label class="label">Nome do substituto</label>
+      <input class="input" name="nome_substituto" id="nome_substituto"
+             placeholder="Quem está sendo substituído">
+    </div>
+
     <div>
       <label class="label">Sexo</label>
       <select class="input" name="sexo" id="sexo" required>
@@ -151,7 +157,12 @@
         <td>{{ item.nome_departamento or "-" }}</td>
         <td class="font-bold">{{ item.nome_cargo or "-" }}</td>
         <td>{{ item.tipo_vaga or "-" }}</td>
-        <td>{{ item.motivo_substituicao or "-" }}</td>
+        <td>
+          {{ item.motivo_substituicao or "-" }}
+          {% if item.nome_substituto %}
+          <div style="font-size:11px;color:#6b7280">{{ item.nome_substituto }}</div>
+          {% endif %}
+        </td>
         <td>{{ item.sexo or "-" }}</td>
         <td>{{ item.qtd_vagas or 1 }}</td>
         <td>{{ item.tipo_recrutamento or "-" }}</td>
@@ -168,6 +179,7 @@
             data-id-cargo="{{ item.id_cargo or '' }}"
             data-tipo-vaga="{{ item.tipo_vaga or '' }}"
             data-motivo-substituicao="{{ item.motivo_substituicao or '' }}"
+            data-nome-substituto="{{ item.nome_substituto or '' }}"
             data-sexo="{{ item.sexo or '' }}"
             data-qtd-vagas="{{ item.qtd_vagas or 1 }}"
             data-status="{{ item.status or '' }}"
@@ -197,6 +209,23 @@ function setValue(id, value) {
   if (el) el.value = value || "";
 }
 
+/* O nome do substituto só existe na vaga de substituição. Fica escondido nos
+   demais tipos e é limpo ao sair de "Substituição", para não deixar um nome
+   órfão preso numa vaga nova. */
+function alternarSubstituto() {
+  const bloco = document.getElementById("bloco_substituto");
+  const campo = document.getElementById("nome_substituto");
+  const eSubstituicao = document.getElementById("tipo_vaga").value === "Substituição";
+
+  bloco.hidden = !eSubstituicao;
+  if (!eSubstituicao) campo.value = "";
+}
+
+document.addEventListener("DOMContentLoaded", function () {
+  document.getElementById("tipo_vaga").addEventListener("change", alternarSubstituto);
+  alternarSubstituto();
+});
+
 function editarVaga(btn) {
   const d = btn.dataset || {};
 
@@ -206,6 +235,9 @@ function editarVaga(btn) {
   setValue("tipo_vaga", d.tipoVaga);
   setValue("motivo_substituicao", d.motivoSubstituicao);
   setValue("sexo", d.sexo);
+  // depois do tipo: o toggle limpa o campo quando não é substituição
+  alternarSubstituto();
+  setValue("nome_substituto", d.nomeSubstituto);
   setValue("qtd_vagas", d.qtdVagas);
   setValue("status", d.status);
   setValue("tipo_recrutamento", d.tipoRecrutamento);
@@ -228,6 +260,7 @@ function novoDho() {
   setValue("id_vaga", "");
   setValue("qtd_vagas", "1");
   setValue("tipo_recrutamento", "Externo");
+  alternarSubstituto();
 
   document.getElementById("titulo-form-dho").innerText = "Nova / editar vaga";
   document.getElementById("btn_salvar_dho").innerText = "Salvar vaga";
