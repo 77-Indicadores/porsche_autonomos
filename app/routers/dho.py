@@ -2364,7 +2364,10 @@ def baixar_modelo_aplicacoes_treinamento_dho(db: Session = Depends(get_db)):
         ws.cell(row_idx, 4).value = f'=IFERROR(VLOOKUP($B{row_idx},Pessoas!$A:$E,3,FALSE),"")'
         ws.cell(row_idx, 5).value = f'=IFERROR(VLOOKUP($B{row_idx},Pessoas!$A:$E,4,FALSE),"")'
         ws.cell(row_idx, 7).value = f'=IFERROR(VLOOKUP($A{row_idx},Treinamentos!$A:$B,2,FALSE),"")'
-        ws.cell(row_idx, 8).value = "Realizado"
+        # O status fica em branco: preenchê-lo nas 999 linhas fazia toda linha
+        # não usada parecer preenchida, e a importação as contava como
+        # "ignoradas". A lista de escolha continua valendo, e a importação
+        # assume "Realizado" quando a célula vem vazia.
 
     ws_pessoas.sheet_state = "hidden"
     ws_treinamentos.sheet_state = "hidden"
@@ -2411,6 +2414,7 @@ async def importar_aplicacoes_treinamento_dho(
         ignorados = 0
         empregados_por_nome = _empregados_importacao_por_nome(db)
         treinamentos_por_nome = _treinamentos_importacao_por_nome(db)
+        linhas_incompletas = 0
         pessoas_nao_encontradas = []
         treinamentos_nao_encontrados = []
         status_invalidos = []
@@ -2428,8 +2432,18 @@ async def importar_aplicacoes_treinamento_dho(
             status = _valor_importacao(row, "status") or "Realizado"
             observacoes = _valor_importacao(row, "observacoes", "observacao", "obs")
 
+            # Linha em branco não é linha ignorada. O modelo traz validação e
+            # fórmulas até a linha 1000, então o arquivo sempre tem centenas de
+            # linhas "quase vazias" depois do que foi digitado — contá-las fazia
+            # a importação anunciar centenas de erros que não existiam.
+            preenchidos = [v for k, v in row.items()
+                           if k != "status" and str(v or "").strip()]
+            if not preenchidos:
+                continue
+
             if not nome_treinamento or not pessoa_nome:
                 ignorados += 1
+                linhas_incompletas += 1
                 continue
 
             treinamento = treinamentos_por_nome.get(_normalizar_chave_pessoa(nome_treinamento))
@@ -2476,20 +2490,42 @@ async def importar_aplicacoes_treinamento_dho(
 
         db.commit()
 
+        # Cada motivo diz o que fazer: a lista de nomes sozinha não explicava
+        # por que a linha não entrou nem onde corrigir.
         detalhe_ignorados = ""
-        if pessoas_nao_encontradas:
-            nomes = ", ".join(sorted(set(pessoas_nao_encontradas))[:10])
-            detalhe_ignorados = f" Pessoas não encontradas em Empregados: {nomes}."
         if treinamentos_nao_encontrados:
-            nomes = ", ".join(sorted(set(treinamentos_nao_encontrados))[:10])
-            detalhe_ignorados += f" Treinamentos não encontrados: {nomes}."
+            nomes = ", ".join(sorted(set(treinamentos_nao_encontrados))[:5])
+            detalhe_ignorados += (
+                f" Treinamento não cadastrado em DHO › Treinamentos: {nomes}."
+                " Cadastre com exatamente o mesmo nome e importe de novo."
+            )
+        if pessoas_nao_encontradas:
+            nomes = ", ".join(sorted(set(pessoas_nao_encontradas))[:5])
+            detalhe_ignorados += (
+                f" Pessoa não encontrada em DHO › Empregados: {nomes}."
+                " Sincronize os empregados ou confira a grafia do nome."
+            )
         if status_invalidos:
-            nomes = ", ".join(sorted(set(status_invalidos))[:10])
-            detalhe_ignorados += f" Status inválidos: {nomes}."
+            nomes = ", ".join(sorted(set(status_invalidos))[:5])
+            validos = ", ".join(STATUS_APLICACAO)
+            detalhe_ignorados += f" Status inválido: {nomes}. Use um destes: {validos}."
+        if linhas_incompletas:
+            detalhe_ignorados += (
+                f" {linhas_incompletas} linha(s) sem nome do treinamento ou sem"
+                " o nome da pessoa."
+            )
+
+        if total:
+            msg = f"Importação concluída. {total} aplicação(ões) importada(s)."
+            if ignorados:
+                msg += f" {ignorados} linha(s) não entraram.{detalhe_ignorados}"
+            return redirect_with_message("/dho/importacoes", success=msg)
 
         return redirect_with_message(
             "/dho/importacoes",
-            success=f"Importação concluída. {total} aplicação(ões) importada(s). {ignorados} linha(s) ignorada(s).{detalhe_ignorados}",
+            error=("Nenhuma linha foi importada."
+                   + (detalhe_ignorados or
+                      " A planilha não tem linhas preenchidas na aba de aplicações.")),
         )
 
     except Exception as exc:
