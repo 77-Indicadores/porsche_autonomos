@@ -115,6 +115,8 @@
       <div class="nav-section">
         <div class="nav-section-title">Folha de Pagamento</div>
         <a class="nav-link {% if request.url.path == '/folha' %}active{% endif %}" href="/folha">📄 Extratos importados</a>
+        <div class="nav-subsection-title">Exportação</div>
+        <a class="nav-link {% if request.url.path.startswith('/folha/exportacao-liquidos') %}active{% endif %}" href="/folha/exportacao-liquidos">⤓ Líquidos (Protheus)</a>
         <div class="nav-subsection-title">Budget</div>
         <a class="nav-link {% if request.url.path == '/folha/budget' %}active{% endif %}" href="/folha/budget">📊 Visão Geral</a>
         <a class="nav-link {% if request.url.path == '/folha/budget/resultado' %}active{% endif %}" href="/folha/budget/resultado">💰 Resultado</a>
