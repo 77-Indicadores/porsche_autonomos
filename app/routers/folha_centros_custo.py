@@ -47,6 +47,17 @@ def _garantir_tabela():
             "ON folha_centros_custo (empresa, codigo)"
         ))
 
+        # Departamento no Protheus: preenchido pelo analista, fica vazio até lá
+        if conn.dialect.name == "sqlite":
+            existentes = [r[1] for r in conn.execute(
+                text("PRAGMA table_info(folha_centros_custo)")).fetchall()]
+            if "departamento_protheus" not in existentes:
+                conn.execute(text("ALTER TABLE folha_centros_custo "
+                                  "ADD COLUMN departamento_protheus VARCHAR(120)"))
+        else:
+            conn.execute(text("ALTER TABLE folha_centros_custo "
+                              "ADD COLUMN IF NOT EXISTS departamento_protheus VARCHAR(120)"))
+
 
 _garantir_tabela()
 
@@ -146,10 +157,16 @@ def nome_centro_custo(mapa: dict, empresa: str, codigo: str) -> str:
 @router.get("/folha/centros-custo")
 def index(request: Request, db: Session = Depends(get_db)):
     rows = db.execute(text("""
-        SELECT id, empresa, codigo, nome, status
+        SELECT id, empresa, codigo, nome, departamento_protheus, status
         FROM folha_centros_custo
         ORDER BY empresa, CAST(codigo AS INTEGER)
     """)).mappings().all()
+    # sugere no campo o que já foi digitado, para o analista não reescrever
+    protheus_existentes = sorted({
+        (r["departamento_protheus"] or "").strip()
+        for r in rows if (r["departamento_protheus"] or "").strip()
+    })
+    sem_protheus = sum(1 for r in rows if not (r["departamento_protheus"] or "").strip())
 
     empresas = sorted({r["empresa"] for r in rows if r["empresa"]})
     # empresas que aparecem na folha mas ainda não têm centro de custo cadastrado
@@ -166,6 +183,8 @@ def index(request: Request, db: Session = Depends(get_db)):
         "request": request,
         "rows": rows,
         "empresas": empresas,
+        "protheus_existentes": protheus_existentes,
+        "sem_protheus": sem_protheus,
         "success": request.query_params.get("success"),
         "error": request.query_params.get("error"),
     })
@@ -177,6 +196,7 @@ def salvar(
     empresa: str = Form(...),
     codigo: str = Form(...),
     nome: str = Form(...),
+    departamento_protheus: str = Form(""),
     status: str = Form("Ativo"),
     db: Session = Depends(get_db),
 ):
@@ -189,6 +209,7 @@ def salvar(
                                      error="Empresa, código e nome são obrigatórios.")
 
     dados = {"e": empresa, "c": codigo, "n": nome, "s": status,
+             "dp": departamento_protheus.strip() or None,
              "ts": datetime.utcnow()}
     id = (id or "").strip()
 
@@ -205,14 +226,16 @@ def salvar(
         dados["id"] = int(id)
         db.execute(text("""
             UPDATE folha_centros_custo
-            SET empresa = :e, codigo = :c, nome = :n, status = :s, atualizado_em = :ts
+            SET empresa = :e, codigo = :c, nome = :n, status = :s,
+                departamento_protheus = :dp, atualizado_em = :ts
             WHERE id = :id
         """), dados)
         msg = "Centro de custo atualizado."
     else:
         db.execute(text("""
-            INSERT INTO folha_centros_custo (empresa, codigo, nome, status, atualizado_em)
-            VALUES (:e, :c, :n, :s, :ts)
+            INSERT INTO folha_centros_custo
+                (empresa, codigo, nome, status, departamento_protheus, atualizado_em)
+            VALUES (:e, :c, :n, :s, :dp, :ts)
         """), dados)
         msg = "Centro de custo cadastrado."
 
