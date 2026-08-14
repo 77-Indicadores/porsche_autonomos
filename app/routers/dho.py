@@ -1776,6 +1776,40 @@ def dho_importacoes(request: Request):
     )
 
 
+# Coluna que identifica cada tipo de planilha, e onde ela deve ser enviada.
+# Os três modelos compartilham colunas (nome_treinamento, status, observacoes),
+# então mandar o arquivo no card errado passava despercebido: a importação
+# processava as linhas e dizia que deu certo, sem gravar o que o usuário queria.
+_ASSINATURA_IMPORTACAO = {
+    "pessoa_nome": ("aplicações de treinamento", "Importar aplicações"),
+    "carga_horaria_padrao": ("cadastro de treinamentos", "Importar treinamentos"),
+    "tipo_vaga": ("vagas", "Importar vagas"),
+}
+
+_ESPERADO_POR_TIPO = {
+    "treinamentos": "carga_horaria_padrao",
+    "cursos": "carga_horaria_padrao",
+    "cadastro_curso": "carga_horaria_padrao",
+    "cadastro_treinamento": "carga_horaria_padrao",
+    "vagas": "tipo_vaga",
+}
+
+
+def _conferir_layout(tipo_importacao: str, headers: list[str]) -> str | None:
+    """Devolve o aviso quando a planilha não é a esperada por este card."""
+    presentes = {h for h in headers if h}
+    esperado = _ESPERADO_POR_TIPO.get(tipo_importacao)
+    if not esperado or esperado in presentes:
+        return None
+
+    for coluna, (nome_arquivo, card) in _ASSINATURA_IMPORTACAO.items():
+        if coluna in presentes:
+            _, card_certo = _ASSINATURA_IMPORTACAO[esperado]
+            return (f"Esta planilha é de {nome_arquivo}, e foi enviada em "
+                    f"\"{card_certo}\". Use o card \"{card}\" para importá-la.")
+    return None
+
+
 @router.post("/dho/importacoes")
 async def importar_dho(
     request: Request,
@@ -1798,6 +1832,11 @@ async def importar_dho(
             return redirect_with_message("/dho/importacoes", error="Arquivo vazio.")
 
         headers = [_norm_col(h) for h in linhas[0]]
+
+        erro_layout = _conferir_layout(tipo_importacao, headers)
+        if erro_layout:
+            return redirect_with_message("/dho/importacoes", error=erro_layout)
+
         total = 0
 
         for vals in linhas[1:]:
@@ -2471,6 +2510,17 @@ async def importar_aplicacoes_treinamento_dho(
             return redirect_with_message("/dho/importacoes", error="Arquivo vazio.")
 
         headers = [_normalizar_coluna_importacao(h) for h in linhas[0]]
+        if "pessoa_nome" not in {h for h in headers if h}:
+            outro = next((_ASSINATURA_IMPORTACAO[c][1] for c in _ASSINATURA_IMPORTACAO
+                          if c in set(headers)), None)
+            return redirect_with_message(
+                "/dho/importacoes",
+                error=("Esta planilha não tem a coluna 'pessoa_nome', então não é de "
+                       "aplicações de treinamento."
+                       + (f" Use o card \"{outro}\"." if outro else
+                          " Baixe o modelo em \"Importar aplicações\".")),
+            )
+
         total = 0
         ignorados = 0
         empregados_por_nome = _empregados_importacao_por_nome(db)
