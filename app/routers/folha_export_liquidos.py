@@ -197,6 +197,14 @@ def _parametros(request: Request) -> dict:
 # ─── tela ────────────────────────────────────────────────────────────
 @router.get("/folha/exportacao-liquidos")
 def index(request: Request, competencia: str = "", db: Session = Depends(get_db)):
+    # o Fornecedor é a matrícula do Feedz: vale garantir que ela está atual
+    # antes de montar o arquivo que vai para o Protheus
+    try:
+        from app.routers.dho import sincronizar_empregados_se_vencido
+        sincronizar_empregados_se_vencido(db)
+    except Exception as exc:
+        print(f"AVISO - não consegui atualizar empregados antes da exportação: {exc}")
+
     comps = _competencias(db)
     competencia = competencia or (comps[0] if comps else "")
     p = _parametros(request)

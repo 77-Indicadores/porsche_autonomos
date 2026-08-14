@@ -20,6 +20,20 @@
   <span class="quick-action light">{{ total_empregados }} empregado(s) na base local</span>
 </div>
 
+<p style="margin:.6rem 0 0;font-size:.78rem;color:#6b7280">
+  {% if horas_sync %}
+    Sincroniza sozinho a cada {{ horas_sync }}h ao abrir esta tela.
+  {% else %}
+    Sincronização automática desligada.
+  {% endif %}
+  {% if ultima_sincronizacao %}
+    Última: {{ ultima_sincronizacao.strftime('%d/%m/%Y às %H:%M') }} (UTC).
+  {% else %}
+    Nunca sincronizado.
+  {% endif %}
+  O botão acima força uma sincronização agora.
+</p>
+
 <article class="panel mt-4">
   <div class="panel-head">
     <h3>Empregados sincronizados</h3>

@@ -3,7 +3,7 @@ import os
 import json
 import unicodedata
 from io import BytesIO
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 
 from catworld import CatworldClient
 from catworld.exceptions import (
@@ -2654,6 +2654,9 @@ def empregados_list(request: Request, db: Session = Depends(get_db)):
     current_user = getattr(request.state, "current_user", None)
     if not current_user:
         return RedirectResponse("/auth/login", status_code=303)
+
+    sincronizar_empregados_se_vencido(db)
+
     rows = db.execute(
         select(
             dho_empregados,
@@ -2675,9 +2678,49 @@ def empregados_list(request: Request, db: Session = Depends(get_db)):
             "current_user": current_user,
             "empregados": rows,
             "total_empregados": len(rows),
+            "ultima_sincronizacao": ultima_sincronizacao_empregados(db),
+            "horas_sync": _HORAS_SYNC_EMPREGADOS,
             **flash_from_request(request),
         },
     )
+
+
+# Sincronização automática de empregados
+# ---------------------------------------
+# A base vinha da fonte oficial só quando alguém clicava em "Sincronizar", e
+# esquecer disso deixava desligado aparecendo como ativo. O intervalo é
+# configurável; 0 desliga e volta ao modo manual.
+_HORAS_SYNC_EMPREGADOS = int(os.getenv("DHO_SYNC_EMPREGADOS_HORAS", "12") or 0)
+
+
+def ultima_sincronizacao_empregados(db: Session):
+    """Momento do registro mais recente; None quando a base está vazia."""
+    try:
+        return db.execute(
+            select(func.max(dho_empregados.c.atualizado_em))
+        ).scalar()
+    except Exception:
+        return None
+
+
+def sincronizar_empregados_se_vencido(db: Session) -> dict | None:
+    """Sincroniza quando a última carga passou do intervalo.
+
+    Silencioso de propósito: é um complemento da tela, e a fonte é externa.
+    Se ela estiver fora, a página continua abrindo com o que já existe.
+    """
+    if _HORAS_SYNC_EMPREGADOS <= 0:
+        return None
+    ultima = ultima_sincronizacao_empregados(db)
+    if ultima and (datetime.utcnow() - ultima) < timedelta(hours=_HORAS_SYNC_EMPREGADOS):
+        return None
+    try:
+        resultado = sincronizar_empregados_dataworld(db)
+        print(f"OK - empregados sincronizados automaticamente: {resultado}")
+        return resultado
+    except Exception as exc:
+        print(f"AVISO - sincronização automática de empregados falhou: {exc}")
+        return None
 
 
 @router.post("/dho/empregados/sincronizar")
