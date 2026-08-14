@@ -26,6 +26,7 @@ from sqlalchemy import (
     Table,
     Text,
     delete,
+    func,
     insert,
     select,
     text,
@@ -1554,6 +1555,16 @@ def aplicacoes_treinamento(request: Request, q: str = "", id_treinamento: str = 
         print(f"AVISO - não consegui listar aplicações DHO: {exc}")
         items = []
 
+    # Total da base, sem nenhum filtro. Precisa ser contado à parte: usar o
+    # tamanho da lista já filtrada faria a tela dizer "nenhum treinamento
+    # aplicado" quando na verdade existem, mas nenhum casa com o filtro.
+    try:
+        total_base = db.execute(
+            select(func.count()).select_from(dho_treinamento_aplicacoes)
+        ).scalar() or 0
+    except Exception:
+        total_base = len(items)
+
     # Enriquece registros quando matricula/funcao/centro_custo estão vazios.
     # É complemento, não essencial: se a fonte externa estiver fora, a lista
     # continua aparecendo em vez de derrubar a tela inteira.
@@ -1620,7 +1631,8 @@ def aplicacoes_treinamento(request: Request, q: str = "", id_treinamento: str = 
             "ate": ate,
             "setores": setores,
             "total_filtrado": len(items),
-            "total_geral": len(items_enriquecidos),
+            "total_geral": total_base,
+            "tem_filtro": bool(q or id_treinamento or status or setor or de or ate),
             "horas_total": horas_total,
             "pessoas_unicas": pessoas_unicas,
             "treinamentos": get_treinamentos(db),

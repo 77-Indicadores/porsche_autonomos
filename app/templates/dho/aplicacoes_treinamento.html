@@ -66,7 +66,7 @@
 
   <div style="margin-top:.8rem;padding-top:.7rem;border-top:1px solid #eef0f2;display:flex;gap:1.4rem;flex-wrap:wrap;font-size:.82rem">
     <span><b>{{ total_filtrado }}</b> aplicação(ões)
-      {% if total_filtrado != total_geral %}<span style="color:#9ca3af">de {{ total_geral }}</span>{% endif %}</span>
+      {% if tem_filtro and total_geral %}<span style="color:#9ca3af">de {{ total_geral }} no total</span>{% endif %}</span>
     <span><b>{{ pessoas_unicas }}</b> pessoa(s)</span>
     <span><b>{{ fmt_num(horas_total) }}</b> hora(s)</span>
   </div>
@@ -242,7 +242,10 @@
       </tr>
       {% else %}
       <tr><td colspan="11" class="empty">
-        {% if total_geral %}Nenhuma aplicação corresponde aos filtros.
+        {% if tem_filtro %}
+          Nenhuma aplicação corresponde aos filtros.
+          {% if total_geral %}Há {{ total_geral }} aplicação(ões) cadastrada(s) no total —
+          <a href="/dho/aplicacoes-treinamento">ver todas</a>.{% endif %}
         {% else %}Nenhum treinamento aplicado.{% endif %}
       </td></tr>
       {% endfor %}
