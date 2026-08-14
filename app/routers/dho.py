@@ -1513,7 +1513,10 @@ def sincronizar_estrutura_dataworld(db: Session, force: bool = False):
 
 
 @router.get("/dho/aplicacoes-treinamento")
-def aplicacoes_treinamento(request: Request, q: str = "", db: Session = Depends(get_db)):
+def aplicacoes_treinamento(request: Request, q: str = "", id_treinamento: str = "",
+                           status: str = "", setor: str = "",
+                           de: str = "", ate: str = "",
+                           db: Session = Depends(get_db)):
     query = (
         select(
             dho_treinamento_aplicacoes,
@@ -1532,9 +1535,17 @@ def aplicacoes_treinamento(request: Request, q: str = "", db: Session = Depends(
         like = f"%{q}%"
         query = query.where(
             dho_treinamento_aplicacoes.c.pessoa_nome.like(like)
+            | dho_treinamento_aplicacoes.c.matricula.like(like)
             | dho_treinamentos.c.nome_treinamento.like(like)
             | dho_treinamentos.c.tipo_treinamento.like(like)
         )
+
+    id_treinamento_int = to_int_or_none(id_treinamento)
+    if id_treinamento_int:
+        query = query.where(
+            dho_treinamento_aplicacoes.c.id_treinamento == id_treinamento_int)
+    if status:
+        query = query.where(dho_treinamento_aplicacoes.c.status == status)
 
     try:
         items = db.execute(query.order_by(dho_treinamento_aplicacoes.c.id_aplicacao.desc())).mappings().all()
@@ -1543,8 +1554,14 @@ def aplicacoes_treinamento(request: Request, q: str = "", db: Session = Depends(
         print(f"AVISO - não consegui listar aplicações DHO: {exc}")
         items = []
 
-    # Enriquece registros quando matricula/funcao/centro_custo estão vazios
-    pessoas_dw = carregar_pessoas_interno(db) or list(carregar_pessoas_dataworld())
+    # Enriquece registros quando matricula/funcao/centro_custo estão vazios.
+    # É complemento, não essencial: se a fonte externa estiver fora, a lista
+    # continua aparecendo em vez de derrubar a tela inteira.
+    try:
+        pessoas_dw = carregar_pessoas_interno(db) or list(carregar_pessoas_dataworld())
+    except Exception as exc:
+        print(f"AVISO - sem dados para complementar as aplicações: {exc}")
+        pessoas_dw = []
     dw_por_nome = {
         str(p.get("nome_exibicao") or p.get("nome") or "").strip().lower(): p
         for p in pessoas_dw
@@ -1568,12 +1585,44 @@ def aplicacoes_treinamento(request: Request, q: str = "", db: Session = Depends(
         items_enriquecidos.append(item)
     items = items_enriquecidos
 
+    # Setor e período filtram depois do enriquecimento: o centro de custo pode
+    # vir da fonte oficial, e a data está gravada como texto em formatos mistos.
+    if setor:
+        alvo = setor.strip().upper()
+        items = [i for i in items
+                 if (i.get("centro_custo") or "").strip().upper() == alvo]
+
+    dt_de, dt_ate = data_para_date(de), data_para_date(ate)
+    if dt_de or dt_ate:
+        def no_periodo(i):
+            d = data_para_date(i.get("data_treinamento"))
+            if not d:
+                return False
+            return (not dt_de or d >= dt_de) and (not dt_ate or d <= dt_ate)
+        items = [i for i in items if no_periodo(i)]
+
+    setores = sorted({(i.get("centro_custo") or "").strip()
+                      for i in items_enriquecidos if (i.get("centro_custo") or "").strip()})
+    horas_total = sum(float(i.get("carga_horaria") or 0) for i in items)
+    pessoas_unicas = len({(i.get("pessoa_nome") or "").strip().upper()
+                          for i in items if i.get("pessoa_nome")})
+
     return templates.TemplateResponse(
         "dho/aplicacoes_treinamento.html",
         {
             "request": request,
             "items": items,
             "q": q,
+            "id_treinamento_sel": id_treinamento,
+            "status_sel": status,
+            "setor_sel": setor,
+            "de": de,
+            "ate": ate,
+            "setores": setores,
+            "total_filtrado": len(items),
+            "total_geral": len(items_enriquecidos),
+            "horas_total": horas_total,
+            "pessoas_unicas": pessoas_unicas,
             "treinamentos": get_treinamentos(db),
             "autonomos": get_autonomos(db),
             "pessoas_dataworld": carregar_pessoas_aplicacao_treinamento(db),

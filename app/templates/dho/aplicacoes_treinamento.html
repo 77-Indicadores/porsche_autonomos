@@ -11,10 +11,65 @@
 {% block content %}
 
 <section class="panel mb-6">
-  <form method="get" class="flex gap-3">
-    <input class="input" name="q" placeholder="Pesquisar por pessoa ou treinamento" value="{{ q }}">
-    <button class="btn-secondary">Pesquisar</button>
+  <form method="get" id="form_filtros">
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:.7rem;align-items:end">
+      <div style="grid-column:span 2;min-width:220px">
+        <label class="label" style="font-size:.72rem">Pessoa ou matrícula</label>
+        <input class="input" name="q" value="{{ q }}" style="width:100%;box-sizing:border-box"
+               placeholder="Nome ou matrícula">
+      </div>
+      <div>
+        <label class="label" style="font-size:.72rem">Treinamento</label>
+        <select class="input" name="id_treinamento" style="width:100%;box-sizing:border-box">
+          <option value="">Todos</option>
+          {% for t in treinamentos %}
+          <option value="{{ t.id_treinamento }}"
+                  {% if id_treinamento_sel == t.id_treinamento|string %}selected{% endif %}>{{ t.nome_treinamento }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div>
+        <label class="label" style="font-size:.72rem">Status</label>
+        <select class="input" name="status" style="width:100%;box-sizing:border-box">
+          <option value="">Todos</option>
+          {% for s in status_aplicacao %}
+          <option value="{{ s }}" {% if status_sel == s %}selected{% endif %}>{{ s }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div>
+        <label class="label" style="font-size:.72rem">Centro de custo</label>
+        <select class="input" name="setor" style="width:100%;box-sizing:border-box">
+          <option value="">Todos</option>
+          {% for s in setores %}
+          <option value="{{ s }}" {% if setor_sel == s %}selected{% endif %}>{{ s }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div>
+        <label class="label" style="font-size:.72rem">De</label>
+        <input class="input" name="de" value="{{ de }}" placeholder="dd/mm/aaaa"
+               style="width:100%;box-sizing:border-box">
+      </div>
+      <div>
+        <label class="label" style="font-size:.72rem">Até</label>
+        <input class="input" name="ate" value="{{ ate }}" placeholder="dd/mm/aaaa"
+               style="width:100%;box-sizing:border-box">
+      </div>
+      <div style="display:flex;gap:.4rem">
+        <button class="btn-secondary" style="flex:1">Filtrar</button>
+        <a href="/dho/aplicacoes-treinamento" class="btn-secondary"
+           style="display:flex;align-items:center;text-decoration:none">Limpar</a>
+      </div>
+    </div>
   </form>
+
+  <div style="margin-top:.8rem;padding-top:.7rem;border-top:1px solid #eef0f2;display:flex;gap:1.4rem;flex-wrap:wrap;font-size:.82rem">
+    <span><b>{{ total_filtrado }}</b> aplicação(ões)
+      {% if total_filtrado != total_geral %}<span style="color:#9ca3af">de {{ total_geral }}</span>{% endif %}</span>
+    <span><b>{{ pessoas_unicas }}</b> pessoa(s)</span>
+    <span><b>{{ fmt_num(horas_total) }}</b> hora(s)</span>
+  </div>
 </section>
 
 <section class="panel mb-6">
@@ -186,7 +241,10 @@
         </td>
       </tr>
       {% else %}
-      <tr><td colspan="11" class="empty">Nenhum treinamento aplicado.</td></tr>
+      <tr><td colspan="11" class="empty">
+        {% if total_geral %}Nenhuma aplicação corresponde aos filtros.
+        {% else %}Nenhum treinamento aplicado.{% endif %}
+      </td></tr>
       {% endfor %}
     </tbody>
   </table>
