@@ -9,7 +9,7 @@ from starlette.responses import RedirectResponse
 
 from app.auth import SESSION_COOKIE, read_session_token, tem_acesso_modulo
 from app.database import Base, engine, garantir_schema_usuarios, limpar_datas_vazias_sqlite
-from app.routers import alocacoes, auth, cadastros, dashboard, relatorios, usuarios, referencias_importacao, pesquisas, equipe_geral, dho, facilities, composicao_meta_equipe, budget, folha_centros_custo, folha_export_liquidos, indicadores_pesquisas
+from app.routers import alocacoes, auth, cadastros, dashboard, relatorios, usuarios, referencias_importacao, pesquisas, equipe_geral, dho, facilities, composicao_meta_equipe, budget, folha_centros_custo, folha_export_liquidos, folha_movimentacoes, indicadores_pesquisas
 
 
 Base.metadata.create_all(bind=engine)
@@ -132,6 +132,7 @@ app.include_router(equipe_geral.router)
 app.include_router(alocacoes.router)
 app.include_router(folha_centros_custo.router)
 app.include_router(folha_export_liquidos.router)
+app.include_router(folha_movimentacoes.router)
 app.include_router(indicadores_pesquisas.router)
 app.include_router(relatorios.router)
 app.include_router(pesquisas.router)

@@ -1,0 +1,120 @@
+{% extends "base.html" %}
+{% block title %}Movimentações{% endblock %}
+{% block header %}Movimentações{% endblock %}
+{% block subtitle %}Mudanças de centro de custo, função e salário entre competências{% endblock %}
+{% block content %}
+
+<form method="get" action="/folha/movimentacoes"
+      style="background:#fff;border:1px solid #e5e7eb;border-radius:10px;padding:1rem 1.2rem;margin-bottom:1rem">
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:.7rem;align-items:end">
+    <div style="grid-column:span 2;min-width:200px">
+      <label style="font-size:.72rem;font-weight:600;color:#6b7280;text-transform:uppercase;display:block;margin-bottom:.25rem">Nome ou matrícula</label>
+      <input class="input" name="q" value="{{ q }}" placeholder="Buscar pessoa" style="width:100%;box-sizing:border-box">
+    </div>
+    <div>
+      <label style="font-size:.72rem;font-weight:600;color:#6b7280;text-transform:uppercase;display:block;margin-bottom:.25rem">Competência</label>
+      <select class="input" name="competencia" style="width:100%;box-sizing:border-box">
+        <option value="">Todas</option>
+        {% for c in competencias %}
+        <option value="{{ c }}" {% if competencia_sel == c %}selected{% endif %}>{{ c }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div>
+      <label style="font-size:.72rem;font-weight:600;color:#6b7280;text-transform:uppercase;display:block;margin-bottom:.25rem">Empresa</label>
+      <select class="input" name="empresa" style="width:100%;box-sizing:border-box">
+        <option value="">Todas</option>
+        {% for e in empresas %}
+        <option value="{{ e }}" {% if empresa_sel == e %}selected{% endif %}>{{ e | empresa_curta }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div>
+      <label style="font-size:.72rem;font-weight:600;color:#6b7280;text-transform:uppercase;display:block;margin-bottom:.25rem">Tipo</label>
+      <select class="input" name="tipo" style="width:100%;box-sizing:border-box">
+        <option value="">Todos</option>
+        {% for chave, rotulo in tipos.items() %}
+        <option value="{{ chave }}" {% if tipo_sel == chave %}selected{% endif %}>{{ rotulo }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div style="display:flex;gap:.4rem">
+      <button class="btn-secondary" style="flex:1">Filtrar</button>
+      <a href="/folha/movimentacoes" class="btn-secondary" style="display:flex;align-items:center;text-decoration:none">Limpar</a>
+    </div>
+  </div>
+
+  <div style="margin-top:.85rem;padding-top:.7rem;border-top:1px solid #eef0f2;display:flex;gap:1.3rem;flex-wrap:wrap;align-items:center;font-size:.82rem">
+    <span><b>{{ total }}</b> movimentação(ões)
+      {% if tem_filtro and total_geral %}<span style="color:#9ca3af">de {{ total_geral }} no total</span>{% endif %}</span>
+    <span style="color:#6b7280">{{ resumo.centro_custo }} de centro de custo</span>
+    <span style="color:#6b7280">{{ resumo.cargo }} de função</span>
+    <span style="color:#6b7280">{{ resumo.salario }} de salário</span>
+    {% if total %}
+    <a href="/folha/movimentacoes/exportar?competencia={{ competencia_sel }}&empresa={{ empresa_sel }}&tipo={{ tipo_sel }}&q={{ q }}"
+       style="margin-left:auto;padding:.4rem .9rem;background:#0f7a3d;color:#fff;border-radius:6px;text-decoration:none;font-weight:600;font-size:.78rem">
+      ⤓ Exportar Excel
+    </a>
+    {% endif %}
+  </div>
+</form>
+
+<div style="background:#fff;border:1px solid #e5e7eb;border-radius:10px;overflow:hidden">
+  <div style="overflow-x:auto">
+  <table style="width:100%;border-collapse:collapse;font-size:.85rem;min-width:900px">
+    <thead><tr style="background:#f9fafb">
+      {% for th in ['Matrícula','Nome','Empresa','Competência','Tipo','De','Para'] %}
+      <th style="padding:.55rem 1rem;text-align:left;font-size:.7rem;font-weight:600;color:#6b7280;text-transform:uppercase;letter-spacing:.05em;border-bottom:1px solid #e5e7eb;white-space:nowrap">{{ th }}</th>
+      {% endfor %}
+    </tr></thead>
+    <tbody>
+      {% for m in movimentos %}
+      <tr style="border-bottom:1px solid #f3f4f6">
+        <td style="padding:.6rem 1rem;color:#6b7280;white-space:nowrap">{{ m.matricula }}</td>
+        <td style="padding:.6rem 1rem;font-weight:600">{{ m.nome }}</td>
+        <td style="padding:.6rem 1rem;color:#6b7280;white-space:nowrap">{{ m.empresa_curta }}</td>
+        <td style="padding:.6rem 1rem;white-space:nowrap">
+          {{ m.competencia }}
+          <div style="font-size:.7rem;color:#9ca3af">veio de {{ m.competencia_anterior }}</div>
+        </td>
+        <td style="padding:.6rem 1rem;white-space:nowrap">
+          {% if m.tipo == 'salario' %}
+          <span style="font-size:.72rem;font-weight:600;padding:.15rem .55rem;border-radius:999px;background:#eff6ff;color:#1d4ed8">Salário</span>
+          {% elif m.tipo == 'cargo' %}
+          <span style="font-size:.72rem;font-weight:600;padding:.15rem .55rem;border-radius:999px;background:#f5f3ff;color:#6d28d9">Função</span>
+          {% else %}
+          <span style="font-size:.72rem;font-weight:600;padding:.15rem .55rem;border-radius:999px;background:#fff7ed;color:#c2410c">Centro de custo</span>
+          {% endif %}
+        </td>
+        <td style="padding:.6rem 1rem;color:#6b7280">{{ m.de }}</td>
+        <td style="padding:.6rem 1rem;font-weight:600">
+          {{ m.para }}
+          {% if m.variacao is not none %}
+          <span style="font-size:.72rem;font-weight:700;margin-left:.3rem;color:{% if m.variacao >= 0 %}#15803d{% else %}#b91c1c{% endif %}">
+            {{ '+' if m.variacao >= 0 else '' }}{{ '%.1f'|format(m.variacao)|replace('.', ',') }}%
+          </span>
+          {% endif %}
+        </td>
+      </tr>
+      {% else %}
+      <tr><td colspan="7" style="padding:1.6rem;text-align:center;color:#9ca3af;font-style:italic">
+        {% if tem_filtro %}
+          Nenhuma movimentação corresponde aos filtros.
+          {% if total_geral %}Há {{ total_geral }} no total — <a href="/folha/movimentacoes">ver todas</a>.{% endif %}
+        {% else %}
+          Nenhuma movimentação encontrada. É preciso ter pelo menos duas competências
+          importadas para comparar.
+        {% endif %}
+      </td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  </div>
+</div>
+
+<p style="margin:.8rem 0 0;font-size:.75rem;color:#6b7280">
+  As movimentações são deduzidas dos extratos importados: cada competência é comparada
+  com a anterior em que a pessoa aparece. Quem entrou ou saiu no período não conta como
+  movimentação, por não ter as duas pontas para comparar.
+</p>
+{% endblock %}
