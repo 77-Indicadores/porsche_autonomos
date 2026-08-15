@@ -50,6 +50,11 @@
     <span style="color:#6b7280">{{ resumo.centro_custo }} de centro de custo</span>
     <span style="color:#6b7280">{{ resumo.cargo }} de função</span>
     <span style="color:#6b7280">{{ resumo.salario }} de salário</span>
+    {% if sem_motivo %}
+    <span style="font-size:.72rem;font-weight:600;padding:.15rem .55rem;border-radius:999px;background:#fef9c3;color:#854d0e;white-space:nowrap">
+      {{ sem_motivo }} sem motivo
+    </span>
+    {% endif %}
     {% if total %}
     <a href="/folha/movimentacoes/exportar?competencia={{ competencia_sel }}&empresa={{ empresa_sel }}&tipo={{ tipo_sel }}&q={{ q }}"
        style="margin-left:auto;padding:.4rem .9rem;background:#0f7a3d;color:#fff;border-radius:6px;text-decoration:none;font-weight:600;font-size:.78rem">
@@ -63,7 +68,7 @@
   <div style="overflow-x:auto">
   <table style="width:100%;border-collapse:collapse;font-size:.85rem;min-width:900px">
     <thead><tr style="background:#f9fafb">
-      {% for th in ['Matrícula','Nome','Empresa','Competência','Tipo','De','Para'] %}
+      {% for th in ['Matrícula','Nome','Empresa','Competência','Tipo','De','Para','Motivo'] %}
       <th style="padding:.55rem 1rem;text-align:left;font-size:.7rem;font-weight:600;color:#6b7280;text-transform:uppercase;letter-spacing:.05em;border-bottom:1px solid #e5e7eb;white-space:nowrap">{{ th }}</th>
       {% endfor %}
     </tr></thead>
@@ -95,9 +100,25 @@
           </span>
           {% endif %}
         </td>
+        <td style="padding:.5rem 1rem;min-width:230px">
+          <select class="input mov-motivo" style="width:100%;box-sizing:border-box;font-size:.8rem"
+                  data-matricula="{{ m.matricula }}" data-empresa="{{ m.empresa }}"
+                  data-competencia="{{ m.competencia }}" data-tipo="{{ m.tipo }}"
+                  onchange="movMotivo(this)">
+            <option value="">— selecione —</option>
+            {% for op in motivos[m.tipo] %}
+            <option value="{{ op }}" {% if m.motivo == op %}selected{% endif %}>{{ op }}</option>
+            {% endfor %}
+          </select>
+          <input class="input mov-obs" placeholder="Descreva o motivo"
+                 value="{{ m.observacao }}" oninput="movObs(this)"
+                 style="width:100%;box-sizing:border-box;font-size:.78rem;margin-top:.3rem"
+                 {% if m.motivo != 'Outros' %}hidden{% endif %}>
+          <span class="mov-status" style="font-size:.7rem;font-weight:700"></span>
+        </td>
       </tr>
       {% else %}
-      <tr><td colspan="7" style="padding:1.6rem;text-align:center;color:#9ca3af;font-style:italic">
+      <tr><td colspan="8" style="padding:1.6rem;text-align:center;color:#9ca3af;font-style:italic">
         {% if tem_filtro %}
           Nenhuma movimentação corresponde aos filtros.
           {% if total_geral %}Há {{ total_geral }} no total — <a href="/folha/movimentacoes">ver todas</a>.{% endif %}
@@ -115,6 +136,67 @@
 <p style="margin:.8rem 0 0;font-size:.75rem;color:#6b7280">
   As movimentações são deduzidas dos extratos importados: cada competência é comparada
   com a anterior em que a pessoa aparece. Quem entrou ou saiu no período não conta como
-  movimentação, por não ter as duas pontas para comparar.
+  movimentação, por não ter as duas pontas para comparar. O motivo é salvo sozinho ao
+  escolher; as opções mudam conforme o tipo da alteração.
 </p>
+
+<script>
+/* O motivo salva sozinho: são muitas linhas, e um botão por linha faria o
+   analista perder o trabalho ao trocar de página sem clicar. */
+const _movTimers = new WeakMap();
+
+function movLinha(el) { return el.closest('td'); }
+
+function movEnviar(td) {
+  const sel = td.querySelector('.mov-motivo');
+  const obs = td.querySelector('.mov-obs');
+  const status = td.querySelector('.mov-status');
+
+  status.textContent = 'salvando…';
+  status.style.color = '#94a3b8';
+
+  const dados = new FormData();
+  dados.append('matricula', sel.dataset.matricula);
+  dados.append('empresa', sel.dataset.empresa);
+  dados.append('competencia', sel.dataset.competencia);
+  dados.append('tipo', sel.dataset.tipo);
+  dados.append('motivo', sel.value);
+  dados.append('observacao', obs.value);
+
+  fetch('/folha/movimentacoes/motivo', {
+    method: 'POST', headers: { 'x-fetch': '1' }, body: dados
+  })
+    .then(function (r) { return r.json(); })
+    .then(function (j) {
+      if (!j.ok) throw new Error();
+      status.textContent = '✓ salvo';
+      status.style.color = '#16a34a';
+      setTimeout(function () { status.textContent = ''; }, 1800);
+    })
+    .catch(function () {
+      status.textContent = 'erro ao salvar';
+      status.style.color = '#dc2626';
+    });
+}
+
+function movMotivo(sel) {
+  const td = movLinha(sel);
+  const obs = td.querySelector('.mov-obs');
+  const ehOutros = sel.value === 'Outros';
+
+  obs.hidden = !ehOutros;
+  // trocar de "Outros" para um motivo da lista descarta a descrição, que
+  // deixaria de fazer sentido ao lado do novo motivo
+  if (!ehOutros) obs.value = '';
+
+  movEnviar(td);
+  if (ehOutros) obs.focus();
+}
+
+function movObs(input) {
+  const td = movLinha(input);
+  clearTimeout(_movTimers.get(input));
+  _movTimers.set(input, setTimeout(function () { movEnviar(td); }, 700));
+}
+</script>
 {% endblock %}

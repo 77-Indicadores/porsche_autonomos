@@ -9,14 +9,16 @@ from __future__ import annotations
 import re
 from io import BytesIO
 
-from fastapi import APIRouter, Depends, Request
-from fastapi.responses import StreamingResponse
+from datetime import datetime
+
+from fastapi import APIRouter, Depends, Form, Request
+from fastapi.responses import JSONResponse, StreamingResponse
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
-from app.database import get_db
+from app.database import engine, get_db
 from app.template_config import templates
-from app.utils import empresa_curta
+from app.utils import empresa_curta, redirect_with_message
 
 router = APIRouter(tags=["folha_movimentacoes"])
 
@@ -25,6 +27,82 @@ TIPOS = {
     "cargo": "Função",
     "salario": "Salário",
 }
+
+# Motivos sugeridos por tipo de alteração. "Outros" abre o campo de texto.
+MOTIVOS = {
+    "salario": [
+        "Promoção", "Mérito / desempenho", "Reajuste coletivo / sindicato",
+        "Dissídio / data-base", "Equiparação salarial", "Ajuste de mercado",
+        "Retenção de profissional", "Aumento por tempo de serviço",
+        "Alteração de jornada/carga horária", "Correção cadastral",
+        "Reestruturação salarial", "Negociação individual", "Outros",
+    ],
+    "cargo": [
+        "Promoção", "Progressão de carreira", "Rebaixamento / reenquadramento",
+        "Mudança lateral", "Substituição de função", "Retorno à função anterior",
+        "Adequação às atividades exercidas", "Reestruturação organizacional",
+        "Alteração de nomenclatura do cargo", "Mudança de carreira/trilha",
+        "Correção cadastral", "Outros",
+    ],
+    "centro_custo": [
+        "Transferência interna", "Reestruturação organizacional",
+        "Necessidade operacional", "Movimentação a pedido do colaborador",
+        "Movimentação a pedido da gestão", "Promoção",
+        "Mudança de projeto/contrato", "Mudança de unidade/filial",
+        "Centralização de atividades", "Descentralização de atividades",
+        "Correção cadastral", "Outros",
+    ],
+}
+
+
+def _garantir_tabela_motivos():
+    """Guarda o motivo de cada movimentação.
+
+    A movimentação em si é deduzida dos extratos e não existe como registro,
+    então a chave é o que a identifica: pessoa, empresa, competência e tipo.
+    """
+    try:
+        with engine.begin() as conn:
+            serial = ("INTEGER PRIMARY KEY AUTOINCREMENT"
+                      if conn.dialect.name == "sqlite" else "SERIAL PRIMARY KEY")
+            conn.execute(text(f"""
+                CREATE TABLE IF NOT EXISTS folha_movimentacao_motivos (
+                    id {serial},
+                    matricula VARCHAR(40) NOT NULL,
+                    empresa VARCHAR(160) NOT NULL,
+                    competencia VARCHAR(10) NOT NULL,
+                    tipo VARCHAR(30) NOT NULL,
+                    motivo VARCHAR(120),
+                    observacao TEXT,
+                    atualizado_em TIMESTAMP
+                )
+            """))
+            conn.execute(text(
+                "CREATE UNIQUE INDEX IF NOT EXISTS uq_folha_mov_motivo "
+                "ON folha_movimentacao_motivos (matricula, empresa, competencia, tipo)"
+            ))
+    except Exception as exc:
+        print(f"AVISO - tabela de motivos de movimentação: {exc}")
+
+
+_garantir_tabela_motivos()
+
+
+def _chave_motivo(m: dict) -> str:
+    return f"{m['matricula']}|{m['empresa']}|{m['competencia']}|{m['tipo']}"
+
+
+def _motivos_gravados(db: Session) -> dict[str, dict]:
+    try:
+        return {
+            f"{r['matricula']}|{r['empresa']}|{r['competencia']}|{r['tipo']}": dict(r)
+            for r in db.execute(text(
+                "SELECT matricula, empresa, competencia, tipo, motivo, observacao "
+                "FROM folha_movimentacao_motivos")).mappings()
+        }
+    except Exception as exc:
+        print(f"AVISO - não consegui ler os motivos: {exc}")
+        return {}
 
 
 def _ordem_competencia(competencia: str) -> tuple:
@@ -141,12 +219,20 @@ def index(request: Request, competencia: str = "", empresa: str = "",
         print(f"AVISO - não consegui apurar movimentações: {exc}")
         todos = []
 
+    gravados = _motivos_gravados(db)
+    for m in todos:
+        salvo = gravados.get(_chave_motivo(m), {})
+        m["chave"] = _chave_motivo(m)
+        m["motivo"] = salvo.get("motivo") or ""
+        m["observacao"] = salvo.get("observacao") or ""
+
     competencias = sorted({m["competencia"] for m in todos},
                           key=_ordem_competencia, reverse=True)
     empresas = sorted({m["empresa"] for m in todos})
     movimentos = _filtrar(todos, competencia, empresa, tipo, q)
 
     resumo = {chave: sum(1 for m in movimentos if m["tipo"] == chave) for chave in TIPOS}
+    sem_motivo = sum(1 for m in movimentos if not m["motivo"])
 
     return templates.TemplateResponse("folha/movimentacoes.html", {
         "request": request,
@@ -154,7 +240,9 @@ def index(request: Request, competencia: str = "", empresa: str = "",
         "total": len(movimentos),
         "total_geral": len(todos),
         "resumo": resumo,
+        "sem_motivo": sem_motivo,
         "tipos": TIPOS,
+        "motivos": MOTIVOS,
         "competencias": competencias,
         "empresas": empresas,
         "competencia_sel": competencia,
@@ -165,6 +253,49 @@ def index(request: Request, competencia: str = "", empresa: str = "",
     })
 
 
+@router.post("/folha/movimentacoes/motivo")
+def salvar_motivo(
+    request: Request,
+    matricula: str = Form(...),
+    empresa: str = Form(...),
+    competencia: str = Form(...),
+    tipo: str = Form(...),
+    motivo: str = Form(""),
+    observacao: str = Form(""),
+    db: Session = Depends(get_db),
+):
+    motivo = motivo.strip()
+    # a observação só faz sentido junto de "Outros"; trocar o motivo a descarta
+    observacao = observacao.strip() if motivo == "Outros" else ""
+
+    dados = {"m": matricula.strip(), "e": empresa.strip(),
+             "c": competencia.strip(), "t": tipo.strip(),
+             "mo": motivo or None, "ob": observacao or None,
+             "ts": datetime.utcnow()}
+
+    existe = db.execute(text(
+        "SELECT id FROM folha_movimentacao_motivos "
+        "WHERE matricula = :m AND empresa = :e AND competencia = :c AND tipo = :t"
+    ), dados).first()
+
+    if existe:
+        db.execute(text(
+            "UPDATE folha_movimentacao_motivos SET motivo = :mo, observacao = :ob, "
+            "atualizado_em = :ts WHERE id = :id"
+        ), {**dados, "id": existe[0]})
+    else:
+        db.execute(text(
+            "INSERT INTO folha_movimentacao_motivos "
+            "(matricula, empresa, competencia, tipo, motivo, observacao, atualizado_em) "
+            "VALUES (:m, :e, :c, :t, :mo, :ob, :ts)"
+        ), dados)
+    db.commit()
+
+    if request.headers.get("x-fetch") == "1":
+        return JSONResponse({"ok": True})
+    return redirect_with_message("/folha/movimentacoes", success="Motivo salvo.")
+
+
 @router.get("/folha/movimentacoes/exportar")
 def exportar(request: Request, competencia: str = "", empresa: str = "",
              tipo: str = "", q: str = "", db: Session = Depends(get_db)):
@@ -172,13 +303,19 @@ def exportar(request: Request, competencia: str = "", empresa: str = "",
     from openpyxl.styles import Alignment, Font, PatternFill
     from openpyxl.utils import get_column_letter
 
-    movimentos = _filtrar(_movimentacoes(db), competencia, empresa, tipo, q)
+    todos = _movimentacoes(db)
+    gravados = _motivos_gravados(db)
+    for m in todos:
+        salvo = gravados.get(_chave_motivo(m), {})
+        m["motivo"] = salvo.get("motivo") or ""
+        m["observacao"] = salvo.get("observacao") or ""
+    movimentos = _filtrar(todos, competencia, empresa, tipo, q)
 
     wb = Workbook()
     ws = wb.active
     ws.title = "Movimentações"
     colunas = ["Matrícula", "Nome", "Empresa", "Competência", "Competência anterior",
-               "Tipo", "De", "Para", "Variação %"]
+               "Tipo", "De", "Para", "Variação %", "Motivo", "Observação"]
     ws.append(colunas)
     for c in ws[1]:
         c.fill = PatternFill("solid", fgColor="D9D9D9")
@@ -189,7 +326,8 @@ def exportar(request: Request, competencia: str = "", empresa: str = "",
         ws.append([m["matricula"], m["nome"], m["empresa_curta"], m["competencia"],
                    m["competencia_anterior"], TIPOS.get(m["tipo"], m["tipo"]),
                    m["de"], m["para"],
-                   round(m["variacao"], 2) if m["variacao"] is not None else None])
+                   round(m["variacao"], 2) if m["variacao"] is not None else None,
+                   m.get("motivo") or "", m.get("observacao") or ""])
 
     for i, titulo in enumerate(colunas, start=1):
         ws.column_dimensions[get_column_letter(i)].width = max(14, len(titulo) + 6)
