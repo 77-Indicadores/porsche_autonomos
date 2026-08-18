@@ -113,6 +113,12 @@ def _ordem_competencia(competencia: str) -> tuple:
     return (0, 0)
 
 
+def _e_mensal(registro) -> bool:
+    """A folha mensal é a referência da posição; adiantamento e 13º não são."""
+    tipo = str(registro.get("tipo_calculo") or "").lower()
+    return "mensal" in tipo or not tipo
+
+
 def _nomes_centros(db: Session) -> dict[str, str]:
     try:
         return {
@@ -135,8 +141,8 @@ def _rotulo_cc(mapa: dict[str, str], codigo) -> str:
 def _movimentacoes(db: Session) -> list[dict]:
     """Toda mudança de CC, função ou salário entre competências seguidas."""
     linhas = db.execute(text("""
-        SELECT a.empresa_nome AS empresa, f.competencia, f.matricula, f.nome,
-               f.centro_custo, f.cargo, f.salario
+        SELECT a.empresa_nome AS empresa, a.tipo_calculo, f.competencia,
+               f.matricula, f.nome, f.centro_custo, f.cargo, f.salario
         FROM folha_funcionarios f
         JOIN folha_arquivos a ON a.id_arquivo = f.id_arquivo
         WHERE COALESCE(f.matricula, '') <> ''
@@ -145,10 +151,22 @@ def _movimentacoes(db: Session) -> list[dict]:
     mapa_cc = _nomes_centros(db)
 
     # a chave é matrícula + empresa: a mesma matrícula pode existir nas duas
-    por_pessoa: dict[tuple, list] = {}
+    #
+    # Uma competência pode ter mais de um cálculo (mensal, adiantamento, 13º) e
+    # a pessoa aparece em cada um. Comparar esses registros entre si inventaria
+    # movimentação: o salário do adiantamento contra o da mensal viraria um
+    # "aumento" que não houve. Fica um registro por competência, preferindo a
+    # folha mensal, que é a que descreve a posição da pessoa no mês.
+    por_competencia: dict[tuple, dict] = {}
     for r in linhas:
-        chave = (str(r["matricula"]).strip(), r["empresa"])
-        por_pessoa.setdefault(chave, []).append(dict(r))
+        chave = (str(r["matricula"]).strip(), r["empresa"], r["competencia"])
+        atual = por_competencia.get(chave)
+        if atual is None or (not _e_mensal(atual) and _e_mensal(r)):
+            por_competencia[chave] = dict(r)
+
+    por_pessoa: dict[tuple, list] = {}
+    for (matricula, empresa, _), registro in por_competencia.items():
+        por_pessoa.setdefault((matricula, empresa), []).append(registro)
 
     movimentos: list[dict] = []
     for (matricula, empresa), registros in por_pessoa.items():
