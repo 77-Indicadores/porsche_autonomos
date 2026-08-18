@@ -30,6 +30,14 @@
       </select>
     </div>
     <div>
+      <label style="font-size:.72rem;font-weight:600;color:#6b7280;text-transform:uppercase;display:block;margin-bottom:.25rem">Justificativa</label>
+      <select class="input" name="justificado" id="f-justificado" style="width:100%;box-sizing:border-box">
+        <option value="nao" {% if justificado_sel == 'nao' %}selected{% endif %}>A justificar</option>
+        <option value="sim" {% if justificado_sel == 'sim' %}selected{% endif %}>Justificadas</option>
+        <option value="" {% if not justificado_sel %}selected{% endif %}>Todas</option>
+      </select>
+    </div>
+    <div>
       <label style="font-size:.72rem;font-weight:600;color:#6b7280;text-transform:uppercase;display:block;margin-bottom:.25rem">Tipo</label>
       <select class="input" name="tipo" style="width:100%;box-sizing:border-box">
         <option value="">Todos</option>
@@ -50,13 +58,16 @@
     <span style="color:#6b7280">{{ resumo.centro_custo }} de centro de custo</span>
     <span style="color:#6b7280">{{ resumo.cargo }} de função</span>
     <span style="color:#6b7280">{{ resumo.salario }} de salário</span>
-    {% if sem_motivo %}
-    <span style="font-size:.72rem;font-weight:600;padding:.15rem .55rem;border-radius:999px;background:#fef9c3;color:#854d0e;white-space:nowrap">
-      {{ sem_motivo }} sem motivo
+    <span id="badge-pendentes"
+          style="font-size:.72rem;font-weight:600;padding:.15rem .55rem;border-radius:999px;background:#fef9c3;color:#854d0e;white-space:nowrap{% if not sem_motivo %};display:none{% endif %}">
+      <b id="qtd-pendentes">{{ sem_motivo }}</b> a justificar
     </span>
-    {% endif %}
+    <span style="font-size:.72rem;font-weight:600;padding:.15rem .55rem;border-radius:999px;background:#dcfce7;color:#166534;white-space:nowrap{% if not com_motivo %};display:none{% endif %}"
+          id="badge-justificadas">
+      <b id="qtd-justificadas">{{ com_motivo }}</b> justificadas
+    </span>
     {% if total %}
-    <a href="/folha/movimentacoes/exportar?competencia={{ competencia_sel }}&empresa={{ empresa_sel }}&tipo={{ tipo_sel }}&q={{ q }}"
+    <a href="/folha/movimentacoes/exportar?competencia={{ competencia_sel }}&empresa={{ empresa_sel }}&tipo={{ tipo_sel }}&q={{ q }}&justificado={{ justificado_sel }}"
        style="margin-left:auto;padding:.4rem .9rem;background:#0f7a3d;color:#fff;border-radius:6px;text-decoration:none;font-weight:600;font-size:.78rem">
       ⤓ Exportar Excel
     </a>
@@ -72,7 +83,7 @@
       <th style="padding:.55rem 1rem;text-align:left;font-size:.7rem;font-weight:600;color:#6b7280;text-transform:uppercase;letter-spacing:.05em;border-bottom:1px solid #e5e7eb;white-space:nowrap">{{ th }}</th>
       {% endfor %}
     </tr></thead>
-    <tbody>
+    <tbody id="corpo-movimentacoes">
       {% for m in movimentos %}
       <tr style="border-bottom:1px solid #f3f4f6">
         <td style="padding:.6rem 1rem;color:#6b7280;white-space:nowrap">{{ m.matricula }}</td>
@@ -118,10 +129,13 @@
         </td>
       </tr>
       {% else %}
-      <tr><td colspan="8" style="padding:1.6rem;text-align:center;color:#9ca3af;font-style:italic">
-        {% if tem_filtro %}
+      <tr id="linha-vazia"><td colspan="8" style="padding:1.6rem;text-align:center;color:#9ca3af;font-style:italic">
+        {% if justificado_sel == 'nao' and total_geral %}
+          🎉 Nenhuma movimentação a justificar.
+          <a href="/folha/movimentacoes?justificado=">ver todas</a>.
+        {% elif tem_filtro %}
           Nenhuma movimentação corresponde aos filtros.
-          {% if total_geral %}Há {{ total_geral }} no total — <a href="/folha/movimentacoes">ver todas</a>.{% endif %}
+          {% if total_geral %}Há {{ total_geral }} no total — <a href="/folha/movimentacoes?justificado=">ver todas</a>.{% endif %}
         {% else %}
           Nenhuma movimentação encontrada. É preciso ter pelo menos duas competências
           importadas para comparar.
@@ -144,6 +158,7 @@
 /* O motivo salva sozinho: são muitas linhas, e um botão por linha faria o
    analista perder o trabalho ao trocar de página sem clicar. */
 const _movTimers = new WeakMap();
+const VISTA = {{ (justificado_sel or '') | tojson }};
 
 function movLinha(el) { return el.closest('td'); }
 
@@ -172,11 +187,52 @@ function movEnviar(td) {
       status.textContent = '✓ salvo';
       status.style.color = '#16a34a';
       setTimeout(function () { status.textContent = ''; }, 1800);
+      movContar(td, !!sel.value);
+      if (VISTA === 'nao' && movJustificada(sel, obs)) movSumir(td);
     })
     .catch(function () {
       status.textContent = 'erro ao salvar';
       status.style.color = '#dc2626';
     });
+}
+
+/* "Outros" só justifica depois de descrito: sumir antes de o analista
+   escrever tiraria a linha da tela com a justificativa pela metade. */
+function movJustificada(sel, obs) {
+  if (!sel.value) return false;
+  return sel.value !== 'Outros' || obs.value.trim() !== '';
+}
+
+function movContar(td, temMotivo) {
+  if (td.dataset.contado === (temMotivo ? 'sim' : 'nao')) return;
+  const antes = td.dataset.contado;
+  td.dataset.contado = temMotivo ? 'sim' : 'nao';
+  if (antes === undefined && !temMotivo) return;
+
+  const pend = document.getElementById('qtd-pendentes');
+  const just = document.getElementById('qtd-justificadas');
+  const passo = temMotivo ? -1 : 1;
+  pend.textContent = Math.max(0, parseInt(pend.textContent, 10) + passo);
+  just.textContent = Math.max(0, parseInt(just.textContent, 10) - passo);
+  document.getElementById('badge-pendentes').style.display =
+    parseInt(pend.textContent, 10) ? '' : 'none';
+  document.getElementById('badge-justificadas').style.display =
+    parseInt(just.textContent, 10) ? '' : 'none';
+}
+
+function movSumir(td) {
+  const tr = td.closest('tr');
+  tr.style.transition = 'opacity .35s';
+  tr.style.opacity = '0';
+  setTimeout(function () {
+    tr.remove();
+    const corpo = document.getElementById('corpo-movimentacoes');
+    if (!corpo.querySelector('tr')) {
+      corpo.innerHTML = '<tr><td colspan="8" style="padding:1.6rem;text-align:center;' +
+        'color:#9ca3af;font-style:italic">🎉 Nenhuma movimentação a justificar. ' +
+        '<a href="/folha/movimentacoes?justificado=">ver todas</a>.</td></tr>';
+    }
+  }, 350);
 }
 
 function movMotivo(sel) {

@@ -195,7 +195,7 @@ def _movimentacoes(db: Session) -> list[dict]:
 
 
 def _filtrar(movimentos: list[dict], competencia: str, empresa: str,
-             tipo: str, busca: str) -> list[dict]:
+             tipo: str, busca: str, justificado: str = "") -> list[dict]:
     resultado = movimentos
     if competencia:
         resultado = [m for m in resultado if m["competencia"] == competencia]
@@ -207,12 +207,17 @@ def _filtrar(movimentos: list[dict], competencia: str, empresa: str,
         alvo = busca.strip().lower()
         resultado = [m for m in resultado
                      if alvo in m["nome"].lower() or alvo in m["matricula"].lower()]
+    if justificado == "sim":
+        resultado = [m for m in resultado if m.get("motivo")]
+    elif justificado == "nao":
+        resultado = [m for m in resultado if not m.get("motivo")]
     return resultado
 
 
 @router.get("/folha/movimentacoes")
 def index(request: Request, competencia: str = "", empresa: str = "",
-          tipo: str = "", q: str = "", db: Session = Depends(get_db)):
+          tipo: str = "", q: str = "", justificado: str = "nao",
+          db: Session = Depends(get_db)):
     try:
         todos = _movimentacoes(db)
     except Exception as exc:
@@ -229,10 +234,15 @@ def index(request: Request, competencia: str = "", empresa: str = "",
     competencias = sorted({m["competencia"] for m in todos},
                           key=_ordem_competencia, reverse=True)
     empresas = sorted({m["empresa"] for m in todos})
-    movimentos = _filtrar(todos, competencia, empresa, tipo, q)
+
+    # os contadores olham o recorte sem o filtro de justificado: senão o de
+    # pendentes some justamente quando se escolhe "justificadas"
+    do_recorte = _filtrar(todos, competencia, empresa, tipo, q)
+    movimentos = _filtrar(todos, competencia, empresa, tipo, q, justificado)
 
     resumo = {chave: sum(1 for m in movimentos if m["tipo"] == chave) for chave in TIPOS}
-    sem_motivo = sum(1 for m in movimentos if not m["motivo"])
+    sem_motivo = sum(1 for m in do_recorte if not m["motivo"])
+    com_motivo = sum(1 for m in do_recorte if m["motivo"])
 
     return templates.TemplateResponse("folha/movimentacoes.html", {
         "request": request,
@@ -241,6 +251,8 @@ def index(request: Request, competencia: str = "", empresa: str = "",
         "total_geral": len(todos),
         "resumo": resumo,
         "sem_motivo": sem_motivo,
+        "com_motivo": com_motivo,
+        "justificado_sel": justificado,
         "tipos": TIPOS,
         "motivos": MOTIVOS,
         "competencias": competencias,
@@ -249,7 +261,7 @@ def index(request: Request, competencia: str = "", empresa: str = "",
         "empresa_sel": empresa,
         "tipo_sel": tipo,
         "q": q,
-        "tem_filtro": bool(competencia or empresa or tipo or q),
+        "tem_filtro": bool(competencia or empresa or tipo or q or justificado),
     })
 
 
@@ -298,7 +310,8 @@ def salvar_motivo(
 
 @router.get("/folha/movimentacoes/exportar")
 def exportar(request: Request, competencia: str = "", empresa: str = "",
-             tipo: str = "", q: str = "", db: Session = Depends(get_db)):
+             tipo: str = "", q: str = "", justificado: str = "",
+             db: Session = Depends(get_db)):
     from openpyxl import Workbook
     from openpyxl.styles import Alignment, Font, PatternFill
     from openpyxl.utils import get_column_letter
@@ -309,7 +322,7 @@ def exportar(request: Request, competencia: str = "", empresa: str = "",
         salvo = gravados.get(_chave_motivo(m), {})
         m["motivo"] = salvo.get("motivo") or ""
         m["observacao"] = salvo.get("observacao") or ""
-    movimentos = _filtrar(todos, competencia, empresa, tipo, q)
+    movimentos = _filtrar(todos, competencia, empresa, tipo, q, justificado)
 
     wb = Workbook()
     ws = wb.active

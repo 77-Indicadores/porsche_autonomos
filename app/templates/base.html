@@ -65,6 +65,8 @@
         <div class="nav-subsection-title">Cadastros</div>
         <a class="nav-link {% if request.url.path.startswith('/dho/empregados') %}active{% endif %}" href="/dho/empregados">👥 Empregados</a>
         <a class="nav-link {% if request.url.path.startswith('/dho/estrutura') %}active{% endif %}" href="/dho/estrutura">🏢 Depto. e Cargos</a>
+        {# ctx=dho mantém esta barra ao abrir a tela, que mora na Folha #}
+        <a class="nav-link {% if request.url.path.startswith('/folha/movimentacoes') %}active{% endif %}" href="/folha/movimentacoes?ctx=dho">🔀 Movimentações</a>
         <div class="nav-subsection-title">Recrutamento e Seleção</div>
         <a class="nav-link {% if request.url.path == '/dho' %}active{% endif %}" href="/dho">📊 Visão Geral DHO</a>
         <a class="nav-link {% if request.url.path.startswith('/dho/vagas') %}active{% endif %}" href="/dho/vagas">💼 Vagas Abertas</a>
