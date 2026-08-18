@@ -306,6 +306,7 @@ _CSS = """<style>
 .donut-text{position:absolute;z-index:2;text-align:center}
 .donut-text strong{display:block;font-size:24px;letter-spacing:-.04em}
 .donut-text span{font-size:10px;color:var(--muted);font-weight:800}
+.nota-card{margin:8px 0 0;font-size:9px;line-height:1.35;color:var(--muted)}
 .insight-list{display:grid;gap:7px}
 .insight{display:flex;justify-content:space-between;align-items:center;font-size:11px;padding:8px 10px;background:#f7f7f8;border-radius:11px}
 .insight b{font-size:12px}
@@ -622,6 +623,35 @@ def _painel_detalhe_html(detalhe_json: str, periodo_label: str,
 """
 
 
+def _vagas_abertas(depto_sel: str = "") -> int:
+    """Posições em aberto, somando a quantidade de cada vaga.
+
+    Uma vaga pode valer mais de uma posição, por isso soma qtd_vagas em vez de
+    contar linhas. Segue o mesmo critério do painel de Vagas.
+    """
+    try:
+        linhas = _db_rows(
+            """SELECT v.qtd_vagas, v.status,
+                      COALESCE(NULLIF(TRIM(d.nome_departamento), ''), '') AS depto
+               FROM dho_vagas v
+               LEFT JOIN dho_departamentos d
+                      ON d.id_departamento = v.id_departamento"""
+        )
+    except Exception as exc:
+        print(f"AVISO - não consegui contar vagas abertas: {exc}")
+        return 0
+
+    alvo = (depto_sel or "").strip().upper()
+    total = 0
+    for r in linhas:
+        if "abert" not in (r.get("status") or "").lower():
+            continue
+        if alvo and (r.get("depto") or "").strip().upper() != alvo:
+            continue
+        total += int(r.get("qtd_vagas") or 1)
+    return total
+
+
 def _build_headcount_html(
     colabs: list[dict],
     ref: date,
@@ -668,11 +698,23 @@ def _build_headcount_html(
     delta_txt = f"{'↗' if delta >= 0 else '↘'} {abs(delta):.1f}% em 6 meses"
     delta_style = "background:rgba(31,157,98,.17);color:#8ef0bd" if delta >= 0 else "background:rgba(225,6,0,.2);color:#fca5a5"
 
-    pico = max(v for _, _, v in evolucao) if evolucao else total_ativos
+    # Headcount previsto: quadro de hoje mais as posições ainda não preenchidas.
+    # As vagas usam o mesmo critério do painel de Vagas ("Aberta"), para os dois
+    # números não discordarem entre telas.
+    vagas_abertas = _vagas_abertas(depto_sel)
+    previsto = total_ativos + vagas_abertas
+    pct_preenchido = total_ativos / previsto * 100 if previsto else 0
+    # o donut precisa do número com ponto no CSS; a exibição usa vírgula
+    donut_p = f"{pct_preenchido:.1f}"
+    pct_fmt = donut_p.replace(".", ",")
 
-    # donut — % de ativos sobre total
-    pct_ativo = qtd_ativos / total_ativos * 100 if total_ativos else 0
-    donut_p = f"{pct_ativo:.1f}"
+    # As vagas não guardam empresa, então não dá para recortá-las por ela. Sem
+    # esse aviso, o previsto pareceria só da empresa filtrada.
+    nota_vagas = (
+        '<p class="nota-card">As vagas não têm empresa no cadastro, '
+        'então entram todas, independentemente do filtro de empresa.</p>'
+        if empresa_sel else ""
+    )
 
     periodo_label = _mes_label(ref)
 
@@ -805,21 +847,23 @@ def _build_headcount_html(
   <aside class="card insight-card">
     <div class="card-head">
       <div>
-        <h3>Taxa de ocupação</h3>
-        <p>Ativos sobre o quadro total</p>
+        <h3>Headcount previsto</h3>
+        <p>Ativos hoje mais as vagas em aberto</p>
       </div>
     </div>
     <div class="donut-box">
       <div class="donut" style="--p:{donut_p}"></div>
       <div class="donut-text">
-        <strong>{donut_p}%</strong>
-        <span>quadro ativo</span>
+        <strong>{previsto:,}</strong>
+        <span>previsto</span>
       </div>
     </div>
     <div class="insight-list">
-      <div class="insight"><span>Variação 6 meses</span><b>{delta_txt}</b></div>
-      <div class="insight"><span>Pico no período</span><b>{pico:,}</b></div>
+      <div class="insight"><span>Ativos hoje</span><b>{total_ativos:,}</b></div>
+      <div class="insight"><span>Vagas em aberto</span><b>+{vagas_abertas:,}</b></div>
+      <div class="insight"><span>Quadro preenchido</span><b>{pct_fmt}%</b></div>
     </div>
+    {nota_vagas}
   </aside>
 </section>
 
