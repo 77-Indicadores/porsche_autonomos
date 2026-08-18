@@ -307,6 +307,9 @@ _CSS = """<style>
 .donut-text strong{display:block;font-size:24px;letter-spacing:-.04em}
 .donut-text span{font-size:10px;color:var(--muted);font-weight:800}
 .nota-card{margin:8px 0 0;font-size:9px;line-height:1.35;color:var(--muted)}
+.row.hc-abre{cursor:pointer;border-radius:6px;transition:background .12s}
+.row.hc-abre:hover{background:#f6f6f8}
+.row.hc-abre:hover .name{color:var(--red)}
 .insight-list{display:grid;gap:7px}
 .insight{display:flex;justify-content:space-between;align-items:center;font-size:11px;padding:8px 10px;background:#f7f7f8;border-radius:11px}
 .insight b{font-size:12px}
@@ -370,12 +373,22 @@ _CSS_DETALHE = """<style>
 
 # ─── geração HTML ─────────────────────────────────────────────────────────────
 
-def _html_rows(itens: list[tuple[str, int]], total: int) -> str:
+def _html_rows(itens: list[tuple[str, int]], total: int, campo: str = "") -> str:
+    """Linhas de um quadro de composição.
+
+    Com `campo`, cada linha abre a lista de quem está nela.
+    """
     parts = []
     for label, val in itens:
         pct = val / total * 100 if total else 0
+        if campo:
+            atributos = (f'class="row hc-abre" role="button" tabindex="0"'
+                         f' title="Ver os nomes"'
+                         f' data-grupo="brk_{campo}_{_he_chave_faixa(label)}"')
+        else:
+            atributos = 'class="row"'
         parts.append(
-            f"<div class='row'>"
+            f"<div {atributos}>"
             f"<div class='name'>{label}</div>"
             f"<div class='track'><div class='bar' style='--w:{pct:.1f}%'></div></div>"
             f"<div class='metric'><b>{val:,}</b> · {pct:.1f}%</div>"
@@ -682,7 +695,27 @@ def _build_headcount_html(
     # o título vira o nome do arquivo exportado, então carrega a competência
     _mes = _mes_label(ref)
     _pessoa = ("nome", "adm", "dem", "empresa")
+    # Cada faixa dos quadros de composição abre a lista de quem está nela.
+    # Os grupos saem de no_quadro, o mesmo conjunto que gera as contagens, para
+    # a lista não divergir do número mostrado na barra.
+    _COMPOSICOES = {
+        "tipo_de_vinculo": "Tipo de vínculo",
+        "sexo": "Sexo",
+        "unidade": "Unidade",
+        "grau_de_instrucao": "Grau de instrução",
+    }
+    grupos_composicao = {}
+    for campo, rotulo in _COMPOSICOES.items():
+        for pessoa in no_quadro:
+            valor = pessoa.get(campo) or "Não informado"
+            chave = f"brk_{campo}_{_he_chave_faixa(valor)}"
+            grupos_composicao.setdefault(
+                chave, (f"{rotulo}: {valor} · {_mes_label(ref)}", [],
+                        ("nome", "adm", "depto", "empresa")))
+            grupos_composicao[chave][1].append(pessoa)
+
     detalhe_json = _detalhe_pessoas_json({
+        **grupos_composicao,
         "quadro":    (f"Quadro ativo · {_mes}", no_quadro, _pessoa),
         "ativos":    (f"Situação Ativo · {_mes}", lista_ativos or no_quadro, _pessoa),
         "admitidos": (f"Admitidos · {_mes}", lista_admitidos, _pessoa),
@@ -870,19 +903,19 @@ def _build_headcount_html(
 <section class="breakdowns">
   <article class="card break-card">
     <div class="break-title"><h4>Tipo de vínculo</h4><div class="tiny-icon">⌘</div></div>
-    <div class="rows">{_html_rows(vinculos, total_ativos)}</div>
+    <div class="rows">{_html_rows(vinculos, total_ativos, 'tipo_de_vinculo')}</div>
   </article>
   <article class="card break-card">
     <div class="break-title"><h4>Sexo</h4><div class="tiny-icon">◐</div></div>
-    <div class="rows">{_html_rows(sexo, total_ativos)}</div>
+    <div class="rows">{_html_rows(sexo, total_ativos, 'sexo')}</div>
   </article>
   <article class="card break-card">
     <div class="break-title"><h4>Unidade</h4><div class="tiny-icon">⌂</div></div>
-    <div class="rows">{_html_rows(unidade, total_ativos)}</div>
+    <div class="rows">{_html_rows(unidade, total_ativos, 'unidade')}</div>
   </article>
   <article class="card break-card">
     <div class="break-title"><h4>Grau de instrução</h4><div class="tiny-icon">▣</div></div>
-    <div class="rows">{_html_rows(instrucao, total_ativos)}</div>
+    <div class="rows">{_html_rows(instrucao, total_ativos, 'grau_de_instrucao')}</div>
   </article>
 </section>
 
