@@ -2147,6 +2147,10 @@ def budget_cargos_list(request: Request, db: Session = Depends(get_db)):
             FROM folha_funcionarios ff
             LEFT JOIN folha_arquivos fa ON fa.id_arquivo = ff.id_arquivo
             WHERE ff.matricula IS NOT NULL AND ff.matricula != ''
+              -- adiantamento antecipa o salário do mês; entrar aqui faria o
+              -- MAX escolher entre dois registros da mesma pessoa e trocar
+              -- cargo, horas ou dependentes pelos da antecipação
+              AND COALESCE(LOWER(fa.tipo_calculo), '') NOT LIKE '%adiantament%'
             GROUP BY ff.matricula, ff.competencia
             ORDER BY ff.competencia, MAX(ff.nome)
         """)

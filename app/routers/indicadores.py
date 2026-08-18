@@ -2458,8 +2458,13 @@ def _fmt_brl(v) -> str:
         return "—"
 
 
-def _folha_query_filters(empresa: str, competencia: str) -> tuple[str, dict]:
-    """Retorna cláusula WHERE e params para os filtros comuns de folha."""
+def _folha_query_filters(empresa: str, competencia: str,
+                        tipo_calculo: str = "") -> tuple[str, dict]:
+    """Retorna cláusula WHERE e params para os filtros comuns de folha.
+
+    O tipo de cálculo é essencial no custo: o adiantamento repete o salário da
+    pessoa e, somado à folha mensal, dobrava o total do mês.
+    """
     clauses, params = [], {}
     if empresa:
         clauses.append("fa.empresa_nome = :empresa")
@@ -2467,8 +2472,36 @@ def _folha_query_filters(empresa: str, competencia: str) -> tuple[str, dict]:
     if competencia:
         clauses.append("ff.competencia = :competencia")
         params["competencia"] = competencia
+    if tipo_calculo:
+        clauses.append("fa.tipo_calculo = :tipo_calculo")
+        params["tipo_calculo"] = tipo_calculo
+    else:
+        # Sem escolha, o adiantamento fica de fora: ele antecipa o salário do
+        # próprio mês, então somá-lo à folha dobraria o custo. Complementar e
+        # 13º continuam, porque são custo de verdade.
+        clauses.append("COALESCE(LOWER(fa.tipo_calculo), '') NOT LIKE '%adiantament%'")
     where = ("WHERE " + " AND ".join(clauses)) if clauses else ""
     return where, params
+
+
+def _folha_tipos(competencia: str = "") -> list[str]:
+    """Tipos de cálculo importados, opcionalmente de uma competência."""
+    sql = ("SELECT DISTINCT fa.tipo_calculo FROM folha_arquivos fa "
+           "WHERE COALESCE(fa.tipo_calculo, '') <> ''")
+    params: dict = {}
+    if competencia:
+        sql += (" AND EXISTS (SELECT 1 FROM folha_funcionarios ff "
+                "WHERE ff.id_arquivo = fa.id_arquivo AND ff.competencia = :c)")
+        params["c"] = competencia
+    try:
+        return sorted(r["tipo_calculo"] for r in _db_rows(sql, params))
+    except Exception as exc:
+        print(f"AVISO - tipos de cálculo da folha: {exc}")
+        return []
+
+
+def _e_adiantamento(tipo: str) -> bool:
+    return "adiantament" in str(tipo or "").lower()
 
 
 def _build_folha_visao_custo_html(
@@ -2476,8 +2509,10 @@ def _build_folha_visao_custo_html(
     competencia: str,
     todas_empresas: list[str],
     todas_competencias: list[str],
+    tipos_calculo: list[str] | None = None,
+    tipo_calculo: str = "",
 ) -> str:
-    where, params = _folha_query_filters(empresa, competencia)
+    where, params = _folha_query_filters(empresa, competencia, tipo_calculo)
 
     # KPIs principais da folha
     kpi_rows = _db_rows(f"""
@@ -2547,6 +2582,11 @@ def _build_folha_visao_custo_html(
     comp_opts = "<option value=''>Todas as competências</option>" + "".join(
         f"<option value='{c}'{' selected' if c == competencia else ''}>{c}</option>"
         for c in todas_competencias
+    )
+    # a opção vazia é a visão de custo: tudo menos o adiantamento
+    tipo_opts = "<option value=''>Folha (sem adiantamento)</option>" + "".join(
+        f"<option value='{t}'{' selected' if t == tipo_calculo else ''}>{t}</option>"
+        for t in (tipos_calculo or [])
     )
 
     # SVG evolução por competência
@@ -2618,6 +2658,9 @@ def _build_folha_visao_custo_html(
       </div>
       <div class="fl-filter"><label>Competência</label>
         <select name="competencia" onchange="this.form.submit()">{comp_opts}</select>
+      </div>
+      <div class="fl-filter"><label>Cálculo</label>
+        <select name="tipo_calculo" onchange="this.form.submit()">{tipo_opts}</select>
       </div>
     </form>
   </div>
@@ -2696,8 +2739,10 @@ def _build_folha_holerite_html(
     todas_empresas: list[str],
     todas_competencias: list[str],
     todos_colaboradores: list[str],
+    tipos_calculo: list[str] | None = None,
+    tipo_calculo: str = "",
 ) -> str:
-    where, params = _folha_query_filters(empresa, competencia)
+    where, params = _folha_query_filters(empresa, competencia, tipo_calculo)
     if colaborador:
         where = (where + " AND ff.nome = :colab") if where else "WHERE ff.nome = :colab"
         params["colab"] = colaborador
@@ -2742,6 +2787,11 @@ def _build_folha_holerite_html(
     comp_opts = "<option value=''>Última</option>" + "".join(
         f"<option value='{c}'{' selected' if c == competencia else ''}>{c}</option>"
         for c in todas_competencias
+    )
+    # a opção vazia é a visão de custo: tudo menos o adiantamento
+    tipo_opts = "<option value=''>Folha (sem adiantamento)</option>" + "".join(
+        f"<option value='{t}'{' selected' if t == tipo_calculo else ''}>{t}</option>"
+        for t in (tipos_calculo or [])
     )
     colab_opts = "<option value=''>— selecione —</option>" + "".join(
         f"<option value='{n}'{' selected' if n == colaborador else ''}>{n.title()}</option>"
@@ -2819,6 +2869,9 @@ def _build_folha_holerite_html(
       <div class="fl-filter"><label>Competência</label>
         <select name="competencia" onchange="this.form.submit()">{comp_opts}</select>
       </div>
+      <div class="fl-filter"><label>Cálculo</label>
+        <select name="tipo_calculo" onchange="this.form.submit()">{tipo_opts}</select>
+      </div>
       <div class="fl-filter" style="min-width:220px"><label>Colaborador</label>
         <select name="colaborador" onchange="this.form.submit()">{colab_opts}</select>
       </div>
@@ -2842,8 +2895,10 @@ def _build_folha_lista_html(
     competencia: str,
     todas_empresas: list[str],
     todas_competencias: list[str],
+    tipos_calculo: list[str] | None = None,
+    tipo_calculo: str = "",
 ) -> str:
-    where, params = _folha_query_filters(empresa, competencia)
+    where, params = _folha_query_filters(empresa, competencia, tipo_calculo)
 
     func_rows = _db_rows(f"""
         SELECT ff.nome, ff.matricula, ff.cargo, ff.departamento,
@@ -2880,6 +2935,11 @@ def _build_folha_lista_html(
         f"<option value='{c}'{' selected' if c == competencia else ''}>{c}</option>"
         for c in todas_competencias
     )
+    # a opção vazia é a visão de custo: tudo menos o adiantamento
+    tipo_opts = "<option value=''>Folha (sem adiantamento)</option>" + "".join(
+        f"<option value='{t}'{' selected' if t == tipo_calculo else ''}>{t}</option>"
+        for t in (tipos_calculo or [])
+    )
 
     return f"""<div class="fl-wrap">{_CSS_FOLHA}
 
@@ -2899,6 +2959,9 @@ def _build_folha_lista_html(
       </div>
       <div class="fl-filter"><label>Competência</label>
         <select name="competencia" onchange="this.form.submit()">{comp_opts}</select>
+      </div>
+      <div class="fl-filter"><label>Cálculo</label>
+        <select name="tipo_calculo" onchange="this.form.submit()">{tipo_opts}</select>
       </div>
     </form>
   </div>
@@ -2934,8 +2997,10 @@ def _build_folha_custo_colab_html(
     competencia: str,
     todas_empresas: list[str],
     todas_competencias: list[str],
+    tipos_calculo: list[str] | None = None,
+    tipo_calculo: str = "",
 ) -> str:
-    where, params = _folha_query_filters(empresa, competencia)
+    where, params = _folha_query_filters(empresa, competencia, tipo_calculo)
 
     func_rows = _db_rows(f"""
         SELECT ff.nome, ff.cargo, ff.departamento,
@@ -2983,6 +3048,11 @@ def _build_folha_custo_colab_html(
         f"<option value='{c}'{' selected' if c == competencia else ''}>{c}</option>"
         for c in todas_competencias
     )
+    # a opção vazia é a visão de custo: tudo menos o adiantamento
+    tipo_opts = "<option value=''>Folha (sem adiantamento)</option>" + "".join(
+        f"<option value='{t}'{' selected' if t == tipo_calculo else ''}>{t}</option>"
+        for t in (tipos_calculo or [])
+    )
 
     return f"""<div class="fl-wrap">{_CSS_FOLHA}
 
@@ -3002,6 +3072,9 @@ def _build_folha_custo_colab_html(
       </div>
       <div class="fl-filter"><label>Competência</label>
         <select name="competencia" onchange="this.form.submit()">{comp_opts}</select>
+      </div>
+      <div class="fl-filter"><label>Cálculo</label>
+        <select name="tipo_calculo" onchange="this.form.submit()">{tipo_opts}</select>
       </div>
     </form>
   </div>
@@ -3216,11 +3289,14 @@ def _folha_opcoes() -> tuple[list[str], list[str]]:
 
 
 @router.get("/indicadores/folha-visao-custo")
-def folha_visao_custo(request: Request, empresa: str = "", competencia: str = ""):
+def folha_visao_custo(request: Request, empresa: str = "", competencia: str = "",
+                      tipo_calculo: str = ""):
     erro = None; dash_html = ""
     try:
         todas_empresas, todas_competencias = _folha_opcoes()
-        dash_html = _build_folha_visao_custo_html(empresa, competencia, todas_empresas, todas_competencias)
+        tipos = _folha_tipos(competencia)
+        dash_html = _build_folha_visao_custo_html(empresa, competencia, todas_empresas,
+                                                  todas_competencias, tipos, tipo_calculo)
     except Exception as exc:
         erro = f"Erro ao carregar dados de folha: {exc}"
     return templates.TemplateResponse("indicadores/folha_visao_custo.html", {
@@ -3229,12 +3305,14 @@ def folha_visao_custo(request: Request, empresa: str = "", competencia: str = ""
 
 
 @router.get("/indicadores/folha-holerite")
-def folha_holerite(request: Request, empresa: str = "", competencia: str = "", colaborador: str = ""):
+def folha_holerite(request: Request, empresa: str = "", competencia: str = "",
+                   colaborador: str = "", tipo_calculo: str = ""):
     erro = None; dash_html = ""
     try:
         todas_empresas, todas_competencias = _folha_opcoes()
         # Lista de colaboradores disponíveis (com filtros de empresa/competência)
-        where_c, params_c = _folha_query_filters(empresa, competencia)
+        tipos = _folha_tipos(competencia)
+        where_c, params_c = _folha_query_filters(empresa, competencia, tipo_calculo)
         colab_rows = _db_rows(f"""
             SELECT DISTINCT ff.nome
             FROM folha_funcionarios ff
@@ -3246,6 +3324,7 @@ def folha_holerite(request: Request, empresa: str = "", competencia: str = "", c
         dash_html = _build_folha_holerite_html(
             empresa, competencia, colaborador,
             todas_empresas, todas_competencias, todos_colaboradores,
+            tipos, tipo_calculo,
         )
     except Exception as exc:
         erro = f"Erro ao carregar dados de folha: {exc}"
@@ -3255,11 +3334,14 @@ def folha_holerite(request: Request, empresa: str = "", competencia: str = "", c
 
 
 @router.get("/indicadores/folha-lista")
-def folha_lista(request: Request, empresa: str = "", competencia: str = ""):
+def folha_lista(request: Request, empresa: str = "", competencia: str = "",
+                tipo_calculo: str = ""):
     erro = None; dash_html = ""
     try:
         todas_empresas, todas_competencias = _folha_opcoes()
-        dash_html = _build_folha_lista_html(empresa, competencia, todas_empresas, todas_competencias)
+        tipos = _folha_tipos(competencia)
+        dash_html = _build_folha_lista_html(empresa, competencia, todas_empresas,
+                                            todas_competencias, tipos, tipo_calculo)
     except Exception as exc:
         erro = f"Erro ao carregar dados de folha: {exc}"
     return templates.TemplateResponse("indicadores/folha_lista.html", {
@@ -3268,11 +3350,14 @@ def folha_lista(request: Request, empresa: str = "", competencia: str = ""):
 
 
 @router.get("/indicadores/folha-custo-colaborador")
-def folha_custo_colaborador(request: Request, empresa: str = "", competencia: str = ""):
+def folha_custo_colaborador(request: Request, empresa: str = "", competencia: str = "",
+                            tipo_calculo: str = ""):
     erro = None; dash_html = ""
     try:
         todas_empresas, todas_competencias = _folha_opcoes()
-        dash_html = _build_folha_custo_colab_html(empresa, competencia, todas_empresas, todas_competencias)
+        tipos = _folha_tipos(competencia)
+        dash_html = _build_folha_custo_colab_html(empresa, competencia, todas_empresas,
+                                                  todas_competencias, tipos, tipo_calculo)
     except Exception as exc:
         erro = f"Erro ao carregar dados de folha: {exc}"
     return templates.TemplateResponse("indicadores/folha_custo_colaborador.html", {
