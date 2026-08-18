@@ -53,11 +53,11 @@
       </select>
     </div>
 
-    <div>
+    <div id="bloco_motivo" hidden>
       <label class="label">Motivo substituição</label>
-      <select class="input" name="motivo_substituicao" id="motivo_substituicao" required>
+      <select class="input" name="motivo_substituicao" id="motivo_substituicao">
         {% for m in motivos_substituicao %}
-          <option value="{{ m }}">{{ m if m else "Não se aplica" }}</option>
+          <option value="{{ m }}">{{ m if m else "Selecione" }}</option>
         {% endfor %}
       </select>
     </div>
@@ -130,7 +130,7 @@
 
     <div>
       <label class="label">Data conclusão</label>
-      <input class="input" name="data_conclusao" id="data_conclusao" placeholder="dd/mm/aaaa" required>
+      <input class="input" name="data_conclusao" id="data_conclusao" placeholder="dd/mm/aaaa">
     </div>
 
     <div class="span-3">
@@ -228,10 +228,21 @@ function setValue(id, value) {
 function alternarSubstituto() {
   const bloco = document.getElementById("bloco_substituto");
   const campo = document.getElementById("nome_substituto");
+  const blocoMotivo = document.getElementById("bloco_motivo");
+  const motivo = document.getElementById("motivo_substituicao");
   const eSubstituicao = document.getElementById("tipo_vaga").value === "Substituição";
 
   bloco.hidden = !eSubstituicao;
-  if (!eSubstituicao) campo.value = "";
+  blocoMotivo.hidden = !eSubstituicao;
+
+  /* O motivo era obrigatório e a opção "Não se aplica" valia vazio: em vaga
+     nova o navegador barrava o envio pedindo para escolher da lista. Agora ele
+     só aparece na substituição, e sem obrigar — exigir voltaria a travar a
+     edição de vagas antigas que foram salvas sem motivo. */
+  if (!eSubstituicao) {
+    campo.value = "";
+    motivo.value = "";
+  }
 }
 
 document.addEventListener("DOMContentLoaded", function () {
