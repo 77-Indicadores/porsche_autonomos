@@ -1157,10 +1157,22 @@ def _build_turnover_html(
     except ValueError:
         mes_num = 0
 
-    # O mês selecionado vale para tudo, inclusive os gráficos.
-    meses_ref = [m for m in meses if not m["futuro"]]
+    # Os KPIs seguem o mês escolhido; os gráficos, não. Escolher um mês deixava
+    # uma barra e um ponto sozinhos na tela, e o gráfico existe justamente para
+    # mostrar a evolução em torno daquele mês.
+    meses_ocorridos = [m for m in meses if not m["futuro"]]
+    meses_ref = meses_ocorridos
     if mes_num:
         meses_ref = [m for m in meses_ref if m["mes"] == mes_num]
+
+    # a janela dos gráficos termina no mês escolhido, quando há um
+    if mes_num:
+        meses_grafico = [m for m in meses_ocorridos if m["mes"] <= mes_num]
+    else:
+        meses_grafico = meses_ocorridos
+
+    rotulo_janela = ("o filtro de mês não altera este gráfico" if mes_num
+                     else "evolução no ano")
 
     dem_ano = [c for c in colabs if c["data_demissa"] and c["data_demissa"].year == ano]
     if mes_num:
@@ -1342,21 +1354,21 @@ def _build_turnover_html(
 <section class="grid-main">
   <article class="card">
     <div class="card-head">
-      <div><h3>Admitidos e demitidos por mês</h3><p>Comparativo mensal de entradas e saídas</p></div>
+      <div><h3>Admitidos e demitidos por mês</h3><p>Últimos 6 meses · {rotulo_janela}</p></div>
       <div class="legend">
         <span class="item"><span class="dot red"></span> Admitidos</span>
         <span class="item"><span class="dot gray"></span> Demitidos</span>
       </div>
     </div>
-    <div class="chart-area"><div class="bars-grid">{_bar_chart_html(meses_ref[-6:])}</div></div>
+    <div class="chart-area"><div class="bars-grid">{_bar_chart_html(meses_grafico[-6:])}</div></div>
   </article>
 
   <article class="card">
     <div class="card-head">
-      <div><h3>Turnover % por mês</h3><p>Evolução mensal do indicador</p></div>
+      <div><h3>Turnover % por mês</h3><p>Últimos 6 meses · {rotulo_janela}</p></div>
       <div class="legend"><span class="item"><span class="dot red"></span> Turnover %</span></div>
     </div>
-    <div class="line-wrap">{_turnover_svg(meses_ref[-6:])}</div>
+    <div class="line-wrap">{_turnover_svg(meses_grafico[-6:])}</div>
   </article>
 
   <article class="card">
