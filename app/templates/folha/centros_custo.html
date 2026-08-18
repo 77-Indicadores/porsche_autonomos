@@ -3,14 +3,27 @@
 {% block header %}Centros de Custo{% endblock %}
 {% block subtitle %}De-para entre o código do centro de custo da folha e o nome do departamento{% endblock %}
 {% block content %}
+<style>
+.cc-modal{position:fixed;inset:0;z-index:1200;display:flex;align-items:center;justify-content:center;padding:18px}
+.cc-modal[hidden]{display:none}
+.cc-fundo{position:absolute;inset:0;background:rgba(8,9,12,.62)}
+.cc-caixa{position:relative;width:min(420px,100%);max-height:88vh;overflow:auto;
+  background:#fff;border-radius:12px;box-shadow:0 24px 60px rgba(0,0,0,.34)}
+.cc-x{border:0;background:#f1f2f4;color:#4b5158;width:26px;height:26px;border-radius:8px;
+  font-size:12px;cursor:pointer;flex:none}
+.cc-x:hover{background:#e4e6e9}
+</style>
+
 {% if success %}<div class="alert success">{{ success }}</div>{% endif %}
 {% if error %}<div class="alert error">{{ error }}</div>{% endif %}
 
-<div style="display:grid;grid-template-columns:360px 1fr;gap:1.5rem;align-items:start">
-  <div style="background:#fff;border:1px solid #e5e7eb;border-radius:10px;overflow:hidden">
-    <div style="padding:.85rem 1.2rem;border-bottom:1px solid #e5e7eb;background:#f9fafb;display:flex;justify-content:space-between;align-items:center">
+<div class="cc-modal" id="cc-modal" hidden>
+  <div class="cc-fundo" data-fechar></div>
+  <div class="cc-caixa" role="dialog" aria-modal="true" aria-labelledby="form-title">
+    <div style="padding:.85rem 1.2rem;border-bottom:1px solid #e5e7eb;background:#f9fafb;display:flex;justify-content:space-between;align-items:center;gap:.6rem">
       <h3 id="form-title" style="margin:0;font-size:.95rem;font-weight:600">Novo Centro de Custo</h3>
       <span id="modo-badge" style="font-size:.72rem;font-weight:600;padding:.2rem .6rem;border-radius:999px;background:#dcfce7;color:#166534">NOVO</span>
+      <button type="button" class="cc-x" data-fechar aria-label="Fechar">✕</button>
     </div>
     <form method="post" action="/folha/centros-custo" id="main-form" style="padding:1rem;display:flex;flex-direction:column;gap:.75rem">
       <input type="hidden" name="id" id="f-id">
@@ -44,16 +57,18 @@
       </p>
       <div style="display:flex;gap:.5rem;padding-top:.25rem">
         <button type="submit" style="flex:1;padding:.5rem;background:#dc2626;color:#fff;border:none;border-radius:6px;font-weight:600;cursor:pointer">💾 Salvar</button>
-        <button type="button" onclick="limpar()" style="padding:.5rem 1rem;border:1px solid #d1d5db;border-radius:6px;background:#fff;cursor:pointer">＋ Novo</button>
+        <button type="button" data-fechar style="padding:.5rem 1rem;border:1px solid #d1d5db;border-radius:6px;background:#fff;cursor:pointer">Cancelar</button>
       </div>
     </form>
   </div>
+</div>
 
-  <div style="background:#fff;border:1px solid #e5e7eb;border-radius:10px;overflow:hidden">
+<div style="background:#fff;border:1px solid #e5e7eb;border-radius:10px;overflow:hidden">
     <div style="padding:.7rem 1rem;border-bottom:1px solid #e5e7eb;background:#f9fafb;display:flex;gap:.6rem;align-items:center">
       <input id="busca" placeholder="Filtrar por empresa, código ou nome…" oninput="filtrar()"
              style="flex:1;padding:.4rem .6rem;border:1px solid #d1d5db;border-radius:6px;font-size:.82rem">
       <span style="font-size:.75rem;color:#6b7280"><b id="cont">{{ rows|length }}</b> registros</span>
+      <button type="button" onclick="abrirNovo()" style="margin-left:auto;padding:.4rem .9rem;background:#dc2626;color:#fff;border:none;border-radius:6px;font-weight:600;cursor:pointer;font-size:.8rem;white-space:nowrap">＋ Novo centro de custo</button>
       {% if sem_protheus %}
       <span style="font-size:.72rem;font-weight:600;padding:.15rem .55rem;border-radius:999px;background:#fef9c3;color:#854d0e;white-space:nowrap">
         {{ sem_protheus }} sem depto. Protheus
@@ -94,10 +109,30 @@
         {% endfor %}
       </tbody>
     </table>
-  </div>
 </div>
 
 <script>
+/* O formulário virou popup: ocupava metade da tela para uma edição pontual, e
+   a lista é o que se olha o tempo todo. */
+function ccAbrir(){
+  document.getElementById('cc-modal').hidden=false;
+  document.body.style.overflow='hidden';
+}
+function ccFechar(){
+  document.getElementById('cc-modal').hidden=true;
+  document.body.style.overflow='';
+}
+function abrirNovo(){ limpar(); ccAbrir(); document.getElementById('f-empresa').focus(); }
+
+document.addEventListener('DOMContentLoaded', function(){
+  document.querySelectorAll('[data-fechar]').forEach(function(el){
+    el.addEventListener('click', ccFechar);
+  });
+  document.addEventListener('keydown', function(ev){
+    if(ev.key==='Escape' && !document.getElementById('cc-modal').hidden) ccFechar();
+  });
+});
+
 function limpar(){
   document.getElementById('f-id').value='';
   document.getElementById('f-empresa').value='';
@@ -122,7 +157,7 @@ function editar(id,empresa,codigo,nome,status,protheus){
   var b=document.getElementById('modo-badge');
   b.textContent='EDITANDO';b.style.background='#fef9c3';b.style.color='#854d0e';
   document.getElementById('main-form').style.background='#fffbeb';
-  document.getElementById('main-form').scrollIntoView({behavior:'smooth',block:'start'});
+  ccAbrir();
   document.getElementById('f-nome').focus();
 }
 function filtrar(){
