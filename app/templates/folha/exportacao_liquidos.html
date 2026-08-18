@@ -111,7 +111,7 @@
     </div>
     {% endif %}
     <div style="padding:0 1.1rem 1rem">
-      <a href="#" onclick="baixar(this,{{ g.empresa|tojson }});return false"
+      <a href="#" class="btn-baixar" data-empresa="{{ g.empresa }}"
          style="display:block;text-align:center;padding:.5rem;background:#dc2626;color:#fff;border-radius:6px;text-decoration:none;font-weight:600;font-size:.85rem">
         ⤓ Baixar layout
       </a>
@@ -126,7 +126,7 @@
 
 {% if grupos %}
 <div style="margin-bottom:1.4rem">
-  <a href="#" onclick="baixar(this,'');return false"
+  <a href="#" class="btn-baixar" data-empresa=""
      style="display:inline-block;padding:.6rem 1.3rem;border:1px solid #d1d5db;border-radius:6px;background:#fff;text-decoration:none;color:#111;font-weight:600;font-size:.85rem">
     ⤓ Baixar tudo num arquivo só ({{ total_linhas }} linhas · {{ "%.2f"|format(total_valor)|replace(".", ",") }})
   </a>
@@ -165,12 +165,20 @@
 
 <script>
 /* O download reaproveita o que já está no formulário, para o arquivo sair
-   com os mesmos valores fixos que a tela está mostrando. */
-function baixar(el, empresa) {
-  var f = document.getElementById('frm');
-  var p = new URLSearchParams(new FormData(f));
-  if (empresa) p.set('empresa', empresa);
-  window.location = '/folha/exportacao-liquidos/baixar?' + p.toString();
-}
+   com os mesmos valores fixos que a tela está mostrando.
+
+   A empresa vem de data-empresa, não de onclick: a razão social entrava no
+   atributo entre aspas duplas, fechava o onclick antes da hora e o botão
+   parava de funcionar. */
+document.addEventListener('DOMContentLoaded', function () {
+  document.querySelectorAll('.btn-baixar').forEach(function (a) {
+    a.addEventListener('click', function (ev) {
+      ev.preventDefault();
+      var p = new URLSearchParams(new FormData(document.getElementById('frm')));
+      if (a.dataset.empresa) p.set('empresa', a.dataset.empresa);
+      window.location = '/folha/exportacao-liquidos/baixar?' + p.toString();
+    });
+  });
+});
 </script>
 {% endblock %}
