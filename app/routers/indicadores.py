@@ -19,7 +19,7 @@ from fastapi.responses import RedirectResponse
 from sqlalchemy import select, text
 
 from app.template_config import templates
-from app.utils import competencia_de, data_para_date, empresa_curta
+from app.utils import competencia_de, data_para_date, e_pessoa, empresa_curta
 
 router = APIRouter(tags=["indicadores"])
 
@@ -79,7 +79,7 @@ def _normalizar_colabs(rows: list[dict]) -> list[dict]:
     result = []
     for r in rows:
         nome = str(r.get("nome") or "").strip().upper()
-        if not nome:
+        if not nome or not e_pessoa(nome):
             continue
         data_adm = (
             _parse_date(r.get("data_adm"))

@@ -38,8 +38,8 @@ from app.auth import tem_acesso_modulo, is_admin as _is_admin
 from app.database import engine, get_db
 from app.models import DimAutonomo
 from app.template_config import templates
-from app.utils import (data_iso, data_para_date, flash_from_request,
-                       redirect_with_message)
+from app.utils import (data_iso, data_para_date, e_pessoa,
+                       flash_from_request, redirect_with_message)
 
 router = APIRouter(tags=["dho"])
 
@@ -1231,7 +1231,8 @@ def carregar_pessoas_dataworld(raise_errors: bool = False):
 
             nome_exibicao = nome_completo or nome
 
-            if not nome_exibicao:
+            # conta de equipe não é empregado: fora do cadastro e das contagens
+            if not nome_exibicao or not e_pessoa(nome_exibicao):
                 continue
 
             detalhes = []

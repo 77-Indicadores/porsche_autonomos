@@ -148,6 +148,19 @@ _EMPRESAS_CURTAS = (
 )
 
 
+# Registros da fonte oficial que não são pessoas: contas de equipe, genéricas
+# ou de sistema. Entram no quadro e distorcem headcount, turnover e composição.
+# Comparação por nome normalizado; acrescente novos aqui.
+_NAO_PESSOAS = {
+    "EQUIPE RH",
+}
+
+
+def e_pessoa(nome) -> bool:
+    """False para conta que não representa um colaborador de verdade."""
+    return str(nome or "").strip().upper() not in _NAO_PESSOAS
+
+
 def empresa_curta(nome) -> str:
     """Nome curto da empresa; devolve o original quando não reconhece."""
     bruto = str(nome or "").strip()
