@@ -54,6 +54,55 @@ def _competencias(db: Session) -> list[str]:
     return sorted({r[0] for r in rows}, key=chave, reverse=True)
 
 
+def _tipos_calculo(db: Session, competencia: str = "") -> list[str]:
+    """Tipos de cálculo importados: folha mensal, adiantamento, 13º…"""
+    sql = ("SELECT DISTINCT a.tipo_calculo FROM folha_arquivos a "
+           "WHERE COALESCE(a.tipo_calculo, '') <> ''")
+    params: dict = {}
+    if competencia:
+        sql += " AND a.competencia = :c"
+        params["c"] = competencia
+    try:
+        return sorted(r[0] for r in db.execute(text(sql), params).fetchall())
+    except Exception as exc:
+        print(f"AVISO - tipos de cálculo: {exc}")
+        return []
+
+
+# Como cada tipo de cálculo aparece no histórico do título.
+_HISTORICO_POR_TIPO = (
+    ("adiantament", "ADIANTAMENTO"),
+    ("13", "13o SALARIO"),
+    ("decimo", "13o SALARIO"),
+    ("férias", "FERIAS"),
+    ("ferias", "FERIAS"),
+    ("rescis", "RESCISAO"),
+    ("complementar", "FOLHA COMPLEMENTAR"),
+    ("mensal", "FOLHA MENSAL"),
+)
+
+
+def _historico(competencia: str, tipo_calculo: str = "") -> str:
+    """Histórico do título, a partir do tipo de cálculo e da competência.
+
+    Sem o tipo no texto, adiantamento e 13º entrariam no Protheus com o mesmo
+    histórico da folha mensal e ninguém distinguiria um do outro no extrato.
+    """
+    alvo = (tipo_calculo or "").strip().lower()
+    for chave, rotulo in _HISTORICO_POR_TIPO:
+        if chave in alvo:
+            return f"{rotulo} REF {competencia}"
+    if alvo:
+        return f"{_remover_acentos(tipo_calculo).upper()} REF {competencia}"
+    return f"FOLHA MENSAL REF {competencia}"
+
+
+def _remover_acentos(texto: str) -> str:
+    import unicodedata
+    limpo = unicodedata.normalize("NFD", str(texto or ""))
+    return "".join(c for c in limpo if unicodedata.category(c) != "Mn")
+
+
 def _mesma_empresa(a: str, b: str) -> bool:
     """A folha grava a razão social truncada; compara pelo começo."""
     na = re.sub(r"[^A-Z0-9]", "", (a or "").upper())
@@ -135,16 +184,26 @@ def _codigo_fornecedor(matricula: str, digitos: int) -> str:
 
 
 def _linhas_da_competencia(db: Session, competencia: str,
-                           digitos: int = 6) -> list[dict]:
-    """Uma linha por colaborador com líquido na competência, já com empresa."""
-    rows = db.execute(text("""
-        SELECT a.empresa_nome AS empresa, f.matricula, f.nome, f.centro_custo,
-               f.liquido, f.situacao
+                           digitos: int = 6, tipo_calculo: str = "") -> list[dict]:
+    """Uma linha por colaborador com líquido na competência, já com empresa.
+
+    O tipo de cálculo separa folha mensal, adiantamento e 13º: sem ele, a mesma
+    pessoa entraria duas vezes na mesma competência, com o mesmo número de
+    título, e o Protheus veria duas cobranças iguais.
+    """
+    sql = """
+        SELECT a.empresa_nome AS empresa, a.tipo_calculo, f.matricula, f.nome,
+               f.centro_custo, f.liquido, f.situacao
         FROM folha_funcionarios f
         JOIN folha_arquivos a ON a.id_arquivo = f.id_arquivo
         WHERE f.competencia = :c
-        ORDER BY a.empresa_nome, f.nome
-    """), {"c": competencia}).mappings().all()
+    """
+    params: dict = {"c": competencia}
+    if tipo_calculo:
+        sql += " AND a.tipo_calculo = :t"
+        params["t"] = tipo_calculo
+    sql += " ORDER BY a.empresa_nome, f.nome"
+    rows = db.execute(text(sql), params).mappings().all()
 
     mapa_setor = _mapa_setor(db)
     mapa_feedz = _mapa_matricula_feedz(db)
@@ -164,6 +223,7 @@ def _linhas_da_competencia(db: Session, competencia: str,
                or mat_folha)
         resultado.append({
             "empresa": r["empresa"],
+            "tipo_calculo": r["tipo_calculo"] or "",
             "matricula": mat_folha,
             "nome": nome,
             "centro_custo": str(r["centro_custo"] or "").strip(),
@@ -172,10 +232,6 @@ def _linhas_da_competencia(db: Session, competencia: str,
             "setor": _setor_de(mapa_setor, r["empresa"], r["centro_custo"]),
         })
     return resultado
-
-
-def _historico(competencia: str) -> str:
-    return f"FOLHA MENSAL REF {competencia}"
 
 
 def _parametros(request: Request) -> dict:
@@ -196,7 +252,8 @@ def _parametros(request: Request) -> dict:
 
 # ─── tela ────────────────────────────────────────────────────────────
 @router.get("/folha/exportacao-liquidos")
-def index(request: Request, competencia: str = "", db: Session = Depends(get_db)):
+def index(request: Request, competencia: str = "", tipo_calculo: str = "",
+          db: Session = Depends(get_db)):
     # o Fornecedor é a matrícula do Feedz: vale garantir que ela está atual
     # antes de montar o arquivo que vai para o Protheus
     try:
@@ -207,8 +264,13 @@ def index(request: Request, competencia: str = "", db: Session = Depends(get_db)
 
     comps = _competencias(db)
     competencia = competencia or (comps[0] if comps else "")
+    tipos = _tipos_calculo(db, competencia)
+    # com um único tipo na competência, não faz sentido pedir a escolha
+    if not tipo_calculo and len(tipos) == 1:
+        tipo_calculo = tipos[0]
     p = _parametros(request)
-    linhas = _linhas_da_competencia(db, competencia, p["digitos"]) if competencia else []
+    linhas = (_linhas_da_competencia(db, competencia, p["digitos"], tipo_calculo)
+              if competencia else [])
 
     por_empresa: dict[str, dict] = {}
     for l in linhas:
@@ -236,7 +298,9 @@ def index(request: Request, competencia: str = "", db: Session = Depends(get_db)
         "pendentes": pendentes[:40],
         "qtd_pendentes": len(pendentes),
         "parametros": p,
-        "historico": _historico(competencia),
+        "tipos_calculo": tipos,
+        "tipo_calculo": tipo_calculo,
+        "historico": _historico(competencia, tipo_calculo),
         "colunas": COLUNAS,
         "success": request.query_params.get("success"),
         "error": request.query_params.get("error"),
@@ -246,7 +310,7 @@ def index(request: Request, competencia: str = "", db: Session = Depends(get_db)
 # ─── download ────────────────────────────────────────────────────────
 @router.get("/folha/exportacao-liquidos/baixar")
 def baixar(request: Request, competencia: str = "", empresa: str = "",
-           db: Session = Depends(get_db)):
+           tipo_calculo: str = "", db: Session = Depends(get_db)):
     from openpyxl import Workbook
     from openpyxl.styles import Alignment, Font, PatternFill
     from openpyxl.utils import get_column_letter
@@ -256,14 +320,14 @@ def baixar(request: Request, competencia: str = "", empresa: str = "",
                                      error="Escolha a competência antes de exportar.")
 
     p = _parametros(request)
-    linhas = [l for l in _linhas_da_competencia(db, competencia, p["digitos"])
+    linhas = [l for l in _linhas_da_competencia(db, competencia, p["digitos"], tipo_calculo)
               if not empresa or l["empresa"] == empresa]
     if not linhas:
         return redirect_with_message(
             f"/folha/exportacao-liquidos?competencia={competencia}",
             error="Nada a exportar para essa competência e empresa.")
 
-    hist = _historico(competencia)
+    hist = _historico(competencia, tipo_calculo)
 
     wb = Workbook()
     ws = wb.active
@@ -311,7 +375,11 @@ def baixar(request: Request, competencia: str = "", empresa: str = "",
 
     comp = re.sub(r"[^0-9]", "", competencia) or "competencia"
     alvo = re.sub(r"[^a-zA-Z0-9]+", "", empresa_curta(empresa)).lower() if empresa else "todas"
-    nome = f"Layout_fopag_{comp}_{alvo}.xlsx"
+    # o tipo entra no nome: mensal e adiantamento da mesma competência não podem
+    # sair como arquivos de nome igual
+    marca = re.sub(r"[^a-zA-Z0-9]+", "", _remover_acentos(tipo_calculo)).lower()
+    sufixo = f"_{marca}" if marca else ""
+    nome = f"Layout_fopag_{comp}_{alvo}{sufixo}.xlsx"
 
     return StreamingResponse(
         bio,
