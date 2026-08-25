@@ -106,7 +106,8 @@ class AuthMiddleware(BaseHTTPMiddleware):
 
         if session_user:
             # o cookie congela perfil e módulos no login; o banco é a verdade
-            atuais = dados_atuais_usuario(session_user.get("email"))
+            atuais = dados_atuais_usuario(session_user.get("id_usuario"),
+                                          session_user.get("email") or "")
             if atuais is None or (atuais and atuais.get("ativo") != "Sim"):
                 session_user = None  # removido ou desativado: sessão morre
             elif atuais:

@@ -37,28 +37,34 @@ def is_admin(request) -> bool:
     return bool(user and user.get("perfil") == "admin")
 
 
-def dados_atuais_usuario(email: str) -> dict | None:
-    """Perfil, módulos e ativo direto do banco, pelo e-mail da sessão.
+def dados_atuais_usuario(id_usuario=None, email: str = "") -> dict | None:
+    """Perfil, módulos e ativo direto do banco, para reconciliar a sessão.
 
     O cookie guarda esses campos congelados no momento do login: mudar o
     perfil ou liberar um módulo não surtia efeito até a pessoa deslogar — e
-    desativar um usuário não o tirava do sistema. A cada requisição o
-    middleware reconcilia a sessão com o que está no banco agora.
+    desativar um usuário não o tirava do sistema.
+
+    A busca é pelo id_usuario, que é o que o token de login carrega (o token
+    NÃO tem e-mail — buscar por e-mail matava a sessão de todo mundo e
+    trancava o login num loop). None significa "usuário sumiu do banco";
+    {} significa "não deu para verificar" e mantém a sessão do cookie.
     """
-    if not email:
-        return None
     try:
         from sqlalchemy import text
         from app.database import engine
+        if id_usuario:
+            sql, params = ("SELECT perfil, modulos_acesso, ativo FROM usuarios "
+                           "WHERE id_usuario = :i"), {"i": int(id_usuario)}
+        elif email:
+            sql, params = ("SELECT perfil, modulos_acesso, ativo FROM usuarios "
+                           "WHERE email = :e"), {"e": email}
+        else:
+            return {}  # sessão sem identificador: não dá para verificar
         with engine.connect() as conn:
-            row = conn.execute(
-                text("SELECT perfil, modulos_acesso, ativo FROM usuarios "
-                     "WHERE email = :e"),
-                {"e": email},
-            ).mappings().first()
+            row = conn.execute(text(sql), params).mappings().first()
         return dict(row) if row else None
     except Exception as exc:
-        print(f"AVISO - não consegui atualizar dados do usuário {email}: {exc}")
+        print(f"AVISO - não consegui atualizar dados do usuário: {exc}")
         return {}
 
 
