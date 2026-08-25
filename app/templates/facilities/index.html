@@ -287,17 +287,28 @@
     line-height: 1.35;
   }
 
-  /* ── Rolagem horizontal da tabela ──
+  /* ── Rolagem da tabela ──
      A classe overflow-x-auto vinha de convenção Tailwind, que este projeto
      não usa: não existia em CSS nenhum e o invólucro não fazia nada. As 15
-     colunas se espremiam sem barra. O min-width dá à tabela o espaço real
-     dela; o invólucro rola. */
+     colunas se espremiam sem barra.
+
+     Só definir overflow-x não bastava: a barra horizontal nasce no rodapé do
+     invólucro e, com 68 linhas, isso ficava 6.000px abaixo da dobra — existia
+     e ninguém alcançava. Limitando a altura, as duas barras cabem na tela, e
+     o cabeçalho fixo mantém os nomes das colunas à vista durante a rolagem. */
   .overflow-x-auto {
-    overflow-x: auto;
+    overflow: auto;
+    max-height: 70vh;
     -webkit-overflow-scrolling: touch;
   }
   #tbl_facilities {
     min-width: 1280px;
+  }
+  #tbl_facilities thead th {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    background: #f8fafc;
   }
 
   /* ── Ordenação ── */
