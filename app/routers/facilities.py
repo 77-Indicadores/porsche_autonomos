@@ -330,6 +330,27 @@ def _upsert_complemento(db: Session, chave: str, dados: dict):
     db.flush()
 
 
+def _areas_do_feedz() -> list[str]:
+    """Departamentos da base oficial (dho_departamentos, sincronizada do Feedz).
+
+    A lista da planilha LISTA SUSPENSA fica como reserva: em produção o
+    arquivo não existe e o seletor de área vinha vazio.
+    """
+    try:
+        from sqlalchemy import text as _text
+        from app.database import engine
+        with engine.connect() as conn:
+            rows = conn.execute(_text(
+                "SELECT DISTINCT nome_departamento FROM dho_departamentos "
+                "WHERE COALESCE(status, 'Ativo') = 'Ativo' "
+                "AND COALESCE(nome_departamento, '') <> ''"
+            )).fetchall()
+        return sorted({str(r[0]).strip() for r in rows if str(r[0]).strip()})
+    except Exception as exc:
+        print(f"AVISO - áreas do Feedz para facilities: {exc}")
+        return []
+
+
 def lista_opcoes_complementares():
     opcoes = {
         "setores": [],
@@ -339,6 +360,13 @@ def lista_opcoes_complementares():
         "prazos": ["Sim", "Não"],
         "retrabalhos": ["Sim", "Não"],
     }
+
+    # A área/serviço vem dos departamentos sincronizados do Feedz. A planilha
+    # LISTA SUSPENSA segue alimentando as demais listas — e serve de reserva
+    # para a área apenas quando a base ainda não foi sincronizada.
+    areas_feedz = _areas_do_feedz()
+    if areas_feedz:
+        opcoes["areas"] = areas_feedz
 
     if not COMPLEMENTAR_XLSX_PATH.exists():
         return opcoes
@@ -357,6 +385,8 @@ def lista_opcoes_complementares():
             "retrabalhos": 6,
         }
         for nome, coluna in mapa.items():
+            if nome == "areas" and areas_feedz:
+                continue  # o Feedz manda; a planilha não sobrescreve
             valores = []
             for row in range(2, ws.max_row + 1):
                 value = ws.cell(row=row, column=coluna).value
@@ -827,6 +857,19 @@ async def upload_complementar(request: Request, arquivo: UploadFile = File(...),
                 pass
 
 
+# Atualizar o espelho é operação de quem trabalha no Facilities, não só do
+# admin: exigir admin barrava a operadora sem nenhuma mensagem. Conectar ou
+# desconectar a conta Google continua restrito a admin — é credencial.
+def _pode_operar_facilities(request) -> bool:
+    return _is_admin(request) or tem_acesso_modulo(request, "facilities")
+
+
+_ERRO_SEM_MODULO_FAC = (
+    "Atualizar o espelho exige acesso ao módulo Facilities. Peça a um "
+    "administrador para liberar o módulo para o seu usuário em Usuários."
+)
+
+
 @router.post("/facilities/sincronizar")
 def sincronizar(
     request: Request,
@@ -835,8 +878,8 @@ def sincronizar(
     audit_dir: str = Form(DEFAULT_AUDIT_DIR),
     db: Session = Depends(get_db),
 ):
-    if not _is_admin(request):
-        return RedirectResponse("/?sem_acesso=facilities", status_code=303)
+    if not _pode_operar_facilities(request):
+        return redirect_with_message("/facilities", error=_ERRO_SEM_MODULO_FAC)
     _restaurar_credenciais_google(db)
     if not has_google_oauth_client(db):
         return redirect_with_message(
@@ -879,7 +922,9 @@ def sincronizar(
 @router.get("/facilities/oauth/iniciar")
 def facilities_oauth_iniciar(request: Request, db: Session = Depends(get_db)):
     if not _is_admin(request):
-        return RedirectResponse("/?sem_acesso=facilities", status_code=303)
+        return redirect_with_message(
+            "/facilities",
+            error="Conectar ou desconectar a conta Google é restrito a administradores.")
 
     ensure_google_oauth_client_config(db)
     client_config = get_google_oauth_client_config(db)
@@ -912,7 +957,9 @@ def facilities_oauth_callback(
     db: Session = Depends(get_db),
 ):
     if not _is_admin(request):
-        return RedirectResponse("/?sem_acesso=facilities", status_code=303)
+        return redirect_with_message(
+            "/facilities",
+            error="Conectar ou desconectar a conta Google é restrito a administradores.")
 
     client_config = get_google_oauth_client_config(db)
     redirect_uri = get_google_oauth_redirect_uri(db)
@@ -971,7 +1018,9 @@ def facilities_oauth_callback(
 @router.post("/facilities/oauth/desconectar")
 def facilities_oauth_desconectar(request: Request, db: Session = Depends(get_db)):
     if not _is_admin(request):
-        return RedirectResponse("/?sem_acesso=facilities", status_code=303)
+        return redirect_with_message(
+            "/facilities",
+            error="Conectar ou desconectar a conta Google é restrito a administradores.")
 
     _delete_config(db, GOOGLE_TOKEN_DB_KEY)
     _delete_config(db, GOOGLE_OAUTH_STATE_DB_KEY)
