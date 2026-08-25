@@ -7,7 +7,8 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 from starlette.responses import RedirectResponse
 
-from app.auth import SESSION_COOKIE, read_session_token, tem_acesso_modulo
+from app.auth import (SESSION_COOKIE, dados_atuais_usuario,
+                      read_session_token, tem_acesso_modulo)
 from app.database import Base, engine, garantir_schema_usuarios, limpar_datas_vazias_sqlite
 from app.routers import alocacoes, auth, cadastros, dashboard, relatorios, usuarios, referencias_importacao, pesquisas, equipe_geral, dho, facilities, composicao_meta_equipe, budget, folha_centros_custo, folha_export_liquidos, folha_movimentacoes, indicadores_pesquisas
 
@@ -102,6 +103,16 @@ class AuthMiddleware(BaseHTTPMiddleware):
 
         token = request.cookies.get(SESSION_COOKIE)
         session_user = read_session_token(token) if token else None
+
+        if session_user:
+            # o cookie congela perfil e módulos no login; o banco é a verdade
+            atuais = dados_atuais_usuario(session_user.get("email"))
+            if atuais is None or (atuais and atuais.get("ativo") != "Sim"):
+                session_user = None  # removido ou desativado: sessão morre
+            elif atuais:
+                session_user["perfil"] = atuais.get("perfil") or session_user.get("perfil")
+                session_user["modulos_acesso"] = atuais.get("modulos_acesso") or "[]"
+            # atuais == {} significa banco indisponível: segue com o cookie
 
         if session_user:
             raw = session_user.get("modulos_acesso", "[]")

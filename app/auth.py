@@ -37,6 +37,31 @@ def is_admin(request) -> bool:
     return bool(user and user.get("perfil") == "admin")
 
 
+def dados_atuais_usuario(email: str) -> dict | None:
+    """Perfil, módulos e ativo direto do banco, pelo e-mail da sessão.
+
+    O cookie guarda esses campos congelados no momento do login: mudar o
+    perfil ou liberar um módulo não surtia efeito até a pessoa deslogar — e
+    desativar um usuário não o tirava do sistema. A cada requisição o
+    middleware reconcilia a sessão com o que está no banco agora.
+    """
+    if not email:
+        return None
+    try:
+        from sqlalchemy import text
+        from app.database import engine
+        with engine.connect() as conn:
+            row = conn.execute(
+                text("SELECT perfil, modulos_acesso, ativo FROM usuarios "
+                     "WHERE email = :e"),
+                {"e": email},
+            ).mappings().first()
+        return dict(row) if row else None
+    except Exception as exc:
+        print(f"AVISO - não consegui atualizar dados do usuário {email}: {exc}")
+        return {}
+
+
 def tem_acesso_modulo(request, modulo: str) -> bool:
     """Admin tem acesso a tudo. Operador sem modulos_acesso configurado também acessa tudo (legado)."""
     user = getattr(request.state, "current_user", None)
