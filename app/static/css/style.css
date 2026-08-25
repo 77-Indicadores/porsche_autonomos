@@ -324,6 +324,10 @@ body {
   flex: 1;
   min-height: 100vh;
   background: #f4f4f5;
+  /* item de flex estica até o conteúdo por padrão (min-width:auto):
+     uma tabela larga alargava a página inteira em vez de rolar no
+     próprio invólucro com overflow-x */
+  min-width: 0;
 }
 
 .page-header {
