@@ -4,7 +4,9 @@
 {% block subtitle %}Espelho da planilha online Controle de Reformas Prediais V1.{% endblock %}
 
 {% block header_action %}
-{% if is_admin %}
+{# o botão segue a mesma regra do endpoint: quem tem o módulo atualiza;
+   os painéis de configuração logo abaixo continuam só para admin #}
+{% if pode_atualizar %}
 <form method="post" action="/facilities/sincronizar">
   <button class="quick-action primary" type="submit">Atualizar espelho</button>
 </form>
