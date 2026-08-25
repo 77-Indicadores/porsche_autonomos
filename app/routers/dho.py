@@ -1777,12 +1777,17 @@ def dho_importacoes(request: Request):
     )
 
 
-# Importar altera a base inteira, por isso é restrito ao perfil admin. Antes a
-# recusa jogava a pessoa na home sem dizer nada, e parecia erro do arquivo.
+# Importar é trabalho de quem opera o DHO, não só do administrador do sistema:
+# exigir perfil admin obrigava a promover a conta inteira só para subir uma
+# planilha. Quem tem o módulo DHO liberado pode importar.
 _ERRO_SEM_PERMISSAO = (
-    "Importar exige perfil de administrador. Seu usuário não tem esse perfil — "
-    "peça a um administrador para importar ou para alterar seu perfil em Usuários."
+    "Importar exige acesso ao módulo DHO. Peça a um administrador para liberar "
+    "o módulo para o seu usuário em Usuários."
 )
+
+
+def _pode_importar_dho(request) -> bool:
+    return _is_admin(request) or tem_acesso_modulo(request, "dho")
 
 
 # Coluna que identifica cada tipo de planilha, e onde ela deve ser enviada.
@@ -1826,7 +1831,7 @@ async def importar_dho(
     arquivo: UploadFile = File(...),
     db: Session = Depends(get_db),
 ):
-    if not _is_admin(request):
+    if not _pode_importar_dho(request):
         return redirect_with_message("/dho/importacoes", error=_ERRO_SEM_PERMISSAO)
     try:
         from openpyxl import load_workbook
@@ -2502,7 +2507,7 @@ async def importar_aplicacoes_treinamento_dho(
     arquivo: UploadFile = File(...),
     db: Session = Depends(get_db),
 ):
-    if not _is_admin(request):
+    if not _pode_importar_dho(request):
         return redirect_with_message("/dho/importacoes", error=_ERRO_SEM_PERMISSAO)
     try:
         from openpyxl import load_workbook
