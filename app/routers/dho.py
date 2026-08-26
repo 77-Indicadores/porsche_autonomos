@@ -459,6 +459,58 @@ TIPOS_TREINAMENTO = [
     "Reciclagem de autônomos",
 ]
 
+def _vinculo_pelo_cargo(nome_cargo: str) -> str:
+    """Deduz o vínculo da vaga pelo nome do cargo.
+
+    As vagas cadastradas antes do campo existir ficaram sem vínculo. O cargo
+    é a única pista confiável que elas têm: "AUTONOMO" e "ESTAGIARIO" são
+    explícitos no próprio nome. O resto é CLT — é o vínculo padrão da casa, e
+    marcar errado aqui é reversível pela tela, enquanto deixar tudo em branco
+    inutiliza o indicador.
+    """
+    alvo = _sem_acento(nome_cargo).upper()
+    if "AUTONOMO" in alvo:
+        return "Autônomo"
+    if "ESTAGIARI" in alvo or "ESTAGIO" in alvo:
+        return "Estágio"
+    if not alvo.strip():
+        return ""  # sem cargo não há o que deduzir
+    return "CLT"
+
+
+def _sem_acento(texto: str) -> str:
+    import unicodedata
+    limpo = unicodedata.normalize("NFD", str(texto or ""))
+    return "".join(c for c in limpo if unicodedata.category(c) != "Mn")
+
+
+def _carga_vinculo_vagas():
+    """Preenche o vínculo das vagas que ficaram sem, uma única vez."""
+    try:
+        with engine.begin() as conn:
+            linhas = conn.execute(text("""
+                SELECT v.id_vaga, COALESCE(c.nome_cargo, '') AS nome_cargo
+                FROM dho_vagas v
+                LEFT JOIN dho_cargos c ON c.id_cargo = v.id_cargo
+                WHERE COALESCE(v.tipo_vinculo, '') = ''
+            """)).mappings().all()
+            contagem = {}
+            for r in linhas:
+                vinculo = _vinculo_pelo_cargo(r["nome_cargo"])
+                if not vinculo:
+                    continue
+                conn.execute(text("UPDATE dho_vagas SET tipo_vinculo = :v "
+                                  "WHERE id_vaga = :i"),
+                             {"v": vinculo, "i": r["id_vaga"]})
+                contagem[vinculo] = contagem.get(vinculo, 0) + 1
+            if contagem:
+                resumo = ", ".join(f"{q} {v}" for v, q in sorted(contagem.items()))
+                print(f"Vagas: vínculo preenchido em {sum(contagem.values())} "
+                      f"registro(s) — {resumo}.")
+    except Exception as exc:
+        print(f"AVISO - carga do vínculo das vagas: {exc}")
+
+
 TIPOS_VAGA = ["Nova vaga", "Substituição"]
 # Vínculo da contratação: separa a vaga de autônomo da vaga de CLT nos
 # indicadores. Vagas antigas ficam em branco até alguém preencher — chutar
@@ -611,6 +663,7 @@ def garantir_schema():
 
 
 garantir_schema()
+_carga_vinculo_vagas()
 
 
 def fmt_num(value):
