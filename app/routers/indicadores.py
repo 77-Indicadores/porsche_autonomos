@@ -1781,7 +1781,8 @@ def _filtro_depto_html(acao: str, deptos: list[str], selecionado: str,
                        meses: list[str] | None = None, mes_sel: str = "",
                        ano_sel: str = "", empresas: list[str] | None = None,
                        empresa_sel: str = "",
-                       extras: list[tuple[str, str, list[tuple[str, str]], str]] | None = None) -> str:
+                       extras: list[tuple[str, str, list[tuple[str, str]], str]] | None = None,
+                       extras_inicio: list[tuple[str, str, list[tuple[str, str]], str]] | None = None) -> str:
     """Barra de filtros dos painéis montados em HTML puro.
 
     Mesmo visual e mesmos campos do Turnover: Empresa, Departamento, Ano e
@@ -1821,21 +1822,29 @@ def _filtro_depto_html(acao: str, deptos: list[str], selecionado: str,
         for m in meses_vis
     )
 
-    # filtros próprios de um painel, no mesmo formato dos demais
-    blocos_extra = ""
+    # filtros próprios de um painel, no mesmo formato dos demais.
+    # extras_inicio entra logo depois de Departamento; extras, no fim da barra.
     algum_extra = False
-    for nome_campo, rotulo, opcoes, valor_sel in (extras or []):
-        if valor_sel:
-            algum_extra = True
-        opts = "".join(
-            f"<option value=\"{v}\"{' selected' if v == valor_sel else ''}>{l}</option>"
-            for v, l in opcoes
-        )
-        blocos_extra += f"""
+
+    def _blocos(lista):
+        nonlocal algum_extra
+        saida = ""
+        for nome_campo, rotulo, opcoes, valor_sel in (lista or []):
+            if valor_sel:
+                algum_extra = True
+            opts = "".join(
+                f"<option value=\"{v}\"{' selected' if v == valor_sel else ''}>{l}</option>"
+                for v, l in opcoes
+            )
+            saida += f"""
   <div class="ind-filtro">
     <label>{rotulo}</label>
     <select name="{nome_campo}" onchange="this.form.submit()">{opts}</select>
   </div>"""
+        return saida
+
+    blocos_inicio = _blocos(extras_inicio)
+    blocos_extra = _blocos(extras)
 
     limpar = (f'<a href="{acao}" class="ind-limpar">✕ Limpar</a>'
               if (selecionado or mes_sel or ano_sel or empresa_sel or algum_extra) else "")
@@ -1847,7 +1856,7 @@ def _filtro_depto_html(acao: str, deptos: list[str], selecionado: str,
   <div class="ind-filtro">
     <label>Departamento</label>
     <select name="departamento" onchange="this.form.submit()">{opts_dep}</select>
-  </div>
+  </div>{blocos_inicio}
   <div class="ind-filtro">
     <label>Ano</label>
     <select name="ano" onchange="this.form.submit()">{opts_ano}</select>
@@ -2240,10 +2249,10 @@ def _build_vagas_html(depto_sel: str = "", mes_sel: str = "", ano_sel: str = "",
 
     filtro_html = _filtro_depto_html(
         "/indicadores/vagas", todos_deptos, depto_sel, todos_meses, mes_sel, ano_sel,
-        extras=[("vinculo", "Vínculo",
-                 [("", "Todos")] + [(v, v) for v in todos_vinculos],
-                 vinculo_sel),
-                ("tempo", "Tempo em aberto",
+        extras_inicio=[("vinculo", "Vínculo",
+                        [("", "Todos")] + [(v, v) for v in todos_vinculos],
+                        vinculo_sel)],
+        extras=[("tempo", "Tempo em aberto",
                  [("", "Todas"),
                   ("mais30", "Abertas há mais de 30 dias"),
                   ("menos30", "Abertas há até 30 dias")],
