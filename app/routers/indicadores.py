@@ -127,6 +127,17 @@ def _normalizar_colabs(rows: list[dict]) -> list[dict]:
     return result
 
 
+# Situações que significam vínculo vigente. Afastamento, licença e férias
+# continuam no quadro: a pessoa segue empregada. Qualquer outro rótulo só
+# entra se houver prova de que a saída ainda não tinha acontecido na data.
+_SITUACOES_NO_QUADRO = ("ativo", "trabalhando", "afast", "licen", "feria", "férias")
+
+
+def _situacao_no_quadro(situacao: str) -> bool:
+    alvo = (situacao or "").strip().lower()
+    return any(chave in alvo for chave in _SITUACOES_NO_QUADRO)
+
+
 def _is_ativo(c: dict, ref: date) -> bool:
     sit = (c.get("situacao") or "").strip()
     adm, dem = c["data_adm"], c["data_demissa"]
@@ -138,13 +149,19 @@ def _is_ativo(c: dict, ref: date) -> bool:
     # qualquer mês passado e o headcount ficava igual em todas as competências.
     if adm and adm > ref:
         return False
-    # Feedz marca situacao="Ativo" para quem está no quadro; confia nisso como fonte primária
-    if sit == "Ativo":
-        return dem is None or dem > ref
-    # Fallback por datas para funcionários que já saíram (situacao != "Ativo")
-    if adm is None:
-        return False
-    return dem is None or dem > ref
+
+    ainda_sem_saida = dem is None or dem > ref
+
+    # Situação que indica vínculo vigente: conta enquanto não houver saída.
+    if _situacao_no_quadro(sit):
+        return ainda_sem_saida
+
+    # Qualquer outra situação (desligado, rótulo que não reconhecemos) só conta
+    # se a saída for posterior à data de referência — o que mantém correto o
+    # histórico de quem saiu depois. Sem data de saída não há vínculo a provar:
+    # antes esse caso entrava no quadro e inflava o headcount com registros
+    # que nem aparecem no relatório do Feedz.
+    return dem is not None and dem > ref
 
 
 def _contar_por_campo(colabs: list[dict], campo: str, ref: date) -> list[tuple[str, int]]:
@@ -407,6 +424,7 @@ _COLUNAS_PESSOA = {
     "adm":      ("Admissão",     lambda c: _br_data(c.get("data_adm"))),
     "dem":      ("Desligamento", lambda c: _br_data(c.get("data_demissa"))),
     "empresa":  ("Empresa",      lambda c: empresa_curta(c.get("empresa"))),
+    "situacao": ("Situação",     lambda c: c.get("situacao") or ""),
     "depto":    ("Departamento", lambda c: (c.get("departamento") or "").title()),
     "motivo":   ("Motivo",       lambda c: c.get("motivo_desligamento") or ""),
     "tipo":     ("Tipo",         lambda c: c.get("tipo_desligamento") or ""),
@@ -694,7 +712,7 @@ def _build_headcount_html(
 
     # o título vira o nome do arquivo exportado, então carrega a competência
     _mes = _mes_label(ref)
-    _pessoa = ("nome", "adm", "dem", "empresa")
+    _pessoa = ("nome", "adm", "dem", "empresa", "situacao")
     # Cada faixa dos quadros de composição abre a lista de quem está nela.
     # Os grupos saem de no_quadro, o mesmo conjunto que gera as contagens, para
     # a lista não divergir do número mostrado na barra.
@@ -711,7 +729,7 @@ def _build_headcount_html(
             chave = f"brk_{campo}_{_he_chave_faixa(valor)}"
             grupos_composicao.setdefault(
                 chave, (f"{rotulo}: {valor} · {_mes_label(ref)}", [],
-                        ("nome", "adm", "depto", "empresa")))
+                        ("nome", "adm", "depto", "empresa", "situacao")))
             grupos_composicao[chave][1].append(pessoa)
 
     detalhe_json = _detalhe_pessoas_json({
