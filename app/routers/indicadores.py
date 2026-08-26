@@ -2179,11 +2179,12 @@ def _serie_vagas_6_meses_html(vagas: list[dict], ano_sel: str = "") -> str:
 
 
 def _build_vagas_html(depto_sel: str = "", mes_sel: str = "", ano_sel: str = "",
-                      tempo_sel: str = "") -> str:
+                      tempo_sel: str = "", vinculo_sel: str = "") -> str:
     try:
         vagas = _db_rows(
             """SELECT v.id_vaga, v.qtd_vagas, v.status, v.tipo_vaga, v.tipo_recrutamento,
                       v.data_abertura, v.data_conclusao,
+                      COALESCE(NULLIF(TRIM(v.tipo_vinculo), ''), 'Não informado') AS tipo_vinculo,
                       COALESCE(NULLIF(TRIM(d.nome_departamento), ''), '') AS nome_departamento
                FROM dho_vagas v
                LEFT JOIN dho_departamentos d ON d.id_departamento = v.id_departamento"""
@@ -2201,6 +2202,13 @@ def _build_vagas_html(depto_sel: str = "", mes_sel: str = "", ano_sel: str = "",
         v["competencia"] = competencia_de(v.get("data_abertura"))
     todos_meses = sorted({v["competencia"] for v in vagas if v["competencia"]},
                          reverse=True)
+    # o vínculo separa vaga de CLT de vaga de autônomo; "Não informado" fica
+    # visível de propósito, para as vagas antigas serem preenchidas
+    todos_vinculos = sorted({(v.get("tipo_vinculo") or "").strip()
+                             for v in vagas if (v.get("tipo_vinculo") or "").strip()})
+    if vinculo_sel:
+        vagas = [v for v in vagas
+                 if (v.get("tipo_vinculo") or "").strip() == vinculo_sel.strip()]
     if depto_sel:
         vagas = [v for v in vagas
                  if (v.get("nome_departamento") or "").strip().upper() == depto_sel.strip().upper()]
@@ -2232,7 +2240,10 @@ def _build_vagas_html(depto_sel: str = "", mes_sel: str = "", ano_sel: str = "",
 
     filtro_html = _filtro_depto_html(
         "/indicadores/vagas", todos_deptos, depto_sel, todos_meses, mes_sel, ano_sel,
-        extras=[("tempo", "Tempo em aberto",
+        extras=[("vinculo", "Vínculo",
+                 [("", "Todos")] + [(v, v) for v in todos_vinculos],
+                 vinculo_sel),
+                ("tempo", "Tempo em aberto",
                  [("", "Todas"),
                   ("mais30", "Abertas há mais de 30 dias"),
                   ("menos30", "Abertas há até 30 dias")],
@@ -2353,6 +2364,7 @@ def _build_vagas_html(depto_sel: str = "", mes_sel: str = "", ano_sel: str = "",
     <div class="vg-card"><div class="vg-card-title">Faixa de dias</div><div class="vg-card-sub">Tempo de permanência no processo</div>{faixa_bars}</div>
     <div class="vg-card"><div class="vg-card-title">Perfil das vagas</div><div class="vg-card-sub">Tipo e origem do recrutamento</div>
       <div class="vg-profile-grid">
+        <div><div class="vg-side-label">Vínculo</div>{_profile_bars("tipo_vinculo")}</div>
         <div><div class="vg-side-label">Tipo de vaga</div>{_profile_bars("tipo_vaga")}</div>
         <div><div class="vg-side-label">Recrutamento</div>{_profile_bars("tipo_recrutamento")}</div>
       </div>
@@ -3281,11 +3293,11 @@ def treinamentos_dash(request: Request, departamento: str = "", mes: str = "", a
 
 @router.get("/indicadores/vagas")
 def vagas_dash(request: Request, departamento: str = "", mes: str = "", ano: str = "",
-               tempo: str = ""):
+               tempo: str = "", vinculo: str = ""):
     erro = None
     dash_html = ""
     try:
-        dash_html = _build_vagas_html(departamento, mes, ano, tempo)
+        dash_html = _build_vagas_html(departamento, mes, ano, tempo, vinculo)
     except Exception as exc:
         erro = f"Erro ao carregar dados de Vagas: {exc}"
 

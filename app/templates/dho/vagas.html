@@ -53,6 +53,16 @@
       </select>
     </div>
 
+    <div>
+      <label class="label">Vínculo</label>
+      <select class="input" name="tipo_vinculo" id="tipo_vinculo">
+        <option value="">Não informado</option>
+        {% for v in tipos_vinculo %}
+          <option value="{{ v }}">{{ v }}</option>
+        {% endfor %}
+      </select>
+    </div>
+
     <div id="bloco_motivo" hidden>
       <label class="label">Motivo substituição</label>
       <select class="input" name="motivo_substituicao" id="motivo_substituicao">
@@ -153,6 +163,7 @@
         <th>Departamento</th>
         <th>Cargo</th>
         <th>Tipo</th>
+        <th>Vínculo</th>
         <th>Motivo</th>
         <th>Sexo</th>
         <th>Qtd</th>
@@ -170,6 +181,7 @@
         <td>{{ item.nome_departamento or "-" }}</td>
         <td class="font-bold">{{ item.nome_cargo or "-" }}</td>
         <td>{{ item.tipo_vaga or "-" }}</td>
+        <td>{{ item.tipo_vinculo or "-" }}</td>
         <td>
           {{ item.motivo_substituicao or "-" }}
           {% if item.nome_substituto %}
@@ -193,6 +205,7 @@
             data-tipo-vaga="{{ item.tipo_vaga or '' }}"
             data-motivo-substituicao="{{ item.motivo_substituicao or '' }}"
             data-nome-substituto="{{ item.nome_substituto or '' }}"
+            data-tipo-vinculo="{{ item.tipo_vinculo or '' }}"
             data-sexo="{{ item.sexo or '' }}"
             data-qtd-vagas="{{ item.qtd_vagas or 1 }}"
             data-status="{{ item.status or '' }}"
@@ -258,6 +271,7 @@ function editarVaga(btn) {
   setValue("id_cargo", d.idCargo);
   setValue("tipo_vaga", d.tipoVaga);
   setValue("motivo_substituicao", d.motivoSubstituicao);
+  setValue("tipo_vinculo", d.tipoVinculo);
   setValue("sexo", d.sexo);
   // depois do tipo: o toggle limpa o campo quando não é substituição
   alternarSubstituto();
@@ -284,6 +298,7 @@ function novoDho() {
   setValue("id_vaga", "");
   setValue("qtd_vagas", "1");
   setValue("tipo_recrutamento", "Externo");
+  setValue("tipo_vinculo", "");
   alternarSubstituto();
 
   document.getElementById("titulo-form-dho").innerText = "Nova / editar vaga";
