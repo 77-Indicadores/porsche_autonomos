@@ -948,7 +948,14 @@ def excluir_cargo(id_cargo: int, db: Session = Depends(get_db)):
 
 
 @router.get("/dho/vagas")
-def vagas(request: Request, q: str = "", db: Session = Depends(get_db)):
+def vagas(request: Request, q: str = "", status: str = "", vinculo: str = "",
+          departamento: str = "", tipo: str = "", db: Session = Depends(get_db)):
+    """Lista de vagas.
+
+    A tela mostrava tudo junto — concluídas, abertas, canceladas — com apenas
+    uma busca livre. Os filtros abaixo separam por situação, vínculo, área e
+    tipo, que é como o RH consulta na prática.
+    """
     query = (
         select(
             dho_vagas,
@@ -967,9 +974,21 @@ def vagas(request: Request, q: str = "", db: Session = Depends(get_db)):
         query = query.where(
             dho_departamentos.c.nome_departamento.like(like)
             | dho_cargos.c.nome_cargo.like(like)
-            | dho_vagas.c.status.like(like)
-            | dho_vagas.c.tipo_vaga.like(like)
+            | dho_vagas.c.titulo_vaga.like(like)
+            | dho_vagas.c.responsavel.like(like)
         )
+    if status:
+        query = query.where(dho_vagas.c.status == status)
+    if tipo:
+        query = query.where(dho_vagas.c.tipo_vaga == tipo)
+    if vinculo == "Não informado":
+        query = query.where(
+            (dho_vagas.c.tipo_vinculo.is_(None)) | (dho_vagas.c.tipo_vinculo == ""))
+    elif vinculo:
+        query = query.where(dho_vagas.c.tipo_vinculo == vinculo)
+    id_depto = to_int_or_none(departamento)
+    if id_depto:
+        query = query.where(dho_vagas.c.id_departamento == id_depto)
 
     try:
         items = db.execute(query.order_by(dho_vagas.c.id_vaga.desc())).mappings().all()
@@ -977,12 +996,29 @@ def vagas(request: Request, q: str = "", db: Session = Depends(get_db)):
         print(f"AVISO - não consegui listar vagas DHO: {exc}")
         items = []
 
+    try:
+        total_base = db.execute(
+            select(func.count()).select_from(dho_vagas)).scalar() or 0
+    except Exception:
+        total_base = len(items)
+
+    # posições, não linhas: uma vaga pode valer várias contratações
+    posicoes = sum(int(i.get("qtd_vagas") or 1) for i in items)
+
     return templates.TemplateResponse(
         "dho/vagas.html",
         {
             "request": request,
             "items": items,
             "q": q,
+            "status_sel": status,
+            "vinculo_sel": vinculo,
+            "departamento_sel": departamento,
+            "tipo_sel": tipo,
+            "total_filtrado": len(items),
+            "total_base": total_base,
+            "posicoes": posicoes,
+            "tem_filtro": bool(q or status or vinculo or departamento or tipo),
             "departamentos": get_departamentos(db),
             "cargos": get_cargos(db),
             "tipos_vaga": TIPOS_VAGA,

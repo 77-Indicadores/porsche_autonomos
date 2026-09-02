@@ -2188,7 +2188,8 @@ def _serie_vagas_6_meses_html(vagas: list[dict], ano_sel: str = "") -> str:
 
 
 def _build_vagas_html(depto_sel: str = "", mes_sel: str = "", ano_sel: str = "",
-                      tempo_sel: str = "", vinculo_sel: str = "") -> str:
+                      tempo_sel: str = "", vinculo_sel: str = "",
+                      status_sel: str = "") -> str:
     try:
         vagas = _db_rows(
             """SELECT v.id_vaga, v.qtd_vagas, v.status, v.tipo_vaga, v.tipo_recrutamento,
@@ -2215,9 +2216,14 @@ def _build_vagas_html(depto_sel: str = "", mes_sel: str = "", ano_sel: str = "",
     # visível de propósito, para as vagas antigas serem preenchidas
     todos_vinculos = sorted({(v.get("tipo_vinculo") or "").strip()
                              for v in vagas if (v.get("tipo_vinculo") or "").strip()})
+    todos_status = sorted({(v.get("status") or "").strip()
+                           for v in vagas if (v.get("status") or "").strip()})
     if vinculo_sel:
         vagas = [v for v in vagas
                  if (v.get("tipo_vinculo") or "").strip() == vinculo_sel.strip()]
+    if status_sel:
+        vagas = [v for v in vagas
+                 if (v.get("status") or "").strip() == status_sel.strip()]
     if depto_sel:
         vagas = [v for v in vagas
                  if (v.get("nome_departamento") or "").strip().upper() == depto_sel.strip().upper()]
@@ -2251,7 +2257,10 @@ def _build_vagas_html(depto_sel: str = "", mes_sel: str = "", ano_sel: str = "",
         "/indicadores/vagas", todos_deptos, depto_sel, todos_meses, mes_sel, ano_sel,
         extras_inicio=[("vinculo", "Vínculo",
                         [("", "Todos")] + [(v, v) for v in todos_vinculos],
-                        vinculo_sel)],
+                        vinculo_sel),
+                       ("status", "Situação",
+                        [("", "Todas")] + [(e, e) for e in todos_status],
+                        status_sel)],
         extras=[("tempo", "Tempo em aberto",
                  [("", "Todas"),
                   ("mais30", "Abertas há mais de 30 dias"),
@@ -3302,11 +3311,11 @@ def treinamentos_dash(request: Request, departamento: str = "", mes: str = "", a
 
 @router.get("/indicadores/vagas")
 def vagas_dash(request: Request, departamento: str = "", mes: str = "", ano: str = "",
-               tempo: str = "", vinculo: str = ""):
+               tempo: str = "", vinculo: str = "", status: str = ""):
     erro = None
     dash_html = ""
     try:
-        dash_html = _build_vagas_html(departamento, mes, ano, tempo, vinculo)
+        dash_html = _build_vagas_html(departamento, mes, ano, tempo, vinculo, status)
     except Exception as exc:
         erro = f"Erro ao carregar dados de Vagas: {exc}"
 
