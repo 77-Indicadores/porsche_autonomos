@@ -14,7 +14,7 @@ from typing import Optional
 
 import requests
 from catworld import CatworldClient
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, Query, Request
 from fastapi.responses import RedirectResponse
 from sqlalchemy import select, text
 
@@ -1774,53 +1774,186 @@ _CSS_FILTROS = """<style>
   color:#111827;font-size:13px;font-weight:600;cursor:pointer}
 .ind-limpar{font-size:12px;color:#6b7280;text-decoration:none;padding:0 4px}
 .ind-limpar:hover{color:#111827}
+/* caixa de marcação múltipla */
+.ind-multi{position:relative}
+.ind-multi.tem-selecao{border-color:#c9ced6;box-shadow:0 0 0 2px rgba(213,0,50,.10)}
+.ind-multi-botao{width:100%;display:flex;align-items:center;justify-content:space-between;
+  gap:6px;border:0;background:transparent;padding:0;cursor:pointer;
+  color:#111827;font-size:13px;font-weight:600;text-align:left;font-family:inherit}
+.ind-multi-botao span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ind-multi-botao i{font-style:normal;color:#6b7280;font-size:11px;flex:none}
+.ind-multi-painel{position:absolute;z-index:60;top:calc(100% + 6px);left:0;min-width:100%;
+  max-width:280px;background:#fff;border:1px solid #e1e3e7;border-radius:10px;
+  box-shadow:0 12px 30px rgba(0,0,0,.16);padding:8px}
+.ind-multi-painel[hidden]{display:none}
+.ind-multi-acoes{display:flex;gap:6px;margin-bottom:6px}
+.ind-multi-acoes button{flex:1;border:1px solid #e1e3e7;background:#fff;border-radius:6px;
+  padding:4px 6px;font-size:10px;font-weight:700;color:#4b5158;cursor:pointer;font-family:inherit}
+.ind-multi-acoes button:hover{background:#f5f6f8}
+.ind-multi-itens{max-height:220px;overflow:auto}
+.ind-multi-item{display:flex;align-items:center;gap:7px;padding:5px 6px;border-radius:6px;
+  font-size:12px;font-weight:500;color:#22252a;cursor:pointer;white-space:nowrap}
+.ind-multi-item:hover{background:#f5f6f8}
+.ind-multi-item input{margin:0;flex:none}
+.ind-multi-aplicar{width:100%;margin-top:7px;border:0;border-radius:7px;background:#111827;
+  color:#fff;padding:6px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit}
+.ind-multi-aplicar:hover{background:#000}
 </style>"""
 
 
-def _filtro_depto_html(acao: str, deptos: list[str], selecionado: str,
-                       meses: list[str] | None = None, mes_sel: str = "",
-                       ano_sel: str = "", empresas: list[str] | None = None,
-                       empresa_sel: str = "",
-                       extras: list[tuple[str, str, list[tuple[str, str]], str]] | None = None,
-                       extras_inicio: list[tuple[str, str, list[tuple[str, str]], str]] | None = None) -> str:
+# Comportamento das caixas: abrir, marcar vários e aplicar de uma vez. Enviar a
+# cada clique recarregaria a página no meio da escolha.
+_JS_FILTROS = """<script>
+(function () {
+  var form = document.getElementById('indFiltros');
+  if (!form || form.dataset.pronto) return;
+  form.dataset.pronto = '1';
+
+  function fecharTodos(exceto) {
+    form.querySelectorAll('.ind-multi-painel').forEach(function (p) {
+      if (p !== exceto) p.hidden = true;
+    });
+  }
+
+  form.querySelectorAll('.ind-multi').forEach(function (caixa) {
+    var botao = caixa.querySelector('.ind-multi-botao');
+    var painel = caixa.querySelector('.ind-multi-painel');
+
+    botao.addEventListener('click', function (ev) {
+      ev.stopPropagation();
+      var abrindo = painel.hidden;
+      fecharTodos(painel);
+      painel.hidden = !abrindo;
+    });
+
+    painel.addEventListener('click', function (ev) { ev.stopPropagation(); });
+
+    painel.querySelectorAll('[data-multi]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        var marcar = b.dataset.multi === 'todos';
+        painel.querySelectorAll('input[type=checkbox]').forEach(function (c) {
+          c.checked = marcar;
+        });
+      });
+    });
+
+    painel.querySelector('.ind-multi-aplicar').addEventListener('click', function () {
+      form.submit();
+    });
+  });
+
+  // clicar fora aplica o que foi marcado, em vez de descartar em silêncio
+  document.addEventListener('click', function () {
+    var aberto = form.querySelector('.ind-multi-painel:not([hidden])');
+    if (!aberto) return;
+    fecharTodos();
+    if (aberto.dataset.mudou === '1') form.submit();
+  });
+  form.querySelectorAll('.ind-multi-painel input[type=checkbox]').forEach(function (c) {
+    c.addEventListener('change', function () {
+      c.closest('.ind-multi-painel').dataset.mudou = '1';
+    });
+  });
+  form.querySelectorAll('[data-multi]').forEach(function (b) {
+    b.addEventListener('click', function () {
+      b.closest('.ind-multi-painel').dataset.mudou = '1';
+    });
+  });
+})();
+</script>"""
+
+
+def _lista_sel(valor) -> list[str]:
+    """Aceita string ou lista e devolve sempre lista, sem vazios.
+
+    Os filtros passaram a aceitar mais de um valor; as rotas antigas ainda
+    mandam string única, e os dois formatos precisam conviver.
+    """
+    if valor is None:
+        return []
+    if isinstance(valor, str):
+        return [valor] if valor.strip() else []
+    return [str(v) for v in valor if str(v).strip()]
+
+
+def _caixa_multi(nome: str, rotulo: str, opcoes: list[tuple[str, str]],
+                 selecionados: list[str], rotulo_vazio: str = "Todos") -> str:
+    """Caixa de filtro com marcação múltipla.
+
+    Um <select multiple> nativo obriga a segurar Ctrl e não deixa enviar o
+    formulário a cada clique. Aqui a caixa abre um painel de marcação e só
+    aplica ao fechar, então dá para escolher vários meses de uma vez.
+    """
+    marcados = [v for v, _ in opcoes if v in selecionados]
+    rotulos = {v: l for v, l in opcoes}
+    if not marcados:
+        resumo = rotulo_vazio
+    elif len(marcados) == 1:
+        resumo = rotulos.get(marcados[0], marcados[0])
+    else:
+        resumo = f"{rotulos.get(marcados[0], marcados[0])} +{len(marcados) - 1}"
+
+    itens = "".join(
+        f'<label class="ind-multi-item">'
+        f'<input type="checkbox" name="{nome}" value="{v}"'
+        f'{" checked" if v in selecionados else ""}><span>{l}</span></label>'
+        for v, l in opcoes
+    )
+    return f"""
+  <div class="ind-filtro ind-multi{' tem-selecao' if marcados else ''}">
+    <label>{rotulo}</label>
+    <button type="button" class="ind-multi-botao" title="{len(marcados)} selecionado(s)">
+      <span>{resumo}</span><i>▾</i>
+    </button>
+    <div class="ind-multi-painel" hidden>
+      <div class="ind-multi-acoes">
+        <button type="button" data-multi="todos">Marcar todos</button>
+        <button type="button" data-multi="nenhum">Limpar</button>
+      </div>
+      <div class="ind-multi-itens">{itens}</div>
+      <button type="button" class="ind-multi-aplicar">Aplicar</button>
+    </div>
+  </div>"""
+
+
+def _filtro_depto_html(acao: str, deptos: list[str], selecionado="",
+                       meses: list[str] | None = None, mes_sel="",
+                       ano_sel="", empresas: list[str] | None = None,
+                       empresa_sel="",
+                       extras: list[tuple] | None = None,
+                       extras_inicio: list[tuple] | None = None) -> str:
     """Barra de filtros dos painéis montados em HTML puro.
 
-    Mesmo visual e mesmos campos do Turnover: Empresa, Departamento, Ano e
-    Mês, em cartões brancos lado a lado.
+    Todas as caixas aceitam mais de um valor: dá para acompanhar dois meses,
+    três departamentos, sem precisar abrir uma tela por recorte.
     """
-    sel = (selecionado or "").strip().upper()
-    opts_dep = "<option value=''>Todos</option>" + "".join(
-        f"<option value=\"{d}\"{' selected' if d.upper() == sel else ''}>{d}</option>"
-        for d in deptos
-    )
+    dep_sel = [d.upper() for d in _lista_sel(selecionado)]
+    mes_sel = _lista_sel(mes_sel)
+    ano_sel = _lista_sel(ano_sel)
+    empresa_sel = _lista_sel(empresa_sel)
 
     bloco_empresa = ""
     if empresas:
-        opts_emp = "<option value=''>Todas</option>" + "".join(
-            f"<option value=\"{e}\"{' selected' if e == empresa_sel else ''}>{empresa_curta(e)}</option>"
-            for e in empresas
-        )
-        bloco_empresa = f"""
-  <div class="ind-filtro">
-    <label>Empresa</label>
-    <select name="empresa" onchange="this.form.submit()">{opts_emp}</select>
-  </div>"""
+        bloco_empresa = _caixa_multi(
+            "empresa", "Empresa",
+            [(e, empresa_curta(e)) for e in empresas], empresa_sel, "Todas")
+
+    bloco_depto = _caixa_multi(
+        "departamento", "Departamento",
+        [(d, d) for d in deptos],
+        [d for d in deptos if d.upper() in dep_sel])
 
     # só entram competências no formato canônico: qualquer outra coisa vira
     # opção ilegível no seletor ("28/0", "09/02/2")
     meses = sorted({m for m in (meses or []) if _COMPETENCIA_RE.fullmatch(m or "")},
                    reverse=True)
     anos = sorted({m[:4] for m in meses}, reverse=True)
-    opts_ano = "<option value=''>Todos</option>" + "".join(
-        f"<option value=\"{a}\"{' selected' if a == ano_sel else ''}>{a}</option>"
-        for a in anos
-    )
-    # o seletor de mês acompanha o ano escolhido
-    meses_vis = [m for m in meses if not ano_sel or m[:4] == ano_sel]
-    opts_mes = "<option value=''>Todos</option>" + "".join(
-        f"<option value=\"{m}\"{' selected' if m == mes_sel else ''}>{_rotulo_mes(m)}</option>"
-        for m in meses_vis
-    )
+    bloco_ano = _caixa_multi("ano", "Ano", [(a, a) for a in anos], ano_sel)
+
+    # o seletor de mês acompanha os anos escolhidos
+    meses_vis = [m for m in meses if not ano_sel or m[:4] in ano_sel]
+    bloco_mes = _caixa_multi(
+        "mes", "Mês", [(m, _rotulo_mes(m)) for m in meses_vis], mes_sel)
 
     # filtros próprios de um painel, no mesmo formato dos demais.
     # extras_inicio entra logo depois de Departamento; extras, no fim da barra.
@@ -1830,43 +1963,27 @@ def _filtro_depto_html(acao: str, deptos: list[str], selecionado: str,
         nonlocal algum_extra
         saida = ""
         for nome_campo, rotulo, opcoes, valor_sel in (lista or []):
-            if valor_sel:
+            escolhidos = _lista_sel(valor_sel)
+            # opção vazia era o "Todos" do seletor único; na marcação múltipla
+            # "nada marcado" já significa todos
+            opcoes = [(v, l) for v, l in opcoes if v != ""]
+            rotulo_vazio = "Todos"
+            if escolhidos and any(v in escolhidos for v, _ in opcoes):
                 algum_extra = True
-            opts = "".join(
-                f"<option value=\"{v}\"{' selected' if v == valor_sel else ''}>{l}</option>"
-                for v, l in opcoes
-            )
-            saida += f"""
-  <div class="ind-filtro">
-    <label>{rotulo}</label>
-    <select name="{nome_campo}" onchange="this.form.submit()">{opts}</select>
-  </div>"""
+            saida += _caixa_multi(nome_campo, rotulo, opcoes, escolhidos, rotulo_vazio)
         return saida
 
     blocos_inicio = _blocos(extras_inicio)
     blocos_extra = _blocos(extras)
 
-    limpar = (f'<a href="{acao}" class="ind-limpar">✕ Limpar</a>'
-              if (selecionado or mes_sel or ano_sel or empresa_sel or algum_extra) else "")
+    tem_filtro = bool(dep_sel or mes_sel or ano_sel or empresa_sel or algum_extra)
+    limpar = f'<a href="{acao}" class="ind-limpar">✕ Limpar</a>' if tem_filtro else ""
 
-    # Ano e Mês aparecem sempre: escondê-los quando não há dado fazia o filtro
-    # sumir justamente na tela vazia, dando a impressão de que não existe.
     return f"""{_CSS_FILTROS}
-<form method="get" action="{acao}" class="ind-filtros">{bloco_empresa}
-  <div class="ind-filtro">
-    <label>Departamento</label>
-    <select name="departamento" onchange="this.form.submit()">{opts_dep}</select>
-  </div>{blocos_inicio}
-  <div class="ind-filtro">
-    <label>Ano</label>
-    <select name="ano" onchange="this.form.submit()">{opts_ano}</select>
-  </div>
-  <div class="ind-filtro">
-    <label>Mês</label>
-    <select name="mes" onchange="this.form.submit()">{opts_mes}</select>
-  </div>{blocos_extra}
+<form method="get" action="{acao}" class="ind-filtros" id="indFiltros">{bloco_empresa}{bloco_depto}{blocos_inicio}{bloco_ano}{bloco_mes}{blocos_extra}
   {limpar}
 </form>
+{_JS_FILTROS}
 """
 
 
@@ -1924,8 +2041,8 @@ def _serie_6_meses_html(aplicacoes: list[dict], ano_sel: str = "") -> str:
             f"o filtro de mês não altera este gráfico</div>")
 
 
-def _build_treinamentos_html(depto_sel: str = "", mes_sel: str = "", ano_sel: str = "",
-                             empresa_sel: str = "") -> str:
+def _build_treinamentos_html(depto_sel=None, mes_sel=None, ano_sel=None,
+                             empresa_sel=None) -> str:
     try:
         treinamentos = _db_rows("SELECT id_treinamento, nome_treinamento, tipo_treinamento, carga_horaria_padrao, status FROM dho_treinamentos")
         aplicacoes   = _db_rows("SELECT id_aplicacao, id_treinamento, pessoa_nome, centro_custo, data_treinamento, carga_horaria, status FROM dho_treinamento_aplicacoes")
@@ -1954,20 +2071,26 @@ def _build_treinamentos_html(depto_sel: str = "", mes_sel: str = "", ano_sel: st
     todos_meses = sorted({a["competencia"] for a in aplicacoes if a["competencia"]},
                          reverse=True)
     todas_empresas = sorted({a["empresa"] for a in aplicacoes if a.get("empresa")})
+
+    depto_sel = [d.strip().upper() for d in _lista_sel(depto_sel)]
+    mes_sel = _lista_sel(mes_sel)
+    ano_sel = _lista_sel(ano_sel)
+    empresa_sel = _lista_sel(empresa_sel)
+
     if empresa_sel:
-        aplicacoes = [a for a in aplicacoes if a.get("empresa") == empresa_sel]
+        aplicacoes = [a for a in aplicacoes if a.get("empresa") in empresa_sel]
     if depto_sel:
         aplicacoes = [a for a in aplicacoes
-                      if (a.get("departamento") or "").upper() == depto_sel.strip().upper()]
+                      if (a.get("departamento") or "").upper() in depto_sel]
     if ano_sel:
-        aplicacoes = [a for a in aplicacoes if a["competencia"][:4] == ano_sel]
+        aplicacoes = [a for a in aplicacoes if a["competencia"][:4] in ano_sel]
 
     # A série mensal é lida antes do filtro de mês: o gráfico existe para
     # mostrar a evolução, e escolher um mês deixaria só uma barra em pé.
-    serie_mes_html = _serie_6_meses_html(aplicacoes, ano_sel)
+    serie_mes_html = _serie_6_meses_html(aplicacoes, max(ano_sel) if ano_sel else "")
 
     if mes_sel:
-        aplicacoes = [a for a in aplicacoes if a["competencia"] == mes_sel]
+        aplicacoes = [a for a in aplicacoes if a["competencia"] in mes_sel]
     filtro_html = _filtro_depto_html("/indicadores/treinamentos", todos_deptos, depto_sel,
                                      todos_meses, mes_sel, ano_sel,
                                      todas_empresas, empresa_sel)
@@ -2228,9 +2351,9 @@ def _serie_vagas_6_meses_html(vagas: list[dict], ano_sel: str = "") -> str:
             f"própria data · o filtro de mês não altera este gráfico</div>")
 
 
-def _build_vagas_html(depto_sel: str = "", mes_sel: str = "", ano_sel: str = "",
-                      tempo_sel: str = "", vinculo_sel: str = "",
-                      status_sel: str = "", base_sel: str = "abertura") -> str:
+def _build_vagas_html(depto_sel=None, mes_sel=None, ano_sel=None,
+                      tempo_sel="", vinculo_sel=None,
+                      status_sel=None, base_sel="abertura") -> str:
     try:
         vagas = _db_rows(
             """SELECT v.id_vaga, v.qtd_vagas, v.status, v.tipo_vaga, v.tipo_recrutamento,
@@ -2256,6 +2379,7 @@ def _build_vagas_html(depto_sel: str = "", mes_sel: str = "", ano_sel: str = "",
     # O período pode ser lido por abertura ou por conclusão: a vaga aberta em
     # julho e finalizada em agosto pertence a meses diferentes conforme a
     # pergunta. Antes só a abertura contava, e a entrega do mês não aparecia.
+    base_sel = (_lista_sel(base_sel) or ["abertura"])[0]
     por_conclusao = base_sel == "conclusao"
     campo_periodo = "competencia_conclusao" if por_conclusao else "competencia"
 
@@ -2267,24 +2391,33 @@ def _build_vagas_html(depto_sel: str = "", mes_sel: str = "", ano_sel: str = "",
                              for v in vagas if (v.get("tipo_vinculo") or "").strip()})
     todos_status = sorted({(v.get("status") or "").strip()
                            for v in vagas if (v.get("status") or "").strip()})
+
+    # todos os recortes aceitam vários valores; lista vazia significa "todos"
+    depto_sel = [d.strip().upper() for d in _lista_sel(depto_sel)]
+    mes_sel = _lista_sel(mes_sel)
+    ano_sel = _lista_sel(ano_sel)
+    vinculo_sel = _lista_sel(vinculo_sel)
+    status_sel = _lista_sel(status_sel)
+    tempo_sel = (_lista_sel(tempo_sel) or [""])[0]
+
     if vinculo_sel:
         vagas = [v for v in vagas
-                 if (v.get("tipo_vinculo") or "").strip() == vinculo_sel.strip()]
+                 if (v.get("tipo_vinculo") or "").strip() in vinculo_sel]
     if status_sel:
         vagas = [v for v in vagas
-                 if (v.get("status") or "").strip() == status_sel.strip()]
+                 if (v.get("status") or "").strip() in status_sel]
     if depto_sel:
         vagas = [v for v in vagas
-                 if (v.get("nome_departamento") or "").strip().upper() == depto_sel.strip().upper()]
+                 if (v.get("nome_departamento") or "").strip().upper() in depto_sel]
     if ano_sel:
-        vagas = [v for v in vagas if v[campo_periodo][:4] == ano_sel]
+        vagas = [v for v in vagas if v[campo_periodo][:4] in ano_sel]
 
     # a série mensal é lida antes do filtro de mês: escolher um mês deixaria
     # uma única barra em pé e o gráfico existe para mostrar a evolução
-    serie_mes_html = _serie_vagas_6_meses_html(vagas, ano_sel)
+    serie_mes_html = _serie_vagas_6_meses_html(vagas, max(ano_sel) if ano_sel else "")
 
     if mes_sel:
-        vagas = [v for v in vagas if v[campo_periodo] == mes_sel]
+        vagas = [v for v in vagas if v[campo_periodo] in mes_sel]
 
     hoje_d = date.today()
 
@@ -3349,8 +3482,11 @@ def facilities_dash(request: Request):
 
 
 @router.get("/indicadores/treinamentos")
-def treinamentos_dash(request: Request, departamento: str = "", mes: str = "", ano: str = "",
-                      empresa: str = ""):
+def treinamentos_dash(request: Request,
+                      departamento: list[str] = Query(default=[]),
+                      mes: list[str] = Query(default=[]),
+                      ano: list[str] = Query(default=[]),
+                      empresa: list[str] = Query(default=[])):
     erro = None
     dash_html = ""
     try:
@@ -3366,13 +3502,20 @@ def treinamentos_dash(request: Request, departamento: str = "", mes: str = "", a
 
 
 @router.get("/indicadores/vagas")
-def vagas_dash(request: Request, departamento: str = "", mes: str = "", ano: str = "",
-               tempo: str = "", vinculo: str = "", status: str = "",
-               base: str = "abertura"):
+def vagas_dash(request: Request,
+               departamento: list[str] = Query(default=[]),
+               mes: list[str] = Query(default=[]),
+               ano: list[str] = Query(default=[]),
+               vinculo: list[str] = Query(default=[]),
+               status: list[str] = Query(default=[]),
+               tempo: list[str] = Query(default=[]),
+               base: list[str] = Query(default=[])):
     erro = None
     dash_html = ""
     try:
-        dash_html = _build_vagas_html(departamento, mes, ano, tempo, vinculo, status, base)
+        # "Período por" é escolha única: com as duas marcadas, vale a primeira
+        dash_html = _build_vagas_html(departamento, mes, ano, tempo, vinculo, status,
+                                      (base or ["abertura"])[0])
     except Exception as exc:
         erro = f"Erro ao carregar dados de Vagas: {exc}"
 
