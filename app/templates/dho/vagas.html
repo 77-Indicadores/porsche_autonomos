@@ -10,58 +10,7 @@
 {% block content %}
 
 <section class="panel mb-6">
-  <form method="get">
-    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:.7rem;align-items:end">
-      <div style="grid-column:span 2;min-width:200px">
-        <label class="label" style="font-size:.72rem">Buscar</label>
-        <input class="input" name="q" value="{{ q }}" style="width:100%;box-sizing:border-box"
-               placeholder="Cargo, departamento, título ou responsável">
-      </div>
-      <div>
-        <label class="label" style="font-size:.72rem">Situação</label>
-        <select class="input" name="status" style="width:100%;box-sizing:border-box">
-          <option value="">Todas</option>
-          {% for s in status_vaga %}
-          <option value="{{ s }}" {% if status_sel == s %}selected{% endif %}>{{ s }}</option>
-          {% endfor %}
-        </select>
-      </div>
-      <div>
-        <label class="label" style="font-size:.72rem">Vínculo</label>
-        <select class="input" name="vinculo" style="width:100%;box-sizing:border-box">
-          <option value="">Todos</option>
-          {% for v in tipos_vinculo %}
-          <option value="{{ v }}" {% if vinculo_sel == v %}selected{% endif %}>{{ v }}</option>
-          {% endfor %}
-          <option value="Não informado" {% if vinculo_sel == 'Não informado' %}selected{% endif %}>Não informado</option>
-        </select>
-      </div>
-      <div>
-        <label class="label" style="font-size:.72rem">Departamento</label>
-        <select class="input" name="departamento" style="width:100%;box-sizing:border-box">
-          <option value="">Todos</option>
-          {% for d in departamentos %}
-          <option value="{{ d.id_departamento }}"
-                  {% if departamento_sel == d.id_departamento|string %}selected{% endif %}>{{ d.nome_departamento }}</option>
-          {% endfor %}
-        </select>
-      </div>
-      <div>
-        <label class="label" style="font-size:.72rem">Tipo</label>
-        <select class="input" name="tipo" style="width:100%;box-sizing:border-box">
-          <option value="">Todos</option>
-          {% for t in tipos_vaga %}
-          <option value="{{ t }}" {% if tipo_sel == t %}selected{% endif %}>{{ t }}</option>
-          {% endfor %}
-        </select>
-      </div>
-      <div style="display:flex;gap:.4rem">
-        <button class="btn-secondary" style="flex:1">Filtrar</button>
-        <a href="/dho/vagas" class="btn-secondary"
-           style="display:flex;align-items:center;text-decoration:none">Limpar</a>
-      </div>
-    </div>
-  </form>
+  {{ filtros_html | safe }}
 
   <div style="margin-top:.8rem;padding-top:.7rem;border-top:1px solid #eef0f2;display:flex;gap:1.4rem;flex-wrap:wrap;font-size:.82rem">
     <span><b>{{ total_filtrado }}</b> vaga(s)

@@ -14,7 +14,7 @@ from catworld.exceptions import (
     ValidationError,
 )
 from fastapi.responses import JSONResponse, StreamingResponse
-from fastapi import APIRouter, Depends, Form, Request, UploadFile, File
+from fastapi import APIRouter, Depends, Form, Query, Request, UploadFile, File
 from sqlalchemy import inspect
 from sqlalchemy import (
     Column,
@@ -38,6 +38,7 @@ from app.auth import tem_acesso_modulo, is_admin as _is_admin
 from app.database import engine, get_db
 from app.models import DimAutonomo
 from app.template_config import templates
+from app.ui_filtros import CSS_FILTROS, JS_FILTROS, caixa_multi, lista_sel
 from app.utils import (data_iso, data_para_date, e_pessoa,
                        flash_from_request, redirect_with_message)
 
@@ -950,8 +951,12 @@ def excluir_cargo(id_cargo: int, db: Session = Depends(get_db)):
 
 
 @router.get("/dho/vagas")
-def vagas(request: Request, q: str = "", status: str = "", vinculo: str = "",
-          departamento: str = "", tipo: str = "", db: Session = Depends(get_db)):
+def vagas(request: Request, q: str = "",
+          status: list[str] = Query(default=[]),
+          vinculo: list[str] = Query(default=[]),
+          departamento: list[str] = Query(default=[]),
+          tipo: list[str] = Query(default=[]),
+          db: Session = Depends(get_db)):
     """Lista de vagas.
 
     A tela mostrava tudo junto — concluídas, abertas, canceladas — com apenas
@@ -979,18 +984,34 @@ def vagas(request: Request, q: str = "", status: str = "", vinculo: str = "",
             | dho_vagas.c.titulo_vaga.like(like)
             | dho_vagas.c.responsavel.like(like)
         )
+    # cada caixa aceita vários valores; lista vazia significa "todos"
+    status = lista_sel(status)
+    tipo = lista_sel(tipo)
+    vinculo = lista_sel(vinculo)
+    departamento = lista_sel(departamento)
+
     if status:
-        query = query.where(dho_vagas.c.status == status)
+        query = query.where(dho_vagas.c.status.in_(status))
     if tipo:
-        query = query.where(dho_vagas.c.tipo_vaga == tipo)
-    if vinculo == "Não informado":
-        query = query.where(
-            (dho_vagas.c.tipo_vinculo.is_(None)) | (dho_vagas.c.tipo_vinculo == ""))
-    elif vinculo:
-        query = query.where(dho_vagas.c.tipo_vinculo == vinculo)
-    id_depto = to_int_or_none(departamento)
-    if id_depto:
-        query = query.where(dho_vagas.c.id_departamento == id_depto)
+        query = query.where(dho_vagas.c.tipo_vaga.in_(tipo))
+    if vinculo:
+        # "Não informado" é ausência de valor, não um valor: precisa de
+        # nulo-ou-vazio em vez de igualdade
+        condicoes = []
+        marcados = [v for v in vinculo if v != "Não informado"]
+        if marcados:
+            condicoes.append(dho_vagas.c.tipo_vinculo.in_(marcados))
+        if "Não informado" in vinculo:
+            condicoes.append((dho_vagas.c.tipo_vinculo.is_(None))
+                             | (dho_vagas.c.tipo_vinculo == ""))
+        if condicoes:
+            filtro = condicoes[0]
+            for extra in condicoes[1:]:
+                filtro = filtro | extra
+            query = query.where(filtro)
+    ids_depto = [i for i in (to_int_or_none(d) for d in departamento) if i]
+    if ids_depto:
+        query = query.where(dho_vagas.c.id_departamento.in_(ids_depto))
 
     try:
         items = db.execute(query.order_by(dho_vagas.c.id_vaga.desc())).mappings().all()
@@ -1007,12 +1028,35 @@ def vagas(request: Request, q: str = "", status: str = "", vinculo: str = "",
     # posições, não linhas: uma vaga pode valer várias contratações
     posicoes = sum(int(i.get("qtd_vagas") or 1) for i in items)
 
+    deps = get_departamentos(db)
+    filtros_html = (
+        CSS_FILTROS
+        + f'<form method="get" action="/dho/vagas" class="ind-filtros" id="indFiltros">'
+        + '<div class="ind-filtro" style="min-width:220px"><label>Buscar</label>'
+          f'<input name="q" value="{q}" placeholder="Cargo, departamento, título ou responsável"'
+          ' style="width:100%;border:0;outline:none;font-size:13px;font-weight:600"></div>'
+        + caixa_multi("status", "Situação", [(e, e) for e in STATUS_VAGA], status, "Todas")
+        + caixa_multi("vinculo", "Vínculo",
+                      [(v, v) for v in TIPOS_VINCULO_VAGA] + [("Não informado", "Não informado")],
+                      vinculo)
+        + caixa_multi("departamento", "Departamento",
+                      [(str(d["id_departamento"]), d["nome_departamento"]) for d in deps],
+                      departamento)
+        + caixa_multi("tipo", "Tipo", [(t, t) for t in TIPOS_VAGA], tipo)
+        + '<button type="submit" class="ind-limpar" style="border:0;background:transparent;'
+          'cursor:pointer;font-weight:600">Filtrar</button>'
+        + ('<a href="/dho/vagas" class="ind-limpar">✕ Limpar</a>'
+           if (q or status or vinculo or departamento or tipo) else "")
+        + "</form>" + JS_FILTROS
+    )
+
     return templates.TemplateResponse(
         "dho/vagas.html",
         {
             "request": request,
             "items": items,
             "q": q,
+            "filtros_html": filtros_html,
             "status_sel": status,
             "vinculo_sel": vinculo,
             "departamento_sel": departamento,
