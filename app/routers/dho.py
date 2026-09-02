@@ -455,6 +455,8 @@ except Exception as exc:
 TIPOS_TREINAMENTO = [
     "Onboarding obrigatório",
     "Ação de RH",
+    "Desenvolvimento",
+    "Desenvolvimento técnico",
     "Autônomo",
     "Reciclagem de autônomos",
 ]
