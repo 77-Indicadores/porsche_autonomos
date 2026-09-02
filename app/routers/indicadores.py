@@ -2132,6 +2132,11 @@ _CSS_VAGAS = """<style>
 .vg-mes-bar.zero{background:#E7E9EC}
 .vg-mes-seg{display:block;width:100%}
 .vg-mes-seg.open{background:var(--red)}.vg-mes-seg.done{background:var(--black)}
+.vg-mes-dupla{display:flex;align-items:flex-end;justify-content:center;gap:3px;width:100%;max-width:52px;margin:0 auto;height:100%}
+.vg-mes-par{flex:1;border-radius:4px 4px 0 0;min-height:2px}
+.vg-mes-par.open{background:var(--red)}
+.vg-mes-par.done{background:var(--black)}
+.vg-mes-par.zero{background:#E7E9EC}
 .vg-mes-eixo{display:grid;grid-template-columns:repeat(6,1fr);gap:10px;margin-top:5px}
 .vg-mes-lbl{text-align:center;font-size:8px;font-weight:900;color:#3B4149;text-transform:uppercase}
 .vg-mes-sub{text-align:center;font-size:7px;color:var(--muted);margin-top:1px}
@@ -2170,56 +2175,62 @@ def _vaga_aberta(v) -> bool:
 
 
 def _serie_vagas_6_meses_html(vagas: list[dict], ano_sel: str = "") -> str:
-    """Vagas abertas mês a mês nos últimos 6 meses, separando o que já fechou.
+    """Aberturas e conclusões mês a mês, cada uma na sua própria data.
 
-    A barra usa a data de abertura: mostra quanto entrou em cada mês e quanto
-    daquilo já foi preenchido, nas mesmas cores do resto do painel.
+    Antes as duas metades da barra saíam da data de abertura: a vaga aparecia
+    no mês em que foi lançada, mesmo tendo sido finalizada meses depois, e não
+    havia como ver quanto foi entregue em cada mês. Agora a abertura conta pela
+    data de abertura e a conclusão pela data de conclusão — uma vaga aberta em
+    julho e concluída em agosto aparece nos dois meses, em cada barra.
     """
     janela = _janela_6_meses(ano_sel)
     abertas = {m: 0 for m in janela}
     concluidas = {m: 0 for m in janela}
 
     for v in vagas:
-        comp = v.get("competencia") or ""
-        if comp not in abertas:
-            continue
         qtd = v.get("qtd_vagas") or 1
+        comp_abertura = v.get("competencia") or ""
+        if comp_abertura in abertas:
+            abertas[comp_abertura] += qtd
         if _vaga_concluida(v):
-            concluidas[comp] += qtd
-        else:
-            abertas[comp] += qtd
+            comp_conclusao = competencia_de(v.get("data_conclusao"))
+            if comp_conclusao in concluidas:
+                concluidas[comp_conclusao] += qtd
 
-    totais = {m: abertas[m] + concluidas[m] for m in janela}
-    teto = max(totais.values()) or 1
+    teto = max([max(abertas[m], concluidas[m]) for m in janela] or [0]) or 1
 
     colunas, eixo = "", ""
     for m in janela:
-        n = totais[m]
-        if n:
-            h_ab = round(abertas[m] / n * 100)
-            # sem mês vazio: os segmentos é que dão cor à barra
-            segs = (f"<span class='vg-mes-seg done' style='height:{100 - h_ab}%'></span>"
-                    f"<span class='vg-mes-seg open' style='height:{h_ab}%'></span>")
-            barra = f"<div class='vg-mes-bar' style='height:{max(round(n / teto * 100), 2)}%'>{segs}</div>"
-        else:
-            barra = "<div class='vg-mes-bar zero' style='height:2%'></div>"
-        colunas += (f"<div class='vg-mes-col'>"
-                    f"<div class='vg-mes-val{'' if n else ' zero'}'>{n}</div>{barra}</div>")
+        a, c = abertas[m], concluidas[m]
+
+        def _barra(valor, classe):
+            if not valor:
+                return "<div class='vg-mes-par zero' style='height:2%'></div>"
+            altura = max(round(valor / teto * 100), 3)
+            return f"<div class='vg-mes-par {classe}' style='height:{altura}%'></div>"
+
+        colunas += (
+            f"<div class='vg-mes-col'>"
+            f"<div class='vg-mes-val{'' if (a or c) else ' zero'}'>{a} / {c}</div>"
+            f"<div class='vg-mes-dupla'>{_barra(a, 'open')}{_barra(c, 'done')}</div>"
+            f"</div>"
+        )
         eixo += (f"<div><div class='vg-mes-lbl'>{_rotulo_mes(m)}</div>"
-                 f"<div class='vg-mes-sub'>A {abertas[m]} · C {concluidas[m]}</div></div>")
+                 f"<div class='vg-mes-sub'>A {a} · C {c}</div></div>")
 
     return (f"<div class='vg-legend'>"
-            f"<span class='vg-legend-item'><i class='vg-dot red'></i>Aberto</span>"
-            f"<span class='vg-legend-item'><i class='vg-dot'></i>Concluído</span></div>"
+            f"<span class='vg-legend-item'><i class='vg-dot red'></i>Abertas no mês</span>"
+            f"<span class='vg-legend-item'><i class='vg-dot'></i>Concluídas no mês</span></div>"
             f"<div class='vg-mes'>{colunas}</div>"
             f"<div class='vg-mes-eixo'>{eixo}</div>"
-            f"<div class='vg-nota'>{sum(totais.values())} vaga(s) abertas na janela · "
-            f"o filtro de mês não altera este gráfico</div>")
+            f"<div class='vg-nota'>{sum(abertas.values())} aberta(s) e "
+            f"{sum(concluidas.values())} concluída(s) na janela · cada uma pela sua "
+            f"própria data · o filtro de mês não altera este gráfico</div>")
 
 
 def _build_vagas_html(depto_sel: str = "", mes_sel: str = "", ano_sel: str = "",
                       tempo_sel: str = "", vinculo_sel: str = "",
-                      status_sel: str = "") -> str:
+                      status_sel: str = "", base_sel: str = "abertura") -> str:
     try:
         vagas = _db_rows(
             """SELECT v.id_vaga, v.qtd_vagas, v.status, v.tipo_vaga, v.tipo_recrutamento,
@@ -2240,7 +2251,15 @@ def _build_vagas_html(depto_sel: str = "", mes_sel: str = "", ano_sel: str = "",
     # qualquer formato e fatiar a string produzia rótulos como "28/0"
     for v in vagas:
         v["competencia"] = competencia_de(v.get("data_abertura"))
-    todos_meses = sorted({v["competencia"] for v in vagas if v["competencia"]},
+        v["competencia_conclusao"] = competencia_de(v.get("data_conclusao"))
+
+    # O período pode ser lido por abertura ou por conclusão: a vaga aberta em
+    # julho e finalizada em agosto pertence a meses diferentes conforme a
+    # pergunta. Antes só a abertura contava, e a entrega do mês não aparecia.
+    por_conclusao = base_sel == "conclusao"
+    campo_periodo = "competencia_conclusao" if por_conclusao else "competencia"
+
+    todos_meses = sorted({v[campo_periodo] for v in vagas if v[campo_periodo]},
                          reverse=True)
     # o vínculo separa vaga de CLT de vaga de autônomo; "Não informado" fica
     # visível de propósito, para as vagas antigas serem preenchidas
@@ -2258,14 +2277,14 @@ def _build_vagas_html(depto_sel: str = "", mes_sel: str = "", ano_sel: str = "",
         vagas = [v for v in vagas
                  if (v.get("nome_departamento") or "").strip().upper() == depto_sel.strip().upper()]
     if ano_sel:
-        vagas = [v for v in vagas if v["competencia"][:4] == ano_sel]
+        vagas = [v for v in vagas if v[campo_periodo][:4] == ano_sel]
 
     # a série mensal é lida antes do filtro de mês: escolher um mês deixaria
     # uma única barra em pé e o gráfico existe para mostrar a evolução
     serie_mes_html = _serie_vagas_6_meses_html(vagas, ano_sel)
 
     if mes_sel:
-        vagas = [v for v in vagas if v["competencia"] == mes_sel]
+        vagas = [v for v in vagas if v[campo_periodo] == mes_sel]
 
     hoje_d = date.today()
 
@@ -2290,7 +2309,10 @@ def _build_vagas_html(depto_sel: str = "", mes_sel: str = "", ano_sel: str = "",
                         vinculo_sel),
                        ("status", "Situação",
                         [("", "Todas")] + [(e, e) for e in todos_status],
-                        status_sel)],
+                        status_sel),
+                       ("base", "Período por",
+                        [("abertura", "Abertura"), ("conclusao", "Conclusão")],
+                        base_sel)],
         extras=[("tempo", "Tempo em aberto",
                  [("", "Todas"),
                   ("mais30", "Abertas há mais de 30 dias"),
@@ -2301,11 +2323,15 @@ def _build_vagas_html(depto_sel: str = "", mes_sel: str = "", ano_sel: str = "",
 
     parse_date_vg = data_para_date
 
-    total_vagas = sum(v.get("qtd_vagas") or 1 for v in vagas) or 1
+    # o "or 1" que existia aqui era só para não dividir por zero, mas também
+    # ia para a tela: um recorte sem vagas mostrava "1 vaga". Agora o divisor
+    # é separado do número exibido.
+    total_vagas = sum(v.get("qtd_vagas") or 1 for v in vagas)
+    divisor = total_vagas or 1
     abertas     = sum((v.get("qtd_vagas") or 1) for v in vagas if is_aberta(v))
     concluidas  = sum((v.get("qtd_vagas") or 1) for v in vagas if is_concluida(v))
-    pct_abertas    = abertas / total_vagas * 100
-    pct_concluidas = concluidas / total_vagas * 100
+    pct_abertas    = abertas / divisor * 100
+    pct_concluidas = concluidas / divisor * 100
 
     dias_vals = [(parse_date_vg(v.get("data_conclusao")) - parse_date_vg(v.get("data_abertura"))).days
                  for v in vagas if is_concluida(v) and parse_date_vg(v.get("data_abertura")) and parse_date_vg(v.get("data_conclusao"))]
@@ -2396,7 +2422,7 @@ def _build_vagas_html(depto_sel: str = "", mes_sel: str = "", ano_sel: str = "",
 </div>
 <div class="vg-card" style="margin-bottom:12px">
   <div class="vg-card-title">Vagas por mês</div>
-  <div class="vg-card-sub">Últimos 6 meses · vagas abertas em cada mês, pela data de abertura</div>
+  <div class="vg-card-sub">Últimos 6 meses · aberturas pela data de abertura, conclusões pela data de conclusão</div>
   {serie_mes_html}
 </div>
 <div class="vg-content">
@@ -3341,11 +3367,12 @@ def treinamentos_dash(request: Request, departamento: str = "", mes: str = "", a
 
 @router.get("/indicadores/vagas")
 def vagas_dash(request: Request, departamento: str = "", mes: str = "", ano: str = "",
-               tempo: str = "", vinculo: str = "", status: str = ""):
+               tempo: str = "", vinculo: str = "", status: str = "",
+               base: str = "abertura"):
     erro = None
     dash_html = ""
     try:
-        dash_html = _build_vagas_html(departamento, mes, ano, tempo, vinculo, status)
+        dash_html = _build_vagas_html(departamento, mes, ano, tempo, vinculo, status, base)
     except Exception as exc:
         erro = f"Erro ao carregar dados de Vagas: {exc}"
 
