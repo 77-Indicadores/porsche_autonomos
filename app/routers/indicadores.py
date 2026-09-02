@@ -2139,6 +2139,36 @@ _CSS_VAGAS = """<style>
 </style>"""
 
 
+# Situação da vaga em três grupos. Antes cada ponto do painel testava o texto
+# do status por conta própria: "abert" para aberta e "conclu" para concluída.
+# Rótulo fora desses dois — "Em andamento", "Finalizada", "Fechada" — não caía
+# em nenhum grupo: entrava no total e sumia dos KPIs, do gráfico por área e do
+# perfil. Era o caso da vaga finalizada que não constava em lugar nenhum.
+_STATUS_CONCLUIDA = ("conclu", "finaliz", "preenchid", "fechad", "encerrad")
+_STATUS_CANCELADA = ("cancel", "desist", "suspens")
+
+
+def _vaga_concluida(v) -> bool:
+    alvo = (v.get("status") or "").strip().lower()
+    return any(k in alvo for k in _STATUS_CONCLUIDA)
+
+
+def _vaga_cancelada(v) -> bool:
+    alvo = (v.get("status") or "").strip().lower()
+    return any(k in alvo for k in _STATUS_CANCELADA)
+
+
+def _vaga_aberta(v) -> bool:
+    """Tudo que não foi concluído nem cancelado ainda está em processo.
+
+    Inclui "Em andamento", que é o próprio subtítulo do KPI de vagas abertas.
+    Assim nenhum rótulo fica sem grupo e as partes somam o total.
+    """
+    if not (v.get("status") or "").strip():
+        return False
+    return not _vaga_concluida(v) and not _vaga_cancelada(v)
+
+
 def _serie_vagas_6_meses_html(vagas: list[dict], ano_sel: str = "") -> str:
     """Vagas abertas mês a mês nos últimos 6 meses, separando o que já fechou.
 
@@ -2154,7 +2184,7 @@ def _serie_vagas_6_meses_html(vagas: list[dict], ano_sel: str = "") -> str:
         if comp not in abertas:
             continue
         qtd = v.get("qtd_vagas") or 1
-        if "conclu" in (v.get("status") or "").lower():
+        if _vaga_concluida(v):
             concluidas[comp] += qtd
         else:
             abertas[comp] += qtd
@@ -2239,7 +2269,7 @@ def _build_vagas_html(depto_sel: str = "", mes_sel: str = "", ano_sel: str = "",
 
     hoje_d = date.today()
 
-    def is_aberta(v): return "abert" in (v.get("status") or "").lower()
+    is_aberta = _vaga_aberta
 
     # Tempo em aberto: só faz sentido para quem ainda está aberta, então o
     # filtro também descarta as já concluídas.
@@ -2267,7 +2297,7 @@ def _build_vagas_html(depto_sel: str = "", mes_sel: str = "", ano_sel: str = "",
                   ("menos30", "Abertas há até 30 dias")],
                  tempo_sel)],
     )
-    def is_concluida(v): return "conclu" in (v.get("status") or "").lower()
+    is_concluida = _vaga_concluida
 
     parse_date_vg = data_para_date
 
