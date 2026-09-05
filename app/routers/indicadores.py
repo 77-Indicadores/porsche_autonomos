@@ -3210,6 +3210,26 @@ def indicadores_home(request: Request):
     return RedirectResponse("/indicadores/headcount", status_code=303)
 
 
+def _erro_fonte_externa(exc, fonte: str) -> str:
+    """Mensagem para falha ao consultar a fonte externa de dados.
+
+    O texto cru da exceção ("503 Server Error: Service Unavailable for url…")
+    faz parecer defeito do sistema. Indisponibilidade do BI é passageira e não
+    tem nada a ser corrigido aqui, então a mensagem diz isso e guarda o detalhe
+    técnico no fim, para quem for investigar.
+    """
+    detalhe = str(exc)
+    passageiro = any(marca in detalhe for marca in
+                     ("503", "502", "504", "Service Unavailable", "no available server",
+                      "Max retries", "Connection", "Timeout", "timed out"))
+    if passageiro:
+        return (f"O {fonte} não está respondendo agora, então os números não puderam "
+                f"ser carregados. Isso costuma ser passageiro: tente de novo em alguns "
+                f"minutos. Nada foi perdido e nenhum dado foi alterado. "
+                f"(detalhe técnico: {detalhe})")
+    return f"Não consegui carregar os dados do {fonte}: {detalhe}"
+
+
 @router.get("/indicadores/turnover")
 def turnover(request: Request, ano: str = "", empresa: str = "", departamento: str = "",
              mes: str = ""):
@@ -3240,7 +3260,7 @@ def turnover(request: Request, ano: str = "", empresa: str = "", departamento: s
             todas_empresas_tv, todos_deptos_tv, empresa, departamento, mes,
         )
     except Exception as exc:
-        erro = f"Erro ao buscar dados do Feedz: {exc}"
+        erro = _erro_fonte_externa(exc, "Feedz")
 
     return templates.TemplateResponse("indicadores/turnover.html", {
         "request": request,
@@ -3289,7 +3309,7 @@ def headcount(request: Request, mes: str = "", empresa: str = "", departamento: 
             todas_empresas, todos_deptos, empresa, departamento,
         )
     except Exception as exc:
-        erro = f"Erro ao buscar dados do Feedz: {exc}"
+        erro = _erro_fonte_externa(exc, "Feedz")
 
     return templates.TemplateResponse("indicadores/headcount.html", {
         "request": request,
@@ -4431,7 +4451,7 @@ def horas_extras(request: Request, empresa: str = "", cargo: str = "",
                                            departamento_sel=departamento)
     except Exception as exc:
         import traceback; traceback.print_exc()
-        erro = f"Erro ao buscar dados de horas extras: {exc}"
+        erro = _erro_fonte_externa(exc, "sistema de ponto")
     return templates.TemplateResponse("indicadores/horas_extras.html", {
         "request": request,
         "dash_html": dash_html,
@@ -4457,7 +4477,7 @@ def banco_horas(request: Request, empresa: str = "", departamento: str = "", mes
                                             empresa_sel=empresa, departamento_sel=departamento,
                                             mes_sel=mes)
     except Exception as exc:
-        erro = f"Erro ao buscar dados de banco de horas: {exc}"
+        erro = _erro_fonte_externa(exc, "sistema de ponto")
     return templates.TemplateResponse("indicadores/banco_horas.html", {
         "request": request,
         "dash_html": dash_html,
