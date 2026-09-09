@@ -679,7 +679,10 @@ def _vagas_abertas(depto_sel: str = "") -> int:
     alvo = (depto_sel or "").strip().upper()
     total = 0
     for r in linhas:
-        if "abert" not in (r.get("status") or "").lower():
+        # Antes o teste era "abert" no texto do status, e o comentário acima
+        # dizia seguir o painel de Vagas — não seguia: vaga "Em andamento" é
+        # posição em aberto no painel e ficava de fora do previsto.
+        if not _vaga_aberta(r):
             continue
         if alvo and (r.get("depto") or "").strip().upper() != alvo:
             continue
@@ -2127,6 +2130,10 @@ _CSS_VAGAS = """<style>
 # perfil. Era o caso da vaga finalizada que não constava em lugar nenhum.
 _STATUS_CONCLUIDA = ("conclu", "finaliz", "preenchid", "fechad", "encerrad")
 _STATUS_CANCELADA = ("cancel", "desist", "suspens")
+# Congelada é vaga parada por decisão, não desistência: pode voltar a andar.
+# Fica fora de "abertas" porque ninguém está recrutando para ela, e fora de
+# "canceladas" porque não morreu — por isso grupo próprio.
+_STATUS_CONGELADA = ("congel",)
 
 
 def _vaga_concluida(v) -> bool:
@@ -2139,15 +2146,20 @@ def _vaga_cancelada(v) -> bool:
     return any(k in alvo for k in _STATUS_CANCELADA)
 
 
+def _vaga_congelada(v) -> bool:
+    alvo = (v.get("status") or "").strip().lower()
+    return any(k in alvo for k in _STATUS_CONGELADA)
+
+
 def _vaga_aberta(v) -> bool:
-    """Tudo que não foi concluído nem cancelado ainda está em processo.
+    """Tudo que não foi concluído, cancelado nem congelado ainda está em processo.
 
     Inclui "Em andamento", que é o próprio subtítulo do KPI de vagas abertas.
     Assim nenhum rótulo fica sem grupo e as partes somam o total.
     """
     if not (v.get("status") or "").strip():
         return False
-    return not _vaga_concluida(v) and not _vaga_cancelada(v)
+    return not (_vaga_concluida(v) or _vaga_cancelada(v) or _vaga_congelada(v))
 
 
 def _serie_vagas_6_meses_html(vagas: list[dict], ano_sel: str = "") -> str:
