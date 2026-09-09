@@ -3226,15 +3226,25 @@ def _erro_fonte_externa(exc, fonte: str) -> str:
     """Mensagem para falha ao consultar a fonte externa de dados.
 
     O texto cru da exceção ("503 Server Error: Service Unavailable for url…")
-    faz parecer defeito do sistema. Indisponibilidade do BI é passageira e não
-    tem nada a ser corrigido aqui, então a mensagem diz isso e guarda o detalhe
-    técnico no fim, para quem for investigar.
+    faz parecer defeito do sistema. Falha da fonte não tem nada a ser corrigido
+    aqui, então a mensagem diz isso e guarda o detalhe técnico no fim.
+
+    A separação é por natureza do erro, não por código HTTP. A primeira versão
+    listava 502/503/504 como "passageiro" e deixava o 500 cair no texto técnico
+    — mas 500 do BI é falha do BI igual aos outros, e a tela acabou culpando o
+    sistema por um erro que não era dele. Qualquer RequestException é a fonte
+    que não entregou: não respondeu, recusou ou devolveu erro. O que sobra
+    (KeyError, ValueError e afins) é dado que chegou e nós não soubemos ler —
+    aí sim é defeito nosso, e o texto técnico é a pista certa.
     """
     detalhe = str(exc)
-    passageiro = any(marca in detalhe for marca in
-                     ("503", "502", "504", "Service Unavailable", "no available server",
-                      "Max retries", "Connection", "Timeout", "timed out"))
-    if passageiro:
+    da_fonte = isinstance(exc, requests.exceptions.RequestException)
+    if not da_fonte:
+        # Nem todo caminho chega aqui com o objeto da exceção
+        da_fonte = any(marca in detalhe for marca in
+                       ("Server Error", "Service Unavailable", "no available server",
+                        "Max retries", "Connection", "Timeout", "timed out"))
+    if da_fonte:
         return (f"O {fonte} não está respondendo agora, então os números não puderam "
                 f"ser carregados. Isso costuma ser passageiro: tente de novo em alguns "
                 f"minutos. Nada foi perdido e nenhum dado foi alterado. "
