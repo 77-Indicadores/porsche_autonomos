@@ -1598,7 +1598,13 @@ def _fac_small_bars(items: list[tuple], bar_class: str, total: int) -> str:
     )
 
 
-def _build_facilities_html(tickets: list[dict]) -> str:
+def _competencia_ticket(t: dict) -> str:
+    """Competência (AAAA-MM) da abertura do chamado."""
+    return competencia_de(t.get("created_at"))
+
+
+def _build_facilities_html(tickets: list[dict], todos_tickets: list[dict] | None = None,
+                           ano_sel=None, mes_sel=None) -> str:
     def norm_status(s):
         s = (s or "").strip().lower()
         m = {"completed":"Concluído","concluido":"Concluído","concluído":"Concluído",
@@ -1627,7 +1633,36 @@ def _build_facilities_html(tickets: list[dict]) -> str:
         if "silva melo" in u: return "Sede nova · Silva Melo"
         return u.capitalize() or "Não informada"
 
-    total = len(tickets) or 1
+    # O "or 1" existia para não dividir por zero, mas antes ia junto para a
+    # tela. Com filtro de período um recorte vazio é normal, e mostrar "1
+    # chamado" onde não há nenhum seria mentira — por isso o divisor é separado
+    # do número exibido.
+    total = len(tickets)
+    divisor = total or 1
+
+    ano_sel = _lista_sel(ano_sel)
+    mes_sel = _lista_sel(mes_sel)
+    base = todos_tickets if todos_tickets is not None else tickets
+
+    comps = sorted({c for c in (_competencia_ticket(t) for t in base) if c}, reverse=True)
+    anos = sorted({c[:4] for c in comps}, reverse=True)
+    # os meses oferecidos acompanham o ano escolhido: sem isso a lista mostra
+    # meses que não existem no recorte e o usuário filtra para o vazio
+    comps_do_ano = [c for c in comps if not ano_sel or c[:4] in ano_sel]
+    filtros_html = (f"{_CSS_FILTROS}<div class='filtros-linha'>"
+                    + _caixa_multi("ano", "Ano", [(a, a) for a in anos], ano_sel, "Todos")
+                    + _caixa_multi("mes", "Mês",
+                                   [(c, _rotulo_mes(c)) for c in comps_do_ano],
+                                   mes_sel, "Todos")
+                    + "</div>" + _JS_FILTROS)
+
+    if not tickets:
+        return (f"{filtros_html}<div class=\"fac-wrap\">{_CSS_FAC}"
+                "<div class='fac-card' style='text-align:center;padding:32px'>"
+                "<div class='fac-card-title'>Nenhum chamado no período escolhido</div>"
+                "<div class='fac-card-sub'>Ajuste o filtro de período acima.</div>"
+                "</div></div>")
+
     finalizados_set = {"concluído","fechado","pagamento efetuado"}
     finalizados = sum(1 for t in tickets if norm_status(t.get("status","")).lower() in finalizados_set)
     pendentes = total - finalizados
@@ -1635,7 +1670,7 @@ def _build_facilities_html(tickets: list[dict]) -> str:
     corretivas = sum(1 for t in tickets if "corretiva" in (t.get("maintenance_type") or "").lower())
     preventivas = sum(1 for t in tickets if "preventiva" in (t.get("maintenance_type") or "").lower())
     custo = sum(float(t.get("amount") or 0) for t in tickets)
-    custo_medio = custo / total
+    custo_medio = custo / divisor
 
     tempos = []
     for t in tickets:
@@ -1693,7 +1728,7 @@ def _build_facilities_html(tickets: list[dict]) -> str:
         for sup, data in sups
     )
 
-    return f"""<div class="fac-wrap">{_CSS_FAC}
+    return f"""{filtros_html}<div class="fac-wrap">{_CSS_FAC}
 <div class="fac-topbar">
   <div><div class="fac-brand">Porsche · Facilities</div><div class="fac-title">Painel de Facilities</div></div>
   <div class="fac-chips">
@@ -3394,7 +3429,9 @@ def headcount(request: Request, mes: str = "", empresa: str = "", departamento: 
 
 
 @router.get("/indicadores/facilities")
-def facilities_dash(request: Request):
+def facilities_dash(request: Request,
+                    ano: list[str] = Query(default=[]),
+                    mes: list[str] = Query(default=[])):
     erro = None
     dash_html = ""
     try:
@@ -3418,7 +3455,18 @@ def facilities_dash(request: Request):
                 cols = maintenance_tickets.columns.keys()
                 tickets = [dict(zip(cols, r)) for r in rows]
 
-        dash_html = _build_facilities_html(tickets)
+        todos_tickets = tickets
+        ano_sel = _lista_sel(ano)
+        mes_sel = _lista_sel(mes)
+        # O mês já carrega o ano ("2026-03"), então quando há mês escolhido ele
+        # manda sozinho — filtrar pelos dois recortaria o mês de um ano que o
+        # usuário não marcou e devolveria vazio sem explicação.
+        if mes_sel:
+            tickets = [t for t in tickets if _competencia_ticket(t) in mes_sel]
+        elif ano_sel:
+            tickets = [t for t in tickets if _competencia_ticket(t)[:4] in ano_sel]
+
+        dash_html = _build_facilities_html(tickets, todos_tickets, ano_sel, mes_sel)
     except Exception as exc:
         erro = f"Erro ao carregar dados de Facilities: {exc}"
 
