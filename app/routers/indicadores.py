@@ -165,7 +165,12 @@ def _normalizar_colabs(rows: list[dict]) -> list[dict]:
             "unidade": str(r.get("unidade") or "").strip() or "Não informado",
             "grau_de_instrucao": str(r.get("grau_de_instrucao") or "").strip() or "Não informado",
             "departamento": str(r.get("departamento") or r.get("setor") or r.get("area") or "").strip().upper() or "Não informado",
-            "empresa": str(r.get("empresa") or r.get("razao_social") or r.get("cnpj_empresa") or "").strip().upper() or "Não informado",
+            # A empresa vem em UNIDADE (DENER, PIRES, GT3). O campo "empresa"
+            # do relatório está em branco para quase todo mundo e os dois
+            # únicos registros preenchidos trazem lixo — um deles é nome de
+            # pessoa —, então ele fica por último, não primeiro. Autônomo tem
+            # unidade vazia porque não pertence a nenhuma das três.
+            "empresa": str(r.get("unidade") or "").strip().upper() or "Não informado",
             "motivo_desligamento": motivo_raw or "Não informado",
             "tipo_desligamento": tipo_desl,
         })
