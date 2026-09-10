@@ -1007,12 +1007,17 @@ def _turnover_mensal(colabs: list[dict], ano: int) -> list[dict]:
         hc_ini = sum(1 for c in colabs if _is_ativo(c, date(ini.year, ini.month, 1) - __import__("datetime").timedelta(days=1)))
         media = (hc + hc_ini) / 2 or 1
         turnover_pct = len(dem) / media * 100
-        futuro = fim > hoje
+        # Futuro é o mês que ainda não começou. Antes o teste era o ÚLTIMO dia
+        # do mês contra hoje, então o mês corrente contava como futuro e sumia
+        # da lista até virar o mês — setembro não aparecia no dia 10 de
+        # setembro, mesmo já tendo admissões e demissões.
+        futuro = ini > hoje
+        parcial = not futuro and fim > hoje
         result.append({
             "mes": m, "label": _mes_label(date(ano, m, 1)),
             "admitidos": len(adm), "demitidos": len(dem),
             "headcount": hc, "turnover_pct": turnover_pct,
-            "futuro": futuro,
+            "futuro": futuro, "parcial": parcial,
             "adm_colabs": adm,
             "dem_colabs": dem,
         })
@@ -1245,37 +1250,47 @@ def _build_turnover_html(
     anos_opcoes: list[int],
     todas_empresas: list[str] | None = None,
     todos_deptos: list[str] | None = None,
-    empresa_sel: str = "",
-    depto_sel: str = "",
-    mes_sel: str = "",
+    empresa_sel=None,
+    depto_sel=None,
+    mes_sel=None,
 ) -> str:
     meses = _turnover_mensal(colabs, ano)
 
-    try:
-        mes_num = int(mes_sel) if mes_sel else 0
-    except ValueError:
-        mes_num = 0
+    empresa_sel = _lista_sel(empresa_sel)
+    depto_sel = _lista_sel(depto_sel)
 
-    # Os KPIs seguem o mês escolhido; os gráficos, não. Escolher um mês deixava
-    # uma barra e um ponto sozinhos na tela, e o gráfico existe justamente para
-    # mostrar a evolução em torno daquele mês.
+    # Vários meses de uma vez: os KPIs somam o que foi escolhido em vez de
+    # obrigar a olhar um mês por vez.
+    meses_num: list[int] = []
+    for v in _lista_sel(mes_sel):
+        try:
+            n = int(v)
+        except ValueError:
+            continue
+        if 1 <= n <= 12 and n not in meses_num:
+            meses_num.append(n)
+    meses_num.sort()
+
+    # Os KPIs seguem os meses escolhidos; os gráficos, não. Escolher um mês
+    # deixava uma barra e um ponto sozinhos na tela, e o gráfico existe
+    # justamente para mostrar a evolução em torno daquele mês.
     meses_ocorridos = [m for m in meses if not m["futuro"]]
     meses_ref = meses_ocorridos
-    if mes_num:
-        meses_ref = [m for m in meses_ref if m["mes"] == mes_num]
+    if meses_num:
+        meses_ref = [m for m in meses_ref if m["mes"] in meses_num]
 
-    # a janela dos gráficos termina no mês escolhido, quando há um
-    if mes_num:
-        meses_grafico = [m for m in meses_ocorridos if m["mes"] <= mes_num]
+    # a janela dos gráficos termina no último mês escolhido, quando há escolha
+    if meses_num:
+        meses_grafico = [m for m in meses_ocorridos if m["mes"] <= max(meses_num)]
     else:
         meses_grafico = meses_ocorridos
 
-    rotulo_janela = ("o filtro de mês não altera este gráfico" if mes_num
+    rotulo_janela = ("o filtro de mês não altera este gráfico" if meses_num
                      else "evolução no ano")
 
     dem_ano = [c for c in colabs if c["data_demissa"] and c["data_demissa"].year == ano]
-    if mes_num:
-        dem_ano = [c for c in dem_ano if c["data_demissa"].month == mes_num]
+    if meses_num:
+        dem_ano = [c for c in dem_ano if c["data_demissa"].month in meses_num]
 
     total_adm  = sum(m["admitidos"] for m in meses_ref)
     total_dem  = sum(m["demitidos"] for m in meses_ref)
@@ -1290,7 +1305,8 @@ def _build_turnover_html(
     # alimentam, para o painel nunca discordar do número mostrado.
     lista_admitidos = [c for m in meses_ref for c in m["adm_colabs"]]
     lista_demitidos = [c for m in meses_ref for c in m["dem_colabs"]]
-    periodo_txt = f"{_mes_label(date(ano, mes_num, 1))}" if mes_num else f"ano de {ano}"
+    periodo_txt = (" + ".join(_mes_label(date(ano, n, 1)) for n in meses_num)
+                   if meses_num else f"ano de {ano}")
 
     detalhe_json = _detalhe_pessoas_json({
         "admitidos": (f"Admitidos · {periodo_txt}", lista_admitidos,
@@ -1346,23 +1362,29 @@ def _build_turnover_html(
         f"<option value='{a}'{' selected' if a == ano else ''}>{a}</option>"
         for a in anos_opcoes
     )
-    emp_opts_tv = "<option value=''>Todas</option>" + "".join(
-        f"<option value='{e}'{' selected' if e == (empresa_sel or '').upper() else ''}>{empresa_curta(e)}</option>"
-        for e in (todas_empresas or [])
-    )
-    dep_opts_tv = "<option value=''>Todos</option>" + "".join(
-        f"<option value='{d}'{' selected' if d == (depto_sel or '').upper() else ''}>{d.title()}</option>"
-        for d in (todos_deptos or [])
-    )
-    # só meses já ocorridos: mês futuro não tem o que mostrar
-    _mes_ops = []
+    caixa_emp = _caixa_multi(
+        "empresa", "Empresa",
+        [(e, empresa_curta(e)) for e in (todas_empresas or [])],
+        empresa_sel, "Todas")
+    caixa_dep = _caixa_multi(
+        "departamento", "Departamento",
+        [(d, d.title()) for d in (todos_deptos or [])],
+        depto_sel, "Todos")
+
+    # só meses já ocorridos: mês que ainda não começou não tem o que mostrar.
+    # O mês corrente entra marcado como parcial — os números dele são até hoje,
+    # e sem o aviso alguém compara meio mês com um mês inteiro.
+    opcoes_mes = []
     for m in meses:
         if m["futuro"]:
             continue
         num = m["mes"]
-        sel = " selected" if num == mes_num else ""
-        _mes_ops.append(f"<option value='{num:02d}'{sel}>{_MES_LABEL[f'{num:02d}']}</option>")
-    mes_opts_tv = "<option value=''>Ano todo</option>" + "".join(_mes_ops)
+        rotulo = _MES_LABEL[f"{num:02d}"]
+        if m.get("parcial"):
+            rotulo += " (parcial)"
+        opcoes_mes.append((f"{num:02d}", rotulo))
+    caixa_mes = _caixa_multi("mes", "Mês", opcoes_mes,
+                             [f"{n:02d}" for n in meses_num], "Ano todo")
 
     return f"""<div class="tv-wrap">{_CSS_TURNOVER}
 
@@ -1382,7 +1404,7 @@ def _build_turnover_html(
       <div class="subtitle">Admissões, desligamentos e rotatividade — Porsche Carrera Cup Brasil</div>
     </div>
   </div>
-  <div class="filters">
+  <div class="filters">{_CSS_FILTROS}
     <form method="get" style="margin:0;display:contents">
       <div class="filter">
         <label>Ano</label>
@@ -1390,26 +1412,11 @@ def _build_turnover_html(
           {opts_anos}
         </select>
       </div>
-      <div class="filter">
-        <label>Mês</label>
-        <select name="mes" onchange="this.form.submit()" style="width:100%;border:0;background:transparent;outline:none;color:#252525;font-size:13px;font-weight:700;cursor:pointer">
-          {mes_opts_tv}
-        </select>
-      </div>
-      <div class="filter">
-        <label>Empresa</label>
-        <select name="empresa" onchange="this.form.submit()" style="width:100%;border:0;background:transparent;outline:none;color:#252525;font-size:13px;font-weight:700;cursor:pointer">
-          {emp_opts_tv}
-        </select>
-      </div>
-      <div class="filter">
-        <label>Departamento</label>
-        <select name="departamento" onchange="this.form.submit()" style="width:100%;border:0;background:transparent;outline:none;color:#252525;font-size:13px;font-weight:700;cursor:pointer">
-          {dep_opts_tv}
-        </select>
-      </div>
+      {caixa_mes}
+      {caixa_emp}
+      {caixa_dep}
     </form>
-  </div>
+  </div>{_JS_FILTROS}
 </header>
 
 <section class="hero">
@@ -3295,8 +3302,10 @@ def _erro_fonte_externa(exc, fonte: str) -> str:
 
 
 @router.get("/indicadores/turnover")
-def turnover(request: Request, ano: str = "", empresa: str = "", departamento: str = "",
-             mes: str = ""):
+def turnover(request: Request, ano: str = "",
+             empresa: list[str] = Query(default=[]),
+             departamento: list[str] = Query(default=[]),
+             mes: list[str] = Query(default=[])):
     erro = None
     dash_html = ""
 
@@ -3315,10 +3324,12 @@ def turnover(request: Request, ano: str = "", empresa: str = "", departamento: s
         todas_empresas_tv = sorted({c["empresa"] for c in todos_colabs} - {"Não informado"})
         todos_deptos_tv = sorted({c["departamento"] for c in todos_colabs} - {"Não informado"})
         colabs = todos_colabs
-        if empresa:
-            colabs = [c for c in colabs if c["empresa"] == empresa.upper()]
-        if departamento:
-            colabs = [c for c in colabs if c["departamento"] == departamento.upper()]
+        empresa_sel = [e.upper() for e in _lista_sel(empresa)]
+        depto_sel = [d.upper() for d in _lista_sel(departamento)]
+        if empresa_sel:
+            colabs = [c for c in colabs if c["empresa"] in empresa_sel]
+        if depto_sel:
+            colabs = [c for c in colabs if c["departamento"] in depto_sel]
         dash_html = _build_turnover_html(
             colabs, ano_int, anos_opcoes,
             todas_empresas_tv, todos_deptos_tv, empresa, departamento, mes,
