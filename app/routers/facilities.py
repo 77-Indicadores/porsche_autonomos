@@ -922,10 +922,10 @@ def sincronizar(
 
 @router.get("/facilities/oauth/iniciar")
 def facilities_oauth_iniciar(request: Request, db: Session = Depends(get_db)):
-    if not _is_admin(request):
+    if not _pode_operar_facilities(request):
         return redirect_with_message(
             "/facilities",
-            error="Conectar ou desconectar a conta Google é restrito a administradores.")
+            error="Você não tem acesso ao módulo Facilities.")
 
     ensure_google_oauth_client_config(db)
     client_config = get_google_oauth_client_config(db)
@@ -957,10 +957,10 @@ def facilities_oauth_callback(
     state: str = "",
     db: Session = Depends(get_db),
 ):
-    if not _is_admin(request):
+    if not _pode_operar_facilities(request):
         return redirect_with_message(
             "/facilities",
-            error="Conectar ou desconectar a conta Google é restrito a administradores.")
+            error="Você não tem acesso ao módulo Facilities.")
 
     client_config = get_google_oauth_client_config(db)
     redirect_uri = get_google_oauth_redirect_uri(db)
@@ -1018,10 +1018,10 @@ def facilities_oauth_callback(
 
 @router.post("/facilities/oauth/desconectar")
 def facilities_oauth_desconectar(request: Request, db: Session = Depends(get_db)):
-    if not _is_admin(request):
+    if not _pode_operar_facilities(request):
         return redirect_with_message(
             "/facilities",
-            error="Conectar ou desconectar a conta Google é restrito a administradores.")
+            error="Você não tem acesso ao módulo Facilities.")
 
     _delete_config(db, GOOGLE_TOKEN_DB_KEY)
     _delete_config(db, GOOGLE_OAUTH_STATE_DB_KEY)
