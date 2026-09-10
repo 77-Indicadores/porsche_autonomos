@@ -161,6 +161,24 @@ def e_pessoa(nome) -> bool:
     return str(nome or "").strip().upper() not in _NAO_PESSOAS
 
 
+def empresas_oficiais(valores) -> list[str]:
+    """Só as empresas do grupo, na ordem de _EMPRESAS_CURTAS.
+
+    A empresa vem do campo UNIDADE do Feedz, que é texto livre: além de DENER,
+    PIRES e GT3 aparecem rótulos como "DENPI" e "EQUIPE", que não são empresas
+    e poluíam o filtro. Isto vale só para a LISTA de opções — ninguém é
+    excluído das contagens, e quem estiver com unidade fora do padrão continua
+    somando em "Todas".
+    """
+    vistos = {str(v or "").strip().upper() for v in (valores or [])}
+    saida = []
+    for chave, _curto in _EMPRESAS_CURTAS:
+        for v in sorted(vistos):
+            if chave in v and v not in saida:
+                saida.append(v)
+    return saida
+
+
 def empresa_curta(nome) -> str:
     """Nome curto da empresa; devolve o original quando não reconhece."""
     bruto = str(nome or "").strip()

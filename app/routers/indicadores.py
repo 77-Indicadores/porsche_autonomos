@@ -29,7 +29,8 @@ from app.ui_filtros import (CSS_FILTROS as _CSS_FILTROS,
                             JS_FILTROS as _JS_FILTROS,
                             caixa_multi as _caixa_multi,
                             lista_sel as _lista_sel)
-from app.utils import competencia_de, data_para_date, e_pessoa, empresa_curta
+from app.utils import (competencia_de, data_para_date, e_pessoa, empresa_curta,
+                       empresas_oficiais)
 
 router = APIRouter(tags=["indicadores"])
 
@@ -2043,7 +2044,7 @@ def _build_treinamentos_html(depto_sel=None, mes_sel=None, ano_sel=None,
         a["competencia"] = competencia_de(a.get("data_treinamento"))
     todos_meses = sorted({a["competencia"] for a in aplicacoes if a["competencia"]},
                          reverse=True)
-    todas_empresas = sorted({a["empresa"] for a in aplicacoes if a.get("empresa")})
+    todas_empresas = empresas_oficiais({a.get("empresa") for a in aplicacoes})
 
     depto_sel = [d.strip().upper() for d in _lista_sel(depto_sel)]
     mes_sel = _lista_sel(mes_sel)
@@ -3394,7 +3395,7 @@ def turnover(request: Request, ano: str = "",
     try:
         rows = _fetch_feedz("rel_colab_77")
         todos_colabs = _normalizar_colabs(rows)
-        todas_empresas_tv = sorted({c["empresa"] for c in todos_colabs} - {"Não informado"})
+        todas_empresas_tv = empresas_oficiais({c["empresa"] for c in todos_colabs})
         todos_deptos_tv = sorted({c["departamento"] for c in todos_colabs} - {"Não informado"})
         colabs = todos_colabs
         empresa_sel = [e.upper() for e in _lista_sel(empresa)]
@@ -3444,7 +3445,7 @@ def headcount(request: Request, mes: str = "", empresa: str = "", departamento: 
         rows = _fetch_feedz("rel_colab_77")
         todos_colabs = _normalizar_colabs(rows)
         # Listas para dropdowns (antes do filtro)
-        todas_empresas = sorted({c["empresa"] for c in todos_colabs} - {"Não informado"})
+        todas_empresas = empresas_oficiais({c["empresa"] for c in todos_colabs})
         todos_deptos = sorted({c["departamento"] for c in todos_colabs} - {"Não informado"})
         # Aplica filtros
         colabs = todos_colabs
@@ -3721,7 +3722,7 @@ def _build_banco_horas_html(rows: list[dict], all_rows: list[dict] | None = None
                             empresa_sel: str = "", departamento_sel: str = "",
                             mes_sel: str = "") -> str:
     all_rows = all_rows or rows
-    empresas     = sorted({r["empresa"]     for r in all_rows if r["empresa"]})
+    empresas     = empresas_oficiais({r["empresa"] for r in all_rows})
     departamentos = sorted({r["departamento"] for r in all_rows if r["departamento"]})
     meses = sorted({r["data_dt"].strftime("%Y-%m") for r in all_rows if r.get("data_dt")},
                    reverse=True)
@@ -3963,7 +3964,7 @@ def _build_hora_extra_html(rows: list[dict], all_rows: list[dict] | None = None,
                            ano_sel: str = "", mes_sel: str = "",
                            departamento_sel: str = "") -> str:
     all_rows = all_rows or rows
-    empresas = sorted({r["empresa"] for r in all_rows if r["empresa"]})
+    empresas = empresas_oficiais({r["empresa"] for r in all_rows})
     cargos   = sorted({r["cargo"]   for r in all_rows if r["cargo"]})
     departamentos = sorted({r["departamento"] for r in all_rows if r.get("departamento")})
     anos     = sorted({str(r["data_dt"].year) for r in all_rows if r.get("data_dt")}, reverse=True)
