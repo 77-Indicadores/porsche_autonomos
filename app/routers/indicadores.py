@@ -3307,7 +3307,11 @@ def indicadores_home(request: Request):
     A tela de entrada era um template sem conteúdo — quem clicava em
     Indicadores caía numa página em branco em vez de num painel.
     """
-    return RedirectResponse("/indicadores/headcount", status_code=303)
+    # ctx=indicadores marca que a entrada foi pelo módulo Indicadores. Sem essa
+    # marca a rota resolve para o módulo DHO — é lá que ela está em
+    # MODULO_ROUTES — e o menu lateral vinha com os cadastros do DHO, sem os
+    # indicadores de Autônomos e Facilities.
+    return RedirectResponse("/indicadores/headcount?ctx=indicadores", status_code=303)
 
 
 def _erro_fonte_externa(exc, fonte: str) -> str:
