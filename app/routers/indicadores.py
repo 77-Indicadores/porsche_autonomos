@@ -1,4 +1,4 @@
-"""Módulo Indicadores — dashboards analíticos com dados do Feedz via OData."""
+"""Módulo Indicadores — dashboards analíticos com dados do Catworld."""
 
 from __future__ import annotations
 
@@ -12,8 +12,14 @@ from datetime import date, datetime
 from decimal import Decimal
 from typing import Optional
 
-import requests
 from catworld import CatworldClient
+from catworld.exceptions import (
+    AuthenticationError,
+    ConnectionError as CatworldConnectionError,
+    PermissionDeniedError,
+    QueryTimeoutError,
+    ValidationError,
+)
 from fastapi import APIRouter, Query, Request
 from fastapi.responses import RedirectResponse
 from sqlalchemy import select, text
@@ -27,21 +33,56 @@ from app.utils import competencia_de, data_para_date, e_pessoa, empresa_curta
 
 router = APIRouter(tags=["indicadores"])
 
-# ─── OData ────────────────────────────────────────────────────────────────────
+# ─── Catworld ─────────────────────────────────────────────────────────────────
+
+CATWORLD_QUERY_ERRORS = (
+    AuthenticationError,
+    PermissionDeniedError,
+    ValidationError,
+    QueryTimeoutError,
+    CatworldConnectionError,
+)
+
+
+def _catworld_client():
+    base_url = os.getenv("CATWORLD_URL")
+    token = os.getenv("CATWORLD_TOKEN")
+
+    if not base_url or not token:
+        raise RuntimeError("CATWORLD_URL e CATWORLD_TOKEN precisam estar configurados.")
+
+    return CatworldClient(base_url=base_url, token=token)
+
+
+def _catworld_project_id():
+    project_id = os.getenv("CATWORLD_PROJECT_ID")
+
+    if not project_id:
+        raise RuntimeError("CATWORLD_PROJECT_ID precisa estar configurado.")
+
+    return project_id
+
+
+def _consultar_catworld(sql: str):
+    client = _catworld_client()
+    try:
+        resultado = client.query(sql, project_id=_catworld_project_id())
+        return resultado.rows or []
+    finally:
+        client.close()
+
+
+_CATWORLD_TABLE_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
+
+
+def _fetch_catworld_table(table_name: str) -> list[dict]:
+    if not _CATWORLD_TABLE_RE.fullmatch(table_name):
+        raise ValueError(f"Tabela Catworld inválida: {table_name}")
+    return [dict(row) for row in _consultar_catworld(f"SELECT * FROM {table_name}")]
+
 
 def _fetch_feedz(entity: str) -> list[dict]:
-    base_url = os.getenv("FEEDZ_ODATA_URL", "https://catworld.77indicadores.com.br/api/odata/porsche/feedz")
-    token = os.getenv("FEEDZ_TOKEN") or os.getenv("CATWORLD_TOKEN", "")
-    headers = {"Authorization": f"Bearer {token}", "Accept": "application/json"}
-    url = f"{base_url}/{entity}"
-    rows: list[dict] = []
-    while url:
-        resp = requests.get(url, headers=headers, timeout=30)
-        resp.raise_for_status()
-        data = resp.json()
-        rows.extend(data.get("value", []))
-        url = data.get("@odata.nextLink") or data.get("odata.nextLink")
-    return rows
+    return _fetch_catworld_table(entity)
 
 
 # ─── helpers de data ──────────────────────────────────────────────────────────
@@ -3232,13 +3273,14 @@ def _erro_fonte_externa(exc, fonte: str) -> str:
     A separação é por natureza do erro, não por código HTTP. A primeira versão
     listava 502/503/504 como "passageiro" e deixava o 500 cair no texto técnico
     — mas 500 do BI é falha do BI igual aos outros, e a tela acabou culpando o
-    sistema por um erro que não era dele. Qualquer RequestException é a fonte
+    sistema por um erro que não era dele. Qualquer erro de consulta ao Catworld é
+    a fonte
     que não entregou: não respondeu, recusou ou devolveu erro. O que sobra
     (KeyError, ValueError e afins) é dado que chegou e nós não soubemos ler —
     aí sim é defeito nosso, e o texto técnico é a pista certa.
     """
     detalhe = str(exc)
-    da_fonte = isinstance(exc, requests.exceptions.RequestException)
+    da_fonte = isinstance(exc, CATWORLD_QUERY_ERRORS)
     if not da_fonte:
         # Nem todo caminho chega aqui com o objeto da exceção
         da_fonte = any(marca in detalhe for marca in
@@ -3531,36 +3573,23 @@ def _bh_minutes_to_time(minutes: int) -> str:
     return f"{sinal}{m // 60:02d}:{m % 60:02d}"
 
 
-def _fetch_ifractal_odata(entity: str) -> list[dict]:
-    """Busca todas as linhas de uma entidade do OData ifractal."""
-    token = os.getenv("CATWORLD_TOKEN", "")
-    if not token:
-        raise RuntimeError("CATWORLD_TOKEN não configurado.")
-    base = "https://catworld.77indicadores.com.br/api/odata/porsche/ifractal"
-    hdrs = {"Authorization": f"Bearer {token}", "Accept": "application/json"}
-    url: str | None = f"{base}/{entity}"
-    rows: list[dict] = []
-    while url:
-        resp = requests.get(url, headers=hdrs, timeout=30)
-        resp.raise_for_status()
-        data = resp.json()
-        rows.extend(data.get("value", []))
-        url = data.get("@odata.nextLink") or data.get("@odata.nextlink")
-    return rows
+def _fetch_ifractal(entity: str) -> list[dict]:
+    """Busca todas as linhas de uma tabela ifractal pelo Catworld SDK."""
+    return _fetch_catworld_table(entity)
 
 
 _RE_HMS = re.compile(r"\b(\d{1,2}:\d{2}:\d{2})\b")
 
 
-def _norm_odata_time(s) -> str:
-    """Extrai HH:MM:SS de strings OData (ISO ou JS Date); retorna '' se vazio."""
+def _norm_time(s) -> str:
+    """Extrai HH:MM:SS de strings ISO ou JS Date; retorna '' se vazio."""
     s = str(s or "").strip()
     m = _RE_HMS.search(s)
     return m.group(1) if m else s
 
 
 def _fetch_banco_horas() -> list[dict]:
-    rows = _fetch_ifractal_odata("ifractal_extrato_banco_horas")
+    rows = _fetch_ifractal("ifractal_extrato_banco_horas")
     result = []
     for r in rows:
         d = dict(r) if not isinstance(r, dict) else r
@@ -3796,12 +3825,12 @@ def _he_faixa(minutos: int) -> str:
 
 
 def _fetch_hora_extra() -> list[dict]:
-    rows = _fetch_ifractal_odata("ifractal_hora_extra")
+    rows = _fetch_ifractal("ifractal_hora_extra")
     result = []
     for r in rows:
         d = dict(r) if not isinstance(r, dict) else r
         nome = str(d.get("pessoa") or "").strip()
-        credito_str = _norm_odata_time(d.get("bh_credito") or "")
+        credito_str = _norm_time(d.get("bh_credito") or "")
         credito_min = _he_parse_minutes(credito_str)
         if not nome or credito_min <= 0:
             continue

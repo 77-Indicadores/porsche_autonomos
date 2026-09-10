@@ -1274,19 +1274,19 @@ def _catworld_client():
     return CatworldClient(base_url=base_url, token=token)
 
 
-def _catworld_dataset_id():
-    dataset_id = os.getenv("CATWORLD_DATASET_ID")
+def _catworld_project_id():
+    project_id = os.getenv("CATWORLD_PROJECT_ID")
 
-    if not dataset_id:
-        raise RuntimeError("CATWORLD_DATASET_ID precisa estar configurado.")
+    if not project_id:
+        raise RuntimeError("CATWORLD_PROJECT_ID precisa estar configurado.")
 
-    return dataset_id
+    return project_id
 
 
 def _consultar_catworld(sql: str):
     client = _catworld_client()
     try:
-        resultado = client.query(sql, dataset_id=_catworld_dataset_id())
+        resultado = client.query(sql, project_id=_catworld_project_id())
         return resultado.rows or []
     finally:
         client.close()
@@ -1336,7 +1336,7 @@ def carregar_pessoas_interno(db: Session):
 
 def carregar_pessoas_dataworld(raise_errors: bool = False):
     """
-    Busca pessoas na tabela rel_colab_77 do dataset Catworld configurado.
+    Busca pessoas na tabela rel_colab_77 do projeto Catworld configurado.
 
     Campos usados:
     - nome
