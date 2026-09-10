@@ -704,15 +704,21 @@ def _painel_detalhe_html(detalhe_json: str, periodo_label: str,
 """
 
 
-def _vagas_abertas(depto_sel: str = "") -> int:
-    """Posições em aberto, somando a quantidade de cada vaga.
+def _vagas_abertas(depto_sel: str = "") -> dict:
+    """Posições em aberto separadas entre vaga nova e substituição.
 
     Uma vaga pode valer mais de uma posição, por isso soma qtd_vagas em vez de
-    contar linhas. Segue o mesmo critério do painel de Vagas.
+    contar linhas. Segue o mesmo critério de "aberta" do painel de Vagas.
+
+    A separação existe porque as duas significam coisas diferentes para o
+    quadro: vaga nova é aumento de quadro, substituição só repõe uma posição
+    que já existe. Somar as duas no previsto inflava o número — era o caso de
+    Adesivagem, onde as substituições apareciam como crescimento.
     """
+    vazio = {"novas": 0, "substituicao": 0, "total": 0}
     try:
         linhas = _db_rows(
-            """SELECT v.qtd_vagas, v.status,
+            """SELECT v.qtd_vagas, v.status, v.tipo_vaga,
                       COALESCE(NULLIF(TRIM(d.nome_departamento), ''), '') AS depto
                FROM dho_vagas v
                LEFT JOIN dho_departamentos d
@@ -720,10 +726,10 @@ def _vagas_abertas(depto_sel: str = "") -> int:
         )
     except Exception as exc:
         print(f"AVISO - não consegui contar vagas abertas: {exc}")
-        return 0
+        return vazio
 
     alvo = (depto_sel or "").strip().upper()
-    total = 0
+    novas = subs = 0
     for r in linhas:
         # Antes o teste era "abert" no texto do status, e o comentário acima
         # dizia seguir o painel de Vagas — não seguia: vaga "Em andamento" é
@@ -732,8 +738,13 @@ def _vagas_abertas(depto_sel: str = "") -> int:
             continue
         if alvo and (r.get("depto") or "").strip().upper() != alvo:
             continue
-        total += int(r.get("qtd_vagas") or 1)
-    return total
+        qtd = int(r.get("qtd_vagas") or 1)
+        if "substitui" in str(r.get("tipo_vaga") or "").strip().lower():
+            subs += qtd
+        else:
+            # sem tipo preenchido conta como nova: é o padrão do cadastro
+            novas += qtd
+    return {"novas": novas, "substituicao": subs, "total": novas + subs}
 
 
 def _build_headcount_html(
@@ -802,11 +813,15 @@ def _build_headcount_html(
     delta_txt = f"{'↗' if delta >= 0 else '↘'} {abs(delta):.1f}% em 6 meses"
     delta_style = "background:rgba(31,157,98,.17);color:#8ef0bd" if delta >= 0 else "background:rgba(225,6,0,.2);color:#fca5a5"
 
-    # Headcount previsto: quadro de hoje mais as posições ainda não preenchidas.
-    # As vagas usam o mesmo critério do painel de Vagas ("Aberta"), para os dois
-    # números não discordarem entre telas.
-    vagas_abertas = _vagas_abertas(depto_sel)
-    previsto = total_ativos + vagas_abertas
+    # Headcount previsto: quadro de hoje mais o que ainda vai CRESCER. Só vaga
+    # nova entra. Substituição repõe posição que já existe e não muda o tamanho
+    # do quadro — somá-la fazia o previsto de Adesivagem parecer crescimento
+    # onde havia apenas reposição. Ela continua na tela, em linha própria, para
+    # a informação não se perder.
+    vagas = _vagas_abertas(depto_sel)
+    vagas_novas = vagas["novas"]
+    vagas_subs = vagas["substituicao"]
+    previsto = total_ativos + vagas_novas
     pct_preenchido = total_ativos / previsto * 100 if previsto else 0
     # o donut precisa do número com ponto no CSS; a exibição usa vírgula
     donut_p = f"{pct_preenchido:.1f}"
@@ -819,6 +834,14 @@ def _build_headcount_html(
         'então entram todas, independentemente do filtro de empresa.</p>'
         if empresa_sel else ""
     )
+    # Sem esta frase o cartão parece errado: as três linhas não somam o número
+    # grande, e quem olha não tem como saber que é de propósito.
+    if vagas_subs:
+        nota_vagas += (
+            '<p class="nota-card">A substituição repõe uma posição que já '
+            'existe, então não entra no previsto — só a vaga nova aumenta o '
+            'quadro.</p>'
+        )
 
     periodo_label = _mes_label(ref)
 
@@ -952,7 +975,7 @@ def _build_headcount_html(
     <div class="card-head">
       <div>
         <h3>Headcount previsto</h3>
-        <p>Ativos hoje mais as vagas em aberto</p>
+        <p>Ativos hoje mais as vagas novas em aberto</p>
       </div>
     </div>
     <div class="donut-box">
@@ -964,7 +987,8 @@ def _build_headcount_html(
     </div>
     <div class="insight-list">
       <div class="insight"><span>Ativos hoje</span><b>{total_ativos:,}</b></div>
-      <div class="insight"><span>Vagas em aberto</span><b>+{vagas_abertas:,}</b></div>
+      <div class="insight"><span>Vagas novas (aumento de quadro)</span><b>+{vagas_novas:,}</b></div>
+      <div class="insight"><span>Substituições em aberto</span><b>{vagas_subs:,}</b></div>
       <div class="insight"><span>Quadro preenchido</span><b>{pct_fmt}%</b></div>
     </div>
     {nota_vagas}
