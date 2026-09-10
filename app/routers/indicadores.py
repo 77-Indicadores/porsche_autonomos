@@ -1410,7 +1410,7 @@ def _build_turnover_html(
     </div>
   </div>
   <div class="filters">{_CSS_FILTROS}
-    <form method="get" style="margin:0;display:contents">
+    <form method="get" id="indFiltros" style="margin:0;display:contents">
       <div class="filter">
         <label>Ano</label>
         <select name="ano" onchange="this.form.submit()" style="width:100%;border:0;background:transparent;outline:none;color:#252525;font-size:13px;font-weight:700;cursor:pointer">
@@ -1654,12 +1654,17 @@ def _build_facilities_html(tickets: list[dict], todos_tickets: list[dict] | None
     # os meses oferecidos acompanham o ano escolhido: sem isso a lista mostra
     # meses que não existem no recorte e o usuário filtra para o vazio
     comps_do_ano = [c for c in comps if not ano_sel or c[:4] in ano_sel]
-    filtros_html = (f"{_CSS_FILTROS}<div class='filtros-linha'>"
+    # O JS das caixas se liga ao formulário de id "indFiltros" e sai calado se
+    # não achar. Sem o formulário as caixas apareciam mas não abriam nem tinham
+    # para onde enviar o que fosse marcado.
+    filtros_html = (_CSS_FILTROS
+                    + '<form method="get" action="/indicadores/facilities"'
+                      ' class="ind-filtros" id="indFiltros">'
                     + _caixa_multi("ano", "Ano", [(a, a) for a in anos], ano_sel, "Todos")
                     + _caixa_multi("mes", "Mês",
                                    [(c, _rotulo_mes(c)) for c in comps_do_ano],
                                    mes_sel, "Todos")
-                    + "</div>" + _JS_FILTROS)
+                    + "</form>" + _JS_FILTROS)
 
     if not tickets:
         return (f"{filtros_html}<div class=\"fac-wrap\">{_CSS_FAC}"
