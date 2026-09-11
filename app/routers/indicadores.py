@@ -4276,58 +4276,6 @@ def _build_hora_extra_html(rows: list[dict], all_rows: list[dict] | None = None,
         )
         return f'<div class="he-legenda">{legenda}</div>' + "".join(p)
 
-    def _svg_donut_empresa() -> str:
-        import math as _math  # noqa: PLC0415
-        itens = sorted([(k, len(v)) for k, v in por_empresa.items() if k],
-                       key=lambda x: -x[1])[:6]
-        if not itens:
-            return "<p style='color:#888;padding:16px'>Sem dados</p>"
-        total = sum(v for _, v in itens)
-        COLORS = ["#e31837", "#374151", "#9ca3af", "#60a5fa", "#7f1d1d", "#f59e0b"]
-        CW, CH = 380, 210
-        cx, cy = 105, 100
-        R, ri  = 82, 46
-        p = [f'<svg viewBox="0 0 {CW} {CH}" xmlns="http://www.w3.org/2000/svg"'
-             f' style="width:100%;display:block">']
-        start = -_math.pi / 2
-        for i, (label, val) in enumerate(itens):
-            frac  = val / total
-            sweep = 2 * _math.pi * frac
-            end   = start + sweep
-            large = 1 if sweep > _math.pi else 0
-            x1  = cx + R  * _math.cos(start);  y1  = cy + R  * _math.sin(start)
-            x2  = cx + R  * _math.cos(end);    y2  = cy + R  * _math.sin(end)
-            xi1 = cx + ri * _math.cos(end);    yi1 = cy + ri * _math.sin(end)
-            xi2 = cx + ri * _math.cos(start);  yi2 = cy + ri * _math.sin(start)
-            col = COLORS[i % len(COLORS)]
-            if frac > 0.9999:
-                p.append(f'<circle cx="{cx}" cy="{cy}" r="{R}" fill="{col}"/>')
-                p.append(f'<circle cx="{cx}" cy="{cy}" r="{ri}" fill="#fff"/>')
-            else:
-                d = (f"M {x1:.2f},{y1:.2f} A {R},{R} 0 {large},1 {x2:.2f},{y2:.2f}"
-                     f" L {xi1:.2f},{yi1:.2f} A {ri},{ri} 0 {large},0 {xi2:.2f},{yi2:.2f} Z")
-                p.append(f'<path d="{d}" fill="{col}"/>')
-            start = end
-        p.append(f'<text x="{cx}" y="{cy-8}" text-anchor="middle" font-size="20"'
-                 f' font-weight="900" fill="#111" font-family="Inter,sans-serif">{total}</text>')
-        p.append(f'<text x="{cx}" y="{cy+10}" text-anchor="middle" font-size="9"'
-                 f' fill="#888" font-family="Inter,sans-serif">ocorrências</text>')
-        lx = cx + R + 18
-        for i, (label, val) in enumerate(itens):
-            pct = round(val / total * 100)
-            col = COLORS[i % len(COLORS)]
-            ly  = 26 + i * 26
-            disp = label.title()
-            short = (disp[:18] + "…") if len(disp) > 19 else disp
-            p.append(f'<rect x="{lx}" y="{ly-11}" width="11" height="11"'
-                     f' fill="{col}" rx="2"/>')
-            p.append(f'<text x="{lx+15}" y="{ly-2}" font-size="11" fill="#333"'
-                     f' font-weight="700" font-family="Inter,sans-serif">{val}</text>')
-            p.append(f'<text x="{lx+15}" y="{ly+10}" font-size="10" fill="#888"'
-                     f' font-family="Inter,sans-serif">{short} · {pct}%</text>')
-        p.append('</svg>')
-        return "".join(p)
-
     def _svg_faixa_count() -> str:
         max_oc_f = max((len(por_faixa.get(f, [])) for f in FAIXAS), default=1)
         BAR_H, GAP, LBL_W, PCT_W = 28, 16, 90, 38
@@ -4394,7 +4342,6 @@ def _build_hora_extra_html(rows: list[dict], all_rows: list[dict] | None = None,
     # ── generate all SVGs ──────────────────────────────────────────────────────
     svg_stacked   = _svg_stacked()
     svg_line      = _svg_line()
-    svg_emp       = _svg_donut_empresa()
     svg_dep       = _svg_hbars_faixa(por_depto, top=8)
     svg_f_cnt     = _svg_faixa_count()
     svg_f_hrs     = _svg_faixa_hours()
@@ -4441,6 +4388,15 @@ def _build_hora_extra_html(rows: list[dict], all_rows: list[dict] | None = None,
                 "colunas": _COLS_PESSOA,
                 "linhas": _pessoas_de(linhas_dep),
             }
+    # A barra de empresa só vira clique se o grupo existir; sem isto o clique
+    # abriria um painel vazio, que é pior que não ser clicável.
+    for emp, linhas_emp in por_empresa.items():
+        if emp:
+            grupos_detalhe[f"emp_{_he_chave_faixa(emp)}"] = {
+                "titulo": f"Horas extras · {empresa_curta(emp)}",
+                "colunas": _COLS_PESSOA,
+                "linhas": _pessoas_de(linhas_emp),
+            }
 
     painel_html = _painel_detalhe_html(
         _detalhe_generico_json(grupos_detalhe), "horas extras", "horas_extras")
@@ -4470,6 +4426,109 @@ def _build_hora_extra_html(rows: list[dict], all_rows: list[dict] | None = None,
     # mostravam. O que falta na faixa não é o % de ocorrências de novo — é o %
     # das HORAS, que é o que distingue uma faixa da outra.
     hero_bot = ""
+
+    # ── diagnóstico: onde estão as horas e quem as gerou ───────────────────────
+    # O painel respondia "o quê" (quantas horas, em que faixa) e parava aí. Para
+    # agir é preciso "onde" e "quem" — e os dois cortes não coincidem: um
+    # departamento pode ter muitas ocorrências curtas e outro poucas e longas,
+    # que pedem decisões opostas.
+
+    def _linha_diag(nome: str, registros: list) -> dict:
+        oc = len(registros)
+        mins = sum(r["credito_min"] for r in registros)
+        longas = [r for r in registros if r["faixa"] == "Acima de 2h"]
+        min_longas = sum(r["credito_min"] for r in longas)
+        return {
+            "nome": nome,
+            "oc": oc,
+            "min": mins,
+            "horas": _he_horas(mins),
+            "pct_horas": round(mins / total_min * 100) if total_min else 0,
+            "pessoas": len({r["pessoa"] for r in registros}),
+            "media": _he_horas(mins // oc) if oc else "—",
+            # a proporção de horas longas é o que marca um departamento como
+            # crítico: 3 ocorrências de 8h pesam mais que 40 de 10 minutos
+            "pct_longas": round(min_longas / mins * 100) if mins else 0,
+        }
+
+    diag_deptos = sorted((_linha_diag(k, v) for k, v in por_depto.items() if k),
+                         key=lambda d: -d["min"])[:10]
+
+    por_pessoa: dict[str, list] = defaultdict(list)
+    for r in rows:
+        if r["faixa"]:
+            por_pessoa[r["pessoa"]].append(r)
+
+    def _linha_pessoa(nome: str, registros: list) -> dict:
+        mins = sum(r["credito_min"] for r in registros)
+        maior = max((r["credito_min"] for r in registros), default=0)
+        deptos = {r["departamento"] for r in registros if r["departamento"]}
+        return {
+            "nome": nome,
+            "depto": (sorted(deptos)[0].title() if deptos else "—"),
+            "oc": len(registros),
+            "horas": _he_horas(mins),
+            "min": mins,
+            "media": _he_horas(mins // len(registros)) if registros else "—",
+            "maior": _he_horas(maior),
+            "meses": len({r["mes"] for r in registros}),
+        }
+
+    top_pessoas = sorted((_linha_pessoa(k, v) for k, v in por_pessoa.items() if k),
+                         key=lambda d: -d["min"])[:10]
+
+    def _tabela(colunas: list[str], linhas: list[str]) -> str:
+        cab = "".join(f"<th>{c}</th>" for c in colunas)
+        return (f'<div class="he-rolagem"><table class="he-tab">'
+                f'<thead><tr>{cab}</tr></thead><tbody>'
+                + ("".join(linhas) or
+                   f'<tr><td colspan="{len(colunas)}" class="he-vazio">Sem dados no período</td></tr>')
+                + '</tbody></table></div>')
+
+    tab_deptos = _tabela(
+        ["Departamento", "Ocorrências", "Horas", "% das horas",
+         "% acima de 2h", "Colaboradores", "Média por ocorrência"],
+        [f'<tr class="hc-abre" data-grupo="dep_{_he_chave_faixa(d['nome'])}" title="Ver os colaboradores">'
+         f'<td class="he-tab-nome">{d["nome"].title()}</td>'
+         f'<td class="he-num">{d["oc"]}</td>'
+         f'<td class="he-num he-forte">{d["horas"]}</td>'
+         f'<td class="he-num">{d["pct_horas"]}%</td>'
+         f'<td class="he-num{" he-risco" if d["pct_longas"] >= 60 else ""}">{d["pct_longas"]}%</td>'
+         f'<td class="he-num">{d["pessoas"]}</td>'
+         f'<td class="he-num">{d["media"]}</td></tr>'
+         for d in diag_deptos])
+
+    tab_pessoas = _tabela(
+        ["Colaborador", "Departamento", "Ocorrências", "Horas",
+         "Média", "Maior ocorrência", "Meses com HE"],
+        [f'<tr>'
+         f'<td class="he-tab-nome">{pe["nome"].title()}</td>'
+         f'<td>{pe["depto"]}</td>'
+         f'<td class="he-num">{pe["oc"]}</td>'
+         f'<td class="he-num he-forte">{pe["horas"]}</td>'
+         f'<td class="he-num">{pe["media"]}</td>'
+         f'<td class="he-num">{pe["maior"]}</td>'
+         f'<td class="he-num{" he-risco" if pe["meses"] >= 3 else ""}">{pe["meses"]}</td></tr>'
+         for pe in top_pessoas])
+
+    # Empresa em barras: o donut gastava um cartão inteiro para duas fatias, e
+    # comparar ângulos é mais difícil que comparar comprimentos.
+    emp_itens = sorted(((k, len(v), sum(r["credito_min"] for r in v))
+                        for k, v in por_empresa.items() if k),
+                       key=lambda x: -x[2])
+    emp_max = emp_itens[0][2] if emp_itens else 0
+    barras_empresa = "".join(
+        f'<div class="he-barra hc-abre" data-grupo="emp_{_he_chave_faixa(nome)}" title="Ver os colaboradores">'
+        f'<div class="he-barra-topo">'
+        f'<span class="he-barra-nome">{empresa_curta(nome)}</span>'
+        f'<span class="he-barra-val">{_he_horas(mins)} · {round(mins / total_min * 100) if total_min else 0}%</span>'
+        f'</div>'
+        f'<div class="he-barra-trilho">'
+        f'<span class="he-barra-preenche" style="width:{int(mins / emp_max * 100) if emp_max else 0}%"></span>'
+        f'</div>'
+        f'<div class="he-barra-sub">{oc} ocorrências</div>'
+        f'</div>'
+        for nome, oc, mins in emp_itens) or '<p class="he-vazio">Sem dados</p>'
 
     # ── alerta de concentração ─────────────────────────────────────────────────
     # Só aparece quando há de fato desproporção: com as horas distribuídas por
@@ -4501,6 +4560,37 @@ def _build_hora_extra_html(rows: list[dict], all_rows: list[dict] | None = None,
     leg_oc_pct = _dot("#e31837", "Ocorrências") + " " + _dot("#9ca3af", "% do total")
 
     css = """<style>
+/* Tabelas de diagnóstico: respondem "onde" e "quem", que os gráficos não
+   respondem. Escala tipográfica disciplinada — 11px rótulo, 13px corpo,
+   14px título — e espaçamentos em múltiplos de 8. */
+.he-diag{margin-bottom:24px}
+.he-rolagem{overflow-x:auto;min-width:0}
+.he-tab{width:100%;border-collapse:collapse;font-size:13px}
+.he-tab th{text-align:right;padding:8px 12px;font-size:11px;font-weight:700;
+  letter-spacing:.04em;text-transform:uppercase;color:#69717D;
+  border-bottom:1px solid #e6e6e9;white-space:nowrap}
+.he-tab th:first-child,.he-tab td:first-child{text-align:left}
+.he-tab td{padding:12px;border-bottom:1px solid #f2f2f4;color:#252525}
+.he-tab tbody tr:hover{background:#fafafa}
+.he-tab tbody tr.hc-abre{cursor:pointer}
+.he-tab-nome{font-weight:600;color:#0B0B0C}
+.he-num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+.he-forte{font-weight:700}
+.he-risco{color:#D50032;font-weight:700}
+.he-vazio{color:#69717D;text-align:center;padding:24px}
+/* Empresa em barras: comparar comprimento é mais fácil que comparar ângulo,
+   e duas fatias não justificavam um donut ocupando o cartão inteiro. */
+.he-barra{margin-bottom:16px;cursor:pointer}
+.he-barra:last-child{margin-bottom:0}
+.he-barra-topo{display:flex;justify-content:space-between;align-items:baseline;
+  gap:8px;margin-bottom:6px}
+.he-barra-nome{font-size:13px;font-weight:600;color:#0B0B0C}
+.he-barra-val{font-size:13px;font-weight:700;color:#252525;
+  font-variant-numeric:tabular-nums;white-space:nowrap}
+.he-barra-trilho{height:12px;background:#f0f0f2;border-radius:999px;overflow:hidden}
+.he-barra-preenche{display:block;height:100%;background:#3f4654;border-radius:999px}
+.he-barra:hover .he-barra-preenche{background:#252b36}
+.he-barra-sub{font-size:11px;color:#69717D;margin-top:4px}
 /* Alerta de concentração. Vermelho fica reservado para risco — no resto do
    painel ele era usado para marca, destaque, barra e linha ao mesmo tempo, e
    quando tudo é vermelho nada é urgente. Escala de 8px nos espaçamentos. */
@@ -4663,22 +4753,38 @@ def _build_hora_extra_html(rows: list[dict], all_rows: list[dict] | None = None,
 <div class="he-row-bot">
   <div class="he-panel">
     <div class="he-panel-head">Horas por empresa</div>
-    <div class="he-panel-body">{svg_emp}</div>
+    <div class="he-panel-body">{barras_empresa}</div>
   </div>
 
   <div class="he-panel">
-    <div class="he-panel-head">Departamentos por horas</div>
+    <div class="he-panel-head">Composição por departamento</div>
     <div class="he-panel-body">{svg_dep}</div>
   </div>
 
   <div class="he-panel">
     <div class="he-panel-head">
       Horas concentradas por duração
-      <div class="he-panel-head-right">{_dot("#e31837","Horas (hh:mm)")} {_dot("#9ca3af","% do total")}</div>
+      <div class="he-panel-head-right">{_dot("#D50032","Horas")} {_dot("#9ca3af","% do total")}</div>
     </div>
     <div class="he-panel-body">{svg_f_hrs}</div>
   </div>
 
+</div>
+
+<div class="he-panel he-diag">
+  <div class="he-panel-head">
+    Onde estão as horas
+    <div class="he-panel-head-right">Ordenado por horas · clique na linha para ver os nomes</div>
+  </div>
+  <div class="he-panel-body">{tab_deptos}</div>
+</div>
+
+<div class="he-panel he-diag">
+  <div class="he-panel-head">
+    Quem gerou mais horas extras
+    <div class="he-panel-head-right">10 maiores por total de horas</div>
+  </div>
+  <div class="he-panel-body">{tab_pessoas}</div>
 </div>"""
 
 
