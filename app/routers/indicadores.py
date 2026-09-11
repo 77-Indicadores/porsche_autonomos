@@ -4485,18 +4485,30 @@ def _build_hora_extra_html(rows: list[dict], all_rows: list[dict] | None = None,
                    f'<tr><td colspan="{len(colunas)}" class="he-vazio">Sem dados no período</td></tr>')
                 + '</tbody></table></div>')
 
+    def _tr_depto(d: dict) -> str:
+        # Os valores saem da f-string de propósito: aspas e barras dentro da
+        # expressão só são aceitas a partir do Python 3.12, e produção roda
+        # 3.11 — o router inteiro deixava de registrar por causa disso.
+        chave = _he_chave_faixa(d["nome"])
+        risco = " he-risco" if d["pct_longas"] >= 60 else ""
+        return (f'<tr class="hc-abre" data-grupo="dep_{chave}"'
+                f' title="Ver os colaboradores">'
+                f'<td class="he-tab-nome">{d["nome"].title()}</td>'
+                f'<td class="he-num">{d["oc"]}</td>'
+                f'<td class="he-num he-forte">{d["horas"]}</td>'
+                f'<td class="he-num">{d["pct_horas"]}%</td>'
+                f'<td class="he-num{risco}">{d["pct_longas"]}%</td>'
+                f'<td class="he-num">{d["pessoas"]}</td>'
+                f'<td class="he-num">{d["media"]}</td></tr>')
+
     tab_deptos = _tabela(
         ["Departamento", "Ocorrências", "Horas", "% das horas",
          "% acima de 2h", "Colaboradores", "Média por ocorrência"],
-        [f'<tr class="hc-abre" data-grupo="dep_{_he_chave_faixa(d['nome'])}" title="Ver os colaboradores">'
-         f'<td class="he-tab-nome">{d["nome"].title()}</td>'
-         f'<td class="he-num">{d["oc"]}</td>'
-         f'<td class="he-num he-forte">{d["horas"]}</td>'
-         f'<td class="he-num">{d["pct_horas"]}%</td>'
-         f'<td class="he-num{" he-risco" if d["pct_longas"] >= 60 else ""}">{d["pct_longas"]}%</td>'
-         f'<td class="he-num">{d["pessoas"]}</td>'
-         f'<td class="he-num">{d["media"]}</td></tr>'
-         for d in diag_deptos])
+        [_tr_depto(d) for d in diag_deptos])
+
+    def _risco_meses(pe: dict) -> str:
+        """Reincidencia e problema diferente de pico isolado."""
+        return " he-risco" if pe["meses"] >= 3 else ""
 
     tab_pessoas = _tabela(
         ["Colaborador", "Departamento", "Ocorrências", "Horas",
@@ -4508,7 +4520,7 @@ def _build_hora_extra_html(rows: list[dict], all_rows: list[dict] | None = None,
          f'<td class="he-num he-forte">{pe["horas"]}</td>'
          f'<td class="he-num">{pe["media"]}</td>'
          f'<td class="he-num">{pe["maior"]}</td>'
-         f'<td class="he-num{" he-risco" if pe["meses"] >= 3 else ""}">{pe["meses"]}</td></tr>'
+         f'<td class="he-num{_risco_meses(pe)}">{pe["meses"]}</td></tr>'
          for pe in top_pessoas])
 
     # Empresa em barras: o donut gastava um cartão inteiro para duas fatias, e
