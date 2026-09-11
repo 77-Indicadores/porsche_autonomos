@@ -52,6 +52,10 @@
       <div class="nav-section">
         <div class="nav-section-title">Sistema Porsche</div>
         <a class="nav-link" href="/">🏠 Trocar módulo</a>
+        {# área técnica: estado do espelho de dados e das integrações #}
+        {% if request.state.current_user and request.state.current_user.perfil == 'admin' %}
+        <a class="nav-link {% if request.url.path.startswith('/super77') %}active{% endif %}" href="/super77">⭐ Super77</a>
+        {% endif %}
       </div>
       {% endif %}
 

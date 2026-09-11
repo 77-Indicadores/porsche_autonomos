@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+
+{% block header %}Super77{% endblock %}
+{% block subtitle %}Integrações, espelho de dados e diagnóstico do sistema.{% endblock %}
+
+{% block header_action %}
+<form method="post" action="/super77/atualizar">
+  <button class="quick-action primary" type="submit">Atualizar tudo agora</button>
+</form>
+{% endblock %}
+
+{% block content %}
+
+<style>
+  .s77-tab { width:100%; border-collapse:collapse; font-size:13px }
+  .s77-tab th { text-align:left; padding:10px 12px; font-size:11px; letter-spacing:.04em;
+                text-transform:uppercase; color:#69717D; border-bottom:1px solid #e6e6e9 }
+  .s77-tab td { padding:12px; border-bottom:1px solid #f0f0f2; vertical-align:top }
+  .s77-nome { font-weight:700; color:#0B0B0C }
+  .s77-sub { color:#69717D; font-size:11px; margin-top:2px }
+  .s77-sit { display:inline-block; padding:3px 9px; border-radius:999px;
+             font-size:11px; font-weight:700; white-space:nowrap }
+  .s77-sit.ok      { background:rgba(7,134,71,.12);  color:#078647 }
+  .s77-sit.atencao { background:rgba(198,157,76,.16); color:#8a6a20 }
+  .s77-sit.erro    { background:rgba(213,0,50,.10);   color:#D50032 }
+  .s77-erro { margin-top:6px; color:#D50032; font-size:11px; line-height:1.4;
+              max-width:520px; word-break:break-word }
+  .s77-num { font-variant-numeric:tabular-nums }
+  .s77-btn { border:1px solid #d9d9de; background:#fff; border-radius:6px;
+             padding:5px 10px; font-size:12px; cursor:pointer }
+  .s77-btn:hover { background:#f5f5f7 }
+  .s77-rolagem { overflow-x:auto; min-width:0 }
+</style>
+
+<section class="panel mb-6">
+  <div class="panel-head">
+    <h3>Espelho de dados</h3>
+  </div>
+
+  <p class="text-zinc-500 text-sm mb-4">
+    Os painéis leem destas cópias locais, nunca direto do Catworld — é o que os
+    mantém rápidos e de pé quando a origem cai. A cópia se renova sozinha ao
+    passar de {{ validade_min }} minutos, na primeira visita seguinte. Atualize
+    aqui quando não puder esperar.
+  </p>
+
+  <div class="s77-rolagem">
+    <table class="s77-tab">
+      <thead>
+        <tr>
+          <th>Tabela</th>
+          <th>Situação</th>
+          <th>Última cópia</th>
+          <th>Linhas</th>
+          <th>Durou</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for t in tabelas %}
+        <tr>
+          <td>
+            <div class="s77-nome">{{ t.titulo }}</div>
+            <div class="s77-sub">{{ t.tabela }} · {{ t.usada_por }}</div>
+          </td>
+          <td>
+            <span class="s77-sit {{ t.classe }}">{{ t.situacao }}</span>
+            {% if t.erro %}<div class="s77-erro">{{ t.erro }}</div>{% endif %}
+          </td>
+          <td>
+            {{ t.quando }}
+            <div class="s77-sub">{{ t.idade }}</div>
+          </td>
+          <td class="s77-num">{{ "{:,}".format(t.linhas).replace(",", ".") }}</td>
+          <td class="s77-num">{{ t.duracao }}</td>
+          <td>
+            <form method="post" action="/super77/atualizar" style="margin:0">
+              <input type="hidden" name="tabela" value="{{ t.tabela }}">
+              <button class="s77-btn" type="submit">Atualizar</button>
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+
+{% endblock %}
