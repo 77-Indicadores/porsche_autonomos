@@ -39,8 +39,22 @@
   </div>
 
   <div>
-    <label class="label">Senha {% if usuario %}(deixe em branco para manter){% endif %}</label>
-    <input class="input" type="password" name="senha" {% if not usuario %}required{% endif %}>
+    <label class="label">
+      Senha
+      {% if usuario %}(deixe em branco para manter)
+      {% elif smtp_ok %}(opcional — deixe em branco e a pessoa define pelo e-mail)
+      {% else %}(obrigatória){% endif %}
+    </label>
+    <input class="input" type="password" name="senha" {% if not usuario and not smtp_ok %}required{% endif %}>
+    {% if not usuario %}
+      {% if smtp_ok %}
+      <p class="hint">Deixando em branco, enviamos um convite para a pessoa criar
+        a própria senha. A conta é ativada quando ela definir.</p>
+      {% else %}
+      <p class="hint">O envio de e-mail não está configurado (SMTP_HOST), então a
+        senha precisa ser definida aqui e combinada com a pessoa.</p>
+      {% endif %}
+    {% endif %}
   </div>
 
   <div>
@@ -104,3 +118,5 @@ toggleModulos();
 </script>
 
 {% endblock %}
+
+<style>.hint{font-size:12px;color:#69717D;margin:6px 0 0;line-height:1.5}</style>

@@ -23,6 +23,14 @@
         <td>{{ u.ativo }}</td>
         <td class="actions">
           <a class="btn-muted" href="/usuarios/{{ u.id_usuario }}/editar">Editar</a>
+          {% if smtp_ok %}
+          <form method="post" action="/usuarios/{{ u.id_usuario }}/reenviar-acesso" class="actions">
+            <button class="btn-muted" type="submit"
+                    title="Envia um link para a pessoa definir a senha">
+              {% if u.ativo == 'Sim' %}Enviar link de senha{% else %}Reenviar acesso{% endif %}
+            </button>
+          </form>
+          {% endif %}
           <form method="post" action="/usuarios/{{ u.id_usuario }}/toggle-ativo" class="actions">
             <button class="btn-danger" type="submit">{% if u.ativo == 'Sim' %}Inativar{% else %}Reativar{% endif %}</button>
           </form>

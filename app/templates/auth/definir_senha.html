@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Definir senha | Porsche Cup</title>
+</head>
+<body style="margin:0">
+<div class="ds-wrap">
+  <div class="ds-card">
+    <div class="ds-marca">
+      <span class="ds-marca-nome">PORSCHE</span>
+      <span class="ds-marca-sub">Carrera Cup Brasil · Sistema</span>
+    </div>
+
+    {% if not valido %}
+      <h1>Link inválido ou expirado</h1>
+      <p class="ds-txt">
+        Este link não vale mais — ele pode ter expirado ou já ter sido usado.
+        Peça um novo para quem criou o seu acesso.
+      </p>
+      <a class="ds-btn ds-btn-sec" href="/auth/login">Ir para a tela de entrada</a>
+    {% else %}
+      <h1>{{ "Defina sua senha" if motivo == "criacao" else "Nova senha" }}</h1>
+      <p class="ds-txt">
+        {% if motivo == "criacao" %}
+          Bem-vindo. Escolha uma senha para entrar no sistema.
+        {% else %}
+          Escolha uma nova senha para a sua conta.
+        {% endif %}
+        Seu usuário é <strong>{{ email }}</strong>.
+      </p>
+
+      {% if erro %}<div class="ds-erro">{{ erro }}</div>{% endif %}
+
+      <form method="post" action="/auth/definir-senha">
+        <input type="hidden" name="token" value="{{ token }}">
+
+        <label class="ds-lbl" for="senha">Nova senha</label>
+        <input class="ds-inp" id="senha" name="senha" type="password"
+               minlength="8" required autocomplete="new-password" autofocus>
+
+        <label class="ds-lbl" for="confirmacao">Repita a senha</label>
+        <input class="ds-inp" id="confirmacao" name="confirmacao" type="password"
+               minlength="8" required autocomplete="new-password">
+
+        <p class="ds-dica">Pelo menos 8 caracteres.</p>
+        <button class="ds-btn" type="submit">Salvar e entrar</button>
+      </form>
+    {% endif %}
+  </div>
+</div>
+
+<style>
+  .ds-wrap{min-height:100vh;display:flex;align-items:center;justify-content:center;
+    background:#f1f3f6;padding:24px;font-family:system-ui,-apple-system,sans-serif}
+  .ds-card{background:#fff;border:1px solid #e2e8f0;border-radius:12px;
+    width:100%;max-width:420px;padding:32px}
+  .ds-marca{border-bottom:1px solid #eee;padding-bottom:16px;margin-bottom:24px}
+  .ds-marca-nome{font-size:20px;font-weight:900;letter-spacing:-.02em;color:#0B0B0C}
+  .ds-marca-sub{display:block;font-size:11px;font-weight:700;text-transform:uppercase;
+    letter-spacing:.14em;color:#8b909b;margin-top:4px}
+  .ds-card h1{margin:0 0 8px;font-size:18px;font-weight:800;color:#0f172a}
+  .ds-txt{margin:0 0 24px;font-size:14px;color:#64748b;line-height:1.6}
+  .ds-lbl{display:block;font-size:12px;font-weight:700;color:#475569;
+    margin-bottom:6px;margin-top:16px}
+  .ds-inp{width:100%;box-sizing:border-box;padding:11px 12px;border:1px solid #d1d5db;
+    border-radius:7px;font-size:14px;outline:none}
+  .ds-inp:focus{border-color:#D50032;box-shadow:0 0 0 3px rgba(213,0,50,.10)}
+  .ds-dica{font-size:12px;color:#94a3b8;margin:8px 0 24px}
+  .ds-btn{display:inline-block;width:100%;box-sizing:border-box;text-align:center;
+    background:#D50032;color:#fff;font-size:14px;font-weight:700;padding:12px 28px;
+    border:0;border-radius:7px;text-decoration:none;cursor:pointer}
+  .ds-btn-sec{background:#0B0B0C;margin-top:16px}
+  .ds-erro{background:rgba(213,0,50,.08);color:#D50032;border-radius:7px;
+    padding:12px 14px;font-size:13px;margin-bottom:16px}
+</style>
+</body>
+</html>
