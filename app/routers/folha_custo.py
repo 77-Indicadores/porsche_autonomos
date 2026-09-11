@@ -236,18 +236,22 @@ def _processar_competencias_pendentes() -> None:
         #
         # 1. importada e nunca processada (o mês não existe no painel);
         # 2. processada ANTES de o adiantamento passar a ser excluído, e por
-        #    isso com mais gente do que a folha mensal tem. O adiantamento é
-        #    antecipação da mesma folha; contado como pessoa, dobrava o custo
-        #    do mês.
+        #    isso com o custo dobrado. O adiantamento é antecipação da mesma
+        #    folha, e o budget gerava um mês inteiro de custo para cada pessoa
+        #    que aparecia nele.
         #
-        # A comparação é por quantidade de pessoas: o que o budget tem contra o
-        # que a folha MENSAL daquele mês tem.
+        # A comparação conta LINHAS DE SALÁRIO, uma por empregado processado.
+        # Contar PESSOAS distintas não serve: o adiantamento traz as mesmas
+        # matrículas da folha mensal, então o distinto dá igual nos dois casos
+        # e a duplicação passa despercebida — foi o que aconteceu com
+        # agosto/2026, que continuou com 215 linhas para 119 empregados.
         linhas = _db(
             """SELECT f.competencia AS competencia,
-                      COUNT(DISTINCT f.matricula) AS pessoas_mensal,
-                      (SELECT COUNT(DISTINCT b.matricula)
+                      COUNT(*) AS empregados_mensal,
+                      (SELECT COUNT(*)
                          FROM budget_resultado b
-                        WHERE b.competencia = f.competencia) AS pessoas_budget
+                        WHERE b.competencia = f.competencia
+                          AND b.codigo_verba = 'SAL') AS linhas_budget
                  FROM folha_funcionarios f
                  JOIN folha_arquivos a ON a.id_arquivo = f.id_arquivo
                 WHERE COALESCE(f.competencia, '') <> ''
@@ -256,7 +260,7 @@ def _processar_competencias_pendentes() -> None:
                 ORDER BY f.competencia"""
         )
         pendentes = [r["competencia"] for r in linhas
-                     if (r["pessoas_budget"] or 0) != (r["pessoas_mensal"] or 0)]
+                     if (r["linhas_budget"] or 0) != (r["empregados_mensal"] or 0)]
     except Exception as exc:
         print(f"AVISO - não consegui procurar competências pendentes: {exc}")
         return
