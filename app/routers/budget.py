@@ -2762,6 +2762,73 @@ def budget_processar_get():
     )
 
 
+def processar_budget_competencias(db, competencias: list[str], usuario: str = "sistema",
+                                  id_arquivo: str = "",
+                                  cenario: str = "Direcionamento") -> dict:
+    """Gera o budget_resultado das competências pedidas.
+
+    Estava embutido na rota, e por isso só rodava quando alguém clicava em
+    "Processar budget". Como o dashboard de Custos lê desta tabela, um mês
+    importado e não processado simplesmente não existia para ele — foi o caso
+    de agosto/2026, com a folha das três empresas importada e o painel parando
+    em julho.
+
+    Quem chama decide o que fazer com o resultado; aqui não há resposta HTTP.
+    """
+    from app.routers.folha_pagamento import (folha_arquivos, folha_funcionarios,
+                                             folha_rubricas)
+    # `usuario` vai direto para a coluna processado_por. Quem chamava de fora
+    # da rota passava o dicionário do usuário logado e o banco recusava o
+    # insert inteiro — a competência não entrava e a falha só aparecia no log.
+    if not isinstance(usuario, str):
+        u = usuario or {}
+        usuario = (u.get("nome") or u.get("email") or "sistema") if isinstance(u, dict) else str(u)
+    total_funcionarios = 0
+    total_linhas = 0
+    processadas: list[str] = []
+    sem_folha: list[str] = []
+
+    for competencia_atual in competencias:
+        # Apaga resultados anteriores da mesma competência para reprocessar
+        db.execute(
+            delete(budget_resultado)
+            .where(budget_resultado.c.competencia == competencia_atual)
+        )
+
+        q = (
+            select(folha_funcionarios, folha_arquivos.c.empresa_nome,
+                   folha_arquivos.c.empresa_codigo, folha_arquivos.c.cnpj)
+            .join(folha_arquivos, folha_funcionarios.c.id_arquivo == folha_arquivos.c.id_arquivo)
+            .where(folha_funcionarios.c.competencia == competencia_atual)
+        )
+        if str(id_arquivo).strip():
+            q = q.where(folha_funcionarios.c.id_arquivo == int(id_arquivo))
+
+        funcionarios = db.execute(q).mappings().all()
+        if not funcionarios:
+            sem_folha.append(competencia_atual)
+            continue
+
+        total = 0
+        for fun in funcionarios:
+            rubricas = db.execute(
+                select(folha_rubricas)
+                .where(folha_rubricas.c.id_funcionario == fun["id_funcionario"])
+            ).mappings().all()
+            linhas = _processar_empregado(db, dict(fun), list(rubricas),
+                                          competencia_atual, cenario, usuario)
+            if linhas:
+                db.execute(insert(budget_resultado), linhas)
+                total += len(linhas)
+
+        total_funcionarios += len(funcionarios)
+        total_linhas += total
+        processadas.append(competencia_atual)
+
+    return {"funcionarios": total_funcionarios, "linhas": total_linhas,
+            "processadas": processadas, "sem_folha": sem_folha}
+
+
 @router.post("/folha/budget/processar")
 def budget_processar(
     request: Request, db: Session = Depends(get_db),
@@ -2784,47 +2851,12 @@ def budget_processar(
         )
 
     usuario = _usuario(request)
-    total_funcionarios = 0
-    total_linhas = 0
-    processadas: list[str] = []
-    sem_folha: list[str] = []
-
-    for competencia_atual in competencias:
-        # Apaga resultados anteriores da mesma competência para reprocessar
-        db.execute(
-            delete(budget_resultado)
-            .where(budget_resultado.c.competencia == competencia_atual)
-        )
-
-        # Busca funcionários da folha
-        q = (
-            select(folha_funcionarios, folha_arquivos.c.empresa_nome,
-                   folha_arquivos.c.empresa_codigo, folha_arquivos.c.cnpj)
-            .join(folha_arquivos, folha_funcionarios.c.id_arquivo == folha_arquivos.c.id_arquivo)
-            .where(folha_funcionarios.c.competencia == competencia_atual)
-        )
-        if id_arquivo.strip():
-            q = q.where(folha_funcionarios.c.id_arquivo == int(id_arquivo))
-
-        funcionarios = db.execute(q).mappings().all()
-        if not funcionarios:
-            sem_folha.append(competencia_atual)
-            continue
-
-        total = 0
-        for fun in funcionarios:
-            rubricas = db.execute(
-                select(folha_rubricas)
-                .where(folha_rubricas.c.id_funcionario == fun["id_funcionario"])
-            ).mappings().all()
-            linhas = _processar_empregado(db, dict(fun), list(rubricas), competencia_atual, cenario, usuario)
-            if linhas:
-                db.execute(insert(budget_resultado), linhas)
-                total += len(linhas)
-
-        total_funcionarios += len(funcionarios)
-        total_linhas += total
-        processadas.append(competencia_atual)
+    resultado = processar_budget_competencias(db, competencias, usuario,
+                                              id_arquivo, cenario)
+    total_funcionarios = resultado["funcionarios"]
+    total_linhas = resultado["linhas"]
+    processadas = resultado["processadas"]
+    sem_folha = resultado["sem_folha"]
 
     if not processadas:
         db.rollback()

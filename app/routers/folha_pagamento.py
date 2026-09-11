@@ -275,6 +275,7 @@ async def folha_upload(
     # upload liberado para todos os usuários (exclusão continua restrita a admin)
     usuario = getattr(request.state, "current_user", None) or {}
     sucessos, erros = [], []
+    competencias_importadas: set = set()
 
     for arq in arquivo:
         nome = arq.filename or "folha.pdf"
@@ -373,8 +374,36 @@ async def folha_upload(
 
         db.commit()
         sucessos.append(f"'{nome}': {len(folha.funcionarios)} funcionário(s), {folha.competencia_resumo}")
+        # a competência que vale é a do funcionário: é por ela que o budget
+        # busca a folha
+        for fun in folha.funcionarios:
+            if getattr(fun, "competencia", ""):
+                competencias_importadas.add(fun.competencia)
 
-    msg_ok = f"{len(sucessos)} arquivo(s) importado(s): " + " | ".join(sucessos) if sucessos else ""
+    # O dashboard de Custos lê de budget_resultado, que só era preenchido por
+    # "Processar budget" — um clique manual. Mês importado e não processado
+    # simplesmente não existia para o painel: agosto/2026 tinha a folha das
+    # três empresas importada e o gráfico parava em julho.
+    msg_budget = ""
+    if competencias_importadas:
+        try:
+            from app.routers.budget import processar_budget_competencias
+            r = processar_budget_competencias(
+                db, sorted(competencias_importadas),
+                usuario.get('nome') or usuario.get('email') or 'sistema')
+            db.commit()
+            if r["processadas"]:
+                msg_budget = (f" Budget processado automaticamente: "
+                              f"{', '.join(r['processadas'])} "
+                              f"({r['linhas']} linha(s)).")
+        except Exception as exc:
+            db.rollback()
+            # a importação já valeu; o budget é o passo seguinte e pode ser
+            # refeito pela tela — por isso avisa em vez de derrubar tudo
+            msg_budget = (f" Atenção: a folha entrou, mas não consegui processar "
+                          f"o budget ({exc}). Use Budget › Processar.")
+
+    msg_ok = (f"{len(sucessos)} arquivo(s) importado(s): " + " | ".join(sucessos) + msg_budget) if sucessos else ""
     msg_err = "Erros: " + " | ".join(erros) if erros else ""
 
     if sucessos:

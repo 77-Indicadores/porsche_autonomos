@@ -215,7 +215,66 @@ def _svg_line(pontos: list[tuple], labels: list[str], titulo: str = "") -> str:
 
 # ─── queries compartilhadas ──────────────────────────────────────────────────
 
+_JA_TENTADAS: set[str] = set()
+
+
+def _processar_competencias_pendentes() -> None:
+    """Processa o budget de meses que foram importados e nunca processados.
+
+    A importação agora processa sozinha, mas isso só vale para o que entrar
+    daqui em diante — o que já estava importado antes continuaria fora do
+    painel. Era o caso de agosto/2026: folha das três empresas importada, e o
+    gráfico parando em julho porque ninguém tinha clicado em "Processar
+    budget".
+
+    Roda na abertura da tela: no caso normal é uma consulta que não devolve
+    nada e custa quase zero. Quando devolve, o primeiro acesso paga o
+    processamento uma vez e o mês passa a existir para sempre.
+    """
+    try:
+        pendentes = [r["competencia"] for r in _db(
+            """SELECT DISTINCT f.competencia
+                 FROM folha_funcionarios f
+                WHERE COALESCE(f.competencia, '') <> ''
+                  AND f.competencia NOT IN (
+                      SELECT DISTINCT competencia FROM budget_resultado
+                       WHERE COALESCE(competencia, '') <> '')
+                ORDER BY f.competencia"""
+        )]
+    except Exception as exc:
+        print(f"AVISO - não consegui procurar competências pendentes: {exc}")
+        return
+    if not pendentes:
+        return
+
+    # Se uma competência não gerar linha nenhuma, ela continua "pendente" e a
+    # tela tentaria processá-la a cada abertura, para sempre. Uma tentativa por
+    # competência enquanto o processo vive: o que falhar por dado espera o
+    # próximo deploy ou o botão manual, em vez de pesar em toda visita.
+    pendentes = [c for c in pendentes if c not in _JA_TENTADAS]
+    if not pendentes:
+        return
+    _JA_TENTADAS.update(pendentes)
+
+    print(f"Budget: processando competência(s) importada(s) e nunca processada(s): "
+          f"{', '.join(pendentes)}")
+    try:
+        from app.database import SessionLocal
+        from app.routers.budget import processar_budget_competencias
+        db = SessionLocal()
+        try:
+            r = processar_budget_competencias(db, pendentes, 'sistema')
+            db.commit()
+            print(f"Budget: {len(r['processadas'])} competência(s), "
+                  f"{r['linhas']} linha(s).")
+        finally:
+            db.close()
+    except Exception as exc:
+        print(f"AVISO - não consegui processar o budget pendente: {exc}")
+
+
 def _opcoes() -> tuple[list[str], list[str]]:
+    _processar_competencias_pendentes()
     empresas = [r["empresa_nome"] for r in _db(
         "SELECT DISTINCT empresa_nome FROM budget_resultado ORDER BY empresa_nome"
     )]
