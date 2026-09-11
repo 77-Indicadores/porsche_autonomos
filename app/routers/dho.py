@@ -2895,6 +2895,16 @@ def empregados_sincronizar(request: Request, db: Session = Depends(get_db)):
     if not current_user:
         return RedirectResponse("/auth/login", status_code=303)
 
+    # Quem clica em sincronizar quer o dado de agora. Os indicadores guardam a
+    # resposta do Catworld por alguns minutos para o filtro não repetir a busca
+    # a cada clique; sem descartar isso aqui, o sync manual não apareceria nos
+    # painéis até o tempo vencer — e daria a impressão de que não funcionou.
+    try:
+        from app.routers.indicadores import limpar_cache_catworld
+        limpar_cache_catworld()
+    except Exception as exc:
+        print(f"AVISO - não consegui limpar o cache do Catworld: {exc}")
+
     try:
         resultado = sincronizar_empregados_dataworld(db)
     except Exception as exc:

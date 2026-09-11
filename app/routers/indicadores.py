@@ -6,6 +6,8 @@ import calendar
 import json
 import os
 import re
+import threading
+import time
 import unicodedata
 from collections import defaultdict
 from datetime import date, datetime
@@ -75,11 +77,41 @@ def _consultar_catworld(sql: str):
 
 _CATWORLD_TABLE_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 
+# Cada tela de indicador buscava a tabela inteira no Catworld, e cada clique em
+# filtro repetia a busca: medido em produção, ~1,1s por clique contra ~260ms das
+# telas que leem só o banco local. O filtro é justamente onde se clica várias
+# vezes seguidas sobre os MESMOS dados, então a busca se repetia sem nada ter
+# mudado na origem.
+#
+# O guia de performance do dash_adl diz o mesmo: painel não deve depender
+# direto de fonte externa lenta, e vale materializar quando ela é lenta ou
+# instável. Aqui a versão contida disso é guardar a resposta por um tempo.
+_CATWORLD_CACHE_SEG = int(os.getenv("CATWORLD_CACHE_SEGUNDOS", "600") or 0)
+_catworld_cache: dict[str, tuple[float, list[dict]]] = {}
+_catworld_cache_lock = threading.Lock()
 
-def _fetch_catworld_table(table_name: str) -> list[dict]:
+
+def _fetch_catworld_table(table_name: str, forcar: bool = False) -> list[dict]:
     if not _CATWORLD_TABLE_RE.fullmatch(table_name):
         raise ValueError(f"Tabela Catworld inválida: {table_name}")
-    return [dict(row) for row in _consultar_catworld(f"SELECT * FROM {table_name}")]
+
+    agora = time.monotonic()
+    with _catworld_cache_lock:
+        guardado = _catworld_cache.get(table_name)
+    if (guardado and not forcar and _CATWORLD_CACHE_SEG
+            and agora - guardado[0] < _CATWORLD_CACHE_SEG):
+        return guardado[1]
+
+    linhas = [dict(row) for row in _consultar_catworld(f"SELECT * FROM {table_name}")]
+    with _catworld_cache_lock:
+        _catworld_cache[table_name] = (agora, linhas)
+    return linhas
+
+
+def limpar_cache_catworld() -> None:
+    """Descarta o guardado — para quando a origem mudou e não dá para esperar."""
+    with _catworld_cache_lock:
+        _catworld_cache.clear()
 
 
 def _fetch_feedz(entity: str) -> list[dict]:
