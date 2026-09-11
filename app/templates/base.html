@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block title %}Sistema Porsche{% endblock %}</title>
 
-  <link rel="stylesheet" href="/static/css/style.css?v=20260911">
+  <link rel="stylesheet" href="/static/css/style.css?v=20260911b">
 </head>
 
 <body>
@@ -215,10 +215,18 @@
     </nav>
   </aside>
 
-  {# No modo foco o menu some; sem uma saída sempre visível, quem rolou a
-     página fica sem caminho de volta. #}
-  <button type="button" id="btnSairFoco" class="btn-sair-foco" hidden
-          title="Mostrar o menu (Shift+F)">☰ Menu</button>
+  {# Faixa do modo foco. A barra lateral vira gaveta: some do fluxo e desliza
+     por cima quando chamada, então o painel ocupa a tela inteira e a navegação
+     continua a um clique. Mesmo desenho do dash_adl (src/components/focus-nav). #}
+  <div id="barraFoco" class="barra-foco" hidden>
+    <button type="button" id="btnSairFoco" class="barra-foco-voltar"
+            title="Sair do modo foco (Shift+F)" aria-label="Sair do modo foco">←</button>
+    <button type="button" id="btnAbrirMenu" class="barra-foco-tela"
+            aria-expanded="false" title="Trocar de tela">
+      <span id="focoNomeTela">{{ self.header() }}</span><i aria-hidden="true">⌄</i>
+    </button>
+  </div>
+  <div id="veuFoco" class="veu-foco" hidden></div>
 
   <main class="main-content">
     <header class="page-header">
@@ -350,18 +358,41 @@ function novoCadastro() {
 (function () {
   var CHAVE = 'porsche_modo_foco';
   var btn = document.getElementById('btnFoco');
+  var barra = document.getElementById('barraFoco');
   var sair = document.getElementById('btnSairFoco');
+  var abrir = document.getElementById('btnAbrirMenu');
+  var veu = document.getElementById('veuFoco');
   if (!btn) return;
+
+  function gaveta(aberta) {
+    document.body.classList.toggle('menu-aberto', aberta);
+    if (veu) veu.hidden = !aberta;
+    if (abrir) abrir.setAttribute('aria-expanded', aberta ? 'true' : 'false');
+  }
 
   function aplicar(ligado) {
     document.body.classList.toggle('modo-foco', ligado);
     btn.setAttribute('aria-pressed', ligado ? 'true' : 'false');
-    if (sair) sair.hidden = !ligado;
+    if (barra) barra.hidden = !ligado;
+    if (!ligado) gaveta(false);
     try { localStorage.setItem(CHAVE, ligado ? '1' : '0'); } catch (e) {}
   }
 
   // a preferência vale para a sessão inteira: quem recolheu o menu não quer
   // recolher de novo a cada tela
+  // O rótulo vem do item ativo do menu — é o nome exato da tela ("Variação de
+  // Custo"), e não o título genérico do cabeçalho ("Indicadores"), que é igual
+  // em todas. Acompanha o menu sem repetir texto.
+  var ativo = document.querySelector('.sidebar .nav-link.active');
+  var nome = document.getElementById('focoNomeTela');
+  if (ativo && nome) {
+    var texto = (ativo.textContent || '').trim();
+    // o item começa com emoji; o nome é o que vem depois
+    var partes = texto.split(' ');
+    if (partes.length > 1 && !/[a-zA-ZÀ-ÿ0-9]/.test(partes[0])) partes.shift();
+    if (partes.join(' ')) nome.textContent = partes.join(' ');
+  }
+
   var salvo = '0';
   try { salvo = localStorage.getItem(CHAVE) || '0'; } catch (e) {}
   aplicar(salvo === '1');
@@ -369,8 +400,27 @@ function novoCadastro() {
   function alternar() { aplicar(!document.body.classList.contains('modo-foco')); }
   btn.addEventListener('click', alternar);
   if (sair) sair.addEventListener('click', alternar);
+  if (abrir) abrir.addEventListener('click', function (ev) {
+    ev.stopPropagation();
+    gaveta(!document.body.classList.contains('menu-aberto'));
+  });
+  if (veu) veu.addEventListener('click', function () { gaveta(false); });
+
+  // clicar fora fecha; clicar num link do menu navega e a página nova já vem
+  // com a gaveta fechada
+  document.addEventListener('click', function (ev) {
+    if (!document.body.classList.contains('menu-aberto')) return;
+    var menu = document.querySelector('.sidebar');
+    if (menu && menu.contains(ev.target)) return;
+    if (abrir && abrir.contains(ev.target)) return;
+    gaveta(false);
+  });
 
   document.addEventListener('keydown', function (ev) {
+    if (ev.key === 'Escape' && document.body.classList.contains('menu-aberto')) {
+      gaveta(false);
+      return;
+    }
     if (!ev.shiftKey || ev.ctrlKey || ev.altKey || ev.metaKey) return;
     if (String(ev.key).toLowerCase() !== 'f') return;
     // não sequestra o atalho enquanto a pessoa digita num filtro
