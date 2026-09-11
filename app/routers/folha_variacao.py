@@ -335,15 +335,22 @@ def folha_variacao(request: Request,
     sinal = "+" if delta_total > 0 else ""
     rotulo_por = dict(DETALHES)[por].lower()
 
-    tabela = "".join(
-        f'<tr><td class="vr-nome">{l["nome"]}</td>'
-        f'<td class="vr-num">{_brl(l["de"])}</td>'
-        f'<td class="vr-num">{_brl(l["para"])}</td>'
-        f'<td class="vr-num {"vr-sobe" if l["delta"] > 0 else "vr-desce"}">'
-        f'{"+" if l["delta"] > 0 else ""}{_brl(l["delta"])}</td>'
-        f'<td class="vr-num">'
-        f'{f"{l['pct']:+.1f}%" if l["pct"] is not None else "novo"}</td></tr>'
-        for l in linhas if abs(l["delta"]) > 0.005)
+    def _linha_tab(l: dict) -> str:
+        # Os pedaços saem da f-string de propósito: f-string dentro de f-string
+        # com aspas do mesmo tipo só é válida no Python 3.12+, e produção roda
+        # 3.11 — o módulo inteiro deixava de importar, e com ele a aplicação.
+        classe = "vr-sobe" if l["delta"] > 0 else "vr-desce"
+        sinal = "+" if l["delta"] > 0 else ""
+        pct = "novo" if l["pct"] is None else "{:+.1f}%".format(l["pct"])
+        return ('<tr><td class="vr-nome">{}</td>'
+                '<td class="vr-num">{}</td>'
+                '<td class="vr-num">{}</td>'
+                '<td class="vr-num {}">{}{}</td>'
+                '<td class="vr-num">{}</td></tr>').format(
+            l["nome"], _brl(l["de"]), _brl(l["para"]),
+            classe, sinal, _brl(l["delta"]), pct)
+
+    tabela = "".join(_linha_tab(l) for l in linhas if abs(l["delta"]) > 0.005)
 
     dash = f"""{filtros}<div class="vr-wrap">{_CSS}
 {aviso}
