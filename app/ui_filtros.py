@@ -9,11 +9,27 @@ from __future__ import annotations
 
 CSS_FILTROS = """<style>
 .ind-filtros{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:0 0 14px}
-.ind-filtro{background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:8px 14px;min-width:150px}
+/* Tamanho de referencia dos filtros do sistema. As caixas nasceram em
+   telas diferentes com larguras diferentes (150, 190, 200, 160, 220) e
+   lado a lado a diferenca aparece como desalinho. */
+/* Largura FIXA, não mínima: com min-width a caixa cresce até caber o texto
+   da opção, e "Média dos 3 meses anteriores" esticava uma caixa para 255px ao
+   lado de outras de 176px — era esse o desalinho. O texto longo passa a ser
+   cortado com reticências; aberto, aparece inteiro. */
+.ind-filtro{background:#fff;border:1px solid #e5e7eb;border-radius:10px;
+  padding:10px 14px;width:176px;height:64px;
+  display:flex;flex-direction:column;justify-content:center;gap:4px;
+  box-sizing:border-box;overflow:hidden}
 .ind-filtro label{display:block;font-size:10px;font-weight:700;color:#9ca3af;
   text-transform:uppercase;letter-spacing:.08em;margin-bottom:3px}
 .ind-filtro select{width:100%;border:0;background:transparent;outline:none;
-  color:#111827;font-size:13px;font-weight:600;cursor:pointer}
+  color:#111827;font-size:13px;font-weight:600;cursor:pointer;
+  text-overflow:ellipsis}
+/* A busca é o único campo que pede mais espaço: nome de cargo e de
+   departamento não cabem em 176px enquanto se digita. Em vez de uma largura
+   avulsa (era 220px, fora de qualquer escala), ela ocupa DUAS caixas mais o
+   vão entre elas — continua alinhada à grade. */
+.ind-filtro-largo{width:calc(176px * 2 + 10px)}
 .ind-limpar{font-size:12px;color:#6b7280;text-decoration:none;padding:0 4px}
 .ind-limpar:hover{color:#111827}
 /* caixa de marcação múltipla */

@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block title %}Sistema Porsche{% endblock %}</title>
 
-  <link rel="stylesheet" href="/static/css/style.css?v=20260816">
+  <link rel="stylesheet" href="/static/css/style.css?v=20260911">
 </head>
 
 <body>
@@ -215,6 +215,11 @@
     </nav>
   </aside>
 
+  {# No modo foco o menu some; sem uma saída sempre visível, quem rolou a
+     página fica sem caminho de volta. #}
+  <button type="button" id="btnSairFoco" class="btn-sair-foco" hidden
+          title="Mostrar o menu (Shift+F)">☰ Menu</button>
+
   <main class="main-content">
     <header class="page-header">
       <div>
@@ -224,6 +229,14 @@
       </div>
 
       <div class="header-actions">
+        {# Modo foco: recolhe o menu para o indicador ocupar a tela. A barra tem
+           252px fixos e muitos itens, e num painel largo ela disputa espaço com
+           o dado. Fica no cabeçalho porque é daqui que se olha o painel. #}
+        <button type="button" id="btnFoco" class="btn-foco"
+                title="Recolher o menu (Shift+F)" aria-pressed="false">
+          <span class="btn-foco-icone" aria-hidden="true">⛶</span>
+          <span class="btn-foco-texto">Modo foco</span>
+        </button>
         {% if request.state.current_user %}
           <span>{{ request.state.current_user.nome }} ({{ request.state.current_user.perfil }})</span>
           <form method="post" action="/auth/logout" style="display:inline;">
@@ -332,6 +345,43 @@ function novoCadastro() {
 })();
 </script>
 
+
+<script>
+(function () {
+  var CHAVE = 'porsche_modo_foco';
+  var btn = document.getElementById('btnFoco');
+  var sair = document.getElementById('btnSairFoco');
+  if (!btn) return;
+
+  function aplicar(ligado) {
+    document.body.classList.toggle('modo-foco', ligado);
+    btn.setAttribute('aria-pressed', ligado ? 'true' : 'false');
+    if (sair) sair.hidden = !ligado;
+    try { localStorage.setItem(CHAVE, ligado ? '1' : '0'); } catch (e) {}
+  }
+
+  // a preferência vale para a sessão inteira: quem recolheu o menu não quer
+  // recolher de novo a cada tela
+  var salvo = '0';
+  try { salvo = localStorage.getItem(CHAVE) || '0'; } catch (e) {}
+  aplicar(salvo === '1');
+
+  function alternar() { aplicar(!document.body.classList.contains('modo-foco')); }
+  btn.addEventListener('click', alternar);
+  if (sair) sair.addEventListener('click', alternar);
+
+  document.addEventListener('keydown', function (ev) {
+    if (!ev.shiftKey || ev.ctrlKey || ev.altKey || ev.metaKey) return;
+    if (String(ev.key).toLowerCase() !== 'f') return;
+    // não sequestra o atalho enquanto a pessoa digita num filtro
+    var alvo = ev.target || {};
+    var tag = (alvo.tagName || '').toLowerCase();
+    if (tag === 'input' || tag === 'textarea' || tag === 'select' || alvo.isContentEditable) return;
+    ev.preventDefault();
+    alternar();
+  });
+})();
+</script>
 </body>
 </html>
 

@@ -1683,3 +1683,53 @@ textarea:focus {
   font-weight:800;
   white-space:nowrap;
 }
+
+/* ══════════════════════════════════════════════════════════════════════
+   MODO FOCO
+   A barra lateral tem 252px fixos e muitos itens; num painel largo ela
+   disputa espaço com o dado. Recolhida, o indicador ganha a tela inteira.
+   A preferência fica no navegador: quem recolheu não quer recolher de novo
+   a cada tela.
+   ══════════════════════════════════════════════════════════════════════ */
+.btn-foco {
+  display: inline-flex; align-items: center; gap: 6px;
+  border: 1px solid #d9d9de; background: #fff; color: #252525;
+  border-radius: 8px; padding: 7px 12px; font-size: 13px; font-weight: 600;
+  cursor: pointer; white-space: nowrap;
+}
+.btn-foco:hover { background: #f5f5f7; border-color: #c9ccd2; }
+.btn-foco[aria-pressed="true"] { background: #0B0B0C; color: #fff; border-color: #0B0B0C; }
+.btn-foco-icone { font-size: 13px; line-height: 1; }
+
+body.modo-foco .sidebar { display: none; }
+body.modo-foco .main-content { margin-left: 0; }
+
+/* Saída sempre visível: no modo foco o menu some, e quem rolou a página
+   ficaria sem caminho de volta. */
+.btn-sair-foco {
+  position: fixed; left: 16px; top: 16px; z-index: 60;
+  border: 1px solid rgba(255,255,255,.14); background: #0B0B0C; color: #fff;
+  border-radius: 8px; padding: 8px 14px; font-size: 13px; font-weight: 600;
+  cursor: pointer; box-shadow: 0 2px 10px rgba(0,0,0,.22);
+}
+.btn-sair-foco:hover { background: #252525; }
+.btn-sair-foco[hidden] { display: none; }
+
+@media print { .btn-foco, .btn-sair-foco { display: none !important; } }
+
+/* ══════════════════════════════════════════════════════════════════════
+   FILTROS — UM TAMANHO SÓ
+   As caixas nasceram em telas diferentes e ficaram com larguras diferentes:
+   150px no componente compartilhado, 190px em Horas Extras, 200px em Banco
+   de Horas, além de 160 e 220 avulsos. Lado a lado numa mesma barra, a
+   diferença aparece como desalinho. Estes valores são a referência; os
+   blocos de CSS dos painéis vêm depois no documento, então também foram
+   ajustados para cá em vez de disputarem no !important.
+   ══════════════════════════════════════════════════════════════════════ */
+:root {
+  --filtro-largura: 176px;
+  --filtro-altura: 42px;
+  --filtro-raio: 10px;
+  --filtro-rotulo: 10px;
+  --filtro-texto: 13px;
+}

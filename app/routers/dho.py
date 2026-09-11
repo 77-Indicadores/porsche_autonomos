@@ -1032,7 +1032,7 @@ def vagas(request: Request, q: str = "",
     filtros_html = (
         CSS_FILTROS
         + f'<form method="get" action="/dho/vagas" class="ind-filtros" id="indFiltros">'
-        + '<div class="ind-filtro" style="min-width:220px"><label>Buscar</label>'
+        + '<div class="ind-filtro ind-filtro-largo"><label>Buscar</label>'
           f'<input name="q" value="{q}" placeholder="Cargo, departamento, título ou responsável"'
           ' style="width:100%;border:0;outline:none;font-size:13px;font-weight:600"></div>'
         + caixa_multi("status", "Situação", [(e, e) for e in STATUS_VAGA], status, "Todas")
