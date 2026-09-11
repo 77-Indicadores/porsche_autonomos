@@ -3943,6 +3943,24 @@ def _build_banco_horas_html(rows: list[dict], all_rows: list[dict] | None = None
 
 # ─── Horas Extras ──────────────────────────────────────────────────────────────
 
+def _he_horas(minutos: int) -> str:
+    """Minutos → "6.779h 37min".
+
+    O formato anterior era "6779:37": correto e ilegível. Sem o separador de
+    milhar não dá para ver a ordem de grandeza, e sem a unidade "6779:37"
+    parece um horário.
+    """
+    minutos = int(minutos or 0)
+    horas, resto = divmod(abs(minutos), 60)
+    sinal = "-" if minutos < 0 else ""
+    miles = f"{horas:,}".replace(",", ".")
+    if not horas:
+        return f"{sinal}{resto}min"
+    if not resto:
+        return f"{sinal}{miles}h"
+    return f"{sinal}{miles}h {resto:02d}min"
+
+
 def _he_parse_minutes(t_str: str) -> int:
     """Converte HH:MM ou HH:MM:SS para minutos; ignora nulos."""
     s = str(t_str or "").strip()
@@ -3989,7 +4007,10 @@ def _fetch_hora_extra() -> list[dict]:
             "cargo":        str(d.get("cargo") or "").strip(),
             "data_dt":      data_dt,
             "mes":          data_dt.strftime("%Y-%m") if data_dt else "0000-00",
-            "mes_fmt":      data_dt.strftime("%b/%Y") if data_dt else "-",
+            # strftime("%b") segue o locale do servidor e devolvia "Apr/2026"
+            # e "May/2026" no meio de "Mar" e "Jun". A tabela é nossa.
+            "mes_fmt":      (f"{_MES_LABEL[f'{data_dt.month:02d}']}/{data_dt.year}"
+                             if data_dt else "-"),
             "credito_min":  credito_min,
             "credito_fmt":  f"{credito_min // 60:02d}:{credito_min % 60:02d}",
             "faixa":        _he_faixa(credito_min),
@@ -4063,12 +4084,16 @@ def _build_hora_extra_html(rows: list[dict], all_rows: list[dict] | None = None,
     total_col = len(set(r["pessoa"] for r in rows))
     a2h_oc, a2h_min = _agg(por_faixa.get("Acima de 2h", []))
     pct_a2h   = round(a2h_oc / total_oc * 100) if total_oc else 0
+    # O achado que os números já contêm e a tela não dizia: poucas ocorrências
+    # longas concentram quase todas as horas. É a informação que muda decisão —
+    # atacar 1/3 das ocorrências resolve a maior parte do custo.
+    pct_a2h_horas = round(a2h_min / total_min * 100) if total_min else 0
     med_min   = total_min // total_oc if total_oc else 0
-    med_fmt   = f"{med_min//60}h{med_min%60:02d}" if med_min >= 60 else f"{med_min}min"
+    med_fmt   = _he_horas(med_min)
     med_col   = total_min // total_col if total_col else 0
-    med_col_f = f"{med_col//60}h{med_col%60:02d}" if med_col >= 60 else f"{med_col}min"
-    tot_h_fmt = f"{total_min//60:02d}:{total_min%60:02d}"
-    a2h_h_fmt = f"{a2h_min//60:02d}:{a2h_min%60:02d}"
+    med_col_f = _he_horas(med_col)
+    tot_h_fmt = _he_horas(total_min)
+    a2h_h_fmt = _he_horas(a2h_min)
 
     meses_sorted = sorted(por_mes.keys())
 
@@ -4428,27 +4453,42 @@ def _build_hora_extra_html(rows: list[dict], all_rows: list[dict] | None = None,
     for f in FAIXAS:
         oc, mins = _agg(por_faixa.get(f, []))
         pct      = round(oc / total_oc * 100) if total_oc else 0
-        h_fmt    = f"{mins//60:02d}:{mins%60:02d}"
+        pct_h    = round(mins / total_min * 100) if total_min else 0
+        h_fmt    = _he_horas(mins)
+        critica  = " he-hkpi-risco" if f == "Acima de 2h" else ""
         hero_top += (
-            f'<div class="he-hkpi hc-abre" role="button" tabindex="0"'
-            f' data-grupo="{_he_chave_faixa(f)}" title="Ver os nomes">'
+            f'<div class="he-hkpi hc-abre{critica}" role="button" tabindex="0"'
+            f' data-grupo="{_he_chave_faixa(f)}" title="Ver os colaboradores">'
             f'<div class="he-hkpi-lbl">{f}</div>'
             f'<div class="he-hkpi-val">{oc}</div>'
-            f'<div class="he-hkpi-sub">{h_fmt}</div>'
             f'<div class="he-hkpi-pct">{pct}% das ocorrências</div>'
+            f'<div class="he-hkpi-sub">{h_fmt}</div>'
+            f'<div class="he-hkpi-pct">{pct_h}% das horas</div>'
             f'</div>'
         )
+    # A linha de baixo repetia o mesmo percentual que os cartões de cima já
+    # mostravam. O que falta na faixa não é o % de ocorrências de novo — é o %
+    # das HORAS, que é o que distingue uma faixa da outra.
     hero_bot = ""
-    for f in FAIXAS:
-        oc, _ = _agg(por_faixa.get(f, []))
-        pct   = round(oc / total_oc * 100) if total_oc else 0
-        hero_bot += (
-            f'<div class="he-hkpi he-hkpi-pct">'
-            f'<div class="he-hkpi-lbl">% {f}</div>'
-            f'<div class="he-hkpi-val">{pct}%</div>'
-            f'<div class="he-hkpi-pct">das ocorrências</div>'
-            f'</div>'
-        )
+
+    # ── alerta de concentração ─────────────────────────────────────────────────
+    # Só aparece quando há de fato desproporção: com as horas distribuídas por
+    # igual entre as faixas não há o que alertar, e um alerta permanente vira
+    # ruído que ninguém lê.
+    alerta_concentracao = ""
+    if a2h_oc and pct_a2h_horas - pct_a2h >= 15:
+        alerta_concentracao = (
+            f'<div class="he-alerta">'
+            f'<span class="he-alerta-selo">Atenção</span>'
+            f'<span class="he-alerta-txt">'
+            f'<b>{pct_a2h}% das ocorrências</b> são acima de 2h, '
+            f'mas concentram <b>{pct_a2h_horas}% das horas extras</b> '
+            f'({a2h_h_fmt} de {tot_h_fmt}). '
+            f'Atacar essas {a2h_oc} ocorrências resolve a maior parte do custo.'
+            f'</span>'
+            f'<button type="button" class="he-alerta-btn hc-abre" '
+            f'data-grupo="{_he_chave_faixa("Acima de 2h")}">Ver colaboradores</button>'
+            f'</div>')
 
     # ── legend strings ─────────────────────────────────────────────────────────
     def _dot(c, lbl):
@@ -4461,6 +4501,25 @@ def _build_hora_extra_html(rows: list[dict], all_rows: list[dict] | None = None,
     leg_oc_pct = _dot("#e31837", "Ocorrências") + " " + _dot("#9ca3af", "% do total")
 
     css = """<style>
+/* Alerta de concentração. Vermelho fica reservado para risco — no resto do
+   painel ele era usado para marca, destaque, barra e linha ao mesmo tempo, e
+   quando tudo é vermelho nada é urgente. Escala de 8px nos espaçamentos. */
+.he-alerta{display:flex;align-items:center;gap:16px;flex-wrap:wrap;
+  background:#fff;border-left:4px solid #D50032;border-radius:8px;
+  box-shadow:0 1px 4px rgba(0,0,0,.07);padding:16px 24px;margin-bottom:24px}
+.he-alerta-selo{background:rgba(213,0,50,.10);color:#D50032;font-weight:700;
+  font-size:12px;letter-spacing:.04em;text-transform:uppercase;
+  padding:4px 12px;border-radius:999px;white-space:nowrap}
+.he-alerta-txt{flex:1;min-width:280px;font-size:14px;line-height:1.5;color:#252525}
+.he-alerta-txt b{color:#D50032}
+.he-alerta-btn{border:1px solid #D50032;color:#D50032;background:#fff;
+  border-radius:6px;padding:8px 16px;font-size:13px;font-weight:600;cursor:pointer}
+.he-alerta-btn:hover{background:#D50032;color:#fff}
+/* A faixa crítica é a única que carrega a cor de risco */
+.he-hkpi-risco{box-shadow:inset 3px 0 0 #D50032}
+/* Clicável precisa parecer clicável */
+.hc-abre{cursor:pointer;transition:transform .12s ease,box-shadow .12s ease}
+.hc-abre:hover{transform:translateY(-1px);box-shadow:0 3px 12px rgba(0,0,0,.16)}
 .he-filtros{background:#fff;border-radius:10px;box-shadow:0 1px 4px rgba(0,0,0,.07);padding:14px 20px;margin-bottom:16px}
 .he-filtros-inner{display:flex;gap:14px;align-items:flex-end;flex-wrap:wrap}
 .he-filtro-group{display:flex;flex-direction:column;gap:3px;min-width:190px}
@@ -4576,15 +4635,17 @@ def _build_hora_extra_html(rows: list[dict], all_rows: list[dict] | None = None,
   </div>
 </div>
 
+{alerta_concentracao}
+
 <div class="he-row-mid">
   <div class="he-panel">
-    <div class="he-panel-head">Ocorrências por mês</div>
+    <div class="he-panel-head">Ocorrências mensais por faixa</div>
     <div class="he-panel-body">{svg_stacked}</div>
   </div>
 
   <div class="he-panel">
     <div class="he-panel-head">
-      Horas extras por mês
+      Horas extras mensais
       <div class="he-panel-head-right">{leg_horas}</div>
     </div>
     <div class="he-panel-body">{svg_line}</div>
@@ -4592,7 +4653,7 @@ def _build_hora_extra_html(rows: list[dict], all_rows: list[dict] | None = None,
 
   <div class="he-panel">
     <div class="he-panel-head">
-      Distribuição por faixa
+      Ocorrências por duração
       <div class="he-panel-head-right">{leg_oc_pct}</div>
     </div>
     <div class="he-panel-body">{svg_f_cnt}</div>
@@ -4601,18 +4662,18 @@ def _build_hora_extra_html(rows: list[dict], all_rows: list[dict] | None = None,
 
 <div class="he-row-bot">
   <div class="he-panel">
-    <div class="he-panel-head">🏢 Por Empresa</div>
+    <div class="he-panel-head">Horas por empresa</div>
     <div class="he-panel-body">{svg_emp}</div>
   </div>
 
   <div class="he-panel">
-    <div class="he-panel-head">🗂️ Por Departamento</div>
+    <div class="he-panel-head">Departamentos por horas</div>
     <div class="he-panel-body">{svg_dep}</div>
   </div>
 
   <div class="he-panel">
     <div class="he-panel-head">
-      Distribuição de horas por faixa
+      Horas concentradas por duração
       <div class="he-panel-head-right">{_dot("#e31837","Horas (hh:mm)")} {_dot("#9ca3af","% do total")}</div>
     </div>
     <div class="he-panel-body">{svg_f_hrs}</div>

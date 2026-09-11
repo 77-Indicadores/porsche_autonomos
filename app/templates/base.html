@@ -52,10 +52,6 @@
       <div class="nav-section">
         <div class="nav-section-title">Sistema Porsche</div>
         <a class="nav-link" href="/">🏠 Trocar módulo</a>
-        {# área técnica: estado do espelho de dados e das integrações #}
-        {% if request.state.current_user and request.state.current_user.perfil == 'admin' %}
-        <a class="nav-link {% if request.url.path.startswith('/super77') %}active{% endif %}" href="/super77">⭐ Super77</a>
-        {% endif %}
       </div>
       {% endif %}
 
@@ -122,6 +118,15 @@
         <div class="nav-subsection-title">Autônomos</div>
         {{ ind_links('autonomos', request.url.path, _q) }}
         {% endif %}
+      </div>
+
+      {% elif request.url.path.startswith('/usuarios') or request.url.path.startswith('/super77') %}
+      {# Usuários e Super77 são as telas da equipe, não do cliente: gestão de
+         acesso e o estado das integrações andam juntos. #}
+      <div class="nav-section">
+        <div class="nav-section-title">Equipe 77</div>
+        <a class="nav-link {% if request.url.path.startswith('/usuarios') %}active{% endif %}" href="/usuarios">👥 Usuários</a>
+        <a class="nav-link {% if request.url.path.startswith('/super77') %}active{% endif %}" href="/super77">⭐ Super77</a>
       </div>
 
       {% elif request.url.path.startswith('/folha') or _mi == 'folha' %}
