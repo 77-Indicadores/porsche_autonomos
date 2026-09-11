@@ -35,6 +35,7 @@ from sqlalchemy import (
     Table,
     Text,
     delete,
+    func,
     insert,
     select,
     text,
@@ -2795,11 +2796,24 @@ def processar_budget_competencias(db, competencias: list[str], usuario: str = "s
             .where(budget_resultado.c.competencia == competencia_atual)
         )
 
+        # SÓ A FOLHA MENSAL ENTRA NO CUSTO.
+        #
+        # O adiantamento é uma antecipação da MESMA folha do mês, não custo
+        # novo — ele existe no sistema para a exportação de líquidos do
+        # Protheus. Como o budget calcula o custo cheio a partir do salário, e
+        # não do valor pago, cada pessoa que aparece no adiantamento gerava um
+        # mês INTEIRO de salário, benefícios, provisões e encargos em
+        # duplicidade. Em agosto/2026 foram 96 pessoas contadas duas vezes e o
+        # custo do mês saltou de ~1,2 milhão para 4,2 milhões.
+        #
+        # O mesmo recorte que os painéis de folha já usavam; faltava aqui.
         q = (
             select(folha_funcionarios, folha_arquivos.c.empresa_nome,
                    folha_arquivos.c.empresa_codigo, folha_arquivos.c.cnpj)
             .join(folha_arquivos, folha_funcionarios.c.id_arquivo == folha_arquivos.c.id_arquivo)
             .where(folha_funcionarios.c.competencia == competencia_atual)
+            .where(~func.coalesce(func.lower(folha_arquivos.c.tipo_calculo), "")
+                   .like("%adiantament%"))
         )
         if str(id_arquivo).strip():
             q = q.where(folha_funcionarios.c.id_arquivo == int(id_arquivo))

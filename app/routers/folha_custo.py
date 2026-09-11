@@ -232,15 +232,31 @@ def _processar_competencias_pendentes() -> None:
     processamento uma vez e o mês passa a existir para sempre.
     """
     try:
-        pendentes = [r["competencia"] for r in _db(
-            """SELECT DISTINCT f.competencia
+        # Duas situações levam ao mesmo conserto — reprocessar a competência:
+        #
+        # 1. importada e nunca processada (o mês não existe no painel);
+        # 2. processada ANTES de o adiantamento passar a ser excluído, e por
+        #    isso com mais gente do que a folha mensal tem. O adiantamento é
+        #    antecipação da mesma folha; contado como pessoa, dobrava o custo
+        #    do mês.
+        #
+        # A comparação é por quantidade de pessoas: o que o budget tem contra o
+        # que a folha MENSAL daquele mês tem.
+        linhas = _db(
+            """SELECT f.competencia AS competencia,
+                      COUNT(DISTINCT f.matricula) AS pessoas_mensal,
+                      (SELECT COUNT(DISTINCT b.matricula)
+                         FROM budget_resultado b
+                        WHERE b.competencia = f.competencia) AS pessoas_budget
                  FROM folha_funcionarios f
+                 JOIN folha_arquivos a ON a.id_arquivo = f.id_arquivo
                 WHERE COALESCE(f.competencia, '') <> ''
-                  AND f.competencia NOT IN (
-                      SELECT DISTINCT competencia FROM budget_resultado
-                       WHERE COALESCE(competencia, '') <> '')
+                  AND COALESCE(LOWER(a.tipo_calculo), '') NOT LIKE '%adiantament%'
+                GROUP BY f.competencia
                 ORDER BY f.competencia"""
-        )]
+        )
+        pendentes = [r["competencia"] for r in linhas
+                     if (r["pessoas_budget"] or 0) != (r["pessoas_mensal"] or 0)]
     except Exception as exc:
         print(f"AVISO - não consegui procurar competências pendentes: {exc}")
         return
@@ -256,8 +272,8 @@ def _processar_competencias_pendentes() -> None:
         return
     _JA_TENTADAS.update(pendentes)
 
-    print(f"Budget: processando competência(s) importada(s) e nunca processada(s): "
-          f"{', '.join(pendentes)}")
+    print(f"Budget: reprocessando competência(s) fora de sincronia com a folha "
+          f"mensal: {', '.join(pendentes)}")
     try:
         from app.database import SessionLocal
         from app.routers.budget import processar_budget_competencias
