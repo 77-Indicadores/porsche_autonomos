@@ -4624,9 +4624,9 @@ def _build_hora_extra_html(rows: list[dict], all_rows: list[dict] | None = None,
 .hc-abre:hover{transform:translateY(-1px);box-shadow:0 3px 12px rgba(0,0,0,.16)}
 .he-filtros{background:#fff;border-radius:10px;box-shadow:0 1px 4px rgba(0,0,0,.07);padding:14px 20px;margin-bottom:16px}
 .he-filtros-inner{display:flex;gap:14px;align-items:flex-end;flex-wrap:wrap}
-.he-filtro-group{display:flex;flex-direction:column;justify-content:center;gap:4px;min-width:176px;height:64px;box-sizing:border-box}
+.he-filtro-group{display:flex;flex-direction:column;justify-content:center;gap:4px;width:176px;height:64px;box-sizing:border-box;overflow:hidden}
 .he-filtro-group label{font-size:10px;font-weight:600;color:#666;text-transform:uppercase;letter-spacing:.04em}
-.he-filtro-group select{padding:8px 10px;border:1px solid #d1d5db;border-radius:8px;font-size:13px;color:#111;background:#fafafa;cursor:pointer;outline:none}
+.he-filtro-group select{width:100%;box-sizing:border-box;text-overflow:ellipsis;padding:8px 10px;border:1px solid #d1d5db;border-radius:8px;font-size:13px;color:#111;background:#fafafa;cursor:pointer;outline:none}
 .he-filtro-group select:focus{border-color:#e31837;box-shadow:0 0 0 2px rgba(227,24,55,.10)}
 .he-limpar{font-size:.78rem;color:#e31837;text-decoration:none;padding:8px 4px;white-space:nowrap;align-self:flex-end}
 .he-limpar:hover{text-decoration:underline}
