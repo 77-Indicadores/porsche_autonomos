@@ -26,6 +26,7 @@ from fastapi import APIRouter, Query, Request
 from fastapi.responses import RedirectResponse
 from sqlalchemy import select, text
 
+from app import catworld_espelho as espelho
 from app.template_config import templates
 from app.ui_filtros import (CSS_FILTROS as _CSS_FILTROS,
                             JS_FILTROS as _JS_FILTROS,
@@ -77,41 +78,37 @@ def _consultar_catworld(sql: str):
 
 _CATWORLD_TABLE_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 
-# Cada tela de indicador buscava a tabela inteira no Catworld, e cada clique em
-# filtro repetia a busca: medido em produção, ~1,1s por clique contra ~260ms das
-# telas que leem só o banco local. O filtro é justamente onde se clica várias
-# vezes seguidas sobre os MESMOS dados, então a busca se repetia sem nada ter
-# mudado na origem.
+# Os painéis leem do espelho local (app/catworld_espelho.py), nunca da rede.
+# Antes cada tela — e cada clique em filtro — refazia a consulta ao Catworld:
+# medido em produção, 1.220ms só para trocar de empresa numa tela já aberta,
+# contra ~260ms das telas que leem o banco local. E quando a origem caía, os
+# cinco painéis ficavam em branco.
 #
-# O guia de performance do dash_adl diz o mesmo: painel não deve depender
-# direto de fonte externa lenta, e vale materializar quando ela é lenta ou
-# instável. Aqui a versão contida disso é guardar a resposta por um tempo.
-_CATWORLD_CACHE_SEG = int(os.getenv("CATWORLD_CACHE_SEGUNDOS", "600") or 0)
-_catworld_cache: dict[str, tuple[float, list[dict]]] = {}
-_catworld_cache_lock = threading.Lock()
+# É a regra do guia do dash_adl: painel lê da camada materializada, não da
+# fonte externa lenta.
 
 
-def _fetch_catworld_table(table_name: str, forcar: bool = False) -> list[dict]:
+def _buscar_catworld_direto(table_name: str) -> list[dict]:
+    """Vai à origem. Só o espelho chama isto."""
     if not _CATWORLD_TABLE_RE.fullmatch(table_name):
         raise ValueError(f"Tabela Catworld inválida: {table_name}")
+    return [dict(row) for row in _consultar_catworld(f"SELECT * FROM {table_name}")]
 
-    agora = time.monotonic()
-    with _catworld_cache_lock:
-        guardado = _catworld_cache.get(table_name)
-    if (guardado and not forcar and _CATWORLD_CACHE_SEG
-            and agora - guardado[0] < _CATWORLD_CACHE_SEG):
-        return guardado[1]
 
-    linhas = [dict(row) for row in _consultar_catworld(f"SELECT * FROM {table_name}")]
-    with _catworld_cache_lock:
-        _catworld_cache[table_name] = (agora, linhas)
-    return linhas
+def _fetch_catworld_table(table_name: str) -> list[dict]:
+    if not _CATWORLD_TABLE_RE.fullmatch(table_name):
+        raise ValueError(f"Tabela Catworld inválida: {table_name}")
+    return espelho.obter(table_name, _buscar_catworld_direto)
 
 
 def limpar_cache_catworld() -> None:
-    """Descarta o guardado — para quando a origem mudou e não dá para esperar."""
-    with _catworld_cache_lock:
-        _catworld_cache.clear()
+    """Força a próxima leitura a buscar na origem.
+
+    Usado por quem acabou de sincronizar e quer ver o resultado agora, sem
+    esperar o espelho vencer.
+    """
+    for tabela in espelho.tabelas_conhecidas():
+        espelho.atualizar(tabela, _buscar_catworld_direto)
 
 
 def _fetch_feedz(entity: str) -> list[dict]:
@@ -3407,6 +3404,20 @@ def _erro_fonte_externa(exc, fonte: str) -> str:
     return f"Não consegui carregar os dados do {fonte}: {detalhe}"
 
 
+def _dados_de(*tabelas: str) -> str:
+    """Quando o dado exibido foi copiado da origem.
+
+    O espelho serve dado de minutos atrás — e, quando o Catworld está fora,
+    dado de horas atrás. Sem dizer isso na tela, quem olha supõe que é de
+    agora e decide em cima de número velho sem saber.
+    """
+    marcas = [espelho.sincronizado_em(t) for t in tabelas]
+    marcas = [m for m in marcas if m]
+    if not marcas:
+        return ""
+    return min(marcas).strftime("%d/%m às %H:%M")
+
+
 @router.get("/indicadores/turnover")
 def turnover(request: Request, ano: str = "",
              empresa: list[str] = Query(default=[]),
@@ -3447,6 +3458,7 @@ def turnover(request: Request, ano: str = "",
         "request": request,
         "dash_html": dash_html,
         "erro": erro,
+        "dados_de": _dados_de("rel_colab_77"),
     })
 
 
@@ -3496,6 +3508,7 @@ def headcount(request: Request, mes: str = "", empresa: str = "", departamento: 
         "request": request,
         "dash_html": dash_html,
         "erro": erro,
+        "dados_de": _dados_de("rel_colab_77"),
     })
 
 
@@ -4637,6 +4650,7 @@ def horas_extras(request: Request, empresa: str = "", cargo: str = "",
         "request": request,
         "dash_html": dash_html,
         "erro": erro,
+        "dados_de": _dados_de("ifractal_hora_extra"),
     })
 
 
@@ -4663,6 +4677,7 @@ def banco_horas(request: Request, empresa: str = "", departamento: str = "", mes
         "request": request,
         "dash_html": dash_html,
         "erro": erro,
+        "dados_de": _dados_de("ifractal_extrato_banco_horas"),
     })
 
 
@@ -5214,4 +5229,5 @@ def afastamentos_indicador(
     return templates.TemplateResponse("indicadores/afastamentos.html", {
         "request":   request,
         "dash_html": dash_html,
+        "dados_de":  _dados_de("rel_colab_77"),
     })

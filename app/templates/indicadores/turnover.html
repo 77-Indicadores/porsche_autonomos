@@ -5,6 +5,10 @@
 
 {% block content %}
 
+{% if dados_de %}
+<p class="text-zinc-500 text-sm mb-4">Dados de {{ dados_de }}.</p>
+{% endif %}
+
 {% if erro %}
 <div class="alert alert-error mb-6">{{ erro }}</div>
 {% endif %}
