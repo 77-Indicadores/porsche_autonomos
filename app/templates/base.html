@@ -275,6 +275,36 @@
   <script src="/static/js/app.js"></script>
 
 <script>
+// A CAIXA INTEIRA ABRE O CAMPO
+//
+// Cada painel trouxe a sua propria barra de filtros — .filter, .fl-filter,
+// .vg-filter, .ev-filter, .pl-filter, .tr5-filter, .ind-filtro — e em todas o
+// <select> ocupa so a linha do valor: 40% da caixa, medido. Clicar no rotulo
+// ou na borda nao fazia nada, e a caixa parecia travada. Foi a reclamacao que
+// voltou tres vezes.
+//
+// Acertar a margem de cada familia daria sete calibragens diferentes para
+// manter. Aqui o clique em qualquer ponto da caixa abre a lista, seja qual for
+// a geometria — inclusive das barras que ainda vierem.
+(function () {
+  document.addEventListener('click', function (ev) {
+    var caixa = ev.target.closest && ev.target.closest(
+      '.filter, .ind-filtro, [class*="-filter"]');
+    if (!caixa) return;
+    // caixa com mais de um campo e agrupador, nao caixa: qual deles abrir
+    // seria um chute
+    if (caixa.querySelectorAll('select').length !== 1) return;
+    var campo = caixa.querySelector('select');
+    if (campo === ev.target || campo.contains(ev.target)) return;
+    if (typeof campo.showPicker === 'function') {
+      try { campo.showPicker(); return; } catch (e) {}
+    }
+    campo.focus();   // sem showPicker, ao menos o teclado resolve
+  });
+})();
+</script>
+
+<script>
 function novoCadastro() {
   const form = document.querySelector(".content-area form[method='post'], main form[method='post'], form[method='post']");
 
