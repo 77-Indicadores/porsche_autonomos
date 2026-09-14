@@ -1601,7 +1601,7 @@ _CSS_FAC = """<style>
 .fac-wrap{font-family:Inter,'Segoe UI',Arial,sans-serif;color:var(--ink);width:100%;background:var(--bg);padding:12px 16px}
 .fac-topbar{padding:9px 18px;border-radius:0 0 19px 19px;background:var(--black);color:#fff;
   display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
-.fac-brand{color:#D9AE58;font-size:9px;font-weight:900;letter-spacing:2px;text-transform:uppercase}
+.fac-brand{color:#D9AE58;font-size:11px;font-weight:900;letter-spacing:1.6px;text-transform:uppercase}
 .fac-title{margin-top:2px;font-size:22px;line-height:1;font-weight:900;letter-spacing:-.8px}
 .fac-chips{display:flex;gap:5px}
 .fac-chip{min-width:55px;padding:6px 8px;border-radius:9px;text-align:center}
@@ -1611,15 +1611,16 @@ _CSS_FAC = """<style>
 .fac-metrics{display:grid;grid-template-columns:repeat(6,1fr);gap:9px;margin-bottom:10px}
 .fac-metric{position:relative;padding:11px 13px 9px;border:1px solid var(--line);border-radius:15px;background:var(--surface);overflow:hidden}
 .fac-metric:before{content:'';position:absolute;inset:0 auto 0 0;width:4px;background:var(--accent)}
-.fac-metric-label{height:25px;color:#555D68;font-size:9px;font-weight:900;letter-spacing:.5px;line-height:1.2;text-transform:uppercase}
-.fac-metric-value{font-size:25px;font-weight:900;line-height:1;letter-spacing:-1px}
-.fac-metric-unit{color:var(--muted);font-size:9px;font-weight:800}
-.fac-metric-footer{margin-top:6px;color:var(--muted);font-size:8px;font-weight:700}
+.fac-metric-label{height:auto;min-height:25px;color:#555D68;font-size:11px;font-weight:800;letter-spacing:.4px;line-height:1.3;text-transform:uppercase}
+.fac-metric-value{font-size:28px;font-weight:900;line-height:1.05;letter-spacing:-.5px}
+.fac-metric-unit{color:var(--muted);font-size:12px;font-weight:700}
+.fac-metric-footer{margin-top:6px;color:var(--muted);font-size:11px;font-weight:600;line-height:1.4}
 .fac-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:10px}
 .fac-grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .fac-card{padding:12px 14px;border:1px solid var(--line);border-radius:17px;background:var(--surface);overflow:hidden}
-.fac-card-title{font-size:13px;font-weight:900;margin-bottom:2px}
-.fac-card-sub{color:var(--muted);font-size:8px;margin-bottom:8px}
+.fac-card-title{font-size:15px;font-weight:800;margin-bottom:4px}
+.fac-card-sub{color:var(--muted);font-size:11px;margin-bottom:10px;line-height:1.4}
+.fac-aviso{margin-top:10px;padding:10px 12px;border-left:3px solid #C69D4C;background:rgba(198,157,76,.10);border-radius:6px;font-size:11px;line-height:1.5;color:#6b5420}
 .sb-row{margin-bottom:7px}
 .sb-meta{display:flex;justify-content:space-between;align-items:center;gap:7px;margin-bottom:2px}
 .sb-name{overflow:hidden;color:#282C32;font-size:8px;font-weight:900;text-overflow:ellipsis;white-space:nowrap;text-transform:uppercase}
@@ -1660,6 +1661,41 @@ def _fac_small_bars(items: list[tuple], bar_class: str, total: int) -> str:
 def _competencia_ticket(t: dict) -> str:
     """Competência (AAAA-MM) da abertura do chamado."""
     return competencia_de(t.get("created_at"))
+
+
+def _fac_reais(valor) -> str:
+    """Valor em reais no formato daqui: R$ 74.863.
+
+    O format do Python usa a virgula como separador de milhar, e "R$ 74,863"
+    se le como setenta e quatro reais e oitenta e seis centavos — trinta mil
+    vezes menos. Num painel de custo isso nao e detalhe de estilo.
+    """
+    try:
+        n = float(valor or 0)
+    except (TypeError, ValueError):
+        n = 0.0
+    return "R$ " + f"{n:,.0f}".replace(",", ".")
+
+
+def _fac_aviso_coluna(contagem: dict, total: int, nome_campo: str,
+                     coluna_planilha: str) -> str:
+    """Avisa quando a dimensão inteira está vazia.
+
+    Coluna renomeada na planilha do Google deixa de casar e o campo vira vazio
+    — nada quebra e nada avisa, o painel só mostra "Não informada · 100%". Foi
+    o que aconteceu com Categoria e Setor, e a pergunta chegou por WhatsApp
+    dias depois. O painel passa a dizer o que houve e onde olhar.
+    """
+    if not total:
+        return ""
+    vazios = contagem.get("Não informada", 0) + contagem.get("Não informado", 0)
+    if vazios < total:
+        return ""
+    return (f'<p class="fac-aviso">Nenhum chamado tem {nome_campo} preenchido. '
+            f'Em geral é a coluna <b>{coluna_planilha}</b> que foi renomeada na '
+            f'planilha do Google — o espelho deixa de encontrá-la e o campo '
+            f'chega vazio. Confira o nome da coluna e clique em Atualizar '
+            f'espelho.</p>')
 
 
 def _build_facilities_html(tickets: list[dict], todos_tickets: list[dict] | None = None,
@@ -1788,7 +1824,7 @@ def _build_facilities_html(tickets: list[dict], todos_tickets: list[dict] | None
     sup_rows = "".join(
         f"<tr><td><span class='sup-name'>{sup}</span></td>"
         f"<td class='center'>{data['cnt']}</td>"
-        f"<td class='right'><span class='gold-chip'>R$ {data['custo']:,.0f}</span></td></tr>"
+        f"<td class='right'><span class='gold-chip'>{_fac_reais(data['custo'])}</span></td></tr>"
         for sup, data in sups
     )
 
@@ -1817,18 +1853,18 @@ def _build_facilities_html(tickets: list[dict], todos_tickets: list[dict] | None
     <div style="display:flex;align-items:baseline;gap:6px"><span class="fac-metric-value">{tempo_medio_txt}</span><span class="fac-metric-unit">dias</span></div>
     <div class="fac-metric-footer">Da abertura à conclusão</div></div>
   <div class="fac-metric" style="--accent:#0B0B0C"><div class="fac-metric-label">Custo total</div>
-    <div><span class="fac-metric-value" style="font-size:18px">R$ {custo:,.0f}</span></div>
-    <div class="fac-metric-footer">Médio: R$ {custo_medio:,.0f} por chamado</div></div>
+    <div><span class="fac-metric-value" style="font-size:20px">{_fac_reais(custo)}</span></div>
+    <div class="fac-metric-footer">Médio: {_fac_reais(custo_medio)} por chamado</div></div>
 </div>
 <div class="fac-grid">
   <div class="fac-card"><div class="fac-card-title">Chamados por status</div><div class="fac-card-sub">Quantidade e % do total</div>{_fac_small_bars(statuses,"status",total)}</div>
   <div class="fac-card"><div class="fac-card-title">Prioridade</div><div class="fac-card-sub">Chamados por criticidade</div>{prio_bars}</div>
-  <div class="fac-card"><div class="fac-card-title">Chamados por categoria</div><div class="fac-card-sub">Natureza dos problemas</div>{_fac_small_bars(cats,"type",total)}</div>
+  <div class="fac-card"><div class="fac-card-title">Chamados por categoria</div><div class="fac-card-sub">Natureza dos problemas</div>{_fac_small_bars(cats,"type",total)}{_fac_aviso_coluna(cat_cnt, total, "categoria", "Categoria")}</div>
 </div>
 <div class="fac-grid2">
   <div class="fac-card">
     <div class="fac-card-title">Departamentos e unidades</div><div class="fac-card-sub">Origem das solicitações</div>
-    <div class="section-lbl">Departamentos · top 4</div>{_fac_small_bars(deptos,"center",total)}
+    <div class="section-lbl">Departamentos · top 4</div>{_fac_small_bars(deptos,"center",total)}{_fac_aviso_coluna(depto_cnt, total, "departamento", "Setor do solicitante")}
     <div class="section-lbl">Unidades</div>{_fac_small_bars(units,"type",total)}
   </div>
   <div class="fac-card">

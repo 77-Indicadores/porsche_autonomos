@@ -94,6 +94,59 @@ def normalize_priority(value):
     return priority_map.get(value, value.lower())
 
 
+# Palavra-chave que identifica cada coluna quando o nome exato nao bate.
+#
+# O COLUMN_MAP exige o texto IDENTICO do cabecalho. Quando o formulario do
+# Google e editado - e ele e editado por quem usa, sem avisar ninguem -, a
+# coluna deixa de casar e o campo vira vazio. Nada quebra, nada avisa: o painel
+# so passa a mostrar "NAO INFORMADA · 100%". Foi o que aconteceu com Categoria
+# e Setor, que viraram "Categoria / local" e deixaram de ser lidas.
+#
+# A busca por palavra-chave sobrevive a renomeacao, a mudanca de pontuacao e a
+# acentuacao. Continua depois do nome exato: quem bate exato tem preferencia.
+CHAVES_ALTERNATIVAS = [
+    ("categoria", "category"),
+    ("setor", "department"),
+    ("departamento", "department"),
+    ("unidade", "unit"),
+    ("local", "location"),
+    ("natureza", "maintenance_type"),
+    ("urgencia", "priority"),
+    ("prioridade", "priority"),
+    ("fornecedor", "supplier"),
+    ("status", "status"),
+    ("valor", "amount"),
+    ("solicitante", "requester_name"),
+]
+
+
+def _sem_acento(texto: str) -> str:
+    import unicodedata
+    base = unicodedata.normalize("NFKD", texto or "")
+    return "".join(c for c in base if not unicodedata.combining(c)).lower()
+
+
+def colunas_nao_encontradas(row: dict) -> list:
+    """Colunas esperadas que a planilha nao entregou.
+
+    Devolvido para a tela poder avisar. Sem isso, coluna renomeada vira campo
+    vazio e ninguem descobre ate alguem estranhar um "100% nao informado".
+    """
+    normalized_row = {normalize_column(c): v for c, v in (row or {}).items()}
+    faltando = []
+    for coluna, interno in COLUMN_MAP.items():
+        if normalize_column(coluna) in normalized_row:
+            continue
+        chaves = [k for k, alvo in CHAVES_ALTERNATIVAS if alvo == interno]
+        achou = any(
+            any(k in _sem_acento(nome) for k in chaves)
+            for nome in normalized_row
+        )
+        if not achou:
+            faltando.append(coluna)
+    return faltando
+
+
 def map_row(row: dict) -> dict:
     normalized_row = {
         normalize_column(column): value
@@ -106,6 +159,15 @@ def map_row(row: dict) -> dict:
             normalize_column(google_column),
             "",
         )
+
+    # o que nao casou pelo nome exato tenta pela palavra-chave
+    for chave, interno in CHAVES_ALTERNATIVAS:
+        if str(mapped.get(interno) or "").strip():
+            continue
+        for nome, valor in normalized_row.items():
+            if chave in _sem_acento(nome) and str(valor or "").strip():
+                mapped[interno] = valor
+                break
 
     mapped["created_at"] = parse_brazilian_datetime(mapped["created_at"])
     mapped["completed_at"] = parse_brazilian_datetime(mapped["completed_at"])
