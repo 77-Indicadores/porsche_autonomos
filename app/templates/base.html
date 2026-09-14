@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block title %}Sistema Porsche{% endblock %}</title>
 
-  <link rel="stylesheet" href="/static/css/style.css?v=20260911b">
+  <link rel="stylesheet" href="/static/css/style.css?v=20260914">
 </head>
 
 {% set _eh_indicador = request.url.path.startswith('/indicadores') %}
@@ -226,6 +226,17 @@
             aria-expanded="false" title="Trocar de tela">
       <span id="focoNomeTela">{{ self.header() }}</span><i aria-hidden="true">⌄</i>
     </button>
+    {# usuario e saida moram aqui no modo foco: sem isso o cabecalho da pagina
+       precisa existir so para carrega-los, e ele ocupa 104px de altura minima
+       para uma linha de botoes #}
+    {% if request.state.current_user %}
+    <div class="barra-foco-usuario">
+      <span>{{ request.state.current_user.nome }}</span>
+      <form method="post" action="/auth/logout">
+        <button type="submit">Sair</button>
+      </form>
+    </div>
+    {% endif %}
   </div>
   <div id="veuFoco" class="veu-foco" hidden></div>
 

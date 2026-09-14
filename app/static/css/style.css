@@ -1712,6 +1712,28 @@ body.modo-foco .sidebar {
 body.modo-foco.menu-aberto .sidebar { transform: translateX(0); }
 body.modo-foco .main-content { margin-left: 0; padding-top: 44px; }
 
+/* No modo foco o cabecalho da pagina some por inteiro. Ele tem 104px de
+   altura minima e, com o titulo ja na faixa preta, sobrava carregando so o
+   nome do usuario e o Sair — que passaram para a faixa. Sao 104px de espaco
+   vazio a menos em cima de cada indicador. */
+body.modo-foco .page-header { display: none; }
+
+/* Sem o cabecalho, o respiro de 26px do topo passa a separar a faixa preta dos
+   filtros — e ali 16px bastam. O painel comeca mais alto sem ficar colado. */
+body.modo-foco .content-area { padding-top: 16px; }
+
+.barra-foco-usuario {
+  margin-left: auto; display: flex; align-items: center; gap: 10px;
+  font-size: 12px; color: #9aa0ab;
+}
+.barra-foco-usuario form { margin: 0; }
+.barra-foco-usuario button {
+  border: 1px solid rgba(255,255,255,.18); background: transparent; color: #fff;
+  border-radius: 6px; padding: 4px 12px; font-size: 12px; cursor: pointer;
+  font-family: inherit;
+}
+.barra-foco-usuario button:hover { background: rgba(255,255,255,.12); }
+
 /* Faixa fina no topo: voltar + nome da tela, que abre a gaveta. */
 .barra-foco {
   position: fixed; inset: 0 0 auto 0; height: 44px; z-index: 65;
