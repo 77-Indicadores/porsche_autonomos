@@ -1792,7 +1792,17 @@ def _build_facilities_html(tickets: list[dict], todos_tickets: list[dict] | None
                 if isinstance(co, str): co = datetime.fromisoformat(co[:19])
                 tempos.append((co - ca).total_seconds() / 86400)
             except Exception: pass
+    # Chamado com conclusao ANTES da abertura entrava na media e a puxava para
+    # baixo: em Nov/2025 a media saiu -0,3 dia, e dia negativo nao existe. Sao
+    # datas erradas na origem, nao um tempo curto — ficam de fora da conta, e o
+    # rodape do card diz quantos ficaram, senao a media parece completa.
+    invalidos = sum(1 for d in tempos if d < 0)
+    tempos = [d for d in tempos if d >= 0]
     tempo_medio_txt = f"{sum(tempos)/len(tempos):.1f}d" if tempos else "—"
+    tempo_medio_rodape = "Da abertura à conclusão"
+    if invalidos:
+        tempo_medio_rodape = (f"Da abertura à conclusão · {invalidos} fora da conta "
+                              f"(conclusão antes da abertura)")
 
     status_cnt: dict[str, int] = defaultdict(int)
     prio_cnt: dict[str, int] = defaultdict(int)
@@ -1855,7 +1865,7 @@ def _build_facilities_html(tickets: list[dict], todos_tickets: list[dict] | None
     <div class="fac-metric-footer">{prio_alta/total*100:.1f}% dos chamados</div></div>
   <div class="fac-metric" style="--accent:#69717D"><div class="fac-metric-label">Tempo médio</div>
     <div style="display:flex;align-items:baseline;gap:6px"><span class="fac-metric-value">{tempo_medio_txt}</span><span class="fac-metric-unit">dias</span></div>
-    <div class="fac-metric-footer">Da abertura à conclusão</div></div>
+    <div class="fac-metric-footer">{tempo_medio_rodape}</div></div>
   <div class="fac-metric" style="--accent:#0B0B0C"><div class="fac-metric-label">Custo total</div>
     <div><span class="fac-metric-value" style="font-size:20px">{_fac_reais(custo)}</span></div>
     <div class="fac-metric-footer">Médio: {_fac_reais(custo_medio)} por chamado</div></div>
