@@ -1598,16 +1598,7 @@ _CSS_FAC = """<style>
   --black:#0B0B0C;--red:#D50032;--red-soft:#FFF0F3;--green:#078647;--green-soft:#EAF7F0;
   --gold:#C69D4C;--gold-soft:#FFF8E8;}
 *{box-sizing:border-box}
-.fac-wrap{font-family:Inter,'Segoe UI',Arial,sans-serif;color:var(--ink);width:100%;background:var(--bg);padding:12px 16px}
-.fac-topbar{padding:9px 18px;border-radius:0 0 19px 19px;background:var(--black);color:#fff;
-  display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
-.fac-brand{color:#D9AE58;font-size:11px;font-weight:900;letter-spacing:1.6px;text-transform:uppercase}
-.fac-title{margin-top:2px;font-size:22px;line-height:1;font-weight:900;letter-spacing:-.8px}
-.fac-chips{display:flex;gap:5px}
-.fac-chip{min-width:55px;padding:6px 8px;border-radius:9px;text-align:center}
-.fac-chip strong{display:block;font-size:13px;line-height:1}
-.fac-chip span{display:block;margin-top:2px;color:#B8BBC1;font-size:11px;font-weight:800;text-transform:uppercase}
-.fac-chip.cor{background:#421723;color:#FF7795}.fac-chip.pre{background:#123625;color:#43D38B}
+.fac-wrap{font-family:Inter,'Segoe UI',Arial,sans-serif;color:var(--ink);width:100%;background:var(--bg);padding:0 16px 12px}
 .fac-metrics{display:grid;grid-template-columns:repeat(6,1fr);gap:9px;margin-bottom:10px}
 .fac-metric{position:relative;padding:11px 13px 9px;border:1px solid var(--line);border-radius:15px;background:var(--surface);overflow:hidden}
 .fac-metric:before{content:'';position:absolute;inset:0 auto 0 0;width:4px;background:var(--accent)}
@@ -1829,17 +1820,10 @@ def _build_facilities_html(tickets: list[dict], todos_tickets: list[dict] | None
     )
 
     return f"""{filtros_html}<div class="fac-wrap">{_CSS_FAC}
-<div class="fac-topbar">
-  <div><div class="fac-brand">Porsche · Facilities</div><div class="fac-title">Painel de Facilities</div></div>
-  <div class="fac-chips">
-    <div class="fac-chip cor"><strong>{corretivas}</strong><span>Corretivas</span></div>
-    <div class="fac-chip pre"><strong>{preventivas}</strong><span>Preventivas</span></div>
-  </div>
-</div>
 <div class="fac-metrics">
   <div class="fac-metric" style="--accent:#0B0B0C"><div class="fac-metric-label">Total de chamados</div>
     <div style="display:flex;align-items:baseline;gap:6px"><span class="fac-metric-value">{len(tickets)}</span><span class="fac-metric-unit">registros</span></div>
-    <div class="fac-metric-footer">Solicitações no período</div></div>
+    <div class="fac-metric-footer">{corretivas} corretivas · {preventivas} preventivas</div></div>
   <div class="fac-metric" style="--accent:#078647"><div class="fac-metric-label">Finalizados</div>
     <div style="display:flex;align-items:baseline;gap:6px"><span class="fac-metric-value">{finalizados}</span><span class="fac-metric-unit">chamados</span></div>
     <div class="fac-metric-footer">Taxa de conclusão: {finalizados/total*100:.1f}%</div></div>
