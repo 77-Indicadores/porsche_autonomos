@@ -2,7 +2,14 @@
 {% block header %}Indicadores{% endblock %}
 {% block subtitle %}Facilities · Porsche Carrera Cup Brasil{% endblock %}
 {% block content %}
-<style>.page-header{display:none}</style>
+<style>
+  /* Este painel traz o proprio titulo, entao o cabecalho da pagina some.
+     Mas so o TITULO: escondendo a faixa inteira ia junto o botao de Modo
+     foco, o nome do usuario e o Sair — a tela ficava sem como entrar em
+     foco e sem como sair do sistema. */
+  .page-header{padding-top:8px;padding-bottom:8px;border:0;background:transparent}
+  .page-header > div:first-child{display:none}
+</style>
 {% if erro %}<div class="alert alert-error mb-6">{{ erro }}</div>{% endif %}
 {% if dash_html %}{{ dash_html | safe }}{% elif not erro %}
 <section class="panel"><p class="text-zinc-500">Nenhum chamado encontrado.</p></section>
