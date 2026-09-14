@@ -157,12 +157,12 @@ def _svg_cascata(base_valor: float, passos: list[dict], atual: float,
             linhas.append(linha)
         for j, texto in enumerate(linhas[:2]):
             partes.append(f'<text x="{x + larg_barra/2:.0f}" y="{base_y + 18 + j*12}"'
-                          f' text-anchor="middle" font-size="10" fill="#69717D"'
+                          f' text-anchor="middle" font-size="11" fill="#69717D"'
                           f' font-family="Inter,system-ui,sans-serif">{texto}</text>')
         if sub:
             partes.append(f'<text x="{x + larg_barra/2:.0f}"'
                           f' y="{base_y + 18 + min(len(linhas),2)*12}"'
-                          f' text-anchor="middle" font-size="10" fill="#9aa0ab"'
+                          f' text-anchor="middle" font-size="11" fill="#9aa0ab"'
                           f' font-family="Inter,system-ui,sans-serif">{sub}</text>')
 
     barra(0, piso, base_valor, "#69717D", rot_base, _brl(base_valor))
@@ -189,7 +189,7 @@ def _svg_cascata(base_valor: float, passos: list[dict], atual: float,
         partes.append(f'<polyline points="{" ".join(dentes)}" fill="none"'
                       f' stroke="#c9ccd2" stroke-width="1.5"/>')
         partes.append(f'<text x="{largura - 4}" y="{base_y + 16}" text-anchor="end"'
-                      f' font-size="9" fill="#9aa0ab"'
+                      f' font-size="11" fill="#9aa0ab"'
                       f' font-family="Inter,system-ui,sans-serif">eixo cortado</text>')
 
     partes.append("</svg>")

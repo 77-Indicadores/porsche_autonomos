@@ -69,7 +69,7 @@ def _rosca(dados: list[tuple], tamanho: int = 190, espessura: int = 30,
     {''.join(partes)}
     <text x="{cx}" y="{cy - 4}" text-anchor="middle" font-size="26" font-weight="700"
           fill="#111827">{total}</text>
-    <text x="{cx}" y="{cy + 14}" text-anchor="middle" font-size="10" fill="#9ca3af">respostas</text>
+    <text x="{cx}" y="{cy + 14}" text-anchor="middle" font-size="11" fill="#9ca3af">respostas</text>
   </svg>
   <div style="min-width:170px;flex:1">{legenda}</div>
 </div>"""

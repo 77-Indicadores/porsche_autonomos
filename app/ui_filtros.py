@@ -20,7 +20,7 @@ CSS_FILTROS = """<style>
   padding:10px 14px;width:176px;height:64px;
   display:flex;flex-direction:column;justify-content:center;gap:4px;
   box-sizing:border-box;overflow:hidden}
-.ind-filtro label{display:block;font-size:10px;font-weight:700;color:#9ca3af;
+.ind-filtro label{display:block;font-size:11px;font-weight:700;color:#9ca3af;
   text-transform:uppercase;letter-spacing:.08em;margin-bottom:3px}
 .ind-filtro select{width:100%;border:0;background:transparent;outline:none;
   color:#111827;font-size:13px;font-weight:600;cursor:pointer;
@@ -46,7 +46,7 @@ CSS_FILTROS = """<style>
 .ind-multi-painel[hidden]{display:none}
 .ind-multi-acoes{display:flex;gap:6px;margin-bottom:6px}
 .ind-multi-acoes button{flex:1;border:1px solid #e1e3e7;background:#fff;border-radius:6px;
-  padding:4px 6px;font-size:10px;font-weight:700;color:#4b5158;cursor:pointer;font-family:inherit}
+  padding:4px 6px;font-size:11px;font-weight:700;color:#4b5158;cursor:pointer;font-family:inherit}
 .ind-multi-acoes button:hover{background:#f5f6f8}
 .ind-multi-itens{max-height:220px;overflow:auto}
 .ind-multi-item{display:flex;align-items:center;gap:7px;padding:5px 6px;border-radius:6px;
