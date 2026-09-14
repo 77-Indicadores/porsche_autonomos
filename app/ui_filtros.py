@@ -19,9 +19,20 @@ CSS_FILTROS = """<style>
 .ind-filtro{background:#fff;border:1px solid #e5e7eb;border-radius:10px;
   padding:10px 14px;width:176px;height:64px;
   display:flex;flex-direction:column;justify-content:center;gap:4px;
-  box-sizing:border-box;overflow:hidden}
-/* o texto do rotulo ganhava do <select> no clique; ele nao e interativo */
-.ind-filtro label{display:block;pointer-events:none;font-size:11px;font-weight:700;color:#9ca3af;
+  box-sizing:border-box}
+/* NAO ponha overflow:hidden aqui. Ele entrou para garantir que texto longo nao
+   estourasse a largura fixa, mas o painel de marcacao multipla e position:
+   absolute DENTRO da caixa: com overflow:hidden ele era recortado nos 176x64 da
+   caixa e ficava invisivel. O filtro "abria" — o painel perdia o hidden — e nao
+   aparecia nada na tela. Era essa a reclamacao de que os filtros nao abriam.
+   O corte do texto continua onde precisa estar: no <span> do botao e no
+   <select>, os dois com text-overflow:ellipsis. */
+/* O texto do rotulo ganhava do campo no clique; ele nao e interativo.
+   O seletor precisa ser de FILHO DIRETO: os itens do painel de marcacao
+   multipla tambem sao <label>, e com o seletor de descendente eles
+   ficavam sem clique — dava para abrir a caixa e nao dava para marcar
+   nada dentro dela. */
+.ind-filtro > label{display:block;pointer-events:none;font-size:11px;font-weight:700;color:#9ca3af;
   text-transform:uppercase;letter-spacing:.08em;margin-bottom:3px}
 /* A caixa inteira abre a lista. O <select> ocupava so a linha do valor
    (38px de 74), e clicar no rotulo ou na borda nao fazia nada — a caixa

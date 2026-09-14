@@ -352,8 +352,12 @@ _CSS = """<style>
 .brand .subtitle{margin-top:4px;font-size:12px;color:var(--muted)}
 .filters{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
 .filter{background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:8px 14px;min-width:150px}
-/* o texto do rotulo ganhava do <select> no clique; ele nao e interativo */
-.filter label{display:block;pointer-events:none;font-size:11px;font-weight:700;color:#9ca3af;text-transform:uppercase;letter-spacing:.08em;margin-bottom:3px}
+/* O texto do rotulo ganhava do campo no clique; ele nao e interativo.
+   O seletor precisa ser de FILHO DIRETO: os itens do painel de marcacao
+   multipla tambem sao <label>, e com o seletor de descendente eles
+   ficavam sem clique — dava para abrir a caixa e nao dava para marcar
+   nada dentro dela. */
+.filter > label{display:block;pointer-events:none;font-size:11px;font-weight:700;color:#9ca3af;text-transform:uppercase;letter-spacing:.08em;margin-bottom:3px}
 /* A caixa inteira abre a lista. O <select> ocupava so a linha do valor
    (38px de 74), e clicar no rotulo ou na borda nao fazia nada — a caixa
    parecia travada. As margens negativas esticam a area sensivel ate as
@@ -1229,8 +1233,12 @@ _CSS_TURNOVER = """<style>
 .brand .subtitle{margin-top:4px;font-size:12px;color:var(--muted)}
 .filters{display:flex;gap:10px;align-items:center;flex-wrap:wrap;justify-content:flex-end}
 .filter{background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:8px 14px;min-width:130px}
-/* o texto do rotulo ganhava do <select> no clique; ele nao e interativo */
-.filter label{display:block;pointer-events:none;font-size:11px;font-weight:700;color:#9ca3af;text-transform:uppercase;letter-spacing:.08em;margin-bottom:3px}
+/* O texto do rotulo ganhava do campo no clique; ele nao e interativo.
+   O seletor precisa ser de FILHO DIRETO: os itens do painel de marcacao
+   multipla tambem sao <label>, e com o seletor de descendente eles
+   ficavam sem clique — dava para abrir a caixa e nao dava para marcar
+   nada dentro dela. */
+.filter > label{display:block;pointer-events:none;font-size:11px;font-weight:700;color:#9ca3af;text-transform:uppercase;letter-spacing:.08em;margin-bottom:3px}
 /* A caixa inteira abre a lista. O <select> ocupava so a linha do valor
    (38px de 74), e clicar no rotulo ou na borda nao fazia nada — a caixa
    parecia travada. As margens negativas esticam a area sensivel ate as
