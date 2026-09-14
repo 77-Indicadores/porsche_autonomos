@@ -385,26 +385,27 @@ function novoCadastro() {
     if (abrir) abrir.setAttribute('aria-expanded', aberta ? 'true' : 'false');
   }
 
-  // `guardar` separa a ESCOLHA da pessoa do estado da tela. Sem isso, abrir
-  // qualquer tela de cadastro — que nao tem foco — gravava "desligado", e os
-  // indicadores paravam de abrir em foco depois de uma passada pelo DHO.
-  function aplicar(ligado, guardar) {
+  function aplicar(ligado) {
     document.body.classList.toggle('modo-foco', ligado);
     if (barra) barra.hidden = !ligado;
     if (!ligado) gaveta(false);
-    if (guardar) {
-      try { localStorage.setItem(CHAVE, ligado ? '1' : '0'); } catch (e) {}
-    }
   }
 
-  // Tela de indicador JÁ ABRE em foco — a classe vem do servidor, então não
-  // pisca. Quem clicou na seta para ver o menu continua vendo o menu nas
-  // telas seguintes, até voltar ao foco.
-  var pref = null;
-  try { pref = localStorage.getItem(CHAVE); } catch (e) {}
-  aplicar(ehIndicador ? pref !== '0' : false, false);
+  // Tela de indicador SEMPRE abre em foco, e a classe vem do servidor — por
+  // isso nao pisca.
+  //
+  // Antes isso dependia de uma preferencia no localStorage, e ela virou uma
+  // armadilha: houve uma versao em que abrir qualquer tela de cadastro gravava
+  // "desligado". Quem passou por ali naquele periodo ficou com '0' preso no
+  // navegador, e o modo foco nunca mais abria — o servidor mandava a classe e
+  // esta linha a tirava. Sem botao de ligar/desligar, a preferencia nao tinha
+  // mais o que guardar, entao sai de cena e a chave antiga e apagada.
+  try { localStorage.removeItem(CHAVE); } catch (e) {}
+  aplicar(ehIndicador);
 
-  function alternar() { aplicar(!document.body.classList.contains('modo-foco'), true); }
+  // A seta so recolhe o foco na tela atual; o proximo indicador volta a abrir
+  // em foco. Persistir a escolha foi exatamente o que criou a armadilha acima.
+  function alternar() { aplicar(!document.body.classList.contains('modo-foco')); }
   if (sair) sair.addEventListener('click', alternar);
   if (abrir) abrir.addEventListener('click', function (ev) {
     ev.stopPropagation();
