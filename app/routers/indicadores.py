@@ -352,8 +352,14 @@ _CSS = """<style>
 .brand .subtitle{margin-top:4px;font-size:12px;color:var(--muted)}
 .filters{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
 .filter{background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:8px 14px;min-width:150px}
-.filter label{display:block;font-size:11px;font-weight:700;color:#9ca3af;text-transform:uppercase;letter-spacing:.08em;margin-bottom:3px}
-.filter select{width:100%;border:0;background:transparent;outline:none;color:#111827;font-size:13px;font-weight:600;cursor:pointer}
+/* o texto do rotulo ganhava do <select> no clique; ele nao e interativo */
+.filter label{display:block;pointer-events:none;font-size:11px;font-weight:700;color:#9ca3af;text-transform:uppercase;letter-spacing:.08em;margin-bottom:3px}
+/* A caixa inteira abre a lista. O <select> ocupava so a linha do valor
+   (38px de 74), e clicar no rotulo ou na borda nao fazia nada — a caixa
+   parecia travada. As margens negativas esticam a area sensivel ate as
+   bordas da caixa; o padding devolve o texto ao mesmo lugar, entao a
+   margem externa e o desenho nao mudam. */
+.filter select{display:block;width:calc(100% + 30px);box-sizing:border-box;height:74px;margin:-27px -15px -9px;padding:27px 15px 9px;border:0;background:transparent;outline:none;color:#111827;font-size:13px;font-weight:600;cursor:pointer}
 .hero{
   background:linear-gradient(135deg,#171717 0%,#0c0c0c 58%,#250000 100%);
   color:#fff;border-radius:26px;padding:22px 24px;
@@ -920,21 +926,21 @@ def _build_headcount_html(
       <div class="filter">
         <label>Competência</label>
         <select name="mes" onchange="this.form.submit()"
-          style="width:100%;border:0;background:transparent;outline:none;color:#252525;font-size:13px;font-weight:700;cursor:pointer">
+          style="border:0;background:transparent;outline:none;color:#252525;font-size:13px;font-weight:700;cursor:pointer">
           {opts}
         </select>
       </div>
       <div class="filter">
         <label>Empresa</label>
         <select name="empresa" onchange="this.form.submit()"
-          style="width:100%;border:0;background:transparent;outline:none;color:#252525;font-size:13px;font-weight:700;cursor:pointer">
+          style="border:0;background:transparent;outline:none;color:#252525;font-size:13px;font-weight:700;cursor:pointer">
           {emp_opts}
         </select>
       </div>
       <div class="filter">
         <label>Departamento</label>
         <select name="departamento" onchange="this.form.submit()"
-          style="width:100%;border:0;background:transparent;outline:none;color:#252525;font-size:13px;font-weight:700;cursor:pointer">
+          style="border:0;background:transparent;outline:none;color:#252525;font-size:13px;font-weight:700;cursor:pointer">
           {dep_opts}
         </select>
       </div>
@@ -1223,8 +1229,14 @@ _CSS_TURNOVER = """<style>
 .brand .subtitle{margin-top:4px;font-size:12px;color:var(--muted)}
 .filters{display:flex;gap:10px;align-items:center;flex-wrap:wrap;justify-content:flex-end}
 .filter{background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:8px 14px;min-width:130px}
-.filter label{display:block;font-size:11px;font-weight:700;color:#9ca3af;text-transform:uppercase;letter-spacing:.08em;margin-bottom:3px}
-.filter select{width:100%;border:0;background:transparent;outline:none;color:#111827;font-size:13px;font-weight:600;cursor:pointer}
+/* o texto do rotulo ganhava do <select> no clique; ele nao e interativo */
+.filter label{display:block;pointer-events:none;font-size:11px;font-weight:700;color:#9ca3af;text-transform:uppercase;letter-spacing:.08em;margin-bottom:3px}
+/* A caixa inteira abre a lista. O <select> ocupava so a linha do valor
+   (38px de 74), e clicar no rotulo ou na borda nao fazia nada — a caixa
+   parecia travada. As margens negativas esticam a area sensivel ate as
+   bordas da caixa; o padding devolve o texto ao mesmo lugar, entao a
+   margem externa e o desenho nao mudam. */
+.filter select{display:block;width:calc(100% + 30px);box-sizing:border-box;height:74px;margin:-27px -15px -9px;padding:27px 15px 9px;border:0;background:transparent;outline:none;color:#111827;font-size:13px;font-weight:600;cursor:pointer}
 .hero{background:linear-gradient(135deg,#171717 0%,#0c0c0c 58%,#250000 100%);color:#fff;border-radius:26px;
   padding:22px 24px;display:grid;grid-template-columns:1.15fr .85fr;gap:18px;
   box-shadow:0 20px 46px rgba(0,0,0,.15);position:relative;overflow:hidden;margin-bottom:14px}
@@ -1467,7 +1479,7 @@ def _build_turnover_html(
     <form method="get" id="indFiltros" style="margin:0;display:contents">
       <div class="filter">
         <label>Ano</label>
-        <select name="ano" onchange="this.form.submit()" style="width:100%;border:0;background:transparent;outline:none;color:#252525;font-size:13px;font-weight:700;cursor:pointer">
+        <select name="ano" onchange="this.form.submit()" style="border:0;background:transparent;outline:none;color:#252525;font-size:13px;font-weight:700;cursor:pointer">
           {opts_anos}
         </select>
       </div>

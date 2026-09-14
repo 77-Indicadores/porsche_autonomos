@@ -20,9 +20,17 @@ CSS_FILTROS = """<style>
   padding:10px 14px;width:176px;height:64px;
   display:flex;flex-direction:column;justify-content:center;gap:4px;
   box-sizing:border-box;overflow:hidden}
-.ind-filtro label{display:block;font-size:11px;font-weight:700;color:#9ca3af;
+/* o texto do rotulo ganhava do <select> no clique; ele nao e interativo */
+.ind-filtro label{display:block;pointer-events:none;font-size:11px;font-weight:700;color:#9ca3af;
   text-transform:uppercase;letter-spacing:.08em;margin-bottom:3px}
-.ind-filtro select{width:100%;border:0;background:transparent;outline:none;
+/* A caixa inteira abre a lista. O <select> ocupava so a linha do valor
+   (38px de 74), e clicar no rotulo ou na borda nao fazia nada — a caixa
+   parecia travada. As margens negativas esticam a area sensivel ate as
+   bordas da caixa; o padding devolve o texto ao mesmo lugar, entao a
+   margem externa e o desenho nao mudam. */
+.ind-filtro select{display:block;width:calc(100% + 30px);box-sizing:border-box;height:64px;flex:none;
+  margin:-23px -15px -3px;padding:23px 15px 3px;
+  border:0;background:transparent;outline:none;
   color:#111827;font-size:13px;font-weight:600;cursor:pointer;
   text-overflow:ellipsis}
 /* A busca é o único campo que pede mais espaço: nome de cargo e de
@@ -33,7 +41,13 @@ CSS_FILTROS = """<style>
 .ind-limpar{font-size:12px;color:#6b7280;text-decoration:none;padding:0 4px}
 .ind-limpar:hover{color:#111827}
 /* caixa de marcação múltipla */
-.ind-multi{position:relative}
+/* A caixa tem 176x64, mas o <button> ocupava so a linha do valor: 146x15, ou
+   18,5% da area. Clicar no rotulo "ANO", na borda ou na seta nao fazia nada, e
+   a caixa parecia quebrada — so abria quem acertasse a palavra "Todos".
+   O ::after estica a area de clique sobre a caixa inteira sem mudar o desenho;
+   fica abaixo do painel (z-index 60), que continua clicavel por cima. */
+.ind-multi{position:relative;cursor:pointer}
+.ind-multi-botao::after{content:'';position:absolute;inset:0;border-radius:10px}
 .ind-multi.tem-selecao{border-color:#c9ced6;box-shadow:0 0 0 2px rgba(213,0,50,.10)}
 .ind-multi-botao{width:100%;display:flex;align-items:center;justify-content:space-between;
   gap:6px;border:0;background:transparent;padding:0;cursor:pointer;
