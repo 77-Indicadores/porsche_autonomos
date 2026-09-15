@@ -58,6 +58,8 @@ maintenance_tickets = Table(
     Column("completed_at", DateTime),
     Column("work_order", Text),
     Column("raw_payload", Text),
+    # identidade do chamado que nao muda quando linhas sao apagadas na planilha
+    Column("chave", Text),
     Column("created_system_at", DateTime, default=datetime.utcnow),
     Column("updated_system_at", DateTime, default=datetime.utcnow),
 )
@@ -117,8 +119,52 @@ def garantir_schema():
         print(f"AVISO - não consegui ajustar schema maintenance_tickets: {exc}")
 
 
+def garantir_coluna_chave():
+    try:
+        with engine.begin() as conn:
+            if conn.dialect.name == "postgresql":
+                conn.execute(text("ALTER TABLE maintenance_tickets ADD COLUMN IF NOT EXISTS chave TEXT"))
+            else:
+                cols = [r[1] for r in conn.execute(text("PRAGMA table_info(maintenance_tickets)"))]
+                if cols and "chave" not in cols:
+                    conn.execute(text("ALTER TABLE maintenance_tickets ADD COLUMN chave TEXT"))
+    except Exception as exc:
+        print(f"AVISO - não consegui adicionar a coluna chave: {exc}")
+
+
 garantir_schema()
 criar_tabela_maintenance()
+garantir_coluna_chave()
+
+
+# ─── identidade do chamado ────────────────────────────────────────────────────
+# O chamado era identificado pelo NUMERO DA LINHA da planilha, e o complemento
+# (status, datas, custo) ficava preso a esse numero. Apagar uma linha fazia
+# todas as de baixo subirem, e cada complemento passava a aparecer no chamado
+# seguinte. A identidade agora e o carimbo de data/hora do formulario mais o
+# e-mail de quem abriu: nao muda quando linhas sao apagadas ou reordenadas.
+
+def chave_chamado(ticket) -> str:
+    carimbo = ticket.get("created_at")
+    if isinstance(carimbo, datetime):
+        carimbo = carimbo.strftime("%Y-%m-%d %H:%M:%S")
+    carimbo = str(carimbo or "").strip()[:19]
+    quem = str(ticket.get("requester_email") or "").strip().lower()
+    if not quem:
+        quem = " ".join(str(ticket.get("requester_name") or "").split()).upper()
+    if not carimbo:
+        return ""
+    return f"{carimbo}|{quem}"
+
+
+def id_estavel(chave: str) -> str:
+    """Chave curta (20 caracteres) para as tabelas de complemento e exclusao,
+    cuja coluna de identificacao tem esse tamanho. Comeca com "k" para nunca
+    se confundir com um numero de linha antigo."""
+    import hashlib
+    if not chave:
+        return ""
+    return "k" + hashlib.sha1(chave.encode("utf-8")).hexdigest()[:19]
 
 
 def json_default(value):
@@ -166,6 +212,14 @@ def fetch_maintenance_tickets(oauth_client_path: str, token_path: str):
         ticket["raw_payload"] = json.dumps(row, ensure_ascii=False, default=json_default)
         tickets.append(ticket)
 
+    # linha copiada e colada gera duas respostas com a mesma identidade; a
+    # segunda ganha sufixo para as duas continuarem existindo
+    vistas: dict[str, int] = {}
+    for ticket in tickets:
+        base = chave_chamado(ticket) or f"linha-{ticket['source_row']}"
+        vistas[base] = vistas.get(base, 0) + 1
+        ticket["chave"] = base if vistas[base] == 1 else f"{base}#{vistas[base]}"
+
     return tickets, {
         "authenticated_email": email,
         "spreadsheet_title": spreadsheet.title,
@@ -194,28 +248,60 @@ def export_to_files(tickets, output_dir):
 
 
 def upsert_tickets(db: Session, tickets):
-    created = 0
-    updated = 0
+    """Espelha a aba na tabela: cria, atualiza e REMOVE.
+
+    Antes so criava e atualizava, casando pelo numero da linha. Com uma linha
+    apagada na planilha, o chamado de baixo sobrescrevia o de cima e a ultima
+    linha antiga ficava sobrando no sistema, duplicada. Agora casa pela chave
+    do chamado, renumera o que mudou de linha e apaga o que saiu da planilha.
+    """
+    created = updated = removed = 0
+    if not tickets:
+        # planilha lida vazia e mais provavel ser falha de leitura do que a
+        # aba ter sido esvaziada: nao apaga o espelho inteiro por isso
+        return 0, 0, 0
+
+    planilha = tickets[0]["source_spreadsheet_id"]
+    aba = tickets[0]["source_gid"]
+    da_aba = and_(
+        maintenance_tickets.c.source_spreadsheet_id == planilha,
+        maintenance_tickets.c.source_gid == aba,
+    )
+    chaves = {t["chave"] for t in tickets}
 
     try:
+        existentes: dict = {}
+        repetidos: list[int] = []
+        for r in db.execute(select(maintenance_tickets.c.id, maintenance_tickets.c.chave)
+                            .where(da_aba).order_by(maintenance_tickets.c.id)):
+            if r.chave in existentes:
+                repetidos.append(r.id)   # mesma chave duas vezes no espelho: fica uma
+            else:
+                existentes[r.chave] = r.id
+
+        # 1. o que nao esta mais na planilha sai (inclui linhas antigas sem chave)
+        sumiram = [i for c, i in existentes.items() if c not in chaves] + repetidos
+        sem_chave = db.execute(
+            select(maintenance_tickets.c.id).where(da_aba).where(maintenance_tickets.c.chave.is_(None))
+        ).scalars().all()
+        apagar = set(sumiram) | set(sem_chave)
+        if apagar:
+            db.execute(maintenance_tickets.delete().where(maintenance_tickets.c.id.in_(apagar)))
+            removed = len(apagar)
+
+        # 2. numero de linha provisorio e unico: sem isso, mover o chamado da
+        #    linha 11 para a 10 bate no indice unico enquanto a 10 ainda existe
+        db.execute(update(maintenance_tickets).where(da_aba).values(source_row=-maintenance_tickets.c.id))
+
+        agora = datetime.utcnow()
         for ticket in tickets:
-            where_source = and_(
-                maintenance_tickets.c.source_spreadsheet_id == ticket["source_spreadsheet_id"],
-                maintenance_tickets.c.source_gid == ticket["source_gid"],
-                maintenance_tickets.c.source_row == ticket["source_row"],
-            )
-            exists = db.execute(select(maintenance_tickets.c.id).where(where_source)).first()
-
-            values = {
-                **ticket,
-                "updated_system_at": datetime.utcnow(),
-            }
-
-            if exists:
-                db.execute(update(maintenance_tickets).where(where_source).values(**values))
+            values = {**ticket, "updated_system_at": agora}
+            id_existente = existentes.get(ticket["chave"])
+            if id_existente is not None and id_existente not in apagar:
+                db.execute(update(maintenance_tickets).where(maintenance_tickets.c.id == id_existente).values(**values))
                 updated += 1
             else:
-                values["created_system_at"] = datetime.utcnow()
+                values["created_system_at"] = agora
                 db.execute(insert(maintenance_tickets).values(**values))
                 created += 1
 
@@ -224,9 +310,8 @@ def upsert_tickets(db: Session, tickets):
         db.rollback()
         raise
 
-    print(f"Total de registros criados: {created}")
-    print(f"Total de registros atualizados: {updated}")
-    return created, updated
+    print(f"Espelho: {created} criados, {updated} atualizados, {removed} removidos")
+    return created, updated, removed
 
 
 def sync_maintenance_tickets(
@@ -239,13 +324,14 @@ def sync_maintenance_tickets(
         oauth_client_path=oauth_client_path,
         token_path=token_path,
     )
-    created, updated = upsert_tickets(db, tickets)
+    created, updated, removed = upsert_tickets(db, tickets)
     csv_path, excel_path = export_to_files(tickets, output_dir)
 
     return {
         **diagnostics,
         "created": created,
         "updated": updated,
+        "removed": removed,
         "total": len(tickets),
         "csv_path": csv_path,
         "excel_path": excel_path,

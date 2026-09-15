@@ -27,6 +27,8 @@ from app.integrations.google_sheets.sync import (
     SHEET_NAME,
     SPREADSHEET_ID,
     WORKSHEET_NAME,
+    chave_chamado,
+    id_estavel,
     maintenance_tickets,
     sync_maintenance_tickets,
 )
@@ -301,6 +303,11 @@ except Exception as _exc:  # pragma: no cover
     print(f"AVISO - não consegui criar facilities_excluidos: {_exc}")
 
 
+def id_do_chamado(row) -> str:
+    """Identidade estável do chamado (ver chave_chamado em sync.py)."""
+    return id_estavel(row.get("chave") or chave_chamado(row))
+
+
 def ler_excluidos() -> set[str]:
     try:
         with _engine.connect() as cx:
@@ -313,7 +320,11 @@ def sem_excluidos(rows) -> list:
     excluidos = ler_excluidos()
     if not excluidos:
         return list(rows)
-    return [r for r in rows if str(r.get("source_row") or r.get("id") or "") not in excluidos]
+    # a exclusão nova guarda a identidade do chamado; a feita antes desta
+    # mudança guardava o número da linha, e continua valendo até ser convertida
+    return [r for r in rows
+            if id_do_chamado(r) not in excluidos
+            and str(r.get("source_row") or r.get("id") or "") not in excluidos]
 
 
 def ler_complementos(db: Session) -> dict:
@@ -347,11 +358,37 @@ def ler_complementos(db: Session) -> dict:
     return dados
 
 
+def _id_da_linha(db: Session, linha: str) -> str:
+    """Identidade do chamado que está HOJE na linha informada pela tela."""
+    try:
+        row = db.execute(select(maintenance_tickets)
+                         .where(maintenance_tickets.c.source_row == int(linha))).mappings().first()
+    except (ValueError, SQLAlchemyError):
+        row = None
+    if row is None and os.path.exists(DEFAULT_CACHE_CSV_PATH):
+        row = next((r for r in carregar_csv_espelho() if str(r.get("source_row")) == str(linha)), None)
+    return id_do_chamado(row) if row else ""
+
+
 def _upsert_complemento(db: Session, chave: str, dados: dict):
     from app.models import FacilitiesComplemento
-    obj = db.query(FacilitiesComplemento).filter(FacilitiesComplemento.source_row == chave).first()
+    # A tela manda o número da linha; o complemento é gravado na identidade
+    # do chamado, para não escorregar para o vizinho quando uma linha for
+    # apagada na planilha. Sem identidade (linha não encontrada), fica como
+    # antes.
+    linha = str(chave)
+    ident = _id_da_linha(db, linha) if not linha.startswith("k") else linha
+    alvo = ident or linha
+    obj = db.query(FacilitiesComplemento).filter(FacilitiesComplemento.source_row == alvo).first()
+    if ident and ident != linha:
+        antigo = db.query(FacilitiesComplemento).filter(FacilitiesComplemento.source_row == linha).first()
+        if antigo is not None and antigo is not obj:
+            # o complemento antigo desta linha é o que a tela mostrou e o
+            # formulário trouxe preenchido; o novo o substitui
+            db.delete(antigo)
+            db.flush()
     if obj is None:
-        obj = FacilitiesComplemento(source_row=chave)
+        obj = FacilitiesComplemento(source_row=alvo)
         db.add(obj)
     obj.area_servico = dados.get("area_servico", "")
     obj.unidade_local = dados.get("unidade_local", "")
@@ -543,7 +580,10 @@ def preparar_chamados(rows, complementos=None):
     for row in rows:
         item = dict(row)
         chave = str(item.get("source_row") or item.get("id") or "")
-        complemento = complementos.get(chave, {})
+        item["id_estavel"] = id_do_chamado(item)
+        # primeiro pela identidade do chamado; o número da linha só vale para
+        # complemento antigo, ainda não convertido em /facilities/vinculos
+        complemento = complementos.get(item["id_estavel"]) or complementos.get(chave, {})
         item["created_at_fmt"] = fmt_date(item.get("created_at"))
         item["completed_at_fmt"] = fmt_date(item.get("completed_at"))
         item["amount_fmt"] = fmt_money(item.get("amount"))
@@ -607,6 +647,7 @@ def index(request: Request, db: Session = Depends(get_db)):
 
     complementos = ler_complementos(db)
     chamados = preparar_chamados(sem_excluidos(rows), complementos)
+    vinculos_antigos = sum(1 for k in complementos if str(k).isdigit())
 
     total = len(chamados)
     total_abertos = sum(1 for item in chamados if item.get("status") in ("open", "pending", "in_progress"))
@@ -649,6 +690,7 @@ def index(request: Request, db: Session = Depends(get_db)):
             "sync_error": sync_error,
             "cache_notice": cache_notice,
             "is_admin": _is_admin(request),
+            "vinculos_antigos": vinculos_antigos,
             "pode_atualizar": _pode_operar_facilities(request),
             "pode_complementar": tem_acesso_modulo(request, "facilities"),
             **flash_from_request(request),
@@ -698,9 +740,12 @@ def salvar_complemento(
 def excluir_solicitacao(request: Request, source_row: str = Form(...)):
     if not _pode_operar_facilities(request):
         return redirect_with_message("/facilities", error=_ERRO_SEM_MODULO_FAC_EXCLUIR)
-    chave = str(source_row).strip()
-    if not chave:
+    linha = str(source_row).strip()
+    if not linha:
         return redirect_with_message("/facilities", error="Linha não informada.")
+    from app.database import SessionLocal
+    with SessionLocal() as _db:
+        chave = _id_da_linha(_db, linha) or linha
     usuario = getattr(request.state, "current_user", None) or {}
     quem = str(usuario.get("email") or usuario.get("nome") or "") if isinstance(usuario, dict) else ""
     try:
@@ -713,12 +758,110 @@ def excluir_solicitacao(request: Request, source_row: str = Form(...)):
     except SQLAlchemyError as exc:
         return redirect_with_message("/facilities", error=f"Erro ao excluir: {exc}")
     return redirect_with_message(
-        "/facilities", success=f"Solicitação da linha {chave} excluída.")
+        "/facilities", success=f"Solicitação da linha {linha} excluída.")
 
 
 _ERRO_SEM_MODULO_FAC_EXCLUIR = (
     "Excluir solicitação exige acesso ao módulo Facilities."
 )
+
+
+# ─── vínculos antigos ─────────────────────────────────────────────────────────
+
+def _chamados_atuais(db: Session) -> dict[int, dict]:
+    try:
+        rows = [dict(r) for r in db.execute(select(maintenance_tickets)).mappings().all()]
+    except SQLAlchemyError:
+        rows = []
+    if not rows and os.path.exists(DEFAULT_CACHE_CSV_PATH):
+        rows = carregar_csv_espelho()
+    return {int(r["source_row"]): r for r in rows if str(r.get("source_row") or "").lstrip("-").isdigit()}
+
+
+def _proposta_vinculos(db: Session):
+    from app.facilities_vinculos import propor
+    from app.models import FacilitiesComplemento
+    legados = {}
+    guardados = []
+    for c in db.query(FacilitiesComplemento).all():
+        dados = {k: getattr(c, k) or "" for k in (
+            "area_servico", "unidade_local", "tipo_atendimento", "data_inicio",
+            "data_finalizacao", "dentro_prazo", "retrabalho", "custo", "observacao")}
+        if str(c.source_row).isdigit():
+            legados[int(c.source_row)] = dados
+        elif str(c.source_row).startswith("x"):
+            guardados.append({"id": c.source_row, **dados})
+    chamados = _chamados_atuais(db)
+    return propor(legados, chamados), guardados, chamados
+
+
+@router.get("/facilities/vinculos")
+def vinculos(request: Request, db: Session = Depends(get_db)):
+    if not _is_admin(request):
+        return redirect_with_message("/facilities", error="Somente administradores.")
+    propostas, guardados, _ = _proposta_vinculos(db)
+    excl_legados = [r for r in ler_excluidos() if r.isdigit()]
+    resumo = {a: sum(1 for p in propostas if p["acao"] == a)
+              for a in ("manter", "mover", "descartar", "revisar", "sem chamado")}
+    return templates.TemplateResponse("facilities/vinculos.html", {
+        "request": request, "propostas": propostas, "guardados": guardados,
+        "resumo": resumo, "excl_legados": len(excl_legados),
+        "fmt": fmt_date_text, **flash_from_request(request),
+    })
+
+
+@router.post("/facilities/vinculos/aplicar")
+def vinculos_aplicar(request: Request, db: Session = Depends(get_db)):
+    if not _is_admin(request):
+        return redirect_with_message("/facilities", error="Somente administradores.")
+    from sqlalchemy import text as _text
+    propostas, _, chamados = _proposta_vinculos(db)
+    carimbo = datetime.now().strftime("%H%M%S")
+    feitos = {"vinculados": 0, "guardados": 0, "exclusoes": 0}
+    try:
+        with _engine.begin() as cx:
+            existentes = {r[0] for r in cx.execute(_text("SELECT source_row FROM facilities_complementos"))}
+            for p in propostas:
+                antigo = str(p["linha_antiga"])
+                if p["acao"] in ("manter", "mover"):
+                    novo = id_do_chamado(p["chamado"])
+                    if novo in existentes:
+                        # complemento já gravado com a identidade nova é mais
+                        # recente que o antigo: o antigo sai
+                        cx.execute(_text("DELETE FROM facilities_complementos WHERE source_row=:a"), {"a": antigo})
+                    else:
+                        cx.execute(_text("UPDATE facilities_complementos SET source_row=:n WHERE source_row=:a"),
+                                   {"n": novo, "a": antigo})
+                        existentes.add(novo)
+                    feitos["vinculados"] += 1
+                else:
+                    # descartar/revisar: nada se perde, fica guardado fora da tela
+                    novo = f"x{antigo}-{carimbo}"[:20]
+                    cx.execute(_text("UPDATE facilities_complementos SET source_row=:n WHERE source_row=:a"),
+                               {"n": novo, "a": antigo})
+                    feitos["guardados"] += 1
+                existentes.discard(antigo)
+            # exclusões feitas antes da mudança usam o número da linha de hoje
+            for r in [r for r in ler_excluidos() if r.isdigit()]:
+                t = chamados.get(int(r))
+                if t is None:
+                    continue
+                novo = id_do_chamado(t)
+                ja = cx.execute(select(facilities_excluidos.c.source_row)
+                                .where(facilities_excluidos.c.source_row == novo)).first()
+                if ja:
+                    cx.execute(facilities_excluidos.delete().where(facilities_excluidos.c.source_row == r))
+                else:
+                    cx.execute(facilities_excluidos.update().where(facilities_excluidos.c.source_row == r)
+                               .values(source_row=novo))
+                feitos["exclusoes"] += 1
+    except SQLAlchemyError as exc:
+        return redirect_with_message("/facilities/vinculos", error=f"Nada foi gravado: {exc}")
+    return redirect_with_message(
+        "/facilities/vinculos",
+        success=(f"{feitos['vinculados']} complementos ligados ao chamado, "
+                 f"{feitos['guardados']} guardados para revisão, "
+                 f"{feitos['exclusoes']} exclusões convertidas."))
 
 
 @router.post("/facilities/upload-complementar")
@@ -978,8 +1121,9 @@ def sincronizar(
         success=(
             "Google Sheets sincronizado: "
             f"{result['total']} linhas, "
-            f"{result['created']} criadas e "
-            f"{result['updated']} atualizadas."
+            f"{result['created']} criadas, "
+            f"{result['updated']} atualizadas e "
+            f"{result.get('removed', 0)} removidas (apagadas na planilha)."
         ),
     )
 

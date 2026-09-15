@@ -3571,8 +3571,9 @@ def facilities_dash(request: Request,
     try:
         from app.routers.facilities import (
             DEFAULT_CACHE_CSV_PATH, preparar_chamados, ler_complementos,
-            ler_excluidos,
+            ler_excluidos, id_do_chamado,
         )
+        from app.integrations.google_sheets.mapper import map_row as _map_row
         from app.integrations.google_sheets.sync import maintenance_tickets
         from app.database import get_db
         import csv
@@ -3582,7 +3583,8 @@ def facilities_dash(request: Request,
             with open(DEFAULT_CACHE_CSV_PATH, "r", encoding="utf-8-sig", newline="") as f:
                 reader = csv.DictReader(f)
                 # mesma numeração da tela de Gestão: a linha 1 é o cabeçalho
-                tickets = [dict(row, source_row=i) for i, row in enumerate(reader, start=2)]
+                tickets = [dict(row, source_row=i, _id=id_do_chamado(_map_row(row)))
+                           for i, row in enumerate(reader, start=2)]
         else:
             from app.database import engine as _eng
             from sqlalchemy import select as _sel
@@ -3595,7 +3597,9 @@ def facilities_dash(request: Request,
         # some da lista e continua contando nos cards
         _excl = ler_excluidos()
         if _excl:
-            tickets = [t for t in tickets if str(t.get("source_row") or "") not in _excl]
+            tickets = [t for t in tickets
+                       if (t.get("_id") or id_do_chamado(t)) not in _excl
+                       and str(t.get("source_row") or "") not in _excl]
 
         todos_tickets = tickets
         ano_sel = _lista_sel(ano)

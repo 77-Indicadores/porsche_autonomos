@@ -1,0 +1,112 @@
+{% extends "base.html" %}
+
+{% block header %}Facilities · Vínculos dos complementos{% endblock %}
+{% block subtitle %}Religa cada complemento antigo ao chamado certo depois de linhas apagadas na planilha.{% endblock %}
+
+{% block content %}
+<section class="panel">
+  <div class="panel-head"><h3>O que vai acontecer</h3></div>
+  <p class="vc-txt">
+    Os complementos gravados antes desta correção estão presos ao <strong>número da linha</strong>.
+    Quando uma linha é apagada na planilha, as de baixo sobem e o complemento passa a aparecer no
+    chamado seguinte. Para cada um, o sistema testou em qual chamado ele se encaixa — comparando
+    local, categoria, natureza e a data de início com a abertura — e propõe o vínculo abaixo.
+    Depois de aplicar, apagar linhas na planilha não desalinha mais nada.
+  </p>
+
+  <div class="vc-resumo">
+    <div><strong>{{ resumo.manter }}</strong><span>já no chamado certo</span></div>
+    <div class="vc-mover"><strong>{{ resumo.mover }}</strong><span>voltam para o chamado certo</span></div>
+    <div class="vc-desc"><strong>{{ resumo.descartar }}</strong><span>eram de chamado apagado</span></div>
+    <div class="vc-rev"><strong>{{ resumo.revisar + resumo['sem chamado'] }}</strong><span>sem encaixe seguro</span></div>
+  </div>
+  {% if excl_legados %}<p class="vc-txt">{{ excl_legados }} exclusões também serão convertidas.</p>{% endif %}
+  <p class="vc-txt">Nada é apagado: o que não tiver encaixe seguro fica guardado e listado no fim desta página.</p>
+
+  {% if propostas or excl_legados %}
+  <form method="post" action="/facilities/vinculos/aplicar"
+        onsubmit="return confirm('Aplicar os vínculos propostos?');">
+    <button type="submit" class="quick-action primary">Aplicar vínculos</button>
+  </form>
+  {% else %}
+  <p class="vc-ok">Nenhum complemento preso a número de linha. Está tudo vinculado ao chamado.</p>
+  {% endif %}
+</section>
+
+{% if propostas %}
+<section class="panel">
+  <div class="panel-head"><h3>Proposta, linha a linha</h3></div>
+  <div class="overflow-x-auto">
+  <table class="table vc-tab">
+    <thead><tr>
+      <th>Linha antiga</th><th>Complemento gravado</th><th></th>
+      <th>Chamado que recebe</th><th>Situação</th>
+    </tr></thead>
+    <tbody>
+    {% for p in propostas %}
+      {% set c = p.complemento %}{% set t = p.chamado %}
+      <tr class="vc-{{ p.acao|replace(' ', '-') }}{% if p.duvida %} vc-duvida{% endif %}">
+        <td><span class="id-pill">{{ p.linha_antiga }}</span></td>
+        <td>
+          <div>{{ c.unidade_local or '—' }} · {{ c.area_servico or '—' }}</div>
+          <div class="vc-sub">{{ c.tipo_atendimento or '—' }} · início {{ fmt(c.data_inicio) }}</div>
+        </td>
+        <td class="vc-seta">→</td>
+        <td>
+          {% if t and p.acao in ('manter', 'mover') %}
+          <div><span class="id-pill">{{ p.linha_atual }}</span> <strong>{{ t.requester_name }}</strong></div>
+          <div class="vc-sub">{{ t.location or t.unit or '—' }} · {{ t.category or '—' }} · aberto {{ fmt(t.created_at|string|truncate(10, true, '')) }}</div>
+          {% else %}—{% endif %}
+        </td>
+        <td>
+          {% if p.acao == 'manter' %}Já está certo
+          {% elif p.acao == 'mover' %}Sobe {{ p.deslocamento }} linha{{ 's' if p.deslocamento > 1 }}
+          {% elif p.acao == 'descartar' %}Chamado apagado — guardado
+          {% else %}Sem encaixe seguro — guardado{% endif %}
+          {% if p.duvida %}<div class="vc-sub">encaixe fraco, confira</div>{% endif %}
+        </td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+</section>
+{% endif %}
+
+{% if guardados %}
+<section class="panel">
+  <div class="panel-head"><h3>Guardados para revisão</h3></div>
+  <p class="vc-txt">Não aparecem em nenhum chamado. Se algum for de um chamado que ainda existe,
+    abra “Complementar” nele e digite de novo.</p>
+  <div class="overflow-x-auto">
+  <table class="table vc-tab">
+    <thead><tr><th>Local · Área</th><th>Natureza</th><th>Início</th><th>Fim</th><th>Custo</th><th>Observação</th></tr></thead>
+    <tbody>
+    {% for g in guardados %}
+      <tr><td>{{ g.unidade_local or '—' }} · {{ g.area_servico or '—' }}</td><td>{{ g.tipo_atendimento or '—' }}</td>
+        <td>{{ fmt(g.data_inicio) }}</td><td>{{ fmt(g.data_finalizacao) }}</td><td>{{ g.custo or '—' }}</td><td>{{ g.observacao or '—' }}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+</section>
+{% endif %}
+
+<style>
+  .vc-txt{color:#4b5563;font-size:13px;line-height:1.6;margin:0 0 12px;max-width:900px}
+  .vc-ok{color:#078647;font-weight:700}
+  .vc-resumo{display:flex;gap:10px;flex-wrap:wrap;margin:6px 0 14px}
+  .vc-resumo div{border:1px solid #e5e7eb;border-left:4px solid #9ca3af;border-radius:10px;padding:10px 14px;min-width:170px;background:#fff}
+  .vc-resumo strong{display:block;font-size:22px}
+  .vc-resumo span{font-size:12px;color:#6b7280}
+  .vc-resumo .vc-mover{border-left-color:#C69D4C}
+  .vc-resumo .vc-desc{border-left-color:#6b7280}
+  .vc-resumo .vc-rev{border-left-color:#D50032}
+  .vc-tab td{vertical-align:top;font-size:13px}
+  .vc-sub{font-size:12px;color:#6b7280;margin-top:2px}
+  .vc-seta{color:#9ca3af;font-size:16px}
+  tr.vc-mover td{background:#fff8e8}
+  tr.vc-descartar td,tr.vc-revisar td,tr.vc-sem-chamado td{background:#fff0f3}
+  tr.vc-duvida td:last-child{color:#b45309}
+</style>
+{% endblock %}
