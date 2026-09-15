@@ -217,6 +217,12 @@
               data-maintenance-type="{{ item.maintenance_type or '' }}"
               data-complemento='{{ item.complemento|tojson|e }}'
             >Complementar</button>
+            <form method="post" action="/facilities/excluir" class="fac-excluir-form"
+                  data-linha="{{ item.source_row }}" data-solicitante="{{ item.requester_name or '' }}"
+                  onsubmit="return confirmarExclusao(this);">
+              <input type="hidden" name="source_row" value="{{ item.source_row }}">
+              <button type="submit" class="btn-excluir">Excluir</button>
+            </form>
             {% else %}
             -
             {% endif %}
@@ -235,7 +241,21 @@
   </div>
 </section>
 
+<script>
+  // nome vai por data-*: dentro do onsubmit, um apóstrofo no nome (D'Ávila)
+  // fechava a string do JS e o botão parava de funcionar
+  function confirmarExclusao(form) {
+    return confirm('Excluir a solicitação da linha ' + form.dataset.linha +
+      ' (' + form.dataset.solicitante + ')?\n\n' +
+      'Ela sai desta lista e dos indicadores. A planilha do Google não é alterada.');
+  }
+</script>
 <style>
+  /* ── Ações da linha ── */
+  .fac-excluir-form{display:inline;margin:0 0 0 6px}
+  .btn-excluir{border:1px solid #f1c4cf;background:#fff;color:#b00028;border-radius:8px;
+    padding:8px 12px;font-weight:700;font-size:13px;cursor:pointer;font-family:inherit}
+  .btn-excluir:hover{background:#fff0f3;border-color:#D50032}
   /* ── Cards de resumo ── */
   .fac-cards {
     display: grid;

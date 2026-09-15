@@ -279,6 +279,43 @@ def build_google_oauth_flow(
     return Flow.from_client_config(client_config, **kwargs)
 
 
+# ─── exclusão ────────────────────────────────────────────────────────────────
+# As solicitações vêm da planilha do Google e a sincronização faz upsert por
+# linha: apagar o chamado do banco não adianta, ele volta no próximo "Atualizar
+# espelho". A exclusão fica num registro à parte, que a sincronização não toca,
+# e as telas (lista e indicador) deixam de fora o que estiver aqui. A planilha
+# em si não é alterada.
+from sqlalchemy import Column as _Col, MetaData as _Meta, String as _Str, Table as _Tab, DateTime as _Dt
+from app.database import engine as _engine
+
+_meta_excl = _Meta()
+facilities_excluidos = _Tab(
+    "facilities_excluidos", _meta_excl,
+    _Col("source_row", _Str(20), primary_key=True),
+    _Col("excluido_por", _Str(200)),
+    _Col("excluido_em", _Dt),
+)
+try:
+    _meta_excl.create_all(_engine)
+except Exception as _exc:  # pragma: no cover
+    print(f"AVISO - não consegui criar facilities_excluidos: {_exc}")
+
+
+def ler_excluidos() -> set[str]:
+    try:
+        with _engine.connect() as cx:
+            return {str(r[0]) for r in cx.execute(select(facilities_excluidos.c.source_row))}
+    except SQLAlchemyError:
+        return set()
+
+
+def sem_excluidos(rows) -> list:
+    excluidos = ler_excluidos()
+    if not excluidos:
+        return list(rows)
+    return [r for r in rows if str(r.get("source_row") or r.get("id") or "") not in excluidos]
+
+
 def ler_complementos(db: Session) -> dict:
     from app.models import FacilitiesComplemento
     dados: dict = {}
@@ -540,7 +577,7 @@ def carregar_chamados_para_tela(db: Session):
         except SQLAlchemyError as exc:
             source_error = f"Não consegui ler o espelho local: {exc}"
 
-    return preparar_chamados(rows, ler_complementos(db)), source_notice, source_error
+    return preparar_chamados(sem_excluidos(rows), ler_complementos(db)), source_notice, source_error
 
 
 @router.get("/facilities")
@@ -569,7 +606,7 @@ def index(request: Request, db: Session = Depends(get_db)):
         )
 
     complementos = ler_complementos(db)
-    chamados = preparar_chamados(rows, complementos)
+    chamados = preparar_chamados(sem_excluidos(rows), complementos)
 
     total = len(chamados)
     total_abertos = sum(1 for item in chamados if item.get("status") in ("open", "pending", "in_progress"))
@@ -655,6 +692,33 @@ def salvar_complemento(
     except Exception as exc:
         db.rollback()
         return redirect_with_message("/facilities", error=f"Erro ao salvar complemento: {exc}")
+
+
+@router.post("/facilities/excluir")
+def excluir_solicitacao(request: Request, source_row: str = Form(...)):
+    if not _pode_operar_facilities(request):
+        return redirect_with_message("/facilities", error=_ERRO_SEM_MODULO_FAC_EXCLUIR)
+    chave = str(source_row).strip()
+    if not chave:
+        return redirect_with_message("/facilities", error="Linha não informada.")
+    usuario = getattr(request.state, "current_user", None) or {}
+    quem = str(usuario.get("email") or usuario.get("nome") or "") if isinstance(usuario, dict) else ""
+    try:
+        with _engine.begin() as cx:
+            ja = cx.execute(select(facilities_excluidos.c.source_row)
+                            .where(facilities_excluidos.c.source_row == chave)).first()
+            if not ja:
+                cx.execute(facilities_excluidos.insert().values(
+                    source_row=chave, excluido_por=quem[:200], excluido_em=datetime.now()))
+    except SQLAlchemyError as exc:
+        return redirect_with_message("/facilities", error=f"Erro ao excluir: {exc}")
+    return redirect_with_message(
+        "/facilities", success=f"Solicitação da linha {chave} excluída.")
+
+
+_ERRO_SEM_MODULO_FAC_EXCLUIR = (
+    "Excluir solicitação exige acesso ao módulo Facilities."
+)
 
 
 @router.post("/facilities/upload-complementar")
