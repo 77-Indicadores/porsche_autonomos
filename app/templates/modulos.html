@@ -329,7 +329,6 @@
     {% set _all = _perfil == 'admin' or not _mods %}
     <div class="modulos-grid-full">
       {% if _all or 'autonomos' in _mods %}
-      {% if pode(request, '/cadastros') %}
       <a class="modulo-card-full" href="/autonomos/dashboard">
         <div class="modulo-card-top">
           <div class="modulo-icon-full">🏎️</div>
@@ -350,10 +349,8 @@
         </div>
       </a>
       {% endif %}
-      {% endif %}
 
       {% if _all or 'dho' in _mods %}
-      {% if pode(request, '/dho') %}
       <a class="modulo-card-full" href="/dho">
         <div class="modulo-card-top">
           <div class="modulo-icon-full">🧭</div>
@@ -374,10 +371,8 @@
         </div>
       </a>
       {% endif %}
-      {% endif %}
 
       {% if _all or 'facilities' in _mods %}
-      {% if pode(request, '/facilities') %}
       <a class="modulo-card-full" href="/facilities">
         <div class="modulo-card-top">
           <div class="modulo-icon-full">🏢</div>
@@ -397,10 +392,8 @@
         </div>
       </a>
       {% endif %}
-      {% endif %}
 
       {% if _all or 'folha' in _mods %}
-      {% if pode(request, '/folha') %}
       <a class="modulo-card-full" href="/folha">
         <div class="modulo-card-top">
           <div class="modulo-icon-full">📄</div>
@@ -420,10 +413,8 @@
         </div>
       </a>
       {% endif %}
-      {% endif %}
 
       {% if _all or _mods %}
-      {% if grupos_visiveis_qtd %}
       <a class="modulo-card-full" href="/indicadores">
         <div class="modulo-card-top">
           <div class="modulo-icon-full">📊</div>
@@ -443,10 +434,8 @@
         </div>
       </a>
       {% endif %}
-      {% endif %}
 
       {% if _perfil == 'admin' %}
-      {% if pode(request, '/usuarios') %}
       <a class="modulo-card-full" href="/usuarios">
         <div class="modulo-card-top">
           <div class="modulo-icon-full">👥</div>
@@ -465,7 +454,6 @@
           <span>Acesso</span>
         </div>
       </a>
-      {% endif %}
       {% endif %}
 
     </div>

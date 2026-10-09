@@ -10,7 +10,6 @@ from app.database import get_db
 from app.models import DimAutonomo, DimPiloto, DimEtapa, FatoPilotoAutonomoProva
 from app.template_config import templates
 from app.utils import flash_from_request
-from app.rbac import grupos_visiveis as _grupos_visiveis
 
 router = APIRouter(tags=["dashboard"])
 
@@ -309,8 +308,6 @@ def sistema_home(request: Request, sem_acesso: str = ""):
             "request": request,
             "modulos_usuario": modulos_usuario,
             "sem_acesso": sem_acesso,
-            # o cartão de Indicadores só aparece para quem enxerga algum grupo
-            "grupos_visiveis_qtd": len(_grupos_visiveis(request)),
             **flash_from_request(request),
         },
     )

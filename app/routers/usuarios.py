@@ -7,7 +7,7 @@ from fastapi.responses import RedirectResponse
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app import acesso_email, rbac
+from app import acesso_email
 from app.auth import hash_password, MODULOS
 from app.database import get_db
 from app.models import Usuario
@@ -19,33 +19,10 @@ router = APIRouter(prefix="/usuarios", tags=["usuarios"])
 
 
 def require_admin(request: Request):
-    """Quem pode gerir acessos é quem tem a permissão para isso."""
-    return rbac.tem_permissao(request, "users.manage")
-
-
-def _catalogo(usuario=None) -> dict:
-    """Tudo o que a tela precisa para montar as caixas de concessão."""
-    atual = (rbac.concessoes_do_usuario(usuario.id_usuario)
-             if usuario else {"papeis": ["operador"], "grupos": [], "telas": [],
-                              "cadastros": [], "escopo": {}})
-    return {
-        "papeis_catalogo": [(c, v[0], v[1]) for c, v in rbac.PAPEIS.items()],
-        "grupos_catalogo": rbac.GRUPOS,
-        "cadastros_catalogo": rbac.CADASTROS,
-        "dimensoes": rbac.DIMENSOES,
-        "concessoes": atual,
-    }
-
-
-def _salvar_acesso(id_usuario: int, papel: str, grupos, telas, cadastros, empresas):
-    rbac.definir_papeis(id_usuario, [papel])
-    # Admin e super77 já enxergam tudo pelo papel; concessão por recurso só faz
-    # sentido para quem não tem permissão global.
-    if papel == "operador":
-        rbac.definir_politicas(id_usuario, grupos, telas, cadastros)
-    else:
-        rbac.definir_politicas(id_usuario, [], [], [])
-    rbac.definir_escopo(id_usuario, "empresa", empresas)
+    user = getattr(request.state, "current_user", None)
+    if not user or user.get("perfil") != "admin":
+        return False
+    return True
 
 
 @router.get("")
@@ -65,7 +42,7 @@ def new_user_page(request: Request):
         return RedirectResponse("/auth/login?erro=permissao", status_code=303)
     return templates.TemplateResponse("usuarios/form.html",
         {"request": request, "usuario": None, "modulos": MODULOS,
-         "smtp_ok": acesso_email.smtp_configurado(), **_catalogo()})
+         "smtp_ok": acesso_email.smtp_configurado()})
 
 
 @router.post("/novo")
@@ -74,11 +51,8 @@ def create_user(
     nome: str = Form(...),
     email: str = Form(...),
     senha: str = Form(""),
-    papel: str = Form("operador"),
-    grupos: List[str] = Form(default=[]),
-    telas: List[str] = Form(default=[]),
-    cadastros: List[str] = Form(default=[]),
-    empresas: List[str] = Form(default=[]),
+    perfil: str = Form("operador"),
+    modulos: List[str] = Form(default=[]),
     db: Session = Depends(get_db),
 ):
     """Cria a conta e convida a pessoa por e-mail a definir a própria senha.
@@ -102,10 +76,7 @@ def create_user(
             status_code=400,
         )
 
-    # `perfil` e `modulos_acesso` continuam gravados porque a sessão e telas
-    # antigas ainda os leem; quem manda no acesso agora é o papel.
-    perfil = "admin" if papel in ("admin", "super77") else "operador"
-    modulos_json = json.dumps(MODULOS if perfil == "admin" else cadastros)
+    modulos_json = json.dumps(modulos) if perfil != "admin" else json.dumps(MODULOS)
     convidar = acesso_email.smtp_configurado() and not senha
 
     # Sem senha definida, a conta nasce INATIVA: conta ativa com senha
@@ -126,10 +97,6 @@ def create_user(
              "error": "Email ja cadastrado"},
             status_code=400,
         )
-
-    criado = db.query(Usuario).filter(Usuario.email == email).first()
-    if criado:
-        _salvar_acesso(criado.id_usuario, papel, grupos, telas, cadastros, empresas)
 
     if not convidar:
         if not acesso_email.smtp_configurado():
@@ -195,7 +162,7 @@ def edit_user_page(id_usuario: int, request: Request, db: Session = Depends(get_
         return RedirectResponse("/usuarios", status_code=303)
     return templates.TemplateResponse("usuarios/form.html",
         {"request": request, "usuario": usuario, "modulos": MODULOS,
-         "smtp_ok": acesso_email.smtp_configurado(), **_catalogo(usuario)})
+         "smtp_ok": acesso_email.smtp_configurado()})
 
 
 @router.post("/{id_usuario}/editar")
@@ -205,11 +172,8 @@ def update_user(
     nome: str = Form(...),
     email: str = Form(...),
     senha: str = Form(""),
-    papel: str = Form("operador"),
-    grupos: List[str] = Form(default=[]),
-    telas: List[str] = Form(default=[]),
-    cadastros: List[str] = Form(default=[]),
-    empresas: List[str] = Form(default=[]),
+    perfil: str = Form("operador"),
+    modulos: List[str] = Form(default=[]),
     db: Session = Depends(get_db),
 ):
     if not require_admin(request):
@@ -223,16 +187,14 @@ def update_user(
     if exists:
         return templates.TemplateResponse(
             "usuarios/form.html",
-            {"request": request, "usuario": usuario, "modulos": MODULOS,
-             "error": "Email ja cadastrado", **_catalogo(usuario)},
+            {"request": request, "usuario": usuario, "modulos": MODULOS, "error": "Email ja cadastrado"},
             status_code=400,
         )
 
     usuario.nome = nome
     usuario.email = email
-    usuario.perfil = "admin" if papel in ("admin", "super77") else "operador"
-    usuario.modulos_acesso = json.dumps(MODULOS if usuario.perfil == "admin" else cadastros)
-    _salvar_acesso(id_usuario, papel, grupos, telas, cadastros, empresas)
+    usuario.perfil = perfil
+    usuario.modulos_acesso = json.dumps(MODULOS) if perfil == "admin" else json.dumps(modulos)
     if senha:
         usuario.senha_hash = hash_password(senha)
 
@@ -242,8 +204,7 @@ def update_user(
         db.rollback()
         return templates.TemplateResponse(
             "usuarios/form.html",
-            {"request": request, "usuario": usuario, "error": "Email ja cadastrado",
-             **_catalogo(usuario)},
+            {"request": request, "usuario": usuario, "error": "Email ja cadastrado"},
             status_code=400,
         )
     return RedirectResponse("/usuarios", status_code=303)

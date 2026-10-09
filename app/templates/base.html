@@ -23,29 +23,29 @@
     {% macro ind_links(mod, path, q='') %}
       {%- if mod == 'dho' %}
         <div class="nav-subsection-title">Headcount</div>
-        {% if pode(request, '/indicadores/headcount') %}<a class="nav-link {% if path == '/indicadores/headcount' %}active{% endif %}" href="/indicadores/headcount{{ q }}">👥 Headcount Ativo</a>{% endif %}
-        {% if pode(request, '/indicadores/turnover') %}<a class="nav-link {% if path == '/indicadores/turnover' %}active{% endif %}" href="/indicadores/turnover{{ q }}">📉 Turnover</a>{% endif %}
-        {% if pode(request, '/indicadores/banco-horas') %}<a class="nav-link {% if path == '/indicadores/banco-horas' %}active{% endif %}" href="/indicadores/banco-horas{{ q }}">🏦 Banco de Horas</a>{% endif %}
-        {% if pode(request, '/indicadores/horas-extras') %}<a class="nav-link {% if path == '/indicadores/horas-extras' %}active{% endif %}" href="/indicadores/horas-extras{{ q }}">⏱️ Horas Extras</a>{% endif %}
-        {% if pode(request, '/indicadores/afastamentos') %}<a class="nav-link {% if path == '/indicadores/afastamentos' %}active{% endif %}" href="/indicadores/afastamentos{{ q }}">🏥 Afastamentos</a>{% endif %}
+        <a class="nav-link {% if path == '/indicadores/headcount' %}active{% endif %}" href="/indicadores/headcount{{ q }}">👥 Headcount Ativo</a>
+        <a class="nav-link {% if path == '/indicadores/turnover' %}active{% endif %}" href="/indicadores/turnover{{ q }}">📉 Turnover</a>
+        <a class="nav-link {% if path == '/indicadores/banco-horas' %}active{% endif %}" href="/indicadores/banco-horas{{ q }}">🏦 Banco de Horas</a>
+        <a class="nav-link {% if path == '/indicadores/horas-extras' %}active{% endif %}" href="/indicadores/horas-extras{{ q }}">⏱️ Horas Extras</a>
+        <a class="nav-link {% if path == '/indicadores/afastamentos' %}active{% endif %}" href="/indicadores/afastamentos{{ q }}">🏥 Afastamentos</a>
         <div class="nav-subsection-title">DHO</div>
-        {% if pode(request, '/indicadores/treinamentos') %}<a class="nav-link {% if path == '/indicadores/treinamentos' %}active{% endif %}" href="/indicadores/treinamentos{{ q }}">🎓 Treinamentos</a>{% endif %}
-        {% if pode(request, '/indicadores/vagas') %}<a class="nav-link {% if path == '/indicadores/vagas' %}active{% endif %}" href="/indicadores/vagas{{ q }}">💼 Vagas</a>{% endif %}
+        <a class="nav-link {% if path == '/indicadores/treinamentos' %}active{% endif %}" href="/indicadores/treinamentos{{ q }}">🎓 Treinamentos</a>
+        <a class="nav-link {% if path == '/indicadores/vagas' %}active{% endif %}" href="/indicadores/vagas{{ q }}">💼 Vagas</a>
       {%- elif mod == 'folha' %}
-        {% if pode(request, '/indicadores/folha-visao-custo') %}<a class="nav-link {% if path == '/indicadores/folha-visao-custo' %}active{% endif %}" href="/indicadores/folha-visao-custo{{ q }}">💰 Visão Custo Empresa</a>{% endif %}
-        {% if pode(request, '/indicadores/folha-variacao') %}<a class="nav-link {% if path == '/indicadores/folha-variacao' %}active{% endif %}" href="/indicadores/folha-variacao{{ q }}">📊 Variação de Custo</a>{% endif %}
-        {% if pode(request, '/indicadores/folha-holerite') %}<a class="nav-link {% if path == '/indicadores/folha-holerite' %}active{% endif %}" href="/indicadores/folha-holerite{{ q }}">🧾 Holerite Colaborador</a>{% endif %}
-        {% if pode(request, '/indicadores/folha-lista') %}<a class="nav-link {% if path == '/indicadores/folha-lista' %}active{% endif %}" href="/indicadores/folha-lista{{ q }}">📋 Holerite · Lista</a>{% endif %}
-        {% if pode(request, '/indicadores/folha-simulacao') %}<a class="nav-link {% if path == '/indicadores/folha-simulacao' %}active{% endif %}" href="/indicadores/folha-simulacao{{ q }}">📈 Simulação de Aumento</a>{% endif %}
-        {% if pode(request, '/indicadores/folha-custo-colaborador') %}<a class="nav-link {% if path == '/indicadores/folha-custo-colaborador' %}active{% endif %}" href="/indicadores/folha-custo-colaborador{{ q }}">👤 Custo por Colaborador</a>{% endif %}
+        <a class="nav-link {% if path == '/indicadores/folha-visao-custo' %}active{% endif %}" href="/indicadores/folha-visao-custo{{ q }}">💰 Visão Custo Empresa</a>
+        <a class="nav-link {% if path == '/indicadores/folha-variacao' %}active{% endif %}" href="/indicadores/folha-variacao{{ q }}">📊 Variação de Custo</a>
+        <a class="nav-link {% if path == '/indicadores/folha-holerite' %}active{% endif %}" href="/indicadores/folha-holerite{{ q }}">🧾 Holerite Colaborador</a>
+        <a class="nav-link {% if path == '/indicadores/folha-lista' %}active{% endif %}" href="/indicadores/folha-lista{{ q }}">📋 Holerite · Lista</a>
+        <a class="nav-link {% if path == '/indicadores/folha-simulacao' %}active{% endif %}" href="/indicadores/folha-simulacao{{ q }}">📈 Simulação de Aumento</a>
+        <a class="nav-link {% if path == '/indicadores/folha-custo-colaborador' %}active{% endif %}" href="/indicadores/folha-custo-colaborador{{ q }}">👤 Custo por Colaborador</a>
       {%- elif mod == 'facilities' %}
-        {% if pode(request, '/indicadores/facilities') %}<a class="nav-link {% if path == '/indicadores/facilities' %}active{% endif %}" href="/indicadores/facilities{{ q }}">🏢 Facilities</a>{% endif %}
+        <a class="nav-link {% if path == '/indicadores/facilities' %}active{% endif %}" href="/indicadores/facilities{{ q }}">🏢 Facilities</a>
       {%- elif mod == 'autonomos' %}
-        {% if pode(request, '/indicadores/autonomo-custo') %}<a class="nav-link {% if path == '/indicadores/autonomo-custo' %}active{% endif %}" href="/indicadores/autonomo-custo{{ q }}">🏎️ Custo 1</a>{% endif %}
-        {% if pode(request, '/indicadores/autonomo-custo2') %}<a class="nav-link {% if path == '/indicadores/autonomo-custo2' %}active{% endif %}" href="/indicadores/autonomo-custo2{{ q }}">💰 Custo 2</a>{% endif %}
-        {% if pode(request, '/indicadores/autonomo-disponibilidade') %}<a class="nav-link {% if path == '/indicadores/autonomo-disponibilidade' %}active{% endif %}" href="/indicadores/autonomo-disponibilidade{{ q }}">📋 Planejamento e Cobertura</a>{% endif %}
-        {% if pode(request, '/indicadores/autonomo-trocas') %}<a class="nav-link {% if path == '/indicadores/autonomo-trocas' %}active{% endif %}" href="/indicadores/autonomo-trocas{{ q }}">↻ Trocas e Continuidade</a>{% endif %}
-        {% if pode(request, '/indicadores/pesquisas') %}<a class="nav-link {% if path == '/indicadores/pesquisas' %}active{% endif %}" href="/indicadores/pesquisas{{ q }}">📝 Pesquisas</a>{% endif %}
+        <a class="nav-link {% if path == '/indicadores/autonomo-custo' %}active{% endif %}" href="/indicadores/autonomo-custo{{ q }}">🏎️ Custo 1</a>
+        <a class="nav-link {% if path == '/indicadores/autonomo-custo2' %}active{% endif %}" href="/indicadores/autonomo-custo2{{ q }}">💰 Custo 2</a>
+        <a class="nav-link {% if path == '/indicadores/autonomo-disponibilidade' %}active{% endif %}" href="/indicadores/autonomo-disponibilidade{{ q }}">📋 Planejamento e Cobertura</a>
+        <a class="nav-link {% if path == '/indicadores/autonomo-trocas' %}active{% endif %}" href="/indicadores/autonomo-trocas{{ q }}">↻ Trocas e Continuidade</a>
+        <a class="nav-link {% if path == '/indicadores/pesquisas' %}active{% endif %}" href="/indicadores/pesquisas{{ q }}">📝 Pesquisas</a>
       {%- endif %}
     {% endmacro %}
 
@@ -107,16 +107,16 @@
       <div class="nav-section">
         <div class="nav-section-title">Indicadores</div>
         {% set _q = '?ctx=indicadores' %}
-        {% if ver_grupo(request, 'dho') %}{{ ind_links('dho', request.url.path, _q) }}{% endif %}
-        {% if ver_grupo(request, 'folha') %}
+        {% if _all or 'dho' in _mods %}{{ ind_links('dho', request.url.path, _q) }}{% endif %}
+        {% if _all or 'folha' in _mods %}
         <div class="nav-subsection-title">Folha de Pagamento</div>
         {{ ind_links('folha', request.url.path, _q) }}
         {% endif %}
-        {% if ver_grupo(request, 'facilities') %}
+        {% if _all or 'facilities' in _mods %}
         <div class="nav-subsection-title">Facilities</div>
         {{ ind_links('facilities', request.url.path, _q) }}
         {% endif %}
-        {% if ver_grupo(request, 'autonomos') %}
+        {% if _all or 'autonomos' in _mods %}
         <div class="nav-subsection-title">Autônomos</div>
         {{ ind_links('autonomos', request.url.path, _q) }}
         {% endif %}
@@ -127,12 +127,8 @@
          acesso e o estado das integrações andam juntos. #}
       <div class="nav-section">
         <div class="nav-section-title">Equipe 77</div>
-        {% if tem_permissao(request, 'users.manage') %}
         <a class="nav-link {% if request.url.path.startswith('/usuarios') %}active{% endif %}" href="/usuarios">👥 Usuários</a>
-        {% endif %}
-        {% if tem_permissao(request, 'super77.access') %}
         <a class="nav-link {% if request.url.path.startswith('/super77') %}active{% endif %}" href="/super77">⭐ Super77</a>
-        {% endif %}
       </div>
 
       {% elif request.url.path.startswith('/folha') or _mi == 'folha' %}
@@ -197,8 +193,7 @@
       </div>
       {% endif %}
 
-      {% if request.url.path != '/' and not request.url.path.startswith('/indicadores')
-            and (tem_permissao(request, 'system.settings.manage') or tem_permissao(request, 'system.logs.view')) %}
+      {% if request.url.path != '/' and not request.url.path.startswith('/indicadores') %}
       <div class="nav-section">
         <div class="nav-section-title">Configurações</div>
 
@@ -215,9 +210,7 @@
           <a class="nav-link {% if request.url.path.startswith('/setup') %}active{% endif %}" href="/setup">⚙️ Listas de Apoio</a>
         {% endif %}
 
-        {% if tem_permissao(request, 'system.logs.view') %}
         <a class="nav-link {% if request.url.path.startswith('/logs') %}active{% endif %}" href="/logs/">🧾 Logs</a>
-        {% endif %}
       </div>
       {% endif %}
     </nav>

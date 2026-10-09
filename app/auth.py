@@ -33,14 +33,8 @@ def read_session_token(token: str) -> dict[str, str] | None:
 
 
 def is_admin(request) -> bool:
-    """Quem pode mexer na configuração do sistema.
-
-    Era `perfil == "admin"`. Agora é a permissão correspondente, que o papel
-    admin e o super77 carregam — as telas que chamam isto são de configuração,
-    não de cadastro.
-    """
-    from app.rbac import tem_permissao
-    return tem_permissao(request, "system.settings.manage")
+    user = getattr(request.state, "current_user", None)
+    return bool(user and user.get("perfil") == "admin")
 
 
 def dados_atuais_usuario(id_usuario=None, email: str = "") -> dict | None:
@@ -75,16 +69,18 @@ def dados_atuais_usuario(id_usuario=None, email: str = "") -> dict | None:
 
 
 def tem_acesso_modulo(request, modulo: str) -> bool:
-    """Acesso ao módulo de cadastro — hoje uma pergunta ao motor de permissão.
-
-    A assinatura continua a mesma porque os routers chamam isto em dezenas de
-    lugares; mudou quem responde. Antes, perfil admin liberava tudo e lista de
-    módulos vazia também (legado), o que deixava qualquer operador entrar em
-    qualquer módulo.
-    """
+    """Admin tem acesso a tudo. Operador sem modulos_acesso configurado também acessa tudo (legado)."""
     user = getattr(request.state, "current_user", None)
     if not user:
         return False
-    from app.rbac import pode_ver_cadastro
-    return pode_ver_cadastro(request, modulo)
+    if user.get("perfil") == "admin":
+        return True
+    raw = user.get("modulos_acesso")
+    if not raw or raw == "[]":
+        return True
+    try:
+        modulos = json.loads(raw)
+    except Exception:
+        return True
+    return modulo in modulos
 

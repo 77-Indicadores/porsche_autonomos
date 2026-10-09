@@ -127,13 +127,10 @@ class AuthMiddleware(BaseHTTPMiddleware):
         if session_user is None:
             return RedirectResponse("/auth/login", status_code=303)
 
-        # Acesso por permissão (app/rbac.py). A regra de cada rota está no
-        # catálogo, não espalhada pelos routers, e o servidor confere mesmo
-        # quando o menu já escondeu o link.
-        from app.rbac import exigencia_da_rota, pode_acessar_rota
-        if exigencia_da_rota(path) and not pode_acessar_rota(request, path):
-            return RedirectResponse(
-                f"/sem-acesso?modulo={request.state.modulo_atual or ''}", status_code=303)
+        # Verificação de acesso por módulo para rotas de indicadores
+        modulo = request.state.modulo_atual
+        if modulo and not tem_acesso_modulo(request, modulo):
+            return RedirectResponse(f"/sem-acesso?modulo={modulo}", status_code=303)
 
         return await call_next(request)
 
