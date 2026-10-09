@@ -21,7 +21,17 @@
   .modulo-check-item input[type=checkbox] { width: 18px; height: 18px; accent-color: #2e90fa; cursor: pointer; }
   .modulo-check-label { font-weight: 700; font-size: 14px; color: #101828; }
   .modulo-check-desc  { font-size: 12px; color: #667085; }
-  #modulos-wrap { display: block; }
+  .rbac-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .rbac-card { border: 1px solid #e4e7ec; border-radius: 10px; padding: 12px 14px; }
+  .rbac-grupo { display: flex; align-items: center; gap: 8px; font-size: 13px; }
+  .rbac-grupo span { color: #667085; font-size: 12px; }
+  .rbac-telas { display: flex; flex-direction: column; gap: 4px; margin: 8px 0 0 22px; }
+  .rbac-tela { display: flex; align-items: center; gap: 8px; font-size: 13px; color: #344054; }
+  .rbac-chips { display: flex; gap: 8px; flex-wrap: wrap; }
+  .rbac-chip { display: flex; align-items: center; gap: 7px; border: 1px solid #e4e7ec;
+    border-radius: 999px; padding: 7px 14px; font-size: 13px; font-weight: 600; cursor: pointer; }
+  .rbac-chip:has(input:checked) { background: #f0f9ff; border-color: #2e90fa; }
+  .user-form { max-width: 760px; }
 </style>
 
 <form method="post" action="{% if usuario %}/usuarios/{{ usuario.id_usuario }}/editar{% else %}/usuarios/novo{% endif %}" class="user-form">
@@ -58,39 +68,66 @@
   </div>
 
   <div>
-    <label class="label">Perfil</label>
-    <select class="input" name="perfil" id="perfil_select" onchange="toggleModulos()">
-      <option value="operador" {% if not usuario or usuario.perfil == 'operador' %}selected{% endif %}>Operador</option>
-      <option value="admin" {% if usuario and usuario.perfil == 'admin' %}selected{% endif %}>Admin</option>
+    <label class="label">Papel</label>
+    <select class="input" name="papel" id="papel_select" onchange="alternarRecursos()">
+      {% for chave, nome, desc in papeis_catalogo %}
+      <option value="{{ chave }}" {% if chave in concessoes.papeis %}selected{% endif %}>{{ nome }} — {{ desc }}</option>
+      {% endfor %}
     </select>
+    <p class="hint">O papel dá as permissões gerais. O que a pessoa enxerga de
+      tela a tela é liberado abaixo, um recurso de cada vez.</p>
   </div>
 
-  <div id="modulos-wrap">
-    <label class="label">Acesso aos módulos</label>
-    <div class="modulos-check">
-
-      {% set modulos_icones = {"autonomos": "🏎️", "dho": "🧭", "facilities": "🏢"} %}
-      {% set modulos_nomes  = {"autonomos": "Autônomos", "dho": "DHO", "facilities": "Facilities", "folha": "Folha de Pagamento"} %}
-      {% set modulos_descs  = {
-        "autonomos": "Pilotos, carros, etapas, alocações, equipes",
-        "dho": "Vagas, treinamentos, base cadastral",
-        "facilities": "Reformas prediais, planilha Google"
-      } %}
-
-      {% if usuario and usuario.modulos_acesso %}
-        {% set modulos_ativos = usuario.modulos_acesso | fromjson %}
-      {% else %}
-        {% set modulos_ativos = [] %}
-      {% endif %}
-
-      {% for mod in modulos %}
-      <label class="modulo-check-item">
-        <input type="checkbox" name="modulos" value="{{ mod }}"
-          {% if mod in modulos_ativos %}checked{% endif %}>
-        <div>
-          <div class="modulo-check-label">{{ modulos_icones[mod] }} {{ modulos_nomes[mod] }}</div>
-          <div class="modulo-check-desc">{{ modulos_descs[mod] }}</div>
+  <div id="recursos-wrap">
+    <label class="label">Indicadores liberados</label>
+    <p class="hint">Marcar o grupo libera todas as telas dele, inclusive as que
+      forem criadas depois. Marcar só a tela libera apenas ela.</p>
+    <div class="rbac-grid">
+      {% for g in grupos_catalogo %}
+      <div class="rbac-card">
+        <label class="rbac-grupo">
+          <input type="checkbox" name="grupos" value="{{ g.slug }}"
+            {% if g.slug in concessoes.grupos %}checked{% endif %}>
+          <strong>{{ g.nome }}</strong> <span>(grupo inteiro)</span>
+        </label>
+        <div class="rbac-telas">
+          {% for slug, nome, rota in g.telas %}
+          <label class="rbac-tela">
+            <input type="checkbox" name="telas" value="{{ slug }}"
+              {% if slug in concessoes.telas %}checked{% endif %}>
+            {{ nome }}
+          </label>
+          {% endfor %}
         </div>
+      </div>
+      {% endfor %}
+    </div>
+
+    <label class="label" style="margin-top:16px">Cadastros liberados</label>
+    <div class="modulos-check">
+      {% for c in cadastros_catalogo %}
+      <label class="modulo-check-item">
+        <input type="checkbox" name="cadastros" value="{{ c.slug }}"
+          {% if c.slug in concessoes.cadastros %}checked{% endif %}>
+        <div>
+          <div class="modulo-check-label">{{ c.nome }}</div>
+          <div class="modulo-check-desc">{{ c.prefixos | join(", ") }}</div>
+        </div>
+      </label>
+      {% endfor %}
+    </div>
+  </div>
+
+  <div>
+    <label class="label">Empresas que esta pessoa enxerga</label>
+    <p class="hint">Recorte de dados, não de tela: vale dentro dos indicadores.
+      Nenhuma marcada = vê todas.</p>
+    <div class="rbac-chips">
+      {% for valor in dimensoes.empresa %}
+      <label class="rbac-chip">
+        <input type="checkbox" name="empresas" value="{{ valor }}"
+          {% if valor in (concessoes.escopo.get('empresa') or []) %}checked{% endif %}>
+        {{ valor }}
       </label>
       {% endfor %}
     </div>
@@ -103,10 +140,12 @@
 </form>
 
 <script>
-function toggleModulos() {
-  const perfil = document.getElementById("perfil_select").value;
-  const wrap = document.getElementById("modulos-wrap");
-  if (perfil === "admin") {
+function alternarRecursos() {
+  // admin e super77 enxergam tudo pelo papel: liberar recurso a recurso ali
+  // não muda nada, e deixar as caixas ativas sugeriria que muda
+  const papel = document.getElementById("papel_select").value;
+  const wrap = document.getElementById("recursos-wrap");
+  if (papel !== "operador") {
     wrap.style.opacity = ".4";
     wrap.style.pointerEvents = "none";
   } else {
@@ -114,7 +153,7 @@ function toggleModulos() {
     wrap.style.pointerEvents = "";
   }
 }
-toggleModulos();
+alternarRecursos();
 </script>
 
 {% endblock %}

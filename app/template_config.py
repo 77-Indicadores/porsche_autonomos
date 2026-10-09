@@ -41,3 +41,45 @@ templates.env.filters["money_input"] = format_money_input
 templates.env.filters["fromjson"] = lambda s: json.loads(s) if s else []
 templates.env.globals["active_link"] = active_link
 templates.env.filters["empresa_curta"] = empresa_curta
+
+
+# O menu esconde o que a pessoa não pode abrir. O servidor confere de novo no
+# middleware: esconder é cortesia, não é controle de acesso.
+def _pode(request, rota: str) -> bool:
+    from app.rbac import pode_acessar_rota
+    try:
+        return pode_acessar_rota(request, rota.split("?")[0])
+    except Exception:
+        return True
+
+
+def _tem(request, permissao: str) -> bool:
+    from app.rbac import tem_permissao
+    try:
+        return tem_permissao(request, permissao)
+    except Exception:
+        return False
+
+
+templates.env.globals["pode"] = _pode
+templates.env.globals["tem_permissao"] = _tem
+
+
+def _ver_grupo(request, slug: str) -> bool:
+    from app.rbac import grupos_visiveis
+    try:
+        return slug in grupos_visiveis(request)
+    except Exception:
+        return True
+
+
+def _ver_cadastro(request, slug: str) -> bool:
+    from app.rbac import pode_ver_cadastro
+    try:
+        return pode_ver_cadastro(request, slug)
+    except Exception:
+        return True
+
+
+templates.env.globals["ver_grupo"] = _ver_grupo
+templates.env.globals["ver_cadastro"] = _ver_cadastro
