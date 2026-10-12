@@ -16,5 +16,5 @@ itsdangerous
 pytest
 alembic
 psycopg2-binary
-psycopg
+psycopg[binary]
 pdfplumber
