@@ -44,6 +44,17 @@ function novoCadastro() {
       </select>
     </div>
 
+    <div>
+      <label class="label">Conta como troca?</label>
+      <select class="input" name="conta_como_troca" id="conta_como_troca">
+        <option value="Sim">Sim — entra no indicador</option>
+        <option value="Nao">Não — exceção, fica de fora da conta</option>
+      </select>
+      <p class="hint-troca">Use "Não" quando o registro não for troca de equipe —
+        trocar o chassi do carro, por exemplo. A troca continua registrada e
+        aparece na lista; ela só não entra na contagem do indicador.</p>
+    </div>
+
     <div class="span-3">
       <label class="label">Descrição</label>
       <textarea class="input" name="descricao" id="descricao"></textarea>
@@ -67,6 +78,7 @@ function novoCadastro() {
         <tr>
           <th>Motivo</th>
           <th>Status</th>
+          <th>Conta como troca</th>
           <th>Descrição</th>
           <th>Ações</th>
         </tr>
@@ -77,6 +89,7 @@ function novoCadastro() {
         <tr>
           <td class="font-bold">{{ i.motivo_troca }}</td>
           <td>{{ i.status }}</td>
+          <td>{% if i.conta_como_troca == 'Nao' %}<span class="tag-excecao">Não — exceção</span>{% else %}Sim{% endif %}</td>
           <td>{{ i.descricao or '-' }}</td>
           <td>
             <button
@@ -85,6 +98,7 @@ function novoCadastro() {
               data-id="{{ i.id_motivo_troca }}"
               data-motivo="{{ i.motivo_troca }}"
               data-status="{{ i.status }}"
+              data-conta="{{ i.conta_como_troca or 'Sim' }}"
               data-descricao="{{ i.descricao or '' }}"
               onclick="editarMotivo(this)"
             >
@@ -94,7 +108,7 @@ function novoCadastro() {
         </tr>
         {% else %}
         <tr>
-          <td colspan="4" class="empty">Nenhum motivo cadastrado.</td>
+          <td colspan="5" class="empty">Nenhum motivo cadastrado.</td>
         </tr>
         {% endfor %}
       </tbody>
@@ -106,6 +120,7 @@ function novoCadastro() {
 function editarMotivo(btn) {
   document.getElementById("motivo_troca").value = btn.dataset.motivo || "";
   document.getElementById("status").value = btn.dataset.status || "Ativo";
+  document.getElementById("conta_como_troca").value = btn.dataset.conta || "Sim";
   document.getElementById("descricao").value = btn.dataset.descricao || "";
   document.getElementById("current_id_motivo_troca").value = btn.dataset.id || "";
   document.getElementById("form-title").innerText = "Editar motivo de troca";
@@ -116,6 +131,7 @@ function editarMotivo(btn) {
 function limparMotivo() {
   document.getElementById("motivo_troca").value = "";
   document.getElementById("status").value = "Ativo";
+  document.getElementById("conta_como_troca").value = "Sim";
   document.getElementById("descricao").value = "";
   document.getElementById("current_id_motivo_troca").value = "";
   document.getElementById("form-title").innerText = "Novo motivo de troca";
@@ -124,3 +140,9 @@ function limparMotivo() {
 </script>
 
 {% endblock %}
+
+<style>
+  .hint-troca{font-size:12px;color:#69717D;margin:6px 0 0;line-height:1.5}
+  .tag-excecao{background:#FFF8E8;color:#72520F;border-radius:6px;padding:3px 8px;
+    font-size:12px;font-weight:700}
+</style>

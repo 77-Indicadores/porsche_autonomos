@@ -516,6 +516,29 @@ def salvar_tipo(
     return redirect_with_message("/tipos-prova", success=msg)
 
 
+def _garantir_coluna_conta_troca():
+    """Coluna nova em base que já existe. Sem isto, a tela de motivos quebra."""
+    from sqlalchemy import text as _t
+    from app.database import engine as _e
+    try:
+        with _e.begin() as cx:
+            if cx.dialect.name == "postgresql":
+                cx.execute(_t("ALTER TABLE IF EXISTS dim_motivos_troca "
+                              "ADD COLUMN IF NOT EXISTS conta_como_troca VARCHAR(3) DEFAULT 'Sim'"))
+                cx.execute(_t("UPDATE dim_motivos_troca SET conta_como_troca = 'Sim' "
+                              "WHERE conta_como_troca IS NULL"))
+            else:
+                cols = [r[1] for r in cx.execute(_t("PRAGMA table_info(dim_motivos_troca)"))]
+                if cols and "conta_como_troca" not in cols:
+                    cx.execute(_t("ALTER TABLE dim_motivos_troca "
+                                  "ADD COLUMN conta_como_troca VARCHAR(3) DEFAULT 'Sim'"))
+    except Exception as exc:
+        print(f"AVISO - dim_motivos_troca.conta_como_troca: {exc}")
+
+
+_garantir_coluna_conta_troca()
+
+
 @router.get("/motivos-troca")
 def motivos_troca(request: Request, db: Session = Depends(get_db)):
     return templates.TemplateResponse("cadastros/motivos.html", {"request": request, "items": db.query(DimMotivoTroca).order_by(DimMotivoTroca.motivo_troca).all(), **flash_from_request(request)})
@@ -529,6 +552,7 @@ def salvar_motivo(
     motivo_troca: str = Form(...),
     descricao: str = Form(""),
     status: str = Form("Ativo"),
+    conta_como_troca: str = Form("Sim"),
     db: Session = Depends(get_db),
 ):
     current_id_motivo_troca = current_id_motivo_troca.strip()
@@ -544,6 +568,7 @@ def salvar_motivo(
     motivo.motivo_troca = motivo_troca
     motivo.descricao = descricao
     motivo.status = status
+    motivo.conta_como_troca = "Sim" if conta_como_troca == "Sim" else "Nao"
 
     db.add(motivo)
     db.commit()

@@ -103,6 +103,11 @@ class DimMotivoTroca(Base):
     motivo_troca: Mapped[str] = mapped_column(String(120), nullable=False)
     descricao: Mapped[str | None] = mapped_column(Text)
     status: Mapped[str] = mapped_column(String(30), default="Ativo", nullable=False)
+    # Nem toda troca registrada é troca de equipe. Trocar o chassi do carro usa
+    # a mesma tela, e entrava na contagem de trocas como se alguém tivesse sido
+    # substituído. O motivo marcado assim continua sendo registrado e aparece
+    # na lista — só não entra na conta do indicador.
+    conta_como_troca: Mapped[str] = mapped_column(String(3), default="Sim", nullable=False)
 
 
 class DimStatusPagamento(Base):

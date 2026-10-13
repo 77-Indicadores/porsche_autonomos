@@ -1891,6 +1891,9 @@ def _fetch_trocas(db: Session) -> str:
             "motivo": str(r[10] or ""),
             "data": str(r[11] or "")[:19],
             "status": "Justificada" if r[12] else "Pendente",
+            # motivo marcado como exceção no cadastro (troca de chassi, por
+            # exemplo): o registro continua na lista e fica fora da conta
+            "conta": "Nao" if (len(r) > 13 and str(r[13] or "Sim") == "Nao") else "Sim",
         }
 
     # Trocas entre etapas — registradas na tela "Troca de Equipes"
@@ -1909,7 +1912,8 @@ def _fetch_trocas(db: Session) -> str:
                 COALESCE(f.funcao_autonomo, ''),
                 m.motivo_troca,
                 t.registrado_em,
-                t.id_motivo_troca
+                t.id_motivo_troca,
+                COALESCE(m.conta_como_troca, 'Sim')
             FROM troca_entre_etapas t
             LEFT JOIN dim_etapas ea ON ea.id_etapa = t.id_etapa_anterior
             LEFT JOIN dim_etapas ep ON ep.id_etapa = t.id_etapa_proxima
@@ -1942,7 +1946,8 @@ def _fetch_trocas(db: Session) -> str:
                 COALESCE(f.funcao_autonomo, ''),
                 m.motivo_troca,
                 COALESCE(f.data_troca, f.atualizado_em),
-                f.id_motivo_troca
+                f.id_motivo_troca,
+                COALESCE(m.conta_como_troca, 'Sim')
             FROM fato_piloto_autonomo_prova f
             LEFT JOIN dim_etapas e ON e.id_etapa = f.id_etapa
             LEFT JOIN dim_carros c ON c.id_carro = f.id_carro
@@ -1982,6 +1987,9 @@ def _build_trocas(trocas_js: str) -> str:
   --border:#e3e7ee;--shadow:0 8px 24px rgba(24,32,44,.07);--radius:16px;
   font-family:Inter,ui-sans-serif,system-ui,sans-serif;color:#18202c}
 .tr5 *{box-sizing:border-box}
+.tr5-excecoes{margin:0 0 12px;padding:9px 12px;border-left:3px solid #C69D4C;
+  background:rgba(198,157,76,.10);border-radius:6px;font-size:12px;line-height:1.5;color:#6b5420}
+.tr5-excecoes[hidden]{display:none}
 .tr5-filters{display:grid;grid-template-columns:repeat(4,minmax(140px,1fr)) 110px;
   gap:10px;margin-bottom:14px}
 .tr5-filter{background:#fff;border:1px solid var(--border);border-radius:12px;
@@ -2099,6 +2107,7 @@ def _build_trocas(trocas_js: str) -> str:
   <div class="tr5-filter"><label>Motivo da troca</label><select id="tr5Motivo"></select></div>
   <button class="tr5-reset" onclick="tr5Reset()">Limpar</button>
 </div>
+<p class="tr5-excecoes" id="tr5Exc" hidden></p>
 <section class="tr5-kpis">
   <article class="tr5-kpi" style="--tint:#fff1f2;--iconbg:#fff0f1;--iconcolor:#c5161c">
     <div class="tr5-kpi-top"><span class="tr5-kpi-title">Total de substituições</span>
@@ -2240,6 +2249,9 @@ function tr5Filter(){
   const ct=tr5El("tr5Cat")?.value||"";
   const mo=tr5El("tr5Motivo")?.value||"";
   return T.filter(r=>{
+    // motivo marcado como exceção no cadastro (troca de chassi, por exemplo):
+    // fica fora de tudo que esta tela conta
+    if(r.conta==="Nao")return false;
     if(yr&&r.temporada!==yr)return false;
     if(tr){const key=(r.etapa_ant||"")+" → "+(r.etapa_prox||"");if(key!==tr)return false}
     if(ct&&(r.categoria||"")!==ct)return false;
@@ -2455,8 +2467,18 @@ function tr5Table(t){
   }).join("");
 }
 
+function tr5Excecoes(){
+  const fora=(tr5D.trocas||[]).filter(r=>r.conta==="Nao").length;
+  const el=tr5El("tr5Exc"); if(!el)return;
+  el.hidden=!fora;
+  if(fora)el.textContent=fora+(fora>1?" registros ficam fora desta conta":
+    " registro fica fora desta conta")+" por serem exceção no cadastro de motivos "+
+    "(troca de chassi, por exemplo). Eles continuam registrados em Troca de Equipes.";
+}
+
 function tr5Render(){
   const t=tr5Filter();
+  tr5Excecoes();
   tr5KPIs(t);tr5BarChart(t);tr5Funnel(t);tr5Reasons(t);tr5CarroRank(t);tr5CatChart(t);tr5Table(t);
 }
 tr5Setup();tr5Render();
