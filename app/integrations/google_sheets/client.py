@@ -3,6 +3,7 @@ import os
 from urllib.request import Request as UrlRequest
 from urllib.request import urlopen
 
+from google.auth.exceptions import RefreshError
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
 
@@ -44,7 +45,19 @@ class GoogleSheetsClient:
 
         if not credentials.valid:
             if credentials.expired and credentials.refresh_token:
-                credentials.refresh(Request())
+                # O Google invalida o refresh token (app em modo "Testing",
+                # acesso revogado, senha trocada, seis meses sem uso) e devolve
+                # invalid_grant. Sem tratar, isso subia cru para a tela como
+                # "{'error': 'invalid_grant', 'error_description': 'Bad
+                # Request'}" e quem clicava em Atualizar espelho nao tinha como
+                # saber que o caminho era reconectar a conta Google.
+                try:
+                    credentials.refresh(Request())
+                except RefreshError as exc:
+                    raise GoogleSheetsAuthRequiredError(
+                        "A autorizacao do Google expirou ou foi revogada. "
+                        "Conecte a conta de novo."
+                    ) from exc
                 os.makedirs(os.path.dirname(self.token_path), exist_ok=True)
                 with open(self.token_path, "w", encoding="utf-8") as token_file:
                     token_file.write(credentials.to_json())

@@ -526,6 +526,11 @@ def tentar_atualizar_espelho(db: Session):
         except Exception:
             db.rollback()
         return result, ""
+    except GoogleSheetsAuthRequiredError:
+        # O token morreu. Diz o que fazer, em vez de so' relatar a falha.
+        _descartar_token_google(db)
+        return None, ("A autorizacao do Google expirou ou foi revogada. "
+                      "Clique em 'Atualizar espelho' para conectar a conta de novo.")
     except GoogleSheetsPermissionError as exc:
         return None, str(exc)
     except Exception as exc:
@@ -543,6 +548,27 @@ def _restaurar_credenciais_google(db: Session):
     ensure_google_oauth_client_config(db)
     _restaurar_arquivo_do_banco(db, GOOGLE_OAUTH_CLIENT_DB_KEY, DEFAULT_OAUTH_CLIENT_PATH)
     _restaurar_arquivo_do_banco(db, GOOGLE_TOKEN_DB_KEY, DEFAULT_TOKEN_PATH)
+
+
+def _descartar_token_google(db: Session):
+    """Apaga o token que o Google ja nao aceita, do disco e do banco.
+
+    Sem isto, o token morto continua guardado: as telas seguem dizendo que a
+    conta esta conectada, e toda sincronizacao refaz o mesmo caminho ate
+    falhar. Apagar deixa o estado honesto -- "precisa conectar" -- e e por isso
+    que a proxima tentativa ja vai direto para o Google.
+    """
+    try:
+        if os.path.exists(DEFAULT_TOKEN_PATH):
+            os.remove(DEFAULT_TOKEN_PATH)
+    except OSError as exc:
+        print(f"AVISO - nao consegui apagar o token do disco: {exc}")
+    try:
+        _delete_config(db, GOOGLE_TOKEN_DB_KEY)
+        db.commit()
+    except Exception as exc:
+        db.rollback()
+        print(f"AVISO - nao consegui apagar o token do banco: {exc}")
 
 
 def _persistir_credenciais_google(db: Session):
@@ -1105,6 +1131,7 @@ def sincronizar(
         )
         _persistir_credenciais_google(db)
     except GoogleSheetsAuthRequiredError:
+        _descartar_token_google(db)
         return RedirectResponse("/facilities/oauth/iniciar", status_code=303)
     except GoogleSheetsPermissionError as exc:
         return redirect_with_message("/facilities", error=str(exc))
