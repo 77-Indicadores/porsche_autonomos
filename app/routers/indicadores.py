@@ -2419,7 +2419,8 @@ def _build_vagas_html(depto_sel=None, mes_sel=None, ano_sel=None,
     try:
         vagas = _db_rows(
             """SELECT v.id_vaga, v.qtd_vagas, v.status, v.tipo_vaga, v.tipo_recrutamento,
-                      v.data_abertura, v.data_conclusao,
+                      v.data_abertura, v.data_conclusao, v.data_prevista,
+                      v.responsavel, v.motivo_atraso,
                       COALESCE(NULLIF(TRIM(v.tipo_vinculo), ''), 'Não informado') AS tipo_vinculo,
                       COALESCE(NULLIF(TRIM(d.nome_departamento), ''), '') AS nome_departamento
                FROM dho_vagas v
@@ -2537,16 +2538,73 @@ def _build_vagas_html(depto_sel=None, mes_sel=None, ano_sel=None,
         if is_aberta(v) and parse_date_vg(v.get("data_abertura")) and (hoje_d - parse_date_vg(v.get("data_abertura"))).days > 30
     )
 
+    # Vaga crítica: aberta há mais de 30 dias OU com prazo previsto já vencido.
+    # Qualquer um dos dois já é motivo de atenção, por isso "ou" e não "e".
+    def _vaga_critica(v) -> bool:
+        if not is_aberta(v):
+            return False
+        da = parse_date_vg(v.get("data_abertura"))
+        if da and (hoje_d - da).days > 30:
+            return True
+        dp = parse_date_vg(v.get("data_prevista"))
+        return bool(dp and dp < hoje_d)
+
+    vagas_criticas = [v for v in vagas if _vaga_critica(v)]
+    total_criticas = sum(v.get("qtd_vagas") or 1 for v in vagas_criticas)
+
+    def _linha_vaga(v: dict) -> list:
+        da = parse_date_vg(v.get("data_abertura"))
+        dias = (hoje_d - da).days if da else None
+        return [
+            v.get("id_vaga"),
+            v.get("nome_departamento") or "Não informado",
+            v.get("responsavel") or "-",
+            v.get("status") or "-",
+            dias if dias is not None else "-",
+            _br_data(da) if da else "-",
+            _br_data(parse_date_vg(v.get("data_prevista"))) or "-",
+            v.get("motivo_atraso") or "Não informado",
+        ]
+
+    _COLUNAS_VAGA = ["ID", "Departamento", "Responsável", "Status",
+                      "Dias em aberto", "Abertura", "Previsão", "Motivo do atraso"]
+
+    # Todo contador/gráfico do painel abre a lista das vagas que o compõem —
+    # inclusive quando o número é "3": sem isso ninguém sabia quais eram as 3.
+    grupos_detalhe: dict[str, dict] = {
+        "total": {"titulo": "Total de vagas", "colunas": _COLUNAS_VAGA,
+                   "linhas": [_linha_vaga(v) for v in vagas]},
+        "abertas": {"titulo": "Vagas abertas", "colunas": _COLUNAS_VAGA,
+                     "linhas": [_linha_vaga(v) for v in vagas if is_aberta(v)]},
+        "concluidas": {"titulo": "Vagas concluídas", "colunas": _COLUNAS_VAGA,
+                         "linhas": [_linha_vaga(v) for v in vagas if is_concluida(v)]},
+        "mais30": {"titulo": "Abertas há mais de 30 dias", "colunas": _COLUNAS_VAGA,
+                     "linhas": [_linha_vaga(v) for v in vagas
+                                if is_aberta(v) and parse_date_vg(v.get("data_abertura"))
+                                and (hoje_d - parse_date_vg(v.get("data_abertura"))).days > 30]},
+        "criticas": {"titulo": "Vagas críticas (mais de 30 dias ou prazo vencido)",
+                       "colunas": _COLUNAS_VAGA,
+                       "linhas": [_linha_vaga(v) for v in vagas_criticas]},
+    }
+
     depto_data: dict[str, dict] = defaultdict(lambda: {"a": 0, "c": 0})
+    depto_vagas: dict[str, list] = defaultdict(list)
     for v in vagas:
         dep = v.get("nome_departamento") or "Não informado"
         if is_aberta(v):    depto_data[dep]["a"] += v.get("qtd_vagas") or 1
         if is_concluida(v): depto_data[dep]["c"] += v.get("qtd_vagas") or 1
+        depto_vagas[dep].append(v)
     deptos_sorted = sorted(depto_data.items(), key=lambda x: -(x[1]["a"]+x[1]["c"]))
     max_dep = max((d["a"]+d["c"] for _,d in deptos_sorted), default=1) or 1
 
+    for dep in depto_vagas:
+        chave = f"depto_{_he_chave_faixa(dep)}"
+        grupos_detalhe[chave] = {"titulo": f"Vagas · {dep}", "colunas": _COLUNAS_VAGA,
+                                   "linhas": [_linha_vaga(v) for v in depto_vagas[dep]]}
+
     area_bars = "".join(
-        f"<div class='bar-item'><div class='bar-meta'><span class='bar-name'>{dep}</span>"
+        f"<div class='bar-item hc-abre' role='button' tabindex='0' title='Ver as vagas'"
+        f" data-grupo='depto_{_he_chave_faixa(dep)}'><div class='bar-meta'><span class='bar-name'>{dep}</span>"
         f"<span class='bar-val'><b>A {d['a']}</b> · C {d['c']}</span></div><div class='track'>"
         f"<span class='seg open' style='width:{d['a']/max_dep*100:.0f}%'></span>"
         f"<span class='seg done' style='width:{d['c']/max_dep*100:.0f}%'></span></div></div>"
@@ -2556,6 +2614,7 @@ def _build_vagas_html(depto_sel=None, mes_sel=None, ano_sel=None,
     faixas = [("0 a 7 dias",0,7),("8 a 15 dias",8,15),("16 a 30 dias",16,30),
               ("31 a 60 dias",31,60),("61 a 90 dias",61,90),("Acima de 90 dias",91,999999)]
     faixa_data: dict[str, dict] = defaultdict(lambda: {"a": 0, "c": 0})
+    faixa_vagas: dict[str, list] = defaultdict(list)
     for v in vagas:
         da = parse_date_vg(v.get("data_abertura"))
         if not da: continue
@@ -2565,11 +2624,18 @@ def _build_vagas_html(depto_sel=None, mes_sel=None, ano_sel=None,
             if mn <= dias <= mx:
                 if is_aberta(v):    faixa_data[nome]["a"] += v.get("qtd_vagas") or 1
                 if is_concluida(v): faixa_data[nome]["c"] += v.get("qtd_vagas") or 1
+                faixa_vagas[nome].append(v)
                 break
     max_fx = max((d["a"]+d["c"] for d in faixa_data.values()), default=1) or 1
 
+    for nome in faixa_vagas:
+        chave = f"faixa_{_he_chave_faixa(nome)}"
+        grupos_detalhe[chave] = {"titulo": f"Vagas · {nome}", "colunas": _COLUNAS_VAGA,
+                                   "linhas": [_linha_vaga(v) for v in faixa_vagas[nome]]}
+
     faixa_bars = "".join(
-        f"<div class='bar-item' style='margin-bottom:4px'><div class='bar-meta'>"
+        f"<div class='bar-item hc-abre' role='button' tabindex='0' title='Ver as vagas'"
+        f" data-grupo='faixa_{_he_chave_faixa(nome)}' style='margin-bottom:4px'><div class='bar-meta'>"
         f"<span class='bar-name' style='text-transform:none'>{nome}</span>"
         f"<span class='bar-val'><b>A {faixa_data[nome]['a']}</b> · C {faixa_data[nome]['c']}</span></div>"
         f"<div class='track'><span class='seg open' style='width:{faixa_data[nome]['a']/max_fx*100:.0f}%'></span>"
@@ -2579,14 +2645,21 @@ def _build_vagas_html(depto_sel=None, mes_sel=None, ano_sel=None,
 
     def _profile_bars(field: str):
         cnt: dict[str, dict] = defaultdict(lambda: {"a":0,"c":0})
+        valores: dict[str, list] = defaultdict(list)
         for v in vagas:
             val = (v.get(field) or "Sem tipo").strip()
             if is_aberta(v):    cnt[val]["a"] += v.get("qtd_vagas") or 1
             if is_concluida(v): cnt[val]["c"] += v.get("qtd_vagas") or 1
+            valores[val].append(v)
         sorted_v = sorted(cnt.items(), key=lambda x: -(x[1]["a"]+x[1]["c"]))
         mv = max((d["a"]+d["c"] for _,d in sorted_v), default=1) or 1
+        for val in valores:
+            chave = f"perfil_{field}_{_he_chave_faixa(val)}"
+            grupos_detalhe[chave] = {"titulo": f"Vagas · {val}", "colunas": _COLUNAS_VAGA,
+                                       "linhas": [_linha_vaga(v) for v in valores[val]]}
         return "".join(
-            f"<div class='bar-item' style='margin-bottom:8px'><div class='bar-meta'>"
+            f"<div class='bar-item hc-abre' role='button' tabindex='0' title='Ver as vagas'"
+            f" data-grupo='perfil_{field}_{_he_chave_faixa(nome)}' style='margin-bottom:8px'><div class='bar-meta'>"
             f"<span class='bar-name'>{nome}</span>"
             f"<span class='bar-val'><b>A {d['a']}</b> · C {d['c']}</span></div><div class='track'>"
             f"<span class='seg open' style='width:{d['a']/mv*100:.0f}%'></span>"
@@ -2594,15 +2667,23 @@ def _build_vagas_html(depto_sel=None, mes_sel=None, ano_sel=None,
             for nome, d in sorted_v if d["a"]+d["c"]
         )
 
+    perfil_vinculo_html = _profile_bars("tipo_vinculo")
+    perfil_tipo_html = _profile_bars("tipo_vaga")
+    perfil_recrutamento_html = _profile_bars("tipo_recrutamento")
+
+    # os perfis acima já preencheram grupos_detalhe; o painel vem montado por
+    # último para carregar a lista final, com todos os grupos inclusos
+    detalhe_json = _detalhe_generico_json(grupos_detalhe)
+
     return f"""{filtro_html}<div class="vg-wrap">{_CSS_VAGAS}
 <div class="vg-metrics">
-  <div class="vg-metric" style="--accent:#0B0B0C"><div class="vg-metric-label">Total de vagas</div>
+  <div class="vg-metric hc-abre" role="button" tabindex="0" title="Ver as vagas" data-grupo="total" style="--accent:#0B0B0C"><div class="vg-metric-label">Total de vagas</div>
     <div style="display:flex;align-items:baseline;gap:6px"><span class="vg-metric-value">{total_vagas}</span><span class="vg-metric-unit">vagas</span></div>
     <div class="vg-metric-footer">Registros no período</div></div>
-  <div class="vg-metric" style="--accent:#D50032"><div class="vg-metric-label">Vagas abertas</div>
+  <div class="vg-metric hc-abre" role="button" tabindex="0" title="Ver as vagas" data-grupo="abertas" style="--accent:#D50032"><div class="vg-metric-label">Vagas abertas</div>
     <div style="display:flex;align-items:baseline;gap:6px"><span class="vg-metric-value vg-danger">{abertas}</span><span class="vg-metric-unit">{pct_abertas:.1f}%</span></div>
     <div class="vg-metric-footer">Em andamento</div></div>
-  <div class="vg-metric" style="--accent:#078647"><div class="vg-metric-label">Vagas concluídas</div>
+  <div class="vg-metric hc-abre" role="button" tabindex="0" title="Ver as vagas" data-grupo="concluidas" style="--accent:#078647"><div class="vg-metric-label">Vagas concluídas</div>
     <div style="display:flex;align-items:baseline;gap:6px"><span class="vg-metric-value vg-success">{concluidas}</span><span class="vg-metric-unit">vagas</span></div>
     <div class="vg-metric-footer">Preenchidas</div></div>
   <div class="vg-metric" style="--accent:#078647"><div class="vg-metric-label">Taxa de conclusão</div>
@@ -2611,9 +2692,12 @@ def _build_vagas_html(depto_sel=None, mes_sel=None, ano_sel=None,
   <div class="vg-metric" style="--accent:#C69D4C"><div class="vg-metric-label">Dias médios para concluir</div>
     <div style="display:flex;align-items:baseline;gap:6px"><span class="vg-metric-value">{dias_medios:.0f}</span><span class="vg-metric-unit">dias</span></div>
     <div class="vg-metric-footer">Da abertura à conclusão</div></div>
-  <div class="vg-metric" style="--accent:#D50032"><div class="vg-metric-label">Abertas há mais de 30 dias</div>
+  <div class="vg-metric hc-abre" role="button" tabindex="0" title="Ver as vagas" data-grupo="mais30" style="--accent:#D50032"><div class="vg-metric-label">Abertas há mais de 30 dias</div>
     <div style="display:flex;align-items:baseline;gap:6px"><span class="vg-metric-value vg-danger">{abertas_mais30}</span><span class="vg-metric-unit">atenção</span></div>
     <div class="vg-metric-footer">Requer acompanhamento</div></div>
+  <div class="vg-metric hc-abre" role="button" tabindex="0" title="Ver as vagas" data-grupo="criticas" style="--accent:#D50032"><div class="vg-metric-label">Vagas críticas</div>
+    <div style="display:flex;align-items:baseline;gap:6px"><span class="vg-metric-value vg-danger">{total_criticas}</span><span class="vg-metric-unit">atenção</span></div>
+    <div class="vg-metric-footer">+30 dias aberta ou prazo vencido · clique para ver quais</div></div>
 </div>
 <div class="vg-card" style="margin-bottom:12px">
   <div class="vg-card-title">Vagas por mês</div>
@@ -2622,7 +2706,7 @@ def _build_vagas_html(depto_sel=None, mes_sel=None, ano_sel=None,
 </div>
 <div class="vg-content">
   <div class="vg-card">
-    <div class="vg-card-title">Vagas por área</div><div class="vg-card-sub">Distribuição completa por departamento</div>
+    <div class="vg-card-title">Vagas por área</div><div class="vg-card-sub">Distribuição completa por departamento · clique numa área para ver as vagas</div>
     <div class="vg-legend">
       <span class="vg-legend-item"><i class="vg-dot red"></i>Aberto</span>
       <span class="vg-legend-item"><i class="vg-dot"></i>Concluído</span>
@@ -2630,17 +2714,18 @@ def _build_vagas_html(depto_sel=None, mes_sel=None, ano_sel=None,
     <div class="vg-area-grid">{area_bars}</div>
   </div>
   <div class="vg-side">
-    <div class="vg-card"><div class="vg-card-title">Faixa de dias</div><div class="vg-card-sub">Tempo de permanência no processo</div>{faixa_bars}</div>
-    <div class="vg-card"><div class="vg-card-title">Perfil das vagas</div><div class="vg-card-sub">Tipo e origem do recrutamento</div>
+    <div class="vg-card"><div class="vg-card-title">Faixa de dias</div><div class="vg-card-sub">Tempo de permanência no processo · clique numa faixa para ver as vagas</div>{faixa_bars}</div>
+    <div class="vg-card"><div class="vg-card-title">Perfil das vagas</div><div class="vg-card-sub">Tipo e origem do recrutamento · clique numa barra para ver as vagas</div>
       <div class="vg-profile-grid">
-        <div><div class="vg-side-label">Vínculo</div>{_profile_bars("tipo_vinculo")}</div>
-        <div><div class="vg-side-label">Tipo de vaga</div>{_profile_bars("tipo_vaga")}</div>
-        <div><div class="vg-side-label">Recrutamento</div>{_profile_bars("tipo_recrutamento")}</div>
+        <div><div class="vg-side-label">Vínculo</div>{perfil_vinculo_html}</div>
+        <div><div class="vg-side-label">Tipo de vaga</div>{perfil_tipo_html}</div>
+        <div><div class="vg-side-label">Recrutamento</div>{perfil_recrutamento_html}</div>
       </div>
     </div>
   </div>
 </div>
-</div>"""
+</div>
+{_painel_detalhe_html(detalhe_json, "vagas", "vagas")}"""
 
 
 # ─── folha de pagamento · indicadores ────────────────────────────────────────

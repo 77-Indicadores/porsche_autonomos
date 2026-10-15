@@ -88,6 +88,7 @@ dho_vagas = Table(
     Column("data_conclusao", String(20)),
     Column("tipo_recrutamento", String(40), default="Externo"),
     Column("observacoes", Text),
+    Column("motivo_atraso", String(80)),
     Column("criado_em", DateTime, default=datetime.utcnow),
     Column("atualizado_em", DateTime, default=datetime.utcnow),
 )
@@ -520,6 +521,17 @@ TIPOS_VAGA = ["Nova vaga", "Substituição"]
 # "CLT" para todas rotularia errado justamente o que se quer separar.
 TIPOS_VINCULO_VAGA = ["CLT", "Autônomo", "PJ", "Estágio", "Temporário"]
 MOTIVOS_SUBSTITUICAO = ["", "Voluntário", "Involuntário"]
+# Motivo do atraso, opcional, preenchido quando a vaga passa a ser considerada
+# crítica (aberta há mais de 30 dias ou com data prevista vencida).
+MOTIVOS_ATRASO_VAGA = [
+    "",
+    "Falta de candidatos aderentes",
+    "Demora no feedback do gestor",
+    "Aprovação interna pendente",
+    "Processo seletivo em andamento",
+    "Vaga congelada/pausada",
+    "Outro",
+]
 SEXOS = ["Indiferente", "Masculino", "Feminino"]
 STATUS_VAGA = ["Aberta", "Em andamento", "Congelada", "Concluída", "Cancelada"]
 TIPOS_RECRUTAMENTO = ["Interno", "Externo"]
@@ -577,7 +589,8 @@ def garantir_schema():
                     ADD COLUMN IF NOT EXISTS data_prevista VARCHAR(20),
                     ADD COLUMN IF NOT EXISTS data_conclusao VARCHAR(20),
                     ADD COLUMN IF NOT EXISTS tipo_recrutamento VARCHAR(40) DEFAULT 'Externo',
-                    ADD COLUMN IF NOT EXISTS observacoes TEXT
+                    ADD COLUMN IF NOT EXISTS observacoes TEXT,
+                    ADD COLUMN IF NOT EXISTS motivo_atraso VARCHAR(80)
                 """))
 
                 conn.execute(text("""
@@ -611,6 +624,7 @@ def garantir_schema():
                     "data_conclusao": "NVARCHAR(20)",
                     "tipo_recrutamento": "NVARCHAR(40)",
                     "observacoes": "NVARCHAR(MAX)",
+                    "motivo_atraso": "NVARCHAR(80)",
                 }.items():
                     if not _col_exists2("dho_vagas", col):
                         conn.execute(text(f"ALTER TABLE dho_vagas ADD {col} {sql_type}"))
@@ -656,6 +670,7 @@ def garantir_schema():
                         "data_conclusao": "TEXT",
                         "tipo_recrutamento": "TEXT DEFAULT 'Externo'",
                         "observacoes": "TEXT",
+                        "motivo_atraso": "TEXT",
                     }
                     for col, sql_type in add_cols.items():
                         if col not in c:
@@ -1069,6 +1084,7 @@ def vagas(request: Request, q: str = "",
             "cargos": get_cargos(db),
             "tipos_vaga": TIPOS_VAGA,
             "motivos_substituicao": MOTIVOS_SUBSTITUICAO,
+            "motivos_atraso": MOTIVOS_ATRASO_VAGA,
             "sexos": SEXOS,
             "status_vaga": STATUS_VAGA,
             "tipos_recrutamento": TIPOS_RECRUTAMENTO,
@@ -1132,6 +1148,7 @@ def salvar_vaga(
     data_conclusao: str = Form(""),
     tipo_recrutamento: str = Form("Externo"),
     observacoes: str = Form(""),
+    motivo_atraso: str = Form(""),
     db: Session = Depends(get_db),
 ):
     dados = {
@@ -1151,6 +1168,8 @@ def salvar_vaga(
         "data_conclusao": data_iso(data_conclusao) or data_conclusao,
         "tipo_recrutamento": tipo_recrutamento if tipo_recrutamento in TIPOS_RECRUTAMENTO else "Externo",
         "observacoes": observacoes,
+        # opcional: só mantém valor se estiver na lista de motivos conhecidos
+        "motivo_atraso": motivo_atraso if motivo_atraso in MOTIVOS_ATRASO_VAGA else "",
         "atualizado_em": datetime.utcnow(),
     }
 
