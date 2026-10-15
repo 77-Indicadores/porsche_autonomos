@@ -2624,6 +2624,23 @@ def _build_vagas_html(depto_sel=None, mes_sel=None, ano_sel=None,
                        "linhas": [_linha_vaga(v) for v in vagas_criticas]},
     }
 
+    # Detalhe do "dias médios para concluir": lista cada vaga concluída com o
+    # próprio tempo (abertura → conclusão), da mais lenta para a mais rápida —
+    # é o que explica a média e mostra quem está puxando ela para cima.
+    vagas_concluidas_com_data = [
+        v for v in vagas
+        if is_concluida(v) and parse_date_vg(v.get("data_abertura")) and parse_date_vg(v.get("data_conclusao"))
+    ]
+    vagas_concluidas_ordenadas = sorted(
+        vagas_concluidas_com_data,
+        key=lambda v: (parse_date_vg(v.get("data_conclusao")) - parse_date_vg(v.get("data_abertura"))).days,
+        reverse=True,
+    )
+    grupos_detalhe["tempo_conclusao"] = {
+        "titulo": "Tempo de conclusão por vaga", "colunas": _COLUNAS_VAGA,
+        "linhas": [_linha_vaga(v) for v in vagas_concluidas_ordenadas],
+    }
+
     serie_mes_html = _serie_vagas_6_meses_html(
         vagas_para_serie, max(ano_sel) if ano_sel else "",
         grupos_detalhe=grupos_detalhe, linha_vaga=_linha_vaga, colunas_vaga=_COLUNAS_VAGA)
@@ -2730,9 +2747,9 @@ def _build_vagas_html(depto_sel=None, mes_sel=None, ano_sel=None,
   <div class="vg-metric" style="--accent:#078647"><div class="vg-metric-label">Taxa de conclusão</div>
     <div style="display:flex;align-items:baseline;gap:6px"><span class="vg-metric-value vg-success">{pct_concluidas:.1f}%</span></div>
     <div class="vg-metric-footer">Concluídas / Total</div></div>
-  <div class="vg-metric" style="--accent:#C69D4C"><div class="vg-metric-label">Dias médios para concluir</div>
+  <div class="vg-metric hc-abre" role="button" tabindex="0" title="Ver o tempo de cada vaga" data-grupo="tempo_conclusao" style="--accent:#C69D4C"><div class="vg-metric-label">Dias médios para concluir</div>
     <div style="display:flex;align-items:baseline;gap:6px"><span class="vg-metric-value">{dias_medios:.0f}</span><span class="vg-metric-unit">dias</span></div>
-    <div class="vg-metric-footer">Da abertura à conclusão</div></div>
+    <div class="vg-metric-footer">Média de {len(vagas_concluidas_ordenadas)} vaga(s) · clique para ver cada uma</div></div>
   <div class="vg-metric hc-abre" role="button" tabindex="0" title="Ver as vagas" data-grupo="mais30" style="--accent:#D50032"><div class="vg-metric-label">Abertas há mais de 30 dias</div>
     <div style="display:flex;align-items:baseline;gap:6px"><span class="vg-metric-value vg-danger">{abertas_mais30}</span><span class="vg-metric-unit">atenção</span></div>
     <div class="vg-metric-footer">Requer acompanhamento</div></div>
