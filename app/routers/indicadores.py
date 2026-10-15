@@ -787,6 +787,38 @@ def _vagas_abertas(depto_sel: str = "") -> dict:
     return {"novas": novas, "substituicao": subs, "total": novas + subs}
 
 
+def _afastados_atestados(ref: date) -> set[str]:
+    """Nomes com afastamento vigente na data de referência, só da base local.
+
+    O Feedz não tem esse controle — a empresa não usa aquele campo para
+    afastamento. A fonte real é o cadastro/importação de atestados em
+    /folha/atestados (tabela atestados_medicos), então o card do headcount
+    precisa ler daqui, não da "situacao" do Feedz.
+    """
+    from app.database import engine as _eng
+    try:
+        with _eng.connect() as conn:
+            rows = conn.execute(text(
+                "SELECT nome_colaborador, data_inicio_afastamento, data_fim_afastamento "
+                "FROM atestados_medicos"
+            )).mappings().all()
+    except Exception as exc:
+        print(f"AVISO - não consegui ler atestados_medicos para o headcount: {exc}")
+        return set()
+
+    nomes: set[str] = set()
+    for r in rows:
+        ini = _parse_date(r.get("data_inicio_afastamento"))
+        fim = _parse_date(r.get("data_fim_afastamento"))
+        if not ini or ini > ref:
+            continue
+        if fim is None or fim >= ref:
+            nome = str(r.get("nome_colaborador") or "").strip().upper()
+            if nome:
+                nomes.add(nome)
+    return nomes
+
+
 def _build_headcount_html(
     colabs: list[dict],
     ref: date,
@@ -802,9 +834,9 @@ def _build_headcount_html(
     # Cada número do topo guarda a lista de quem ele conta, para o painel de
     # detalhe que abre no clique.
     no_quadro = [c for c in colabs if _is_ativo(c, ref)]
+    nomes_afastados = _afastados_atestados(ref)
     lista_ativos    = [c for c in no_quadro if (c.get("situacao") or "").strip().lower() == "ativo"]
-    lista_afastados = [c for c in no_quadro
-                       if any(k in (c.get("situacao") or "").lower() for k in ("afas", "licen"))]
+    lista_afastados = [c for c in no_quadro if c.get("nome") in nomes_afastados]
     lista_admitidos = [c for c in colabs if c["data_adm"] and ini <= c["data_adm"] <= ref]
     lista_demitidos = [c for c in colabs if c["data_demissa"] and ini <= c["data_demissa"] <= ref]
 
