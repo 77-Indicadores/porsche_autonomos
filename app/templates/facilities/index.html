@@ -443,7 +443,7 @@
 
         <div>
           <label class="label">Área / serviço</label>
-          <select class="input" name="area_servico" id="area_servico">
+          <select class="input" name="area_servico" id="area_servico" onchange="filtrarLocaisPorArea()">
             <option value="">Selecione</option>
             {% for item in opcoes.areas %}
               <option value="{{ item }}">{{ item }}</option>
@@ -526,6 +526,38 @@
 </div>
 
 <script>
+// --- filtro dependente: "Unidade / local" filtra pela "Área / serviço" ---
+function _facNorm(s) {
+  return (s || "").toLowerCase()
+    .normalize("NFD").replace(/[̀-ͯ]/g, "")  // remove acentos
+    .replace(/[^a-z0-9]+/g, " ").trim();
+}
+function _facTokens(s) {
+  const stop = new Set(["de","da","do","das","dos","e","ou","a","o","com","sem","por","no","na"]);
+  return _facNorm(s).split(" ")
+    .map((w) => w.replace(/s$/, ""))               // singular (remove "s" do plural)
+    .filter((w) => w.length >= 3 && !stop.has(w));
+}
+function filtrarLocaisPorArea() {
+  const area = document.getElementById("area_servico");
+  const local = document.getElementById("unidade_local");
+  if (!area || !local) return;
+  const toks = _facTokens(area.value);
+  const selecionado = local.value;
+  const opts = Array.from(local.options);
+  if (!toks.length) { opts.forEach((o) => { o.hidden = false; }); return; }
+  let houveMatch = false;
+  opts.forEach((o) => {
+    if (o.value === "") { o.hidden = false; return; }   // mantém "Selecione"
+    const txt = _facNorm(o.textContent);
+    const match = toks.some((t) => txt.indexOf(t) !== -1);
+    o.hidden = (o.value === selecionado) ? false : !match;  // selecionado sempre visível
+    if (match) houveMatch = true;
+  });
+  // se nenhum local corresponde à área, mostra todos (área sem locais específicos)
+  if (!houveMatch) opts.forEach((o) => { o.hidden = false; });
+}
+
 function setValue(id, value) {
   const el = document.getElementById(id);
   if (el) el.value = value || "";
@@ -573,6 +605,8 @@ function editarComplemento(btn) {
   setValue("custo", complemento.custo);
   setValue("observacao", complemento.observacao);
   setValue("rastreamento", complemento.rastreamento);
+
+  filtrarLocaisPorArea();  // filtra os locais pela área carregada
 
   document.getElementById("btn_salvar_complemento").disabled = false;
   document.getElementById("modal_complemento_resumo").innerText =
