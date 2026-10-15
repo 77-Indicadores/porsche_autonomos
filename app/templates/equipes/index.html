@@ -46,7 +46,7 @@
           <input type="radio" name="estabilidade" value="" {% if not estabilidade %}checked{% endif %} onchange="this.form.submit()"> Todas
         </label>
         <label style="display:flex;align-items:center;gap:5px;font-size:.85rem;cursor:pointer">
-          <input type="radio" name="estabilidade" value="estavel" {% if estabilidade == 'estavel' %}checked{% endif %} onchange="this.form.submit()"> ✅ Estável
+          <input type="radio" name="estabilidade" value="estavel" {% if estabilidade == 'estavel' %}checked{% endif %} onchange="this.form.submit()"> ✅ Sem Troca
         </label>
         <label style="display:flex;align-items:center;gap:5px;font-size:.85rem;cursor:pointer">
           <input type="radio" name="estabilidade" value="nao_estavel" {% if estabilidade == 'nao_estavel' %}checked{% endif %} onchange="this.form.submit()"> 🔄 Teve troca
@@ -83,7 +83,7 @@
           {% if equipe.teve_troca %}
             <span class="badge badge-warning">Teve troca</span>
           {% else %}
-            <span class="badge badge-success">Equipe estável</span>
+            <span class="badge badge-success">Sem Troca</span>
           {% endif %}
         </div>
       </div>
