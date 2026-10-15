@@ -2448,9 +2448,11 @@ def _build_vagas_html(depto_sel=None, mes_sel=None, ano_sel=None,
                       v.data_abertura, v.data_conclusao, v.data_prevista,
                       v.responsavel, v.motivo_atraso,
                       COALESCE(NULLIF(TRIM(v.tipo_vinculo), ''), 'Não informado') AS tipo_vinculo,
-                      COALESCE(NULLIF(TRIM(d.nome_departamento), ''), '') AS nome_departamento
+                      COALESCE(NULLIF(TRIM(d.nome_departamento), ''), '') AS nome_departamento,
+                      COALESCE(NULLIF(TRIM(c.nome_cargo), ''), 'Não informado') AS nome_cargo
                FROM dho_vagas v
-               LEFT JOIN dho_departamentos d ON d.id_departamento = v.id_departamento"""
+               LEFT JOIN dho_departamentos d ON d.id_departamento = v.id_departamento
+               LEFT JOIN dho_cargos c ON c.id_cargo = v.id_cargo"""
         )
     except Exception as e:
         return f"<p style='color:red'>Erro ao carregar dados: {e}</p>"
@@ -2585,6 +2587,7 @@ def _build_vagas_html(depto_sel=None, mes_sel=None, ano_sel=None,
         dias = (hoje_d - da).days if da else None
         return [
             v.get("id_vaga"),
+            v.get("nome_cargo") or "Não informado",
             v.get("nome_departamento") or "Não informado",
             v.get("responsavel") or "-",
             v.get("status") or "-",
@@ -2594,7 +2597,7 @@ def _build_vagas_html(depto_sel=None, mes_sel=None, ano_sel=None,
             v.get("motivo_atraso") or "Não informado",
         ]
 
-    _COLUNAS_VAGA = ["ID", "Departamento", "Responsável", "Status",
+    _COLUNAS_VAGA = ["ID", "Vaga", "Departamento", "Responsável", "Status",
                       "Dias em aberto", "Abertura", "Previsão", "Motivo do atraso"]
 
     # Todo contador/gráfico do painel abre a lista das vagas que o compõem —
