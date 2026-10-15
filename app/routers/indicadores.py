@@ -2359,7 +2359,9 @@ def _vaga_aberta(v) -> bool:
     return not (_vaga_concluida(v) or _vaga_cancelada(v) or _vaga_congelada(v))
 
 
-def _serie_vagas_6_meses_html(vagas: list[dict], ano_sel: str = "") -> str:
+def _serie_vagas_6_meses_html(vagas: list[dict], ano_sel: str = "",
+                              grupos_detalhe: dict | None = None,
+                              linha_vaga=None, colunas_vaga: list | None = None) -> str:
     """Aberturas e conclusões mês a mês, cada uma na sua própria data.
 
     Antes as duas metades da barra saíam da data de abertura: a vaga aparecia
@@ -2367,20 +2369,40 @@ def _serie_vagas_6_meses_html(vagas: list[dict], ano_sel: str = "") -> str:
     havia como ver quanto foi entregue em cada mês. Agora a abertura conta pela
     data de abertura e a conclusão pela data de conclusão — uma vaga aberta em
     julho e concluída em agosto aparece nos dois meses, em cada barra.
+
+    Cada metade da barra (abertas/concluídas) é clicável quando o chamador
+    passa grupos_detalhe/linha_vaga/colunas_vaga: sem isso o mês virava um
+    número sem explicação de quais vagas o compõem.
     """
     janela = _janela_6_meses(ano_sel)
     abertas = {m: 0 for m in janela}
     concluidas = {m: 0 for m in janela}
+    vagas_abertas_mes: dict[str, list] = defaultdict(list)
+    vagas_concluidas_mes: dict[str, list] = defaultdict(list)
 
     for v in vagas:
         qtd = v.get("qtd_vagas") or 1
         comp_abertura = v.get("competencia") or ""
         if comp_abertura in abertas:
             abertas[comp_abertura] += qtd
+            vagas_abertas_mes[comp_abertura].append(v)
         if _vaga_concluida(v):
             comp_conclusao = competencia_de(v.get("data_conclusao"))
             if comp_conclusao in concluidas:
                 concluidas[comp_conclusao] += qtd
+                vagas_concluidas_mes[comp_conclusao].append(v)
+
+    pode_clicar = grupos_detalhe is not None and linha_vaga is not None
+    if pode_clicar:
+        for m in janela:
+            if vagas_abertas_mes[m]:
+                grupos_detalhe[f"mes_{m}_abertas"] = {
+                    "titulo": f"Vagas abertas · {_rotulo_mes(m)}", "colunas": colunas_vaga,
+                    "linhas": [linha_vaga(v) for v in vagas_abertas_mes[m]]}
+            if vagas_concluidas_mes[m]:
+                grupos_detalhe[f"mes_{m}_concluidas"] = {
+                    "titulo": f"Vagas concluídas · {_rotulo_mes(m)}", "colunas": colunas_vaga,
+                    "linhas": [linha_vaga(v) for v in vagas_concluidas_mes[m]]}
 
     teto = max([max(abertas[m], concluidas[m]) for m in janela] or [0]) or 1
 
@@ -2388,16 +2410,20 @@ def _serie_vagas_6_meses_html(vagas: list[dict], ano_sel: str = "") -> str:
     for m in janela:
         a, c = abertas[m], concluidas[m]
 
-        def _barra(valor, classe):
+        def _barra(valor, classe, grupo):
             if not valor:
                 return "<div class='vg-mes-par zero' style='height:2%'></div>"
             altura = max(round(valor / teto * 100), 3)
-            return f"<div class='vg-mes-par {classe}' style='height:{altura}%'></div>"
+            abre = " hc-abre" if (pode_clicar and grupo in grupos_detalhe) else ""
+            attrs = (f" role='button' tabindex='0' title='Ver as vagas' data-grupo='{grupo}'"
+                     if abre else "")
+            return f"<div class='vg-mes-par {classe}{abre}' style='height:{altura}%'{attrs}></div>"
 
         colunas += (
             f"<div class='vg-mes-col'>"
             f"<div class='vg-mes-val{'' if (a or c) else ' zero'}'>{a} / {c}</div>"
-            f"<div class='vg-mes-dupla'>{_barra(a, 'open')}{_barra(c, 'done')}</div>"
+            f"<div class='vg-mes-dupla'>{_barra(a, 'open', f'mes_{m}_abertas')}"
+            f"{_barra(c, 'done', f'mes_{m}_concluidas')}</div>"
             f"</div>"
         )
         eixo += (f"<div><div class='vg-mes-lbl'>{_rotulo_mes(m)}</div>"
@@ -2476,8 +2502,10 @@ def _build_vagas_html(depto_sel=None, mes_sel=None, ano_sel=None,
         vagas = [v for v in vagas if v[campo_periodo][:4] in ano_sel]
 
     # a série mensal é lida antes do filtro de mês: escolher um mês deixaria
-    # uma única barra em pé e o gráfico existe para mostrar a evolução
-    serie_mes_html = _serie_vagas_6_meses_html(vagas, max(ano_sel) if ano_sel else "")
+    # uma única barra em pé e o gráfico existe para mostrar a evolução.
+    # Guardada aqui porque o detalhe clicável do gráfico só é montado mais
+    # abaixo, depois que _linha_vaga() e grupos_detalhe já existem.
+    vagas_para_serie = list(vagas)
 
     if mes_sel:
         vagas = [v for v in vagas if v[campo_periodo] in mes_sel]
@@ -2586,6 +2614,10 @@ def _build_vagas_html(depto_sel=None, mes_sel=None, ano_sel=None,
                        "colunas": _COLUNAS_VAGA,
                        "linhas": [_linha_vaga(v) for v in vagas_criticas]},
     }
+
+    serie_mes_html = _serie_vagas_6_meses_html(
+        vagas_para_serie, max(ano_sel) if ano_sel else "",
+        grupos_detalhe=grupos_detalhe, linha_vaga=_linha_vaga, colunas_vaga=_COLUNAS_VAGA)
 
     depto_data: dict[str, dict] = defaultdict(lambda: {"a": 0, "c": 0})
     depto_vagas: dict[str, list] = defaultdict(list)
