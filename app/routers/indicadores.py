@@ -2584,7 +2584,13 @@ def _build_vagas_html(depto_sel=None, mes_sel=None, ano_sel=None,
 
     def _linha_vaga(v: dict) -> list:
         da = parse_date_vg(v.get("data_abertura"))
-        dias = (hoje_d - da).days if da else None
+        # concluída: dias contam até a conclusão, não até hoje — senão uma
+        # vaga fechada há meses aparecia como se ainda estivesse aberta hoje
+        if is_concluida(v):
+            dc = parse_date_vg(v.get("data_conclusao"))
+            dias = (dc - da).days if (da and dc) else None
+        else:
+            dias = (hoje_d - da).days if da else None
         return [
             v.get("id_vaga"),
             v.get("nome_cargo") or "Não informado",
