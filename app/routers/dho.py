@@ -529,6 +529,8 @@ MOTIVOS_ATRASO_VAGA = [
     "Demora no feedback do gestor",
     "Aprovação interna pendente",
     "Processo seletivo em andamento",
+    "Processo reiniciado",
+    "Baixa atratividade da vaga",
     "Vaga congelada/pausada",
     "Outro",
 ]
@@ -1032,6 +1034,28 @@ def vagas(request: Request, q: str = "",
     except Exception as exc:
         print(f"AVISO - não consegui listar vagas DHO: {exc}")
         items = []
+
+    # Dias em aberto: igual ao painel de indicadores — vaga aberta conta até
+    # hoje, concluída conta até a conclusão, para o controle de quem passou
+    # de 30 dias aparecer já na tela de cadastro, sem precisar ir ao painel.
+    hoje_cadastro = date.today()
+    items_com_dias = []
+    for item in items:
+        d = dict(item)
+        da = data_para_date(d.get("data_abertura"))
+        concluida = (d.get("status") or "").strip().lower() == "concluída"
+        if da and concluida:
+            dc = data_para_date(d.get("data_conclusao"))
+            d["dias_em_aberto"] = (dc - da).days if dc else None
+        elif da:
+            d["dias_em_aberto"] = (hoje_cadastro - da).days
+        else:
+            d["dias_em_aberto"] = None
+        d["vaga_critica"] = bool(
+            d["dias_em_aberto"] is not None and d["dias_em_aberto"] > 30
+            and (d.get("status") or "").strip().lower() not in ("concluída", "cancelada"))
+        items_com_dias.append(d)
+    items = items_com_dias
 
     try:
         total_base = db.execute(

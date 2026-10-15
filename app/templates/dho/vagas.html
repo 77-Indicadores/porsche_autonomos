@@ -184,6 +184,7 @@
         <th>Qtd</th>
         <th>Recrutamento</th>
         <th>Status</th>
+        <th>Dias em aberto</th>
         <th>Previsão</th>
         <th>Conclusão</th>
         <th>Motivo do atraso</th>
@@ -208,6 +209,13 @@
         <td>{{ item.qtd_vagas or 1 }}</td>
         <td>{{ item.tipo_recrutamento or "-" }}</td>
         <td><span class="badge">{{ item.status }}</span></td>
+        <td>
+          {% if item.dias_em_aberto is not none %}
+          <span{% if item.vaga_critica %} style="color:#D50032;font-weight:700"{% endif %}>
+            {{ item.dias_em_aberto }} dia(s){% if item.vaga_critica %} ⚠{% endif %}
+          </span>
+          {% else %}-{% endif %}
+        </td>
         <td>{{ item.data_prevista | date_br }}</td>
         <td>{{ item.data_conclusao | date_br }}</td>
         <td>{{ item.motivo_atraso or "-" }}</td>
