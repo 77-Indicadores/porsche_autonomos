@@ -996,7 +996,6 @@ def vagas(request: Request, q: str = "",
         query = query.where(
             dho_departamentos.c.nome_departamento.like(like)
             | dho_cargos.c.nome_cargo.like(like)
-            | dho_vagas.c.titulo_vaga.like(like)
             | dho_vagas.c.responsavel.like(like)
         )
     # cada caixa aceita vários valores; lista vazia significa "todos"
