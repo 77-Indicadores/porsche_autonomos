@@ -573,7 +573,7 @@ function vgCatChart(d){
       '" text-anchor="middle" class="blbl">'+fmt(r.porCarro)+'</text>';
     // nome longo em coluna estreita se encavalava no vizinho; corta pelo
     // espaco que a coluna tem. O nome inteiro fica no tooltip da barra.
-    const cabe=Math.max(6,Math.floor(slotW/4.1));
+    const cabe=Math.max(6,Math.floor(slotW/4.7));
     let nome=r.cat;
     // "Endurance - Challenge" e "Endurance - Carrera" cortavam no mesmo ponto
     // e viravam dois rotulos iguais; encurta o prefixo, nao o que diferencia
