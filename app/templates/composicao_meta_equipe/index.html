@@ -235,9 +235,19 @@
   </div>
 
   {% if linhas %}
+  <div id="barraLote" hidden>
+    <span id="loteQtd">0 selecionados</span>
+    <select id="loteStatus">
+      {% for s in status_opcoes %}<option value="{{ s }}">{{ s }}</option>{% endfor %}
+    </select>
+    <button type="button" class="btn-outline" onclick="aplicarLote()">Aplicar aos selecionados</button>
+    <button type="button" class="btn-lote-limpar" onclick="limparSelecao()">Limpar seleção</button>
+    <span id="loteAviso"></span>
+  </div>
   <table class="tbl">
     <thead>
       <tr>
+        <th style="width:28px"><input type="checkbox" id="selTodos" title="Selecionar todos"></th>
         <th>Etapa</th>
         <th>ID</th>
         <th>Nome</th>
@@ -251,23 +261,19 @@
     <tbody>
       {% for l in linhas %}
       <tr>
+        <td><input type="checkbox" class="sel-linha" value="{{ l.id }}"></td>
         <td style="color:#6b7280;font-size:.78rem">{{ l.nome_etapa or '-' }}</td>
         <td style="color:#9ca3af;font-size:.78rem">{{ l.id_autonomo or '-' }}</td>
         <td style="font-weight:600">{{ l.nome_autonomo }}</td>
         <td style="font-size:.78rem;color:#4b5563">{{ l.funcao or '—' }}</td>
         <td>{{ l.data_inclusao or '-' }}</td>
         <td>
-          <form method="post" action="/composicao-meta-equipe/linha/{{ l.id }}/status" style="margin:0">
-            <input type="hidden" name="etapa_sel" value="{{ etapa_sel }}">
-            <input type="hidden" name="temp_sel" value="{{ temp_sel }}">
-            <input type="hidden" name="funcao_sel" value="{{ funcao_sel }}">
-            <input type="hidden" name="status_sel" value="{{ status_sel }}">
-            <select name="status" class="status-sel st-{{ l.status_disponibilidade|replace(' ', '_') }}" onchange="this.form.submit()">
-              {% for s in status_opcoes %}
-              <option value="{{ s }}" {% if l.status_disponibilidade == s %}selected{% endif %}>{{ s }}</option>
-              {% endfor %}
-            </select>
-          </form>
+          <select class="status-sel st-{{ l.status_disponibilidade|replace(' ', '_') }}"
+                  data-linha="{{ l.id }}" onchange="salvarStatus(this)">
+            {% for s in status_opcoes %}
+            <option value="{{ s }}" {% if l.status_disponibilidade == s %}selected{% endif %}>{{ s }}</option>
+            {% endfor %}
+          </select>
         </td>
         <td style="font-size:.74rem;color:#9ca3af;white-space:nowrap">{{ l.criado_em }}</td>
         <td>
@@ -301,4 +307,109 @@ function goFilter(param, value) {
 }
 </script>
 
+<style>
+  #barraLote{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:0 0 10px;
+    padding:9px 12px;background:#eef2ff;border:1px solid #c7d2fe;border-radius:8px;font-size:.8rem}
+  #barraLote[hidden]{display:none}
+  #loteQtd{font-weight:700;color:#3730a3}
+  #barraLote select{padding:.3rem .5rem;border:1px solid #c7d2fe;border-radius:6px;font-size:.78rem}
+  .btn-lote-limpar{border:0;background:transparent;color:#4b5563;cursor:pointer;
+    font-size:.78rem;text-decoration:underline}
+  #loteAviso{color:#047857;font-weight:600}
+  .status-sel.salvando{opacity:.5}
+</style>
+
+<script>
+// As mudancas de status vao por fetch e a pagina fica parada. Antes cada troca
+// era um envio de formulario: recarregava tudo e jogava a tela para o topo.
+function _classeStatus(sel, valor){
+  sel.className = 'status-sel st-' + valor.replace(/ /g, '_');
+}
+
+async function salvarStatus(sel){
+  const corpo = new FormData();
+  corpo.append('status', sel.value);
+  sel.classList.add('salvando');
+  try{
+    const r = await fetch('/composicao-meta-equipe/linha/' + sel.dataset.linha + '/status',
+      {method:'POST', body:corpo, headers:{'x-fetch':'1'}});
+    if(!r.ok) throw new Error(r.status);
+    _classeStatus(sel, sel.value);
+    avisar('Status salvo.');
+  }catch(e){
+    alert('Nao consegui salvar o status. Confira a conexao e tente de novo.');
+  }finally{
+    sel.classList.remove('salvando');
+  }
+}
+
+function selecionadas(){
+  return [...document.querySelectorAll('.sel-linha:checked')];
+}
+
+function atualizarBarra(){
+  const n = selecionadas().length;
+  const barra = document.getElementById('barraLote');
+  barra.hidden = n === 0;
+  document.getElementById('loteQtd').textContent =
+    n + (n === 1 ? ' selecionado' : ' selecionados');
+}
+
+function limparSelecao(){
+  document.querySelectorAll('.sel-linha').forEach(c => c.checked = false);
+  const t = document.getElementById('selTodos');
+  if(t){ t.checked = false; t.indeterminate = false; }
+  atualizarBarra();
+}
+
+function avisar(txt){
+  const el = document.getElementById('loteAviso');
+  if(!el) return;
+  el.textContent = txt;
+  setTimeout(() => { el.textContent = ''; }, 2500);
+}
+
+async function aplicarLote(){
+  const marcadas = selecionadas();
+  if(!marcadas.length) return;
+  const status = document.getElementById('loteStatus').value;
+  const corpo = new FormData();
+  corpo.append('status', status);
+  marcadas.forEach(c => corpo.append('ids', c.value));
+  try{
+    const r = await fetch('/composicao-meta-equipe/status-lote',
+      {method:'POST', body:corpo, headers:{'x-fetch':'1'}});
+    if(!r.ok) throw new Error(r.status);
+    // a tela acompanha o banco sem recarregar
+    marcadas.forEach(c => {
+      const sel = c.closest('tr').querySelector('.status-sel');
+      if(sel){ sel.value = status; _classeStatus(sel, status); }
+    });
+    const n = marcadas.length;
+    limparSelecao();
+    avisar(n + (n === 1 ? ' linha atualizada.' : ' linhas atualizadas.'));
+  }catch(e){
+    alert('Nao consegui aplicar em lote. Tente de novo.');
+  }
+}
+
+document.addEventListener('change', function(ev){
+  if(ev.target.classList.contains('sel-linha')){
+    const t = document.getElementById('selTodos');
+    if(t){
+      const todas = [...document.querySelectorAll('.sel-linha')];
+      const n = todas.filter(c => c.checked).length;
+      t.checked = n === todas.length && n > 0;
+      t.indeterminate = n > 0 && n < todas.length;
+    }
+    atualizarBarra();
+  }
+  if(ev.target.id === 'selTodos'){
+    // marca so' o que esta visivel na tela, que e' o que a pessoa filtrou
+    document.querySelectorAll('.sel-linha').forEach(c => c.checked = ev.target.checked);
+    ev.target.indeterminate = false;
+    atualizarBarra();
+  }
+});
+</script>
 {% endblock %}

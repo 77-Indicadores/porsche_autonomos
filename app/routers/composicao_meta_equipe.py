@@ -6,8 +6,8 @@ import io
 from datetime import datetime
 
 from fastapi import APIRouter, Depends, File, Form, Request, UploadFile
-from fastapi.responses import RedirectResponse, StreamingResponse
-from sqlalchemy import text
+from fastapi.responses import JSONResponse, RedirectResponse, StreamingResponse
+from sqlalchemy import bindparam, text
 from sqlalchemy.orm import Session
 
 from app.database import get_db, engine
@@ -430,7 +430,7 @@ async def upload_planejamento(
 
 # ─── atualizar status de disponibilidade ──────────────────────────────
 @router.post("/composicao-meta-equipe/linha/{linha_id}/status")
-def atualizar_status(linha_id: int, status: str = Form(...),
+def atualizar_status(request: Request, linha_id: int, status: str = Form(...),
                      etapa_sel: str = Form(""), temp_sel: str = Form(""),
                      funcao_sel: str = Form(""), status_sel: str = Form(""),
                      db: Session = Depends(get_db)):
@@ -441,8 +441,40 @@ def atualizar_status(linha_id: int, status: str = Form(...),
         {"s": status, "id": linha_id},
     )
     db.commit()
+    # A tela manda por fetch e fica onde está. Antes era envio de formulário:
+    # a pagina recarregava e voltava para o topo a cada status trocado, com 196
+    # linhas na lista — quem estava no meio da tabela perdia o lugar toda vez.
+    if request.headers.get("x-fetch") == "1":
+        return JSONResponse({"ok": True})
     qs = f"etapa_sel={etapa_sel}&temp_sel={temp_sel}&funcao_sel={funcao_sel}&status_sel={status_sel}"
     return redirect_with_message(f"/composicao-meta-equipe?{qs}", success="Status atualizado.")
+
+
+@router.post("/composicao-meta-equipe/status-lote")
+def atualizar_status_lote(request: Request, status: str = Form(...),
+                          ids: list[str] = Form(default=[]),
+                          db: Session = Depends(get_db)):
+    """Mesmo status para varias linhas de uma vez."""
+    if status not in STATUS_DISPONIBILIDADE:
+        status = "Não escalado"
+    numeros = []
+    for i in ids:
+        try:
+            numeros.append(int(i))
+        except (TypeError, ValueError):
+            continue
+    if numeros:
+        # um UPDATE so': 196 linhas marcadas nao viram 196 idas ao banco
+        db.execute(
+            text("UPDATE planejamento_equipe_etapa SET status_disponibilidade = :s "
+                 "WHERE id IN :ids").bindparams(bindparam("ids", expanding=True)),
+            {"s": status, "ids": numeros},
+        )
+        db.commit()
+    if request.headers.get("x-fetch") == "1":
+        return JSONResponse({"ok": True, "qtd": len(numeros)})
+    return redirect_with_message("/composicao-meta-equipe",
+                                 success=f"{len(numeros)} linha(s) atualizada(s).")
 
 
 # ─── excluir linha ────────────────────────────────────────────────────
