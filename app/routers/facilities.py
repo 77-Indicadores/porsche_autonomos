@@ -68,6 +68,22 @@ DEFAULT_COMPLEMENTOS_PATH = os.getenv(
 COMPLEMENTAR_XLSX_PATH = BASE_DIR.parent / "porsche_facilities" / "Porsche facilities complementar.xlsx"
 
 
+def como_datahora(value):
+    """Aceita datetime ou texto e devolve datetime (ou None)."""
+    if not value:
+        return None
+    if isinstance(value, datetime):
+        return value
+    texto = str(value).strip().replace("T", " ")
+    for fmt in ("%Y-%m-%d %H:%M:%S", "%Y-%m-%d %H:%M", "%Y-%m-%d",
+                "%d/%m/%Y %H:%M:%S", "%d/%m/%Y %H:%M", "%d/%m/%Y"):
+        try:
+            return datetime.strptime(texto, fmt)
+        except ValueError:
+            pass
+    return None
+
+
 def fmt_date(value):
     if not value:
         return "-"
@@ -622,6 +638,12 @@ def preparar_chamados(rows, complementos=None):
         # complemento antigo, ainda não convertido em /facilities/vinculos
         complemento = complementos.get(item["id_estavel"]) or complementos.get(chave, {})
         item["created_at_fmt"] = fmt_date(item.get("created_at"))
+        # data e hora em colunas separadas; o ISO serve de chave para o filtro
+        # por período e para a ordenação (texto dd/mm ordena errado)
+        abertura = como_datahora(item.get("created_at"))
+        item["created_at_data_fmt"] = abertura.strftime("%d/%m/%Y") if abertura else "-"
+        item["created_at_hora_fmt"] = abertura.strftime("%H:%M") if abertura else "-"
+        item["created_at_iso"] = abertura.strftime("%Y-%m-%d") if abertura else ""
         item["completed_at_fmt"] = fmt_date(item.get("completed_at"))
         item["amount_fmt"] = fmt_money(item.get("amount"))
         item["status_label"] = status_label(item.get("status"))

@@ -153,6 +153,7 @@
 <section class="panel">
   <div class="panel-head">
     <h3>Solicitações da planilha</h3>
+    <span id="fac_contagem" class="fac-contagem"></span>
   </div>
 
   <!-- Filtros -->
@@ -168,6 +169,13 @@
       <option>PENDENTE</option>
       <option>EM ANDAMENTO</option>
     </select>
+    <div class="fac-periodo">
+      <span class="fac-periodo-rot">Data de</span>
+      <input class="input fac-filter-data" type="date" id="flt_data_de" onchange="filtrarTabela()">
+      <span class="fac-periodo-rot">ate</span>
+      <input class="input fac-filter-data" type="date" id="flt_data_ate" onchange="filtrarTabela()">
+      <button type="button" class="btn-muted fac-periodo-limpa" onclick="limparPeriodo()">Limpar</button>
+    </div>
   </div>
 
   <div class="overflow-x-auto">
@@ -176,18 +184,19 @@
         <tr>
           <th class="sortable" data-col="0">Linha <span class="sort-icon">⇅</span></th>
           <th class="sortable" data-col="1">Data <span class="sort-icon">⇅</span></th>
-          <th class="sortable" data-col="2">Solicitante <span class="sort-icon">⇅</span></th>
-          <th class="sortable" data-col="3">Setor <span class="sort-icon">⇅</span></th>
-          <th class="sortable" data-col="4">Local <span class="sort-icon">⇅</span></th>
-          <th class="sortable" data-col="5">Categoria <span class="sort-icon">⇅</span></th>
-          <th class="sortable" data-col="6">Natureza <span class="sort-icon">⇅</span></th>
-          <th class="sortable" data-col="7">Status <span class="sort-icon">⇅</span></th>
+          <th class="sortable" data-col="2">Hora <span class="sort-icon">⇅</span></th>
+          <th class="sortable" data-col="3">Solicitante <span class="sort-icon">⇅</span></th>
+          <th class="sortable" data-col="4">Setor <span class="sort-icon">⇅</span></th>
+          <th class="sortable" data-col="5">Local <span class="sort-icon">⇅</span></th>
+          <th class="sortable" data-col="6">Categoria <span class="sort-icon">⇅</span></th>
+          <th class="sortable" data-col="7">Natureza <span class="sort-icon">⇅</span></th>
+          <th class="sortable" data-col="8">Status <span class="sort-icon">⇅</span></th>
           <th>Complemento</th>
-          <th class="sortable" data-col="9">Início <span class="sort-icon">⇅</span></th>
-          <th class="sortable" data-col="10">Finalização <span class="sort-icon">⇅</span></th>
+          <th class="sortable" data-col="10">Início <span class="sort-icon">⇅</span></th>
+          <th class="sortable" data-col="11">Finalização <span class="sort-icon">⇅</span></th>
           <th>Prazo</th>
           <th>Retrabalho</th>
-          <th class="sortable" data-col="13">Custo <span class="sort-icon">⇅</span></th>
+          <th class="sortable" data-col="14">Custo <span class="sort-icon">⇅</span></th>
           <th>Ações</th>
         </tr>
       </thead>
@@ -197,7 +206,8 @@
         {% if item.requester_name %}
         <tr>
           <td><span class="id-pill">{{ item.source_row }}</span></td>
-          <td>{{ item.created_at_fmt }}</td>
+          <td data-ord="{{ item.created_at_iso }}">{{ item.created_at_data_fmt }}</td>
+          <td>{{ item.created_at_hora_fmt }}</td>
           <td><strong>{{ item.requester_name }}</strong></td>
           <td>{{ item.department or "-" }}</td>
           <td>{{ item.location or "-" }}</td>
@@ -299,6 +309,11 @@
     padding: 14px 0 18px;
   }
   .fac-filter-input { min-width: 150px; flex: 1; max-width: 220px; }
+  .fac-periodo { display: flex; align-items: center; gap: 6px; flex-wrap: nowrap; }
+  .fac-periodo-rot { font-size: 12px; color: #6b7280; white-space: nowrap; }
+  .fac-filter-data { width: 150px; min-width: 140px; }
+  .fac-periodo-limpa { padding: 6px 10px; font-size: 12px; }
+  .fac-contagem { font-size: 12px; color: #6b7280; margin-left: auto; }
 
   .fac-upload-form {
     display: flex;
@@ -650,18 +665,40 @@ function filtrarTabela() {
   const loc = document.getElementById("flt_local").value.toLowerCase();
   const cat = document.getElementById("flt_categoria").value.toLowerCase();
   const sta = document.getElementById("flt_status").value.toLowerCase();
+  const de  = document.getElementById("flt_data_de").value;   // aaaa-mm-dd
+  const ate = document.getElementById("flt_data_ate").value;
 
+  let visiveis = 0, total = 0;
   document.querySelectorAll("#tbl_facilities tbody tr").forEach(function(tr) {
     const cells = tr.querySelectorAll("td");
-    if (cells.length < 8) return;
+    if (cells.length < 9) return;
+    total++;
+    // a data vai em ISO no data-ord: comparar texto aaaa-mm-dd ja ordena certo
+    const dia = cells[1].dataset.ord || "";
     const match =
-      (!sol || cells[2].textContent.toLowerCase().includes(sol)) &&
-      (!set || cells[3].textContent.toLowerCase().includes(set)) &&
-      (!loc || cells[4].textContent.toLowerCase().includes(loc)) &&
-      (!cat || cells[5].textContent.toLowerCase().includes(cat)) &&
-      (!sta || cells[7].textContent.toLowerCase().includes(sta));
+      (!sol || cells[3].textContent.toLowerCase().includes(sol)) &&
+      (!set || cells[4].textContent.toLowerCase().includes(set)) &&
+      (!loc || cells[5].textContent.toLowerCase().includes(loc)) &&
+      (!cat || cells[6].textContent.toLowerCase().includes(cat)) &&
+      (!sta || cells[8].textContent.toLowerCase().includes(sta)) &&
+      (!de  || (dia && dia >= de)) &&
+      (!ate || (dia && dia <= ate));
     tr.style.display = match ? "" : "none";
+    if (match) visiveis++;
   });
+
+  const aviso = document.getElementById("fac_contagem");
+  if (aviso) {
+    aviso.textContent = (visiveis === total)
+      ? ""
+      : visiveis + " de " + total + " solicitacoes";
+  }
+}
+
+function limparPeriodo() {
+  document.getElementById("flt_data_de").value = "";
+  document.getElementById("flt_data_ate").value = "";
+  filtrarTabela();
 }
 
 // ── Ordenação ──
@@ -688,8 +725,13 @@ function filtrarTabela() {
       });
 
       rows.sort(function(a, b) {
-        const ta = (a.querySelectorAll("td")[col] || {}).textContent || "";
-        const tb = (b.querySelectorAll("td")[col] || {}).textContent || "";
+        const ca = a.querySelectorAll("td")[col], cb = b.querySelectorAll("td")[col];
+        // data-ord (ISO) ganha do texto: "31/08" nao ordena como data
+        const ta = (ca && (ca.dataset.ord || ca.textContent)) || "";
+        const tb = (cb && (cb.dataset.ord || cb.textContent)) || "";
+        if (ca && cb && ca.dataset.ord !== undefined && cb.dataset.ord !== undefined) {
+          return ta.localeCompare(tb) * sortDir;
+        }
         const na = parseFloat(ta.replace(/[^0-9,.-]/g, "").replace(",", "."));
         const nb = parseFloat(tb.replace(/[^0-9,.-]/g, "").replace(",", "."));
         if (!isNaN(na) && !isNaN(nb)) return (na - nb) * sortDir;
