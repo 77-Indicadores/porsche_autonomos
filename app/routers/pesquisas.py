@@ -851,7 +851,7 @@ async def pesquisas_confirmar(request: Request, db: Session = Depends(get_db)):
     etapas = db.query(DimEtapa).all()
 
     indices = sorted({k.split("_")[-1] for k in form.keys() if k.startswith("arq_")})
-    importados, ignorados = [], []
+    importados, ignorados, duplicados = [], [], []
 
     for i in indices:
         if not form.get(f"incluir_{i}"):
@@ -865,17 +865,26 @@ async def pesquisas_confirmar(request: Request, db: Session = Depends(get_db)):
             id_etapa = 0
 
         ok, msg = gravar_arquivo(db, nome, disco, tipo, id_etapa, etapas)
-        (importados if ok else ignorados).append(msg)
+        if ok is DUPLICADO:
+            duplicados.append(msg)
+        elif ok:
+            importados.append(msg)
+        else:
+            ignorados.append(msg)
 
     db.commit()
 
     partes = []
     if importados:
         partes.append(f"{len(importados)} arquivo(s) importado(s): " + " | ".join(importados))
+    if duplicados:
+        partes.append("Já estavam na base — " + " | ".join(duplicados))
     if ignorados:
         partes.append("Não importados — " + " | ".join(ignorados))
 
-    if importados:
+    # So e erro quando algo de fato falhou. Reenviar um arquivo que ja entrou
+    # nao quebrou nada, e a tela nao deve dizer que quebrou.
+    if importados or (duplicados and not ignorados):
         return redirect_with_message("/pesquisas", success=" || ".join(partes))
     return redirect_with_message(
         "/pesquisas",
@@ -1116,6 +1125,11 @@ def analisar_arquivo(db, nome_arquivo, conteudo, etapas, vistos=None):
     return info
 
 
+# Terceiro estado de gravar_arquivo, entre o True (importou) e o False (falhou):
+# o arquivo esta certo e os dados ja estao na base.
+DUPLICADO = "duplicado"
+
+
 def gravar_arquivo(db, nome_arquivo, caminho_disco, tipo_pesquisa, id_etapa, etapas):
     """Grava de fato as respostas de um arquivo ja analisado."""
     caminho = UPLOAD_DIR / caminho_disco
@@ -1147,7 +1161,11 @@ def gravar_arquivo(db, nome_arquivo, caminho_disco, tipo_pesquisa, id_etapa, eta
         .where(pesquisa_uploads.c.hash_conteudo == digest)
     ).first()
     if ja:
-        return False, f"{nome_arquivo}: mesmos dados do upload #{ja[0]}, já importado"
+        # Duplicata nao e falha: o dado ja esta na base e nao ha o que fazer.
+        # Tratar como erro fazia a tela acusar em vermelho "Nao importados" quem
+        # so reenviou o mesmo arquivo, e o cliente vinha perguntar o que quebrou.
+        return DUPLICADO, (f"{nome_arquivo}: já estava importado (upload "
+                           f"#{ja[0]}), nada a fazer")
 
     respostas, total_linhas, _ = percorrer_planilha(wb, tipo_pesquisa, id_etapa, etapas)
 
