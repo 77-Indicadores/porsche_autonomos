@@ -122,6 +122,29 @@ def cortar_no_limite(valores: dict) -> dict:
     return valores
 
 
+def _unificar_tipos():
+    """Junta o tipo antigo no novo, nos dados ja gravados.
+
+    Sem isto, as respostas do tipo que saiu do catalogo continuariam na base
+    com um valor que nenhum filtro da tela oferece: sumiriam da vista sem ter
+    sido apagadas.
+    """
+    de, para = "feedback_autonomo", "feedback_equipe_tecnica"
+    total = 0
+    try:
+        with engine.begin() as cx:
+            for tabela in ("pesquisa_uploads", "pesquisa_respostas"):
+                r = cx.execute(
+                    text(f"UPDATE {tabela} SET tipo_pesquisa = :para "
+                         f"WHERE tipo_pesquisa = :de"), {"para": para, "de": de})
+                total += r.rowcount or 0
+    except Exception as exc:
+        print(f"AVISO - nao consegui unificar os tipos de pesquisa: {exc}")
+        return
+    if total:
+        print(f"Pesquisas: {total} registro(s) movidos de {de} para {para}.")
+
+
 def _migrar_pesquisas():
     """Colunas novas em bancos criados antes desta versão."""
     novas = {
@@ -149,23 +172,27 @@ def _migrar_pesquisas():
 
 
 _migrar_pesquisas()
+_unificar_tipos()
 
 UPLOAD_DIR = BASE_DIR / "data" / "uploads_pesquisas"
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 
+# Eram quatro tipos. "Avaliação do Autônomo (líder avalia)" e "Feedback Equipe
+# Técnica" descreviam a mesma coisa -- o líder respondendo sobre o autônomo --
+# e a propria regra de leitura ja tratava os dois juntos. Viraram um so'.
+TIPO_UNIFICADO = {"feedback_autonomo": "feedback_equipe_tecnica"}
+
 TIPOS_PESQUISA = [
-    ("feedback_autonomo", "Avaliação do Autônomo (líder avalia)"),
-    ("satisfacao_autonomo", "Satisfação do Autônomo (autônomo responde)"),
-    ("feedback_equipe_tecnica", "Feedback Equipe Técnica (ocorrências)"),
-    ("feedback_piloto", "Feedback do Piloto"),
+    ("feedback_piloto", "Feedback Piloto"),
+    ("feedback_equipe_tecnica", "Feedback Equipe Técnica"),
+    ("satisfacao_autonomo", "Feedback Autônomos"),
 ]
 
 # rótulo curto, para caber nas tabelas
 TIPOS_CURTO = {
-    "feedback_autonomo": "Avaliação Autônomo",
-    "satisfacao_autonomo": "Satisfação Autônomo",
-    "feedback_equipe_tecnica": "Equipe Técnica",
     "feedback_piloto": "Piloto",
+    "feedback_equipe_tecnica": "Equipe Técnica",
+    "satisfacao_autonomo": "Autônomos",
 }
 
 # Escala qualitativa → nota, para permitir média junto com as escalas numéricas
@@ -191,7 +218,7 @@ def detectar_tipo(nome_arquivo: str) -> str | None:
     if "satisfacao" in k and "autonomo" in k:
         return "satisfacao_autonomo"
     if "avaliacao de autonomos" in k or ("avaliacao" in k and "autonomo" in k):
-        return "feedback_autonomo"
+        return "feedback_equipe_tecnica"
     if "pos etapa" in k or "piloto" in k:
         return "feedback_piloto"
     return None
@@ -238,7 +265,7 @@ def detectar_tipo_por_conteudo(wb) -> str | None:
     if "funcao desempenhou nesta etapa" in texto or "avalie o evento nos seguintes aspectos" in texto:
         return "satisfacao_autonomo"
     if "nome do autonomo" in texto and "lider" in texto:
-        return "feedback_autonomo"
+        return "feedback_equipe_tecnica"
     return None
 
 
@@ -511,7 +538,7 @@ def detectar_contexto(tipo_pesquisa, row):
     if col_periodo:
         periodo_forms = row.get(col_periodo)
 
-    if tipo_pesquisa in ("feedback_autonomo", "feedback_equipe_tecnica"):
+    if tipo_pesquisa == "feedback_equipe_tecnica":
         # o líder responde sobre um autônomo
         alvo_nome = row.get(col_nome_autonomo) if col_nome_autonomo else None
         respondente_nome = row.get(col_lider) if col_lider else None
