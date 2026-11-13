@@ -36,6 +36,9 @@ class DimCargoAutonomo(Base):
     # mecanicos, e a cobertura geral caia por causa de vagas que nunca seriam
     # preenchidas por autonomo.
     grupo_cargo = Column(String)
+    # Nivel dentro do mesmo cargo (Mecanico I, Mecanico II, Analista de dados).
+    # Nao substitui o sufixo do nome do cargo: convive com ele.
+    nivel = Column(String)
 
 
 class DimAutonomo(Base):

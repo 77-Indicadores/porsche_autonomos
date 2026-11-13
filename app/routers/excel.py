@@ -91,11 +91,19 @@ ENTIDADES = {
         "label": "Cargos de Autonomos",
         "table": "dim_cargos_autonomos",
         "unique": ["nome_cargo"],
-        "columns": ["nome_cargo", "descricao", "status"],
+        "columns": ["nome_cargo", "descricao", "status", "nivel", "grupo_cargo"],
+        # colunas novas: planilha antiga, sem elas, continua importando
+        "optional": ["nivel", "grupo_cargo"],
         "example": [
             "Mecanico",
             "Profissional responsavel pela parte mecanica",
             "Ativo",
+            "Mecanico II",
+            "Autonomos",
+        ],
+        "tips": [
+            "Nivel aceita: Mecanico I, Mecanico II, Analista de dados. Pode ficar vazio.",
+            "Grupo de cargo junta cargos da mesma frente (ex.: Autonomos, Outras Equipes).",
         ],
     },
     "autonomos": {
@@ -404,8 +412,8 @@ REFERENCE_SHEETS = {
     "cargos": {
         "title": "REF_CARGOS",
         "table": "dim_cargos_autonomos",
-        "columns": ["id_cargo_autonomo", "nome_cargo", "status"],
-        "labels": ["ID Cargo", "Cargo", "Status"],
+        "columns": ["id_cargo_autonomo", "nome_cargo", "nivel", "status"],
+        "labels": ["ID Cargo", "Cargo", "Nivel", "Status"],
         "order_by": ["nome_cargo"],
         "field": "id_cargo_autonomo",
     },
@@ -533,10 +541,15 @@ def explain_import_error(exc: Exception, row: dict[str, Any] | None = None) -> s
 
 
 def validate_import_headers(entity_key: str, headers: list[str]) -> list[str]:
-    expected_headers = ENTIDADES[entity_key]["columns"]
-    normalized_expected = {norm_header(header): header for header in expected_headers}
-    missing = [original for normalized, original in normalized_expected.items() if normalized not in headers]
-    return missing
+    cfg = ENTIDADES[entity_key]
+    # coluna opcional entra no modelo novo sem derrubar a planilha antiga
+    opcionais = {norm_header(c) for c in cfg.get("optional", [])}
+    normalized_expected = {norm_header(header): header for header in cfg["columns"]}
+    return [
+        original
+        for normalized, original in normalized_expected.items()
+        if normalized not in headers and normalized not in opcionais
+    ]
 
 
 def get_conn():
