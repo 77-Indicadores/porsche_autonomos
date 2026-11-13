@@ -137,10 +137,28 @@ def _build_geral(records_js: str, meta_js: str, eg_js: str = "[]") -> str:
   letter-spacing:.08em;margin-bottom:4px;font-weight:700}
 .vg-filter select{width:100%;border:0;outline:0;background:transparent;
   font-size:12px;color:#18202c;font-weight:600;cursor:pointer;appearance:none}
+.vg-multi{position:relative}
+.vg-multi-btn{width:100%;text-align:left;border:0;background:transparent;padding:0;
+  font-size:12px;color:#18202c;font-weight:600;cursor:pointer;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.vg-multi-btn::after{content:"be";float:right;color:var(--muted);margin-left:6px}
+.vg-multi-pop{display:none;position:absolute;z-index:60;top:calc(100% + 9px);left:-11px;
+  min-width:calc(100% + 22px);max-height:240px;overflow-y:auto;background:#fff;
+  border:1px solid var(--border);border-radius:11px;padding:6px;
+  box-shadow:0 12px 26px rgba(16,24,40,.16)}
+.vg-multi.vg-aberto .vg-multi-pop{display:block}
+.vg-multi-item{display:flex;align-items:center;gap:7px;padding:5px 8px;border-radius:7px;
+  font-size:12px;font-weight:600;color:#18202c;cursor:pointer;white-space:nowrap}
+.vg-multi-item:hover{background:#f5f7fa}
+.vg-multi-item input{cursor:pointer;margin:0;accent-color:#d71920}
+.vg-cat-tot{display:flex;flex-wrap:wrap;gap:4px 12px;font-size:11px;color:var(--muted);
+  margin-top:8px;padding-top:8px;border-top:1px solid #eef1f5}
+.vg-cat-tot span{display:inline-flex;align-items:center;gap:5px}
+.vg-cat-tot i{width:8px;height:8px;border-radius:50%;display:inline-block;flex-shrink:0}
 .vg-reset{border:1px solid var(--border);background:#fff;border-radius:12px;
   font-weight:700;color:#555f6d;cursor:pointer;font-size:12px;padding:0 12px}
 .vg-reset:hover{background:#f5f7fa}
-.vg-kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));
+.vg-kpis{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));
   gap:11px;margin-bottom:11px}
 .vg-kpi{background:#fff;border:1px solid var(--border);border-radius:var(--radius);
   padding:14px 15px 13px;box-shadow:var(--shadow);position:relative;overflow:hidden;min-height:104px}
@@ -220,6 +238,8 @@ def _build_geral(records_js: str, meta_js: str, eg_js: str = "[]") -> str:
 .vg-mini span{display:block;font-size:11px;text-transform:uppercase;
   color:var(--muted);font-weight:800;letter-spacing:.06em;margin-bottom:4px}
 .vg-mini strong{display:block;font-size:16px;font-weight:800}
+@media(max-width:1340px){
+  .vg-kpis{grid-template-columns:repeat(3,minmax(0,1fr))}}
 @media(max-width:1150px){
   .vg-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}
   .vg-filters{grid-template-columns:repeat(2,minmax(120px,1fr)) 90px}
@@ -233,7 +253,12 @@ def _build_geral(records_js: str, meta_js: str, eg_js: str = "[]") -> str:
 <div class="vg-filters">
   <div class="vg-filter"><label>Temporada</label><select id="vgYear"></select></div>
   <div class="vg-filter"><label>Etapa</label><select id="vgEtapa"></select></div>
-  <div class="vg-filter"><label>Categoria</label><select id="vgCat"></select></div>
+  <div class="vg-filter"><label>Categoria</label>
+    <div class="vg-multi" id="vgCatBox">
+      <button type="button" class="vg-multi-btn" id="vgCatBtn"
+              onclick="vgCatAbre(event)">Todas as categorias</button>
+      <div class="vg-multi-pop" id="vgCatPop"></div>
+    </div></div>
   <button class="vg-reset" onclick="vgReset()">Limpar</button>
 </div>
 <section class="vg-kpis">
@@ -258,15 +283,10 @@ def _build_geral(records_js: str, meta_js: str, eg_js: str = "[]") -> str:
     <div class="vg-kpi-value" id="vgK5">—</div>
     <div class="vg-kpi-foot" id="vgK5f"></div></article>
   <article class="vg-kpi" style="--tint:#ebf8f4;--iconbg:#e7f7f1;--iconcolor:#11835f">
-    <div class="vg-kpi-top"><span class="vg-kpi-title">Custo médio/temporada</span>
+    <div class="vg-kpi-top"><span class="vg-kpi-title">Custo médio/etapa</span>
       <div class="vg-icon">&#9873;</div></div>
     <div class="vg-kpi-value" id="vgK8">—</div>
     <div class="vg-kpi-foot" id="vgK8f"></div></article>
-  <article class="vg-kpi" style="--tint:#fff7e9;--iconbg:#fff6e5;--iconcolor:#c88408">
-    <div class="vg-kpi-top"><span class="vg-kpi-title">Custo médio/categoria</span>
-      <div class="vg-icon">&#9636;</div></div>
-    <div class="vg-kpi-value" id="vgK9">—</div>
-    <div class="vg-kpi-foot" id="vgK9f"></div></article>
 </section>
 <section class="vg-grid-main">
   <article class="vg-card">
@@ -296,8 +316,9 @@ def _build_geral(records_js: str, meta_js: str, eg_js: str = "[]") -> str:
 <section class="vg-grid-bottom">
   <article class="vg-card">
     <h2 class="vg-card-title">Custo por categoria</h2>
-    <p class="vg-card-sub">Valor total por série</p>
-    <div class="vg-hbars" id="vgCatBars"></div>
+    <p class="vg-card-sub">Custo por carro em cada série — total dividido pelos carros atendidos</p>
+    <div class="vg-chart-wrap"><div id="vgCatChart"></div></div>
+    <div class="vg-cat-tot" id="vgCatTot"></div>
   </article>
   <article class="vg-card">
     <h2 class="vg-card-title">Top 5 pilotos</h2>
@@ -340,29 +361,55 @@ function vgSetup(){
   const sts=[...new Set(R.map(r=>vgNormSt(r.status)))].filter(Boolean).sort();
   vgFillSel("vgYear",years,"Todas as temporadas");
   vgFillSel("vgEtapa",etapas,"Todas as etapas");
-  vgFillSel("vgCat",cats,"Todas as categorias");
-  ["vgYear","vgEtapa","vgCat"].forEach(id=>{const el=vgEl(id);if(el)el.addEventListener("change",vgRender)});
+  vgFillCats(cats);
+  ["vgYear","vgEtapa"].forEach(id=>{const el=vgEl(id);if(el)el.addEventListener("change",vgRender)});
 }
+
+// Categoria aceita varias ao mesmo tempo, para comparar uma com a outra
+function vgFillCats(cats){
+  const pop=vgEl("vgCatPop");if(!pop)return;
+  pop.innerHTML=cats.map(c=>
+    '<label class="vg-multi-item"><input type="checkbox" value="'+c+'">'+c+'</label>').join("")
+    ||'<div style="padding:6px 8px;font-size:12px;color:#9ca3af">Sem categorias</div>';
+  pop.querySelectorAll("input").forEach(i=>i.addEventListener("change",()=>{vgCatLabel();vgRender()}));
+}
+function vgCatSel(){
+  return [...document.querySelectorAll("#vgCatPop input:checked")].map(i=>i.value);
+}
+function vgCatLabel(){
+  const b=vgEl("vgCatBtn");if(!b)return;
+  const sel=vgCatSel();
+  b.textContent=!sel.length?"Todas as categorias"
+    :(sel.length<=2?sel.join(", "):sel.length+" categorias");
+}
+function vgCatAbre(ev){
+  ev.stopPropagation();
+  const box=vgEl("vgCatBox");if(box)box.classList.toggle("vg-aberto");
+}
+document.addEventListener("click",ev=>{
+  const box=vgEl("vgCatBox");
+  if(box&&!box.contains(ev.target))box.classList.remove("vg-aberto");
+});
 function vgFiltered(){
-  const yr=vgEl("vgYear")?.value||"",et=vgEl("vgEtapa")?.value||"",ct=vgEl("vgCat")?.value||"";
-  const fato=VG_RECORDS.filter(r=>
-    (!yr||r.temporada===yr)&&(!et||r.etapa===et)&&(!ct||r.categoria===ct));
-  const eg=VG_EG.filter(r=>
-    (!yr||r.temporada===yr)&&(!et||r.etapa===et)&&(!ct||r.categoria===ct));
-  return fato.concat(eg);
+  const yr=vgEl("vgYear")?.value||"",et=vgEl("vgEtapa")?.value||"",cs=vgCatSel();
+  const ok=r=>(!yr||r.temporada===yr)&&(!et||r.etapa===et)&&(!cs.length||cs.includes(r.categoria));
+  return VG_RECORDS.filter(ok).concat(VG_EG.filter(ok));
 }
 // mesma coisa, mas ignora o filtro de etapa (usado no gráfico "Custo por etapa" p/ manter todas as etapas)
 function vgFilteredNoEtapa(){
-  const yr=vgEl("vgYear")?.value||"",ct=vgEl("vgCat")?.value||"";
-  const fato=VG_RECORDS.filter(r=>(!yr||r.temporada===yr)&&(!ct||r.categoria===ct));
-  const eg=VG_EG.filter(r=>(!yr||r.temporada===yr)&&(!ct||r.categoria===ct));
-  return fato.concat(eg);
+  const yr=vgEl("vgYear")?.value||"",cs=vgCatSel();
+  const ok=r=>(!yr||r.temporada===yr)&&(!cs.length||cs.includes(r.categoria));
+  return VG_RECORDS.filter(ok).concat(VG_EG.filter(ok));
 }
 function vgPickEtapa(i){
   const et=(window.__vgEtapas||[])[i];const sel=vgEl("vgEtapa");
   if(sel){sel.value=(sel.value===et)?"":et;vgRender();}
 }
-function vgReset(){["vgYear","vgEtapa","vgCat"].forEach(id=>{const el=vgEl(id);if(el)el.value=""});vgRender()}
+function vgReset(){
+  ["vgYear","vgEtapa"].forEach(id=>{const el=vgEl(id);if(el)el.value=""});
+  document.querySelectorAll("#vgCatPop input:checked").forEach(i=>{i.checked=false});
+  vgCatLabel();vgRender();
+}
 
 function vgKPIs(d){
   const fato=d.filter(r=>!r.eg);
@@ -383,18 +430,17 @@ function vgKPIs(d){
   const autsAtivos=Object.values(autsEt).reduce((s,x)=>s+x.size,0);
   // médias por etapa e por categoria (sobre o custo consolidado)
   const nEtapas=new Set(d.map(r=>r.etapa).filter(Boolean)).size;
-  const nCats=new Set(d.map(r=>r.categoria).filter(Boolean)).size;
-  const nTemps=new Set(d.map(r=>r.temporada).filter(Boolean)).size;
-  const mediaTemp=nTemps?total/nTemps:0;
-  const mediaCat=nCats?total/nCats:0;
+  // etapa realizada = etapa que ja gerou custo. Dividir por temporada fazia o
+  // numero virar o proprio total quando o filtro trazia uma temporada so.
+  const etapasRealizadas=new Set(d.filter(r=>(r.valor||0)>0).map(r=>r.etapa).filter(Boolean)).size;
+  const mediaEtapa=etapasRealizadas?total/etapasRealizadas:0;
   const set=(id,v,f)=>{const e=vgEl(id);if(e)e.textContent=v;const fe=vgEl(id+"f");if(fe)fe.innerHTML=f||""};
   set("vgK0",vgFmt(total),carrosDist.size+" carros · "+pilotos.size+" pilotos"+(egTotal>0?" · Outras Equipes "+vgFmt(egTotal):""));
   set("vgK1",vgFmt(media),carrosDist.size+" carros (distintos)"
       +(egTotal>0?" · sem Outras Equipes":""));
   set("vgK4",autsAtivos,nEtapas+" etapa(s)");
   set("vgK5",carrosAtend,nEtapas+" etapa(s)");
-  set("vgK8",vgFmt(mediaTemp),nTemps+" temporada(s)");
-  set("vgK9",vgFmt(mediaCat),nCats+" categoria(s)");
+  set("vgK8",vgFmt(mediaEtapa),etapasRealizadas+" etapa(s) realizada(s)");
 }
 
 function vgEtapaChart(d){
@@ -479,16 +525,58 @@ function vgFormas(d){
     '<span style="font-weight:800;color:'+(diff>=0?"#15946c":"#d71920")+'">'+(diff>=0?"+":"")+diff.toFixed(0)+'%</span></div>';
 }
 
-function vgCatBars(d){
-  const cm={};d.forEach(r=>{const k=r.categoria||"Sem categoria";cm[k]=(cm[k]||0)+(r.valor||0)});
-  const rows=Object.entries(cm).sort((a,b)=>b[1]-a[1]);
-  const maxV=rows[0]?.[1]||1;
+function vgCatChart(d){
+  // serie grande gasta mais so por ter mais carro; a barra e o custo POR CARRO,
+  // unico jeito de Carrera (38) e Trophy (21) se compararem de igual para igual
+  const cm={};
+  d.forEach(r=>{
+    const k=r.categoria||"Sem categoria";
+    if(!cm[k])cm[k]={tot:0,carros:new Set()};
+    cm[k].tot+=(r.valor||0);
+    if(r.carro_id)cm[k].carros.add(r.carro_id);
+  });
+  const rows=Object.entries(cm).map(([cat,v])=>({
+    cat:cat,tot:v.tot,carros:v.carros.size,
+    porCarro:v.carros.size?v.tot/v.carros.size:0
+  })).sort((a,b)=>b.porCarro-a.porCarro);
   const COLS=["#d71920","#374151","#7157c8","#e59a12","#15946c"];
-  const el=vgEl("vgCatBars");if(!el)return;
-  if(!rows.length){el.innerHTML='<p style="color:#9ca3af;font-size:12px">Sem dados</p>';return}
-  el.innerHTML=rows.map(([k,v],i)=>
-    '<div><div class="vg-hbar-lbl"><span>'+k+'</span><small>'+vgFmt(v)+'</small></div>'+
-    '<div class="vg-hbar-track"><div class="vg-hbar-fill" style="width:'+(v/maxV*100).toFixed(1)+'%;background:'+COLS[i%COLS.length]+'"></div></div></div>').join("");
+  const host=vgEl("vgCatChart"),tot=vgEl("vgCatTot");
+  if(!host)return;
+  if(!rows.length){
+    host.innerHTML='<p style="color:#9ca3af;font-size:12px;padding:16px 0">Sem dados</p>';
+    if(tot)tot.innerHTML="";return;
+  }
+  const W=372,H=200,pL=46,pR=10,pT=20,pB=44;
+  const maxV=Math.max(...rows.map(r=>r.porCarro),1);
+  const slotW=(W-pL-pR)/rows.length;
+  const bW=Math.min(slotW*.5,48);
+  const yS=v=>pT+(1-v/maxV)*(H-pT-pB);
+  const fmt=v=>v>=1000000?(v/1000000).toFixed(1)+"mi":v>=1000?Math.round(v/1000)+"k":Math.round(v).toString();
+  let grid="",bars="",lbls="",xlbl="";
+  for(let i=0;i<=4;i++){
+    const v=maxV*i/4,y=yS(v).toFixed(1);
+    grid+='<line x1="'+pL+'" y1="'+y+'" x2="'+(W-pR)+'" y2="'+y+'" stroke="'+(i===4?"#e4e8ee":"#eef1f5")+'"/>';
+    grid+='<text x="'+(pL-4)+'" y="'+(+y+3.5).toFixed(1)+'" text-anchor="end">'+fmt(v)+'</text>';
+  }
+  rows.forEach((r,i)=>{
+    const cx=pL+i*slotW+slotW/2;
+    const by=yS(r.porCarro).toFixed(1);
+    const bh=Math.max(H-pB-yS(r.porCarro),2).toFixed(1);
+    bars+='<rect x="'+(cx-bW/2).toFixed(1)+'" y="'+by+'" width="'+bW.toFixed(1)+'" height="'+bh+
+      '" rx="5" fill="'+COLS[i%COLS.length]+'"><title>'+r.cat+' \u2014 '+vgFmt(r.porCarro)+
+      ' por carro \u00b7 total '+vgFmt(r.tot)+' \u00b7 '+r.carros+' carros</title></rect>';
+    if(r.porCarro>0)lbls+='<text x="'+cx.toFixed(1)+'" y="'+(yS(r.porCarro)-5).toFixed(1)+
+      '" text-anchor="middle" class="blbl">'+fmt(r.porCarro)+'</text>';
+    xlbl+='<text x="'+cx.toFixed(1)+'" y="'+(H-20)+'" text-anchor="middle">'+r.cat.slice(0,13)+'</text>';
+    xlbl+='<text x="'+cx.toFixed(1)+'" y="'+(H-7)+'" text-anchor="middle" fill="#9ca3af">'+
+      r.carros+' carro'+(r.carros===1?"":"s")+'</text>';
+  });
+  host.innerHTML='<svg class="vg-svg" viewBox="0 0 '+W+' '+H+'" width="100%" style="min-height:'+H+'px">'+
+    grid+'<line x1="'+pL+'" y1="'+pT+'" x2="'+pL+'" y2="'+(H-pB)+'" stroke="#e4e8ee"/>'+
+    '<line x1="'+pL+'" y1="'+(H-pB)+'" x2="'+(W-pR)+'" y2="'+(H-pB)+'" stroke="#e4e8ee"/>'+
+    bars+lbls+xlbl+'</svg>';
+  if(tot)tot.innerHTML=rows.map((r,i)=>
+    '<span><i style="background:'+COLS[i%COLS.length]+'"></i>'+r.cat+' \u00b7 total '+vgFmt(r.tot)+'</span>').join("");
 }
 
 function vgRanking(d){
@@ -541,7 +629,7 @@ function vgProxEtapa(){
 
 function vgRender(){
   const d=vgFiltered();
-  vgKPIs(d);vgEtapaChart(vgFilteredNoEtapa());vgFormas(d);vgCatBars(d);vgRanking(d);vgProxEtapa();
+  vgKPIs(d);vgEtapaChart(vgFilteredNoEtapa());vgFormas(d);vgCatChart(d);vgRanking(d);vgProxEtapa();
 }
 vgSetup();vgRender();
 """
