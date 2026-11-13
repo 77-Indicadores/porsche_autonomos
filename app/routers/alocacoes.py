@@ -272,7 +272,18 @@ def editar(
 
     funcao_autonomo = cargo.nome_cargo
 
-    if status_vinculo == "Ativo":
+    # A regra existe para impedir que NASCA um segundo autonomo ativo na mesma
+    # vaga (piloto + categoria + cargo). Numa edicao que nao mexe na vaga nem
+    # reativa o vinculo, nada pode nascer: o conflito, se houver, ja estava la.
+    # Barrar assim mesmo travava o registro inteiro -- nao dava nem para trocar
+    # a forma de pagamento para NF -- e recusar a gravacao nao desfaz o conflito,
+    # so impede de mexer.
+    mudou_vaga = (fato.id_piloto != id_piloto
+                  or fato.id_prova != id_prova
+                  or (fato.funcao_autonomo or "") != funcao_autonomo)
+    reativou = status_vinculo == "Ativo" and fato.status_vinculo != "Ativo"
+
+    if status_vinculo == "Ativo" and (mudou_vaga or reativou):
         conflito = conflito_ativo(
             db,
             id_piloto=id_piloto,
