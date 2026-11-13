@@ -573,11 +573,17 @@ function vgCatChart(d){
       '" text-anchor="middle" class="blbl">'+fmt(r.porCarro)+'</text>';
     // nome longo em coluna estreita se encavalava no vizinho; corta pelo
     // espaco que a coluna tem. O nome inteiro fica no tooltip da barra.
-    const cabe=Math.max(5,Math.floor(slotW/4.6));
-    const nome=r.cat.length>cabe?r.cat.slice(0,cabe-1)+'\u2026':r.cat;
-    xlbl+='<text x="'+cx.toFixed(1)+'" y="'+(H-20)+'" text-anchor="middle" font-size="9">'+
+    const cabe=Math.max(6,Math.floor(slotW/4.1));
+    let nome=r.cat;
+    // "Endurance - Challenge" e "Endurance - Carrera" cortavam no mesmo ponto
+    // e viravam dois rotulos iguais; encurta o prefixo, nao o que diferencia
+    if(nome.length>cabe&&nome.indexOf(" - ")>0){
+      const p=nome.split(" - ");nome=p[0].slice(0,3)+". "+p.slice(1).join(" ");
+    }
+    if(nome.length>cabe)nome=nome.slice(0,cabe-1)+'\u2026';
+    xlbl+='<text x="'+cx.toFixed(1)+'" y="'+(H-20)+'" text-anchor="middle" font-size="8">'+
       nome+'<title>'+r.cat+'</title></text>';
-    xlbl+='<text x="'+cx.toFixed(1)+'" y="'+(H-7)+'" text-anchor="middle" font-size="9" fill="#9ca3af">'+
+    xlbl+='<text x="'+cx.toFixed(1)+'" y="'+(H-8)+'" text-anchor="middle" font-size="8" fill="#9ca3af">'+
       r.carros+' carro'+(r.carros===1?"":"s")+'</text>';
   });
   host.innerHTML='<svg class="vg-svg" viewBox="0 0 '+W+' '+H+'" width="100%" style="min-height:'+H+'px">'+
