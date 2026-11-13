@@ -571,8 +571,13 @@ function vgCatChart(d){
       ' por carro \u00b7 total '+vgFmt(r.tot)+' \u00b7 '+r.carros+' carros</title></rect>';
     if(r.porCarro>0)lbls+='<text x="'+cx.toFixed(1)+'" y="'+(yS(r.porCarro)-5).toFixed(1)+
       '" text-anchor="middle" class="blbl">'+fmt(r.porCarro)+'</text>';
-    xlbl+='<text x="'+cx.toFixed(1)+'" y="'+(H-20)+'" text-anchor="middle">'+r.cat.slice(0,13)+'</text>';
-    xlbl+='<text x="'+cx.toFixed(1)+'" y="'+(H-7)+'" text-anchor="middle" fill="#9ca3af">'+
+    // nome longo em coluna estreita se encavalava no vizinho; corta pelo
+    // espaco que a coluna tem. O nome inteiro fica no tooltip da barra.
+    const cabe=Math.max(5,Math.floor(slotW/4.6));
+    const nome=r.cat.length>cabe?r.cat.slice(0,cabe-1)+'\u2026':r.cat;
+    xlbl+='<text x="'+cx.toFixed(1)+'" y="'+(H-20)+'" text-anchor="middle" font-size="9">'+
+      nome+'<title>'+r.cat+'</title></text>';
+    xlbl+='<text x="'+cx.toFixed(1)+'" y="'+(H-7)+'" text-anchor="middle" font-size="9" fill="#9ca3af">'+
       r.carros+' carro'+(r.carros===1?"":"s")+'</text>';
   });
   host.innerHTML='<svg class="vg-svg" viewBox="0 0 '+W+' '+H+'" width="100%" style="min-height:'+H+'px">'+
