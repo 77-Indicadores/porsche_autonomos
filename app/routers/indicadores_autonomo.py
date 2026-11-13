@@ -1681,7 +1681,7 @@ def _build_planejamento(plan_js: str) -> str:
     <div class="pl-kpi-value" id="plKAloc">—</div>
     <div class="pl-kpi-foot" id="plKAlocF"></div></article>
   <article class="pl-kpi" style="--tint:#fff1f2;--iconbg:#fff0f1;--iconcolor:#c5161c">
-    <div class="pl-kpi-top"><span class="pl-kpi-title">Vagas em aberto</span>
+    <div class="pl-kpi-top"><span class="pl-kpi-title">Autônomo disponível</span>
       <div class="pl-icon">!</div></div>
     <div class="pl-kpi-value" id="plKVagas">—</div>
     <div class="pl-kpi-foot" id="plKVagasF"></div></article>
@@ -1831,7 +1831,7 @@ function plRender(){
   const set=(id,v,f)=>{const e=plEl(id);if(e)e.textContent=v;const fe=plEl(id+"F");if(fe)fe.innerHTML=f||""};
   set("plKEsp",Math.round(totalEsp));
   set("plKAloc",Math.round(totalAloc),'<span class="pl-delta '+(pct>=95?"ok":pct>=80?"warn":"bad")+'">'+pct.toFixed(1)+'%</span> de cobertura');
-  set("plKVagas",Math.round(deficit),etDef.size+" etapas com deficit");
+  set("plKVagas",Math.round(deficit),"sem alocação · "+etDef.size+" etapa(s) com déficit");
   set("plKCarros",etOk.size,"de "+(etOk.size+etDef.size)+" etapas planejadas");
   set("plKInc",etDef.size,"");
   const cobEl=plEl("plKCob");if(cobEl)cobEl.textContent=pct.toFixed(1)+"%";
