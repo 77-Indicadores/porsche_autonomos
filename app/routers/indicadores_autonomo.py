@@ -258,7 +258,7 @@ def _build_geral(records_js: str, meta_js: str, eg_js: str = "[]") -> str:
     <div class="vg-kpi-value" id="vgK5">—</div>
     <div class="vg-kpi-foot" id="vgK5f"></div></article>
   <article class="vg-kpi" style="--tint:#ebf8f4;--iconbg:#e7f7f1;--iconcolor:#11835f">
-    <div class="vg-kpi-top"><span class="vg-kpi-title">Custo médio/etapa</span>
+    <div class="vg-kpi-top"><span class="vg-kpi-title">Custo médio/temporada</span>
       <div class="vg-icon">&#9873;</div></div>
     <div class="vg-kpi-value" id="vgK8">—</div>
     <div class="vg-kpi-foot" id="vgK8f"></div></article>
@@ -384,14 +384,16 @@ function vgKPIs(d){
   // médias por etapa e por categoria (sobre o custo consolidado)
   const nEtapas=new Set(d.map(r=>r.etapa).filter(Boolean)).size;
   const nCats=new Set(d.map(r=>r.categoria).filter(Boolean)).size;
-  const mediaEtapa=nEtapas?total/nEtapas:0;
+  const nTemps=new Set(d.map(r=>r.temporada).filter(Boolean)).size;
+  const mediaTemp=nTemps?total/nTemps:0;
   const mediaCat=nCats?total/nCats:0;
   const set=(id,v,f)=>{const e=vgEl(id);if(e)e.textContent=v;const fe=vgEl(id+"f");if(fe)fe.innerHTML=f||""};
   set("vgK0",vgFmt(total),carrosDist.size+" carros · "+pilotos.size+" pilotos"+(egTotal>0?" · Outras Equipes "+vgFmt(egTotal):""));
-  set("vgK1",vgFmt(media),carrosDist.size+" carros (distintos)");
+  set("vgK1",vgFmt(media),carrosDist.size+" carros (distintos)"
+      +(egTotal>0?" · sem Outras Equipes":""));
   set("vgK4",autsAtivos,nEtapas+" etapa(s)");
   set("vgK5",carrosAtend,nEtapas+" etapa(s)");
-  set("vgK8",vgFmt(mediaEtapa),nEtapas+" etapa(s)");
+  set("vgK8",vgFmt(mediaTemp),nTemps+" temporada(s)");
   set("vgK9",vgFmt(mediaCat),nCats+" categoria(s)");
 }
 
