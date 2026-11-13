@@ -31,6 +31,11 @@ class DimCargoAutonomo(Base):
     nome_cargo = Column(String, nullable=False)
     descricao = Column(String)
     status = Column(String, default="Ativo")
+    # Agrupa cargos que respondem pela mesma frente. A cobertura misturava
+    # posicoes de equipes diferentes: borracharia aparecia com 0% ao lado dos
+    # mecanicos, e a cobertura geral caia por causa de vagas que nunca seriam
+    # preenchidas por autonomo.
+    grupo_cargo = Column(String)
 
 
 class DimAutonomo(Base):

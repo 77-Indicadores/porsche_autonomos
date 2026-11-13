@@ -1389,6 +1389,8 @@ def _fetch_planejamento(db: Session) -> str:
 
     # Funcao do autonomo: cargo cadastrado, com o tipo como fallback
     _FUNC = "COALESCE(NULLIF(TRIM(ca.nome_cargo), ''), NULLIF(TRIM(da.tipo_autonomo), ''), '-')"
+    # grupo do cargo (cadastro Cargos Autonomo); sem grupo, fica "Sem grupo"
+    _GRUPO = "COALESCE(NULLIF(TRIM(ca.grupo_cargo), ''), 'Sem grupo')"
 
     # Esperado = autonomos escalados para a etapa na Disponibilidade Autonomos
     planejado = []
@@ -1399,17 +1401,19 @@ def _fetch_planejamento(db: Session) -> str:
                    {_FUNC} AS cargo,
                    COUNT(DISTINCT p.id_autonomo) AS qtd_esp,
                    e.nome_etapa,
-                   COALESCE(e.temporada, '')
+                   COALESCE(e.temporada, ''),
+                   {_GRUPO} AS grupo
             FROM planejamento_equipe_etapa p
             LEFT JOIN dim_autonomos da ON da.id_autonomo = p.id_autonomo
             LEFT JOIN dim_cargos_autonomos ca ON ca.id_cargo_autonomo = da.id_cargo_autonomo
             LEFT JOIN dim_etapas e ON e.id_etapa = p.id_etapa
             WHERE UPPER(TRIM(COALESCE(p.status_disponibilidade, ''))) = 'ESCALADO'
-            GROUP BY p.id_etapa, {_FUNC}, e.nome_etapa, e.temporada
+            GROUP BY p.id_etapa, {_FUNC}, e.nome_etapa, e.temporada, {_GRUPO}
         """)).fetchall()
         planejado = [{"id_etapa": r[0], "cargo": r[1] or "-",
                       "qtd_esp": float(r[2] or 0), "etapa": r[3] or "",
-                      "temporada": str(r[4] or "")} for r in rows]
+                      "temporada": str(r[4] or ""),
+                      "grupo": str(r[5] or "Sem grupo")} for r in rows]
         planejado_total = sum(p["qtd_esp"] for p in planejado)
     except Exception as exc:
         print(f"AVISO - planejamento por etapa: {exc}")
@@ -1422,18 +1426,20 @@ def _fetch_planejamento(db: Session) -> str:
                    COALESCE(NULLIF(TRIM(f.funcao_autonomo), ''), {_FUNC}) AS cargo,
                    COUNT(DISTINCT f.id_autonomo) AS qtd_aloc,
                    e.nome_etapa,
-                   COALESCE(e.temporada, '')
+                   COALESCE(e.temporada, ''),
+                   {_GRUPO} AS grupo
             FROM fato_piloto_autonomo_prova f
             LEFT JOIN dim_autonomos da ON da.id_autonomo = f.id_autonomo
             LEFT JOIN dim_cargos_autonomos ca ON ca.id_cargo_autonomo = da.id_cargo_autonomo
             LEFT JOIN dim_etapas e ON e.id_etapa = f.id_etapa
             GROUP BY f.id_etapa,
                      COALESCE(NULLIF(TRIM(f.funcao_autonomo), ''), {_FUNC}),
-                     e.nome_etapa, e.temporada
+                     e.nome_etapa, e.temporada, {_GRUPO}
         """)).fetchall()
         alocacoes = [{"id_etapa": r[0], "cargo": r[1] or "-",
                       "qtd_aloc": float(r[2] or 0), "etapa": r[3] or "",
-                      "temporada": str(r[4] or "")} for r in rows]
+                      "temporada": str(r[4] or ""),
+                      "grupo": str(r[5] or "Sem grupo")} for r in rows]
     except Exception as exc:
         print(f"AVISO - alocacoes da cobertura: {exc}")
 
@@ -1571,6 +1577,7 @@ def _build_planejamento(plan_js: str) -> str:
 <div class="pl-filters">
   <div class="pl-filter"><label>Temporada</label><select id="plYear"></select></div>
   <div class="pl-filter"><label>Etapa</label><select id="plEtapa"></select></div>
+  <div class="pl-filter"><label>Grupo de cargo</label><select id="plGrupo"></select></div>
   <div class="pl-filter"><label>Categoria</label><select id="plCat"></select></div>
   <button class="pl-reset" onclick="plReset()">Limpar</button>
 </div>
@@ -1672,10 +1679,15 @@ function plSetup(){
   const etapas=[...new Set(PL_DATA.planejado.map(r=>r.etapa).filter(Boolean))].sort();
   plFillSel("plYear",years,"Todas as temporadas");
   plFillSel("plEtapa",etapas,"Todas as etapas");
+  // o grupo sai do cadastro de cargos: borracharia e mecanica deixam de ser
+  // medidas na mesma cobertura
+  const grupos=[...new Set(PL_DATA.planejado.concat(PL_DATA.alocacoes)
+    .map(r=>r.grupo).filter(Boolean))].sort();
+  plFillSel("plGrupo",grupos,"Todos os grupos");
   plFillSel("plCat",[],"Todas as categorias");
-  ["plYear","plEtapa","plCat"].forEach(id=>{const el=plEl(id);if(el)el.addEventListener("change",plRender)});
+  ["plYear","plEtapa","plCat","plGrupo"].forEach(id=>{const el=plEl(id);if(el)el.addEventListener("change",plRender)});
 }
-function plReset(){["plYear","plEtapa","plCat"].forEach(id=>{const el=plEl(id);if(el)el.value=""});plRender()}
+function plReset(){["plYear","plEtapa","plCat","plGrupo"].forEach(id=>{const el=plEl(id);if(el)el.value=""});plRender()}
 
 function plVazio(){
   const s='color:#9ca3af;font-size:11px';
@@ -1688,7 +1700,8 @@ function plVazio(){
 
 function plFiltra(lista){
   const yr=plEl("plYear")?.value||"",et=plEl("plEtapa")?.value||"";
-  return lista.filter(r=>(!yr||r.temporada===yr)&&(!et||r.etapa===et));
+  const gr=plEl("plGrupo")?.value||"";
+  return lista.filter(r=>(!yr||r.temporada===yr)&&(!et||r.etapa===et)&&(!gr||r.grupo===gr));
 }
 
 /* chave: etapa + cargo normalizado */

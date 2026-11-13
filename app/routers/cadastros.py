@@ -577,15 +577,37 @@ def salvar_motivo(
     return redirect_with_message("/motivos-troca", success=msg)
 
 
+def _garantir_coluna_grupo_cargo():
+    """Coluna nova em base que ja existe."""
+    from sqlalchemy import text as _t
+    from app.database import engine as _e
+    try:
+        with _e.begin() as cx:
+            if cx.dialect.name == "postgresql":
+                cx.execute(_t("ALTER TABLE IF EXISTS dim_cargos_autonomos "
+                              "ADD COLUMN IF NOT EXISTS grupo_cargo VARCHAR(120)"))
+            else:
+                cols = [r[1] for r in cx.execute(_t("PRAGMA table_info(dim_cargos_autonomos)"))]
+                if cols and "grupo_cargo" not in cols:
+                    cx.execute(_t("ALTER TABLE dim_cargos_autonomos ADD COLUMN grupo_cargo VARCHAR(120)"))
+    except Exception as exc:
+        print(f"AVISO - dim_cargos_autonomos.grupo_cargo: {exc}")
+
+
+_garantir_coluna_grupo_cargo()
+
+
 @router.get("/cargos-autonomos")
 def cargos_autonomos(request: Request, db: Session = Depends(get_db)):
     items = db.query(DimCargoAutonomo).order_by(DimCargoAutonomo.nome_cargo).all()
+    grupos = sorted({(c.grupo_cargo or "").strip() for c in items if (c.grupo_cargo or "").strip()})
 
     return templates.TemplateResponse(
         "cadastros/cargos_autonomos.html",
         {
             "request": request,
             "items": items,
+            "grupos": grupos,
             **flash_from_request(request),
         },
     )
@@ -599,6 +621,7 @@ def salvar_cargo_autonomo(
     nome_cargo: str = Form(...),
     descricao: str = Form(""),
     status: str = Form("Ativo"),
+    grupo_cargo: str = Form(""),
     db: Session = Depends(get_db),
 ):
     # fallback: lê da query string se não vier no body (compatibilidade)
@@ -615,6 +638,7 @@ def salvar_cargo_autonomo(
     cargo.nome_cargo = nome_cargo
     cargo.descricao = descricao
     cargo.status = status
+    cargo.grupo_cargo = grupo_cargo.strip()
 
     db.add(cargo)
     db.commit()
