@@ -144,6 +144,19 @@ def troca_etapas_index(request: Request, db: Session = Depends(get_db)):
             def _fn(valor):
                 return (valor or "").strip().upper()
 
+            # O nivel do cargo nao faz parte da vaga. Quem entrou no lugar do
+            # "Analista de dados Pleno" costuma entrar como Junior ou Senior, e
+            # exigindo o cargo identico o substituto nao era encontrado -- o
+            # card mostrava "—" mesmo com a pessoa alocada na etapa seguinte.
+            _NIVEIS = {"JUNIOR", "JR", "PLENO", "PL", "SENIOR", "SR",
+                       "TRAINEE", "ESTAGIARIO", "I", "II", "III", "IV"}
+
+            def _familia(valor):
+                palavras = _fn(valor).replace("-", " ").split()
+                while palavras and palavras[-1] in _NIVEIS:
+                    palavras.pop()
+                return " ".join(palavras)
+
             # quem ja estava na etapa anterior, por piloto/carro/funcao
             autonomos_na_ant: dict = {}
             for f in fatos_ant:
@@ -153,11 +166,15 @@ def troca_etapas_index(request: Request, db: Session = Depends(get_db)):
 
             # substituto 1-para-1: autonomo novo na mesma funcao
             substitutos_map: dict = {}
+            por_familia: dict = {}
             for f in fatos_prox:
                 chave = (f.id_piloto, f.id_carro, _fn(f.funcao_autonomo))
                 if f.id_autonomo not in autonomos_na_ant.get(chave, set()):
                     nome_aut = getattr(f.autonomo, "nome_autonomo", None) or "—"
                     substitutos_map.setdefault(chave, []).append(nome_aut)
+                    por_familia.setdefault(
+                        (f.id_piloto, f.id_carro, _familia(f.funcao_autonomo)), []
+                    ).append(nome_aut)
 
             autonomos_na_prox = {f.id_autonomo for f in fatos_prox}
 
@@ -185,6 +202,15 @@ def troca_etapas_index(request: Request, db: Session = Depends(get_db)):
                 subs = substitutos_map.get(
                     (f.id_piloto, f.id_carro, _fn(f.funcao_autonomo)), []
                 )
+                if not subs:
+                    # Mesmo cargo, outro nivel: Analista de dados Pleno saiu,
+                    # Analista de dados Junior entrou. So aceita quando ha um
+                    # unico candidato da familia, para nao chutar entre dois.
+                    mesma_familia = por_familia.get(
+                        (f.id_piloto, f.id_carro, _familia(f.funcao_autonomo)), [])
+                    if len(mesma_familia) == 1:
+                        subs = mesma_familia
+
                 if not subs:
                     # A função pode mudar entre etapas. Só aceita o palpite
                     # quando há um único candidato para o piloto/carro —
