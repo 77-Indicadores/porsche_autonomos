@@ -9,7 +9,7 @@ from __future__ import annotations
 from collections import defaultdict
 
 from fastapi import APIRouter, Depends, Request
-from sqlalchemy import text
+from sqlalchemy import bindparam, text
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -93,6 +93,109 @@ def _barras(dados: list[tuple], sufixo: str = "") -> str:
     return "".join(linhas)
 
 
+ALVO_DA_PESQUISA = {
+    "feedback_piloto": "piloto",
+    "feedback_equipe_tecnica": "autonomo",
+    "satisfacao_autonomo": "autonomo",
+}
+
+
+def _chave_pessoa(r):
+    """Identifica a pessoa da linha. Sem id mapeado, vale o nome normalizado."""
+    if (r["tipo_alvo"] or "") == "piloto":
+        return f"p{r['id_piloto']}" if r["id_piloto"] else (
+            "pn:" + r["alvo_chave"] if r["alvo_chave"] else None)
+    return f"a{r['id_autonomo']}" if r["id_autonomo"] else (
+        "an:" + r["alvo_chave"] if r["alvo_chave"] else None)
+
+
+def _engajamento(db: Session, rows):
+    """Quantos dos alocados na etapa aparecem em cada pesquisa.
+
+    Uma pessoa conta uma vez por etapa, por mais perguntas que tenha
+    respondido. O denominador e quem estava alocado naquela etapa, entao
+    etapa sem alocacao cadastrada fica de fora dos dois lados da conta.
+    """
+    por_pesquisa = defaultdict(lambda: defaultdict(set))   # tipo -> etapa -> pessoas
+    for r in rows:
+        etapa = r["id_etapa"]
+        chave = _chave_pessoa(r)
+        if etapa and chave:
+            por_pesquisa[r["tipo_pesquisa"]][etapa].add(chave)
+
+    etapas = sorted({e for t in por_pesquisa.values() for e in t})
+    if not etapas:
+        return [], "", ""
+
+    alocado = {}
+    try:
+        consulta = text("""
+            SELECT id_etapa,
+                   COUNT(DISTINCT id_piloto)   AS pilotos,
+                   COUNT(DISTINCT id_autonomo) AS autonomos
+            FROM fato_piloto_autonomo_prova
+            WHERE id_etapa IN :ets
+              AND COALESCE(status_vinculo, '') <> 'Cancelado'
+            GROUP BY id_etapa
+        """).bindparams(bindparam("ets", expanding=True))
+        for linha in db.execute(consulta, {"ets": etapas}).fetchall():
+            alocado[linha[0]] = {"piloto": int(linha[1] or 0),
+                                 "autonomo": int(linha[2] or 0)}
+    except Exception as exc:
+        print(f"AVISO - engajamento das pesquisas: {exc}")
+        return [], "", ""
+
+    from app.routers.pesquisas import TIPOS_CURTO
+    linhas, sem_base = [], set()
+    unicos = {"piloto": set(), "autonomo": set()}
+    for tipo, por_etapa in por_pesquisa.items():
+        alvo = ALVO_DA_PESQUISA.get(tipo, "autonomo")
+        responderam = base = 0
+        for etapa, pessoas in por_etapa.items():
+            disponivel = alocado.get(etapa, {}).get(alvo, 0)
+            if not disponivel:
+                sem_base.add(etapa)
+                continue
+            responderam += len(pessoas)
+            base += disponivel
+            unicos[alvo] |= {(etapa, k) for k in pessoas}
+        if base:
+            linhas.append((TIPOS_CURTO.get(tipo, tipo), responderam, base,
+                           responderam / base * 100, alvo))
+    linhas.sort(key=lambda x: -x[3])
+
+    # geral: uniao das duas pesquisas de autonomo, para ninguem contar duas vezes
+    etapas_validas = [e for e in etapas if alocado.get(e)]
+    base_geral = sum(alocado[e]["piloto"] + alocado[e]["autonomo"] for e in etapas_validas)
+    resp_geral = len(unicos["piloto"]) + len(unicos["autonomo"])
+    pct_geral = resp_geral / base_geral * 100 if base_geral else 0
+
+    if not linhas:
+        return [], "", ""
+
+    corpo = []
+    for rot, resp, base, pct, alvo in linhas:
+        cor = "#15946c" if pct >= 70 else ("#e59a12" if pct >= 40 else "#d71920")
+        quem = "pilotos" if alvo == "piloto" else "autônomos"
+        corpo.append(f"""
+<div style="display:grid;grid-template-columns:132px 1fr 112px;align-items:center;gap:10px;margin-bottom:9px">
+  <div style="font-size:12px;color:#374151;font-weight:600">{rot}</div>
+  <div style="background:#eef0f4;border-radius:999px;height:9px;overflow:hidden">
+    <div style="width:{min(pct, 100):.1f}%;height:100%;background:{cor};border-radius:999px"></div>
+  </div>
+  <div style="font-size:12px;text-align:right;color:#111827">
+    <b>{pct:.0f}%</b> <span style="color:#9ca3af">{resp}/{base} {quem}</span></div>
+</div>""")
+
+    if sem_base:
+        corpo.append(
+            f"<p style='margin:10px 0 0;font-size:11px;color:#9ca3af'>"
+            f"{len(sem_base)} etapa(s) com resposta mas sem alocação cadastrada "
+            f"ficaram fora da conta.</p>")
+
+    return linhas, "".join(corpo), (resp_geral, base_geral, pct_geral)
+
+
 def _escala_por_pergunta(rows) -> dict:
     """Máximo observado por pergunta, para saber se é escala 5 ou 10."""
     maximos: dict = defaultdict(float)
@@ -140,6 +243,7 @@ def _build(db: Session, request: Request) -> str:
         SELECT p.tipo_pesquisa, p.grupo_pergunta, p.subgrupo_pergunta,
                p.pergunta_original, p.nota_num, p.resposta_padronizada,
                p.manter_trocar, p.categoria_forms, p.id_etapa,
+               p.tipo_alvo, p.id_piloto, p.id_autonomo, p.alvo_chave,
                COALESCE(e.nome_etapa, 'Sem etapa definida') AS etapa
         FROM pesquisa_respostas p
         LEFT JOIN dim_etapas e ON e.id_etapa = p.id_etapa
@@ -175,7 +279,7 @@ def _build(db: Session, request: Request) -> str:
     positivas = escala_cont["Excelente"] + escala_cont["Bom"]
     pct_positivas = positivas / total_escala * 100 if total_escala else 0
 
-    respondentes = len({(r["tipo_pesquisa"], r["etapa"], r["categoria_forms"]) for r in rows})
+    _eng_linhas, engajamento_html, eng_geral = _engajamento(db, rows)
 
     kpis = [
         ("Respostas", f"{len(rows):,}".replace(",", "."), "registros padronizados", "#111827"),
@@ -183,6 +287,10 @@ def _build(db: Session, request: Request) -> str:
         ("Avaliações positivas", f"{pct_positivas:.1f}%", "Excelente ou Bom", "#2878d0"),
         ("Permanência", f"{pct_manter:.1f}%", f"{manter} manter · {trocar} trocar", "#7259be"),
     ]
+    if eng_geral:
+        resp_g, base_g, pct_g = eng_geral
+        kpis.append(("Engajamento", f"{pct_g:.1f}%",
+                     f"{resp_g} de {base_g} alocados participaram", "#0f7c8a"))
     kpis_html = "".join(f"""
 <article style="background:#fff;border:1px solid #e3e7ee;border-radius:12px;padding:14px 16px">
   <div style="font-size:11px;font-weight:700;color:#6f7886;text-transform:uppercase;letter-spacing:.05em">{t}</div>
@@ -302,6 +410,13 @@ def _build(db: Session, request: Request) -> str:
   {card("Distribuição das avaliações", "Escala qualitativa das pesquisas", rosca_escala)}
   {card("Manter ou trocar", "Decisão registrada sobre o profissional", rosca_perm)}
   {card("Respostas por pesquisa", "Volume de cada formulário", rosca_tipo)}
+</section>
+
+<section style="display:grid;grid-template-columns:1fr;gap:12px;margin-bottom:14px">
+  {card("Engajamento por pesquisa",
+        "Quantos dos alocados na etapa participaram — uma pessoa conta uma vez por etapa",
+        engajamento_html or "<p style='color:#9ca3af;font-size:12px'>"
+        "Sem alocação cadastrada nas etapas das respostas, não dá para calcular.</p>")}
 </section>
 
 <section style="display:grid;grid-template-columns:repeat(auto-fit,minmax(380px,1fr));gap:12px;margin-bottom:14px">
