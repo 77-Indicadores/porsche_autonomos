@@ -146,6 +146,17 @@ def priority_label(value):
     return labels.get(value or "", value or "-")
 
 
+STATUS_FINALIZADOS = {"completed", "closed", "concluido", "concluído", "fechado", "pagamento efetuado"}
+
+
+def chamado_finalizado(status, complemento) -> bool:
+    # o status do formulário costuma ficar em "chamado aberto" mesmo depois do
+    # atendimento; a data de finalização do complemento é quem fecha o chamado
+    if (status or "").strip().lower() in STATUS_FINALIZADOS:
+        return True
+    return bool((complemento or {}).get("data_finalizacao"))
+
+
 def status_complemento(complemento):
     if complemento.get("data_finalizacao"):
         return "Finalizado"
@@ -622,6 +633,7 @@ def preparar_chamados(rows, complementos=None):
         item["complemento_custo_fmt"] = fmt_money(parse_money_value(complemento.get("custo")))
         item["complemento_tempo"] = tempo_atendimento(complemento)
         item["tem_complemento"] = bool(complemento)
+        item["finalizado"] = chamado_finalizado(item.get("status"), complemento)
         chamados.append(item)
 
     return chamados
@@ -673,11 +685,12 @@ def index(request: Request, db: Session = Depends(get_db)):
 
     complementos = ler_complementos(db)
     chamados = preparar_chamados(sem_excluidos(rows), complementos)
+    chamados.sort(key=lambda c: c.get("created_at") or datetime.min, reverse=True)
     vinculos_antigos = sum(1 for k in complementos if str(k).isdigit())
 
     total = len(chamados)
-    total_abertos = sum(1 for item in chamados if item.get("status") in ("open", "pending", "in_progress"))
-    total_concluidos = sum(1 for item in chamados if item.get("status") in ("completed", "closed"))
+    total_concluidos = sum(1 for item in chamados if item["finalizado"])
+    total_abertos = total - total_concluidos
     valor_total = sum(Decimal(item.get("amount") or 0) for item in chamados)
     has_oauth_client = has_google_oauth_client(db)
     has_token = has_google_token(db)

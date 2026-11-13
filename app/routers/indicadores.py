@@ -1807,7 +1807,12 @@ def _build_facilities_html(tickets: list[dict], todos_tickets: list[dict] | None
                 "</div></div>")
 
     finalizados_set = {"concluído","fechado","pagamento efetuado"}
-    finalizados = sum(1 for t in tickets if norm_status(t.get("status","")).lower() in finalizados_set)
+    def finalizado(t):
+        if "_finalizado" in t:
+            return t["_finalizado"]
+        return norm_status(t.get("status","")).lower() in finalizados_set
+
+    finalizados = sum(1 for t in tickets if finalizado(t))
     pendentes = total - finalizados
     prio_alta = sum(1 for t in tickets if norm_priority(t.get("priority","")) == "Alta")
     corretivas = sum(1 for t in tickets if "corretiva" in (t.get("maintenance_type") or "").lower())
@@ -1844,7 +1849,10 @@ def _build_facilities_html(tickets: list[dict], todos_tickets: list[dict] | None
     sup_data: dict[str, dict] = defaultdict(lambda: {"cnt": 0, "custo": 0.0})
 
     for t in tickets:
-        status_cnt[norm_status(t.get("status",""))] += 1
+        st = norm_status(t.get("status",""))
+        if finalizado(t) and st.lower() not in finalizados_set:
+            st = "Concluído"
+        status_cnt[st] += 1
         prio_cnt[norm_priority(t.get("priority",""))] += 1
         cat_cnt[norm_category(t.get("category",""))] += 1
         depto = (t.get("department") or "Não informado").strip().upper() or "Não informado"
@@ -3775,6 +3783,18 @@ def facilities_dash(request: Request,
             tickets = [t for t in tickets
                        if (t.get("_id") or id_do_chamado(t)) not in _excl
                        and str(t.get("source_row") or "") not in _excl]
+
+        from app.database import SessionLocal
+        from app.routers.facilities import chamado_finalizado
+        _db = SessionLocal()
+        try:
+            _comps = ler_complementos(_db)
+        finally:
+            _db.close()
+        for t in tickets:
+            comp = (_comps.get(t.get("_id") or id_do_chamado(t))
+                    or _comps.get(str(t.get("source_row") or "")) or {})
+            t["_finalizado"] = chamado_finalizado(t.get("status"), comp)
 
         todos_tickets = tickets
         ano_sel = _lista_sel(ano)
