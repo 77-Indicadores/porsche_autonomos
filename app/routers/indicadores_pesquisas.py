@@ -117,11 +117,14 @@ def _engajamento(db: Session, rows):
     etapa sem alocacao cadastrada fica de fora dos dois lados da conta.
     """
     por_pesquisa = defaultdict(lambda: defaultdict(set))   # tipo -> etapa -> pessoas
+    anonimas = set()   # formularios entregues sem ninguem identificado
     for r in rows:
         etapa = r["id_etapa"]
         chave = _chave_pessoa(r)
         if etapa and chave:
             por_pesquisa[r["tipo_pesquisa"]][etapa].add(chave)
+        elif not chave:
+            anonimas.add((r["id_upload"], r["linha_excel"]))
 
     etapas = sorted({e for t in por_pesquisa.values() for e in t})
     if not etapas:
@@ -187,11 +190,17 @@ def _engajamento(db: Session, rows):
     <b>{pct:.0f}%</b> <span style="color:#9ca3af">{resp}/{base} {quem}</span></div>
 </div>""")
 
+    avisos = []
+    if anonimas:
+        avisos.append(f"{len(anonimas)} formulário(s) sem identificação do "
+                      "respondente — sem nome, não dá para saber quem participou")
     if sem_base:
+        avisos.append(f"{len(sem_base)} etapa(s) com resposta mas sem alocação "
+                      "cadastrada")
+    if avisos:
         corpo.append(
-            f"<p style='margin:10px 0 0;font-size:11px;color:#9ca3af'>"
-            f"{len(sem_base)} etapa(s) com resposta mas sem alocação cadastrada "
-            f"ficaram fora da conta.</p>")
+            "<p style='margin:10px 0 0;font-size:11px;color:#9ca3af'>Fora da conta: "
+            + " · ".join(avisos) + ".</p>")
 
     return linhas, "".join(corpo), (resp_geral, base_geral, pct_geral)
 
@@ -244,6 +253,7 @@ def _build(db: Session, request: Request) -> str:
                p.pergunta_original, p.nota_num, p.resposta_padronizada,
                p.manter_trocar, p.categoria_forms, p.id_etapa,
                p.tipo_alvo, p.id_piloto, p.id_autonomo, p.alvo_chave,
+               p.id_upload, p.linha_excel,
                COALESCE(e.nome_etapa, 'Sem etapa definida') AS etapa
         FROM pesquisa_respostas p
         LEFT JOIN dim_etapas e ON e.id_etapa = p.id_etapa
