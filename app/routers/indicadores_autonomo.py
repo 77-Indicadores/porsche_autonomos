@@ -141,7 +141,7 @@ def _build_geral(records_js: str, meta_js: str, eg_js: str = "[]") -> str:
 .vg-multi-btn{width:100%;text-align:left;border:0;background:transparent;padding:0;
   font-size:12px;color:#18202c;font-weight:600;cursor:pointer;
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.vg-multi-btn::after{content:"be";float:right;color:var(--muted);margin-left:6px}
+.vg-multi-btn::after{content:"▾";float:right;color:var(--muted);margin-left:6px}
 .vg-multi-pop{display:none;position:absolute;z-index:60;top:calc(100% + 9px);left:-11px;
   min-width:calc(100% + 22px);max-height:240px;overflow-y:auto;background:#fff;
   border:1px solid var(--border);border-radius:11px;padding:6px;
