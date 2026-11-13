@@ -64,6 +64,12 @@ def options(db: Session):
         "cargos_autonomos": db.query(DimCargoAutonomo).filter(DimCargoAutonomo.status == "Ativo").order_by(DimCargoAutonomo.nome_cargo).all(),
         "etapas": db.query(DimEtapa).order_by(DimEtapa.temporada.desc(), DimEtapa.nome_etapa).all(),
         "provas": db.query(DimProva).order_by(DimProva.data_prova.desc()).all(),
+        # dim_categorias tem uma linha POR ETAPA, entao o mesmo nome aparece
+        # dezenas de vezes. O filtro da tela e por categoria, nao por categoria
+        # de uma etapa especifica: a lista vai por nome, sem repetir.
+        "categorias": [n for (n,) in db.query(DimProva.nome_prova)
+                       .filter(DimProva.nome_prova.isnot(None))
+                       .distinct().order_by(DimProva.nome_prova).all() if n],
         "motivos": db.query(DimMotivoTroca).filter(DimMotivoTroca.status == "Ativo").order_by(DimMotivoTroca.motivo_troca).all(),
         "ativos": db.query(FatoPilotoAutonomoProva).filter(FatoPilotoAutonomoProva.status_vinculo == "Ativo").order_by(FatoPilotoAutonomoProva.id_fato.desc()).all(),
     }
@@ -82,14 +88,21 @@ def conflito_ativo(db: Session, id_piloto: int, id_prova: int, funcao_autonomo: 
 
 
 @router.get("/alocacoes")
-def index(request: Request, id_etapa: str = "", id_prova: str = "", status: str = "", db: Session = Depends(get_db)):
+def index(request: Request, id_etapa: str = "", id_prova: str = "", categoria: str = "",
+          status: str = "", db: Session = Depends(get_db)):
     query = db.query(FatoPilotoAutonomoProva)
     if id_etapa:
         try:
             query = query.filter(FatoPilotoAutonomoProva.id_etapa == int(id_etapa))
         except ValueError:
             return redirect_with_message("/alocacoes", error="Filtro de etapa invalido.")
-    if id_prova:
+    if categoria:
+        # pelo NOME: "Carrera Cup" e a mesma categoria em qualquer etapa, e era
+        # isso que a pessoa escolhia na lista.
+        ids = [i for (i,) in db.query(DimProva.id_prova)
+               .filter(DimProva.nome_prova == categoria).all()]
+        query = query.filter(FatoPilotoAutonomoProva.id_prova.in_(ids or [-1]))
+    elif id_prova:            # link antigo, com o id na URL
         try:
             query = query.filter(FatoPilotoAutonomoProva.id_prova == int(id_prova))
         except ValueError:
@@ -97,7 +110,7 @@ def index(request: Request, id_etapa: str = "", id_prova: str = "", status: str 
     if status:
         query = query.filter(FatoPilotoAutonomoProva.status_vinculo == status)
     fatos = query.order_by(FatoPilotoAutonomoProva.status_vinculo, FatoPilotoAutonomoProva.id_fato.desc()).all()
-    return templates.TemplateResponse("alocacoes/list.html", {"request": request, "fatos": fatos, "filtros": {"id_etapa": id_etapa, "id_prova": id_prova, "status": status}, **options(db), **flash_from_request(request)})
+    return templates.TemplateResponse("alocacoes/list.html", {"request": request, "fatos": fatos, "filtros": {"id_etapa": id_etapa, "id_prova": id_prova, "categoria": categoria, "status": status}, **options(db), **flash_from_request(request)})
 
 
 @router.get("/alocacoes/nova")

@@ -8,7 +8,7 @@
     </div>
     <div>
       <label class="label">Categoria</label>
-      <select class="input" name="id_prova"><option value="">Todas categorias</option>{% for p in provas %}<option value="{{ p.id_prova }}" {% if filtros.id_prova|string == p.id_prova|string %}selected{% endif %}>{{ p.nome_prova }}</option>{% endfor %}</select>
+      <select class="input" name="categoria"><option value="">Todas categorias</option>{% for nome in categorias %}<option value="{{ nome }}" {% if filtros.categoria == nome %}selected{% endif %}>{{ nome }}</option>{% endfor %}</select>
     </div>
     <div>
       <label class="label">Status</label>
@@ -24,8 +24,11 @@
   {% for f in fatos %}
   <tr>
     <td class="font-bold">{{ f.piloto.nome_piloto }}</td>
-    <td>{{ f.prova.nome_prova }}</td>
-    <td>{{ f.autonomo.nome_autonomo }}</td>
+    {# O cabecalho sempre teve Carro; a celula, nao. Sem ela, categoria caía sob
+       "Carro" e o nome do autonomo sob "Categoria". #}
+    <td>{{ f.carro.numero_carro or f.carro.chassi if f.carro else '-' }}</td>
+    <td>{{ f.prova.nome_prova if f.prova else '-' }}</td>
+    <td>{{ f.autonomo.nome_autonomo if f.autonomo else '-' }}</td>
     <td><span class="badge badge-{{ f.status_vinculo|lower }}">{{ f.status_vinculo }}</span></td>
     <td>{{ f.valor_fechado_etapa|money_br }}</td>
     <td>{{ f.dias_trabalhados or '-' }}</td>
@@ -33,7 +36,7 @@
     
     <td class="actions"><a class="btn-muted" href="/alocacoes/{{ f.id_fato }}/editar">Editar</a><a class="btn-muted" href="/alocacoes/{{ f.id_fato }}/substituir">Substituir</a><a class="btn-muted" href="/alocacoes/{{ f.id_fato }}/custo">Custo</a>{% if f.status_vinculo == 'Ativo' %}<form method="post" action="/alocacoes/{{ f.id_fato }}/encerrar" class="actions"><input class="input" type="date" name="data_fim" required><input class="input" name="motivo" placeholder="Motivo"><button class="btn-danger">Encerrar</button></form>{% endif %}</td>
   </tr>
-  {% else %}<tr><td colspan="8" class="empty">Nenhuma alocacao.</td></tr>{% endfor %}
+  {% else %}<tr><td colspan="9" class="empty">Nenhuma alocacao.</td></tr>{% endfor %}
   </tbody>
 </table></div></section>
 {% endblock %}
