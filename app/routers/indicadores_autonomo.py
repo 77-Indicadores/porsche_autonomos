@@ -535,10 +535,14 @@ function vgCatChart(d){
     cm[k].tot+=(r.valor||0);
     if(r.carro_id)cm[k].carros.add(r.carro_id);
   });
-  const rows=Object.entries(cm).map(([cat,v])=>({
+  const todas=Object.entries(cm).map(([cat,v])=>({
     cat:cat,tot:v.tot,carros:v.carros.size,
     porCarro:v.carros.size?v.tot/v.carros.size:0
   })).sort((a,b)=>b.porCarro-a.porCarro);
+  // Outras Equipes nao tem carro vinculado: barra zerada ao lado de 800 mil
+  // parece defeito. Essas ficam so no rodape, com o motivo escrito.
+  const rows=todas.filter(r=>r.carros>0);
+  const semCarro=todas.filter(r=>!r.carros);
   const COLS=["#d71920","#374151","#7157c8","#e59a12","#15946c"];
   const host=vgEl("vgCatChart"),tot=vgEl("vgCatTot");
   if(!host)return;
@@ -576,7 +580,9 @@ function vgCatChart(d){
     '<line x1="'+pL+'" y1="'+(H-pB)+'" x2="'+(W-pR)+'" y2="'+(H-pB)+'" stroke="#e4e8ee"/>'+
     bars+lbls+xlbl+'</svg>';
   if(tot)tot.innerHTML=rows.map((r,i)=>
-    '<span><i style="background:'+COLS[i%COLS.length]+'"></i>'+r.cat+' \u00b7 total '+vgFmt(r.tot)+'</span>').join("");
+    '<span><i style="background:'+COLS[i%COLS.length]+'"></i>'+r.cat+' \u00b7 total '+vgFmt(r.tot)+'</span>').join("")
+    +semCarro.map(r=>'<span style="opacity:.8"><i style="background:#c9cfd8"></i>'+r.cat+
+      ' \u00b7 total '+vgFmt(r.tot)+' \u00b7 sem carro vinculado</span>').join("");
 }
 
 function vgRanking(d){
