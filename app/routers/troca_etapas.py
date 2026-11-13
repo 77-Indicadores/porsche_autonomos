@@ -164,9 +164,19 @@ def troca_etapas_index(request: Request, db: Session = Depends(get_db)):
                     (f.id_piloto, f.id_carro, _fn(f.funcao_autonomo)), set()
                 ).add(f.id_autonomo)
 
+            # A equipe e do PILOTO, nao do chassi: quando o piloto muda de
+            # carro, quem trabalha com ele na etapa seguinte e o substituto.
+            # Pela chave com carro, o carro 246 ficava com a equipe antiga e
+            # ninguem aparecia como substituto do piloto que saiu dele.
+            autonomos_do_piloto_ant: dict = {}
+            for f in fatos_ant:
+                autonomos_do_piloto_ant.setdefault(f.id_piloto, set()).add(f.id_autonomo)
+
             # substituto 1-para-1: autonomo novo na mesma funcao
             substitutos_map: dict = {}
             por_familia: dict = {}
+            por_piloto: dict = {}
+            por_piloto_familia: dict = {}
             for f in fatos_prox:
                 chave = (f.id_piloto, f.id_carro, _fn(f.funcao_autonomo))
                 if f.id_autonomo not in autonomos_na_ant.get(chave, set()):
@@ -175,6 +185,14 @@ def troca_etapas_index(request: Request, db: Session = Depends(get_db)):
                     por_familia.setdefault(
                         (f.id_piloto, f.id_carro, _familia(f.funcao_autonomo)), []
                     ).append(nome_aut)
+                # mesmo piloto, qualquer carro — quem ja trabalhava com ele na
+                # etapa anterior nao e substituto de ninguem
+                if f.id_autonomo not in autonomos_do_piloto_ant.get(f.id_piloto, set()):
+                    nome_aut = getattr(f.autonomo, "nome_autonomo", None) or "—"
+                    por_piloto.setdefault(
+                        (f.id_piloto, _fn(f.funcao_autonomo)), []).append(nome_aut)
+                    por_piloto_familia.setdefault(
+                        (f.id_piloto, _familia(f.funcao_autonomo)), []).append(nome_aut)
 
             autonomos_na_prox = {f.id_autonomo for f in fatos_prox}
 
@@ -210,6 +228,19 @@ def troca_etapas_index(request: Request, db: Session = Depends(get_db)):
                         (f.id_piloto, f.id_carro, _familia(f.funcao_autonomo)), [])
                     if len(mesma_familia) == 1:
                         subs = mesma_familia
+
+                if not subs:
+                    # o piloto trocou de carro e levou (ou montou) outra equipe
+                    mesmo_piloto = por_piloto.get(
+                        (f.id_piloto, _fn(f.funcao_autonomo)), [])
+                    if len(mesmo_piloto) == 1:
+                        subs = mesmo_piloto
+
+                if not subs:
+                    mesmo_piloto_fam = por_piloto_familia.get(
+                        (f.id_piloto, _familia(f.funcao_autonomo)), [])
+                    if len(mesmo_piloto_fam) == 1:
+                        subs = mesmo_piloto_fam
 
                 if not subs:
                     # A função pode mudar entre etapas. Só aceita o palpite
